@@ -1,0 +1,774 @@
+// the expansions of the constructs that the checked program of ulang/check/check.u keeps as the source wrote them, with
+// their names resolved and their types inferred, into the smaller language that the interpreter of ulang/run/run.u, the
+// compilers of ulang/compile/, and translate of ulang/prove/translate.u translate, each of which expands the checked
+// program first, or a lambda where it meets one
+
+import ulang.syntax
+
+export
+
+// a pattern alias, with the names of its formals and its pattern, whose constructors the checker resolved
+data Alias :=
+  case Alias(formals: List[Name], pat: At[Pat])
+
+type Aliases :=
+  Map[Name, Alias]
+
+// q with its commands expanded
+function expanded(q: Prog): Prog
+
+// the pattern aliases of q, which expanded_cmd expands
+function aliases_of(q: Prog): Aliases
+
+// pat with each use of a pattern alias that aliases finds replaced by its pattern, with the patterns of the use for its
+// formals, at the position of the use, while the parts of the pattern of the alias stay at its declaration, as the
+// pattern of each alias that aliases finds is free of aliases
+function alias_expansion(aliases: Name -> Option[Alias], pat: At[Pat]): At[Pat]
+
+function expanded_cmd(aliases: Aliases, cmd: Cmd): Cmd
+
+// the formals and the body of the lambda of variables that a lambda of formals at pos is, where a formal that is no
+// variable is a pattern annotated by its type t, as the checker keeps it, which the body matches against a formal of the
+// type t that users cannot write: lambda x, p => e is lambda x, (1) => match (1) case p => e end
+function expanded_lambda(pos: Pos, span: Span, formals: List[At[Pat]], body: At[Expr]): (List[Var], At[Expr])
+
+// the translations of forms, which the checker types forms by and expanded expands them to: List(a, b; r) is
+// Cons(a, Cons(b, r)), Set(a, b; r) is insert(a, insert(b, r)), Map(k => v, l => w; r) is put(l, w, put(k, v, r)), so
+// that the last entry of a key counts, and Array(a, b) is from_list(List(a, b))
+function form_expansion(pos: Pos, span: Span, form: Form, elems: List[Yield], rest: Option[At[Expr]]): At[Expr]
+
+// the fold of module m, of a container of the type arguments targs, over the container of the generator g into base, by
+// foldr for lists, so that prepending keeps the order, and else by foldl, so that the steps run in the order of the
+// generators, whose function binds the pattern of g and computes body, where a pattern that is no variable by is_var is
+// matched under a formal that users cannot write, and the fold of a map takes key and value
+function fold_expansion(pos: Pos, span: Span, form: Form, m: Path, targs: List[Type], g: Gen, body: At[Expr], base: At[Expr], is_var: At[Pat] -> Bool): At[Expr]
+
+// base with elem added, which comes first in a list, and whose key counts in a map
+function step_expansion(pos: Pos, span: Span, form: Form, elem: Yield, base: At[Expr]): At[Expr]
+
+// the container that a form adds its elements to, its rest or else the empty one
+function base_expansion(pos: Pos, span: Span, form: Form, rest: Option[At[Expr]]): At[Expr]
+
+// a call of the function f of module m, of a type of its arity, by which the compilers call it
+function form_call(pos: Pos, span: Span, m: Path, f: Id, args: List[At[Expr]]): At[Expr]
+
+// the accumulator of the folds, which users cannot name
+function form_acc(): Var
+
+// foldr for lists, which come out in the order of the container, and foldl for the others
+function fold_name(form: Form): Id
+
+implementation
+
+function expanded(q: Prog): Prog :=
+  let aliases := aliases_of(q) in
+  q with cmds := List(for cmd in q.cmds yield map_at(cmd, lambda c => expanded_cmd(aliases, c)))
+
+function aliases_of(q: Prog): Aliases :=
+  Map(for c in q.cmds for (name, alias) in alias_of(c) yield name => alias)
+
+function alias_of(cmd: At[Cmd]): List[(Name, Alias)] :=
+  match cmd
+    case AOk(_, _, CPatAlias(name, _, formals, _, pat)) =>
+      List((name, Alias(List(for x in vars(formals) yield x.name), pat)))
+    case _ =>
+      List()
+  end
+
+// pat with each use of a pattern alias of aliases replaced by its pattern, with the patterns of the use for its formals,
+// at the position of the use, while the parts of the pattern of the alias stay at its declaration
+function dealiased(aliases: Aliases, pat: At[Pat]): At[Pat] :=
+  alias_expansion(lambda n => get(n, aliases), pat)
+
+function alias_expansion(aliases: Name -> Option[Alias], pat: At[Pat]): At[Pat] :=
+  match pat
+    case AOk(pos, span, PApp(k, args)) =>
+      let qs := List(for q in args yield alias_expansion(aliases, q)) in
+      match aliases(k)
+        case Some(alias) =>
+          substituted(alias.pat, zip(alias.formals, qs)) with pos := pos, span := span
+        case None =>
+          AOk(pos, span, PApp(k, qs))
+      end
+
+    case _ =>
+      map_at(pat, lambda p => alias_free_parts(aliases, p))
+  end
+
+function alias_free_parts(aliases: Name -> Option[Alias], pat: Pat): Pat :=
+  match pat
+    case PApp(k, args) =>
+      PApp(k, List(for q in args yield alias_expansion(aliases, q)))
+
+    case PTuple(args) =>
+      PTuple(List(for q in args yield alias_expansion(aliases, q)))
+
+    case POr(alts) =>
+      POr(List(for q in alts yield alias_expansion(aliases, q)))
+
+    case PAnnotated(inner, typ) =>
+      PAnnotated(alias_expansion(aliases, inner), typ)
+
+    case PWild | PLit(_) | PVar(_) =>
+      pat
+  end
+
+// pat with the patterns of sub for its variables
+function substituted(pat: At[Pat], sub: List[(Name, At[Pat])]): At[Pat] :=
+  match pat.that
+    case PVar(x) =>
+      value_or(get(x.name, sub), pat)
+
+    case PApp(constr, args) =>
+      pat with that := PApp(constr, List(for q in args yield substituted(q, sub)))
+
+    case PTuple(args) =>
+      pat with that := PTuple(List(for q in args yield substituted(q, sub)))
+
+    case POr(alts) =>
+      pat with that := POr(List(for q in alts yield substituted(q, sub)))
+
+    // the pattern of an alias is checked with its annotations dropped
+    case PAnnotated(_, _) | PWild | PLit(_) =>
+      pat
+  end
+
+function expanded_cmd(aliases: Aliases, cmd: Cmd): Cmd :=
+  match cmd
+    case CFun(name, params, formals, typ, spec, body) =>
+      CFun(name, params, formals, typ, expanded_spec(aliases, spec), expanded_expr(aliases, body))
+
+    case CProc(name, params, ins, outs, refs, raised, spec, stmt) =>
+      CProc(name, params, ins, outs, refs, raised, expanded_spec(aliases, spec), expanded_stmt(aliases, stmt))
+
+    case CTest(name, vars, stmt) =>
+      CTest(name, vars, expanded_stmt(aliases, stmt))
+
+    case CLemma(name, params, ins, outs, claim, proof) =>
+      CLemma(name, params, ins, outs, expanded_claim(aliases, claim), map_option(proof, lambda f => expanded_proof(aliases, f)))
+
+    case CSort(_, _, _)
+       | CData(_, _, _)
+       | CNotation(_, _, _)
+       | CFunSig(_, _, _, _, _)
+       | CProcSig(_, _, _, _, _, _, _)
+       | CAbstract(_, _)
+       | CPatAlias(_, _, _, _, _) =>
+      cmd
+  end
+
+function expanded_spec(aliases: Aliases, spec: Spec): Spec :=
+  spec with pre := List(for a in spec.pre yield expanded_expr(aliases, a)), post := map_option(spec.post, lambda e => expanded_expr(aliases, e))
+
+function expanded_claim(aliases: Aliases, claim: Claim): Claim :=
+  match claim
+    case ClaimHolds(assms, concl) =>
+      ClaimHolds(List(for a in assms yield expanded_expr(aliases, a)), expanded_expr(aliases, concl))
+    case ClaimCorrect(proc, ins, outs) =>
+      ClaimCorrect(proc, List(for a in ins yield expanded_expr(aliases, a)), outs)
+  end
+
+function expanded_proof(aliases: Aliases, proof: Proof): Proof :=
+  Proof(List(for step in proof.steps yield map_at(step, lambda x => expanded_step(aliases, x))), map_option(proof.split, lambda split => map_at(split, lambda x => expanded_split(aliases, x))))
+
+function expanded_step(aliases: Aliases, step: Step): Step :=
+  match step
+    case StepLocal(x, value) =>
+      StepLocal(x, map_option(value, lambda e => expanded_expr(aliases, e)))
+
+    case StepCall(name, ins, outs) =>
+      StepCall(name, List(for a in ins yield expanded_expr(aliases, a)), outs)
+
+    case StepAssert(cond) =>
+      StepAssert(expanded_expr(aliases, cond))
+
+    case StepInvariant(cond) =>
+      StepInvariant(expanded_expr(aliases, cond))
+
+    case StepAssign(upd) =>
+      StepAssign(List(for (x, e) in upd yield (x, expanded_expr(aliases, e))))
+  end
+
+function expanded_split(aliases: Aliases, split: Split): Split :=
+  match split
+    case SplitInduction(formal, cases) =>
+      SplitInduction(formal, List(for d in cases yield expanded_case(aliases, d, lambda f => expanded_proof(aliases, f))))
+
+    case SplitMatch(arg, cases) =>
+      SplitMatch(expanded_expr(aliases, arg), List(for d in cases yield expanded_case(aliases, d, lambda f => expanded_proof(aliases, f))))
+
+    case SplitIf(cond, left, right) =>
+      SplitIf(expanded_expr(aliases, cond), expanded_proof(aliases, left), map_option(right, lambda f => expanded_proof(aliases, f)))
+  end
+
+function expanded_case[A](aliases: Aliases, d: At[Branch[A]], expand: A -> A): At[Branch[A]] :=
+  map_at(d, lambda br => Branch(dealiased(aliases, br.pat), map_option(br.guard, lambda e => expanded_expr(aliases, e)), expand(br.body)))
+
+function expanded_expr(aliases: Aliases, expr: At[Expr]): At[Expr] :=
+  match expr
+    case AOk(pos, span, that) =>
+      AOk(pos, span, expanded_node(aliases, pos, span, that))
+
+    case AErr(pos, span, that, errors) =>
+      AErr(pos, span, expanded_node(aliases, pos, span, that), errors)
+
+    case AUnparsed(_, _, _, _) =>
+      expr
+  end
+
+// the expression expr at pos, whose expansions are at pos
+function expanded_node(aliases: Aliases, pos: Pos, span: Span, expr: Expr): Expr :=
+  match expr
+    case ELit(_) | EVar(_) =>
+      expr
+
+    case EApp(fun, args) =>
+      EApp(expanded_expr(aliases, fun), List(for a in args yield expanded_expr(aliases, a)))
+
+    case EField(base, field) =>
+      EField(expanded_expr(aliases, base), field)
+
+    case EUpdate(base, field, value) =>
+      EUpdate(expanded_expr(aliases, base), field, expanded_expr(aliases, value))
+
+    case ELam(formals, body) =>
+      ELam(List(for p in formals yield dealiased(aliases, p)), expanded_expr(aliases, body))
+
+    case EProc(ins, outs, refs, raised, stmt) =>
+      EProc(ins, outs, refs, raised, expanded_stmt(aliases, stmt))
+
+    case ELet(bindings, body) =>
+      let_expansion(span, List(for (p, e) in bindings yield (dealiased(aliases, p), expanded_expr(aliases, e))), expanded_expr(aliases, body))
+
+    case EIte(cond, then_expr, else_expr) =>
+      EIte(expanded_expr(aliases, cond), expanded_expr(aliases, then_expr), expanded_expr(aliases, else_expr))
+
+    case EMatch(arg, cases) =>
+      EMatch(expanded_expr(aliases, arg), List(for d in cases yield expanded_case(aliases, d, lambda e => expanded_expr(aliases, e))))
+
+    case ETuple(args) =>
+      ETuple(List(for a in args yield expanded_expr(aliases, a)))
+
+    case EAnnotated(inner, typ) =>
+      EAnnotated(expanded_expr(aliases, inner), typ)
+
+    case EForm(form, elems, rest) =>
+      form_expansion(pos, span, form, List(for y in elems yield expanded_yield(aliases, y)), map_option(rest, lambda e => expanded_expr(aliases, e))).that
+
+    case EFor(form, gens, elem, rest) =>
+      for_expansion(pos, span, form, List(for g in gens yield expanded_gen(aliases, g)), expanded_yield(aliases, elem), map_option(rest, lambda e => expanded_expr(aliases, e)))
+  end
+
+function expanded_yield(aliases: Aliases, y: Yield): Yield :=
+  match y
+    case YVal(value) =>
+      YVal(expanded_expr(aliases, value))
+    case YPair(key, value) =>
+      YPair(expanded_expr(aliases, key), expanded_expr(aliases, value))
+  end
+
+function expanded_gen(aliases: Aliases, g: Gen): Gen :=
+  match g
+    case GVal(pat, over, typ) =>
+      GVal(dealiased(aliases, pat), expanded_expr(aliases, over), typ)
+
+    case GPair(key, value, over, typ) =>
+      GPair(dealiased(aliases, key), dealiased(aliases, value), expanded_expr(aliases, over), typ)
+
+    case GIf(cond) =>
+      GIf(expanded_expr(aliases, cond))
+  end
+
+function expanded_stmt(aliases: Aliases, stmt: At[Stmt]): At[Stmt] :=
+  match stmt
+    case AOk(pos, span, that) =>
+      AOk(pos, span, expanded_statement(aliases, pos, span, that))
+
+    case AErr(pos, span, that, errors) =>
+      AErr(pos, span, expanded_statement(aliases, pos, span, that), errors)
+
+    case AUnparsed(_, _, _, _) =>
+      stmt
+  end
+
+// the statement stmt at pos, whose expansions are at pos
+function expanded_statement(aliases: Aliases, pos: Pos, span: Span, stmt: Stmt): Stmt :=
+  match stmt
+    case SSkip =>
+      stmt
+
+    case SAssign(upd) =>
+      SAssign(List(for (x, e) in upd yield (x, expanded_expr(aliases, e))))
+
+    case SBlock(locals, stmts) =>
+      block_expansion(locals, List(for d in stmts yield expanded_stmt(aliases, d)))
+
+    case SLocal(mutable, decls) =>
+      SLocal(mutable, List(for (p, init) in decls yield (dealiased(aliases, p), map_option(init, lambda e => expanded_expr(aliases, e)))))
+
+    case SIf(cond, left, right) =>
+      SIf(expanded_expr(aliases, cond), expanded_stmt(aliases, left), expanded_stmt(aliases, right))
+
+    case SWhile(cond, body) =>
+      SWhile(expanded_expr(aliases, cond), expanded_stmt(aliases, body))
+
+    case SCall(proc, ins, outs, refs) =>
+      call_expansion(pos, span, proc, List(for a in ins yield expanded_expr(aliases, a)), outs, refs)
+
+    case SMatch(arg, cases) =>
+      SMatch(expanded_expr(aliases, arg), List(for d in cases yield expanded_case(aliases, d, lambda y => expanded_stmt(aliases, y))))
+
+    case SAssert(cond) =>
+      SAssert(expanded_expr(aliases, cond))
+
+    case SAssertRaises(typ, pat, guard, body) =>
+      SAssertRaises(typ, dealiased(aliases, pat), map_option(guard, lambda e => expanded_expr(aliases, e)), expanded_stmt(aliases, body))
+
+    case SRaise(value, typ) =>
+      SRaise(expanded_expr(aliases, value), typ)
+
+    case STry(body, catches) =>
+      STry(expanded_stmt(aliases, body), List(for d in catches yield map_at(d, lambda c => c with pat := dealiased(aliases, c.pat), guard := map_option(c.guard, lambda e => expanded_expr(aliases, e)), body := expanded_stmt(aliases, c.body))))
+
+    case SFor(gens, body) =>
+      loop_expansion(pos, span, List(for g in gens yield expanded_gen(aliases, g)), expanded_stmt(aliases, body))
+  end
+
+// a call with an out _, of the type of its out, is a block around the call with a local for each, which nothing reads,
+// numbered from 1 under a name that users cannot write
+function call_expansion(pos: Pos, span: Span, proc: Name, ins: List[At[Expr]], outs: List[Var], refs: List[Var]): Stmt :=
+  if exists(outs, is_dropped) then
+    let kept := kept_outs(outs, 1) in
+    SBlock(List(for (x, local) in zip(outs, kept) if is_dropped(x) yield AOk(pos, span_at(pos), local)), List(AOk(pos, span, SCall(proc, ins, kept, refs))))
+  else
+    SCall(proc, ins, outs, refs)
+
+function kept_outs(outs: List[Var], i: Int): List[Var] :=
+  match outs
+    case List() =>
+      List()
+
+    case List(x; rest) =>
+      if is_dropped(x) then
+        List(
+          Var(generated_name("out " ++ show(i)), x.typ); kept_outs(rest, i + 1))
+      else
+        List(x; kept_outs(rest, i))
+  end
+
+function expanded_lambda(pos: Pos, span: Span, formals: List[At[Pat]], body: At[Expr]): (List[Var], At[Expr]) :=
+  match pattern_vars(formals)
+    case Some(xs) =>
+      (xs, body)
+
+    case None =>
+      let xs := List(for (p, i) in numbered(formals) yield lambda_formal(p, i)) in
+      (xs, matched_body(pos, span, List(for (p, x) in zip(formals, xs) for q in formal_pattern(p) yield (x, q)), body))
+  end
+
+// the variable of a formal that is one, else the formal (i) of the type of its pattern
+function lambda_formal(p: At[Pat], i: Int): Var :=
+  match p.that
+    case PVar(x) =>
+      x
+
+    case PAnnotated(_, t) =>
+      Var(unqualified("(" ++ show(i) ++ ")"), t)
+
+    case _ =>
+      Var(unqualified("(" ++ show(i) ++ ")"), THole)
+  end
+
+// the pattern of a formal that is no variable
+function formal_pattern(p: At[Pat]): List[At[Pat]] :=
+  match p.that
+    case PVar(_) =>
+      List()
+
+    case PAnnotated(inner, _) =>
+      List(inner)
+
+    case _ =>
+      List(p)
+  end
+
+// body under a match of the variables against the patterns of pairs, if there are any
+function matched_body(pos: Pos, span: Span, pairs: List[(Var, At[Pat])], body: At[Expr]): At[Expr] :=
+  match pairs
+    case List() =>
+      body
+
+    case _ =>
+      AOk(pos, span, EMatch(scrutinee(pos, span, firsts(pairs)), List(
+        AOk(pos, span, Branch(matched_pattern(pos, span, seconds(pairs)), None, body)))))
+  end
+
+function matched_pattern(pos: Pos, span: Span, pats: List[At[Pat]]): At[Pat] :=
+  match pats
+    case List(pat) =>
+      pat
+    case _ =>
+      AOk(pos, span, PTuple(pats))
+  end
+
+function scrutinee(pos: Pos, span: Span, xs: List[Var]): At[Expr] :=
+  match xs
+    case List(x) =>
+      AOk(pos, span, EVar(x))
+    case _ =>
+      AOk(pos, span, ETuple(List(for x in xs yield AOk(pos, span, EVar(x)))))
+  end
+
+// a for statement over a list is one over the list, and over another container one over the list of its items, which
+// List(for (item) in c) builds, with the pair of key and value as the pattern over a map, and the guard as an if in the body
+function loop_expansion(pos: Pos, span: Span, gens: List[Gen], body: At[Stmt]): Stmt :=
+  match gens
+    case List(GVal(pat, over, typ); more) =>
+      SFor(List(GVal(pat, items_of(pos, span, over, typ), typ)), guarded_body(more, body))
+
+    case List(GPair(key, value, over, typ); more) =>
+      SFor(List(
+        GVal(AOk(key.pos, span_over(key, value), PTuple(List(key, value))), items_of(pos, span, over, typ), typ)), guarded_body(more, body))
+
+    case _ =>
+      SFor(gens, body)
+  end
+
+function items_of(pos: Pos, span: Span, c: At[Expr], typ: Type): At[Expr] :=
+  match typ
+    case TList(_) =>
+      c
+
+    case _ =>
+      let item := Var(unqualified("(item)"), THole) in
+      AOk(pos, span, for_expansion(pos, span, FList, List(GVal(AOk(pos, span, PVar(item)), c, typ)), YVal(AOk(pos, span, EVar(item))), None))
+  end
+
+function guarded_body(gens: List[Gen], body: At[Stmt]): At[Stmt] :=
+  match gens
+    case List(GIf(cond)) =>
+      AOk(body.pos, body.span, SIf(cond, body, AOk(body.pos, span_at(body.span.stop), SSkip)))
+    case _ =>
+      body
+  end
+
+function form_expansion(pos: Pos, span: Span, form: Form, elems: List[Yield], rest: Option[At[Expr]]): At[Expr] :=
+  match form
+    case FArray =>
+      form_call(pos, span, library_module("array"), "from_list", List(form_expansion(pos, span, FList, elems, None)))
+
+    case FMap =>
+      foldl(elems, base_expansion(pos, span, form, rest), lambda acc, e => step_expansion(pos, span, form, e, acc))
+
+    case FList | FSet =>
+      foldr(elems, base_expansion(pos, span, form, rest), lambda e, acc => step_expansion(pos, span, form, e, acc))
+  end
+
+// a form with generators is the fold of the module of the type of the container of the first, applied to the container,
+// the base of the form, and the function of a step, whose body adds the elements of the generators after it, where a
+// guard is an if, and an array is from_list of a list
+function for_expansion(pos: Pos, span: Span, form: Form, gens: List[Gen], elem: Yield, rest: Option[At[Expr]]): Expr :=
+  match (form, gens)
+    case (FArray, _) if rest == None =>
+      form_call(pos, span, library_module("array"), "from_list", List(AOk(pos, span, for_expansion(pos, span, FList, gens, elem, None)))).that
+
+    case (_, List()) =>
+      step_expansion(pos, span, form, elem, base_expansion(pos, span, form, rest)).that
+
+    case (_, List(GIf(cond); more)) =>
+      EIte(cond, AOk(pos, span, for_expansion(pos, span, form, more, elem, rest)), base_expansion(pos, span, form, rest))
+
+    case (_, List(g; more)) =>
+      let body := AOk(pos, span, for_expansion(pos, span, form, more, elem, Some(AOk(pos, span, EVar(form_acc()))))) in
+      match gen_type(g)
+        case TSort(Name(m, _), targs) if m != List() =>
+          fold_expansion(pos, span, form, m, targs, g, body, base_expansion(pos, span, form, rest), is_checked_var).that
+
+        // a container without a fold, which the checker reported, stands for the form
+        case typ =>
+          let x := Var(unqualified("(container)"), typ), c := gen_over(g) in
+          ELet(List((AOk(pos, c.span, PVar(x)), c)), AOk(pos, c.span, EVar(x)))
+      end
+  end
+
+function gen_type(g: Gen): Type :=
+  match g
+    case GVal(_, _, typ) =>
+      typ
+
+    case GPair(_, _, _, typ) =>
+      typ
+
+    case GIf(_) =>
+      TError
+  end
+
+function gen_over(g: Gen): At[Expr] :=
+  match g
+    case GVal(_, over, _) =>
+      over
+
+    case GPair(_, _, over, _) =>
+      over
+
+    case GIf(cond) =>
+      cond
+  end
+
+function fold_expansion(pos: Pos, span: Span, form: Form, m: Path, targs: List[Type], g: Gen, body: At[Expr], base: At[Expr], is_var: At[Pat] -> Bool): At[Expr] :=
+  let fold := fold_name(form), acc := AOk(pos, span, PVar(form_acc())) in
+  match g
+    case GPair(k, v, c, _) =>
+      let kx := fold_formal(k, "(key)", key_type(targs), is_var), vx := fold_formal(v, "(value)", value_type(targs), is_var) in
+      form_call(pos, span, m, fold, List(
+        c,
+        base,
+        AOk(pos, span, ELam(if fold == "foldr" then
+          List(formal_at(k, kx), formal_at(v, vx), acc)
+        else
+          List(acc, formal_at(k, kx), formal_at(v, vx)), matched_body(pos, span, matched_pairs(List((kx, k), (vx, v)), is_var), body)))))
+
+    case GVal(p, c, _) if m == library_module("map") =>
+      let kx := Var(unqualified("(key)"), key_type(targs)), vx := Var(unqualified("(value)"), value_type(targs)) in
+      form_call(pos, span, m, fold, List(
+        c,
+        base,
+        AOk(pos, span, lambda_of(pos, span, if fold == "foldr" then
+          List(kx, vx, form_acc())
+        else
+          List(form_acc(), kx, vx), AOk(pos, span, EMatch(scrutinee(pos, span, List(kx, vx)), List(AOk(pos, span, Branch(p, None, body)))))))))
+
+    case GVal(p, c, _) =>
+      let x := fold_formal(p, "(element)", key_type(targs), is_var) in
+      form_call(pos, span, m, fold, List(
+        c,
+        base,
+        AOk(pos, span, ELam(if fold == "foldr" then
+          List(formal_at(p, x), acc)
+        else
+          List(acc, formal_at(p, x)), matched_body(pos, span, matched_pairs(List((x, p)), is_var), body)))))
+
+    case GIf(_) =>
+      body
+  end
+
+function fold_name(form: Form): Id :=
+  if form == FList then "foldr" else "foldl"
+
+// the types of the first and second type argument of a container, which are those of the elements, or keys and values
+function key_type(targs: List[Type]): Type :=
+  match targs
+    case List(t; _) =>
+      t
+    case List() =>
+      THole
+  end
+
+function value_type(targs: List[Type]): Type :=
+  match targs
+    case List(_, t; _) =>
+      t
+    case _ =>
+      THole
+  end
+
+// the variable of a pattern that is one, and else a formal that users cannot name
+function fold_formal(p: At[Pat], name: Id, typ: Type, is_var: At[Pat] -> Bool): Var :=
+  match p.that
+    case PVar(x) if is_var(p) =>
+      Var(x.name, typ)
+    case _ =>
+      Var(unqualified(name), typ)
+  end
+
+// the formal x of a lambda at the pattern p that it binds
+function formal_at(p: At[Pat], x: Var): At[Pat] :=
+  AOk(p.pos, p.span, PVar(x))
+
+// the pairs of a formal and a pattern that is no variable, which the body of a fold matches
+function matched_pairs(pairs: List[(Var, At[Pat])], is_var: At[Pat] -> Bool): List[(Var, At[Pat])] :=
+  List(for (x, p) in pairs if not is_var(p) yield (x, p))
+
+// whether a checked pattern is a variable, which a constructor is not, as binders of ulang/check/check.u resolves it
+function is_checked_var(p: At[Pat]): Bool :=
+  match p.that
+    case PVar(_) =>
+      true
+    case _ =>
+      false
+  end
+
+function form_acc(): Var :=
+  Var(unqualified("(acc)"), THole)
+
+function form_call(pos: Pos, span: Span, m: Path, f: Id, args: List[At[Expr]]): At[Expr] :=
+  AOk(pos, span, ECall(pos, span, Name(m, f), TFun(List(for _ in args yield THole), THole), args))
+
+function base_expansion(pos: Pos, span: Span, form: Form, rest: Option[At[Expr]]): At[Expr] :=
+  match (rest, form)
+    case (Some(r), _) =>
+      r
+
+    case (None, FList) =>
+      AOk(pos, span, ENil(THole))
+
+    case (None, FSet) =>
+      form_call(pos, span, library_module("set"), "empty", List())
+
+    case (None, _) =>
+      form_call(pos, span, library_module("map"), "empty", List())
+  end
+
+function step_expansion(pos: Pos, span: Span, form: Form, elem: Yield, base: At[Expr]): At[Expr] :=
+  match (form, elem)
+    case (FMap, YPair(k, v)) =>
+      form_call(pos, span, library_module("map"), "put", List(k, v, base))
+
+    case (FMap, YVal(e)) =>
+      form_call(pos, span, library_module("map"), "put", List(
+        form_call(pos, span, library_module("prelude"), "first", List(e)),
+        form_call(pos, span, library_module("prelude"), "second", List(e)),
+        base))
+
+    case (FSet, YVal(e)) =>
+      form_call(pos, span, library_module("set"), "insert", List(e, base))
+
+    case (_, YVal(e)) =>
+      AOk(pos, span, ECons(pos, span, THole, e, base))
+
+    case (_, YPair(k, v)) =>
+      AOk(pos, span, ECons(pos, span, THole, AOk(pos, span, ETuple(List(k, v))), base))
+  end
+
+// a block of locals and stmts with SLocal statements is a block that declares its locals at its start: the statements
+// before the first SLocal, then a block of its declarations, where a run of variables is one block, whose values are the
+// assignments at its start, and a pattern is a block of its variables, assigned by a match of the value under names
+// that users cannot write, each followed by the block of the rest
+function block_expansion(locals: List[At[Var]], stmts: List[At[Stmt]]): Stmt :=
+  match stmts
+    case List(
+      AOk(at, at_span, SLocal(mutable, decls)) | AErr(at, at_span, SLocal(mutable, decls), _); rest) =>
+      let vars := leading_vars(decls) in
+      if vars != List() then
+        let inits := List(for (x, (_, init)) in zip(vars, decls) for e in init yield AOk(x.pos, x.span, SAssign(List((x.that, e))))) in
+        SBlock(locals ++ vars, inits ++ rest_expansion(at, at_span, mutable, drop(size(vars), decls), rest))
+      else
+        match decls
+          case List((pat, Some(e)); more) =>
+            let xs := placed_vars(pat) in
+            let assigned := AOk(pat.pos, pat.span, SAssign(List(for x in xs yield (x.that, AOk(x.pos, x.span, EVar(generated_var(x.that))))))) in
+            SBlock(locals ++ xs, List(
+              AOk(pat.pos, pat.span, SMatch(e, List(
+                AOk(pat.pos, pat.span, Branch(generated_pattern(pat), None, assigned)))))) ++ rest_expansion(at, at_span, mutable, more, rest))
+
+          // the checker gives a value to every declaration of a pattern that is no variable
+          case _ =>
+            SBlock(locals, stmts)
+        end
+
+    case _ =>
+      let before := before_local(stmts) in
+      match drop(size(before), stmts)
+        case List(d; rest) =>
+          SBlock(locals, before ++ List(AOk(d.pos, d.span, block_expansion(List(), List(d; rest)))))
+        case List() =>
+          SBlock(locals, stmts)
+      end
+  end
+
+// the statements after a declaration at at, which start with a block of the declarations decls after it, if there are
+// any, where the statements from the next SLocal on are a block
+function rest_expansion(at: Pos, at_span: Span, mutable: Bool, decls: List[(At[Pat], Option[At[Expr]])], rest: List[At[Stmt]]): List[At[Stmt]] :=
+  if decls == List() then
+    let before := before_local(rest) in
+    if size(before) == size(rest) then
+      before
+    else
+      before ++ List(AOk(at, at_span, block_expansion(List(), drop(size(before), rest))))
+  else
+    List(
+      AOk(at, at_span, block_expansion(List(), List(AOk(at, at_span, SLocal(mutable, decls)); rest))))
+
+function before_local(stmts: List[At[Stmt]]): List[At[Stmt]] :=
+  match stmts
+    case List(d; rest) if not is_local(d) =>
+      List(d; before_local(rest))
+    case _ =>
+      List()
+  end
+
+function is_local(stmt: At[Stmt]): Bool :=
+  match stmt
+    case AOk(_, _, SLocal(_, _)) | AErr(_, _, SLocal(_, _), _) =>
+      true
+    case _ =>
+      false
+  end
+
+// the declarations at the start of decls that are variables
+function leading_vars(decls: List[(At[Pat], Option[At[Expr]])]): List[At[Var]] :=
+  match decls
+    case List((AOk(pos, span, PVar(x)), _); more) =>
+      List(AOk(pos, span, x); leading_vars(more))
+    case _ =>
+      List()
+  end
+
+// the variables of a checked pattern at their positions, those of the first alternative
+function placed_vars(pat: At[Pat]): List[At[Var]] :=
+  match pat.that
+    case PVar(x) =>
+      List(AOk(pat.pos, pat.span, x))
+
+    case PApp(_, args) =>
+      List(for p in args for x in placed_vars(p) yield x)
+
+    case PTuple(args) =>
+      List(for p in args for x in placed_vars(p) yield x)
+
+    case PAnnotated(inner, _) =>
+      placed_vars(inner)
+
+    case POr(alts) =>
+      List(for p in take(1, alts) for x in placed_vars(p) yield x)
+
+    case PWild | PLit(_) =>
+      List()
+  end
+
+// the variable that the match of the declaration of x binds, under a name that users cannot write
+function generated_var(x: Var): Var :=
+  Var(generated_name(x.name.base), x.typ)
+
+// the pattern with the generated names of its variables
+function generated_pattern(pat: At[Pat]): At[Pat] :=
+  map_at(pat, lambda p => match p
+    case PVar(x) =>
+      PVar(generated_var(x))
+
+    case PApp(constr, args) =>
+      PApp(constr, List(for q in args yield generated_pattern(q)))
+
+    case PTuple(args) =>
+      PTuple(List(for q in args yield generated_pattern(q)))
+
+    case PAnnotated(inner, typ) =>
+      PAnnotated(generated_pattern(inner), typ)
+
+    case POr(alts) =>
+      POr(List(for q in alts yield generated_pattern(q)))
+
+    case PWild | PLit(_) =>
+      p
+  end)
+
+// the bindings of a let are sequential, each in scope of those before it, so a let of several is a let of the first
+// whose body is a let of the rest, at the pattern of its first binding, to the end of span, while a tuple binds in
+// parallel
+function let_expansion(span: Span, bindings: List[(At[Pat], At[Expr])], body: At[Expr]): Expr :=
+  match bindings
+    case List(binding, (pat, bound); more) =>
+      ELet(List(binding), AOk(pat.pos, Span(pat.span.start, span.stop), let_expansion(span, List((pat, bound); more), body)))
+    case _ =>
+      ELet(bindings, body)
+  end

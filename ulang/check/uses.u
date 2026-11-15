@@ -231,11 +231,11 @@ function gens_modules(gens: List[Gen]): Set[Path] :=
 
 function gen_modules(g: Gen): Set[Path] :=
   match g
-    case GVal(pat, over) =>
-      pat_modules(pat) ++ expr_modules(over)
+    case GVal(pat, over, typ) =>
+      pat_modules(pat) ++ expr_modules(over) ++ type_modules(typ)
 
-    case GPair(key, value, over) =>
-      pat_modules(key) ++ pat_modules(value) ++ expr_modules(over)
+    case GPair(key, value, over, typ) =>
+      pat_modules(key) ++ pat_modules(value) ++ expr_modules(over) ++ type_modules(typ)
 
     case GIf(cond) =>
       expr_modules(cond)

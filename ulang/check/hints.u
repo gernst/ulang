@@ -63,6 +63,11 @@ function constr_types(cmd: At[Cmd]): List[(Name, Type)] :=
       else
         TFun(List(for f in c.fields yield f.typ), typ)))
 
+    // a pattern alias, which the checked program keeps at its uses
+    case Some(CPatAlias(name, _, formals, typ, _)) =>
+      List(
+        (name, if formals == List() then typ else TFun(types_of(formals), typ)))
+
     case _ =>
       List()
   end
@@ -307,10 +312,10 @@ function yield_hints(lines: Array[Str], decls: Decls, y: Yield): List[Hint] :=
 
 function gen_hints(lines: Array[Str], decls: Decls, g: Gen): List[Hint] :=
   match g
-    case GVal(pat, over) =>
+    case GVal(pat, over, _) =>
       pat_hints(lines, decls, pat) ++ expr_hints(lines, decls, over)
 
-    case GPair(key, value, over) =>
+    case GPair(key, value, over, _) =>
       pat_hints(lines, decls, key) ++ pat_hints(lines, decls, value) ++ expr_hints(lines, decls, over)
 
     case GIf(cond) =>
@@ -331,9 +336,8 @@ function stmt_hints(lines: Array[Str], decls: Decls, stmt: At[Stmt]): List[Hint]
     case Some(SBlock(locals, stmts)) =>
       decl_hints(lines, locals) ++ stmts_hints(lines, decls, stmts)
 
-    // the checker gives no SLocal
-    case Some(SLocal(_, _)) =>
-      List()
+    case Some(SLocal(_, declared)) =>
+      List(for (p, e) in declared for h in pat_hints(lines, decls, p) ++ exprs_hints(lines, decls, List(for x in e yield x)) yield h)
 
     case Some(SIf(cond, left, right)) =>
       expr_hints(lines, decls, cond) ++ stmts_hints(lines, decls, List(left, right))

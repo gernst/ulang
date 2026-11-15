@@ -128,10 +128,11 @@ data Yield :=
   case YPair(key: At[Expr], value: At[Expr])
 
 data Gen :=
-  // for p in c over a list, set, or array, where p is irrefutable
-  case GVal(pat: At[Pat], over: At[Expr])
+  // for p in c over a list, set, or array, where p is irrefutable, and typ is the type of c, which the parser leaves
+  // THole and the checker infers, so that the expansions of ulang/expand/expand.u take the folds of its module
+  case GVal(pat: At[Pat], over: At[Expr], typ: Type)
   // for k => v in m over a map
-  case GPair(key: At[Pat], value: At[Pat], over: At[Expr])
+  case GPair(key: At[Pat], value: At[Pat], over: At[Expr], typ: Type)
   // a guard if q after a generator
   case GIf(cond: At[Expr])
 
@@ -490,8 +491,6 @@ function implicit_elem(form: Form, gens: List[Gen]): Option[Yield]
 
 function form_name(form: Form): Id
 
-function lambda_vars(formals: List[At[Pat]]): List[Var]
-
 // a lambda of the variables xs, placed at pos
 function lambda_of(pos: Pos, span: Span, xs: List[Var], body: At[Expr]): Expr
 
@@ -513,6 +512,9 @@ function part_errors(cmd: Cmd): List[Diagnostic]
 // the errors of the parts of cmd that generate no code, which a program leaves out: all of a lemma or a test, also of one
 // that does not parse, and those of the contract of a function or a procedure
 function code_free_errors(cmd: At[Cmd]): List[Diagnostic]
+
+// the errors of the parts of expr
+function errors_in_expr(expr: At[Expr]): List[Diagnostic]
 
 function is_lemma_or_test(cmd: Cmd): Bool
 
@@ -870,20 +872,16 @@ function seen_modules(d: Mod, packages: List[Package]): List[Path] :=
 function unplaced(cmds: List[Cmd]): List[At[Cmd]] :=
   List(for c in cmds yield nowhere(c))
 
-// the variables of the formals of a checked lambda, which the checker makes variables
-function lambda_vars(formals: List[At[Pat]]): List[Var] :=
-  value_or(pattern_vars(formals), List())
-
 function lambda_of(pos: Pos, span: Span, xs: List[Var], body: At[Expr]): Expr :=
   ELam(List(for x in xs yield AOk(pos, span, PVar(x))), body)
 
 // what a form of a single generator yields without yield, the value its pattern matches, an entry of a map
 function implicit_elem(form: Form, gens: List[Gen]): Option[Yield] :=
   match (List(for g in gens if not is_guard(g)), form)
-    case (List(GPair(k, v, _)), FMap) =>
+    case (List(GPair(k, v, _, _)), FMap) =>
       pair_elem(pattern_expr(k), pattern_expr(v))
 
-    case (List(GPair(k, v, _)), _) =>
+    case (List(GPair(k, v, _, _)), _) =>
       match (pattern_expr(k), pattern_expr(v))
         case (Some(a), Some(b)) =>
           Some(YVal(AOk(k.pos, span_over(k, v), ETuple(List(a, b)))))
@@ -891,13 +889,13 @@ function implicit_elem(form: Form, gens: List[Gen]): Option[Yield] :=
           None
       end
 
-    case (List(GVal(AOk(_, _, PTuple(List(k, v))), _)), FMap) =>
+    case (List(GVal(AOk(_, _, PTuple(List(k, v))), _, _)), FMap) =>
       pair_elem(pattern_expr(k), pattern_expr(v))
 
-    case (List(GVal(_, _)), FMap) =>
+    case (List(GVal(_, _, _)), FMap) =>
       None
 
-    case (List(GVal(p, _)), _) =>
+    case (List(GVal(p, _, _)), _) =>
       map_option(pattern_expr(p), YVal)
 
     case _ =>
@@ -1378,11 +1376,11 @@ function strip_yield(y: Yield): Yield :=
 
 function strip_gen(g: Gen): Gen :=
   match g
-    case GVal(pat, over) =>
-      GVal(strip_pat(pat), strip_expr(over))
+    case GVal(pat, over, typ) =>
+      GVal(strip_pat(pat), strip_expr(over), typ)
 
-    case GPair(key, value, over) =>
-      GPair(strip_pat(key), strip_pat(value), strip_expr(over))
+    case GPair(key, value, over, typ) =>
+      GPair(strip_pat(key), strip_pat(value), strip_expr(over), typ)
 
     case GIf(cond) =>
       GIf(strip_expr(cond))
@@ -1774,10 +1772,10 @@ function yielded(y: Yield): List[At[Expr]] :=
 
 function generated(g: Gen): List[At[Expr]] :=
   match g
-    case GVal(_, over) =>
+    case GVal(_, over, _) =>
       List(over)
 
-    case GPair(_, _, over) =>
+    case GPair(_, _, over, _) =>
       List(over)
 
     case GIf(cond) =>
