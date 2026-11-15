@@ -25,7 +25,7 @@ function forall[K, V](m: Map[K, V], p: (K, V) -> Bool): Bool
 
 // the entry of the least key whose entry satisfies p
 function find[K, V](m: Map[K, V], p: (K, V) -> Bool): Option[(K, V)] :=
-  example find(Map(1 => "a", 2 => "b"), lambda k, v => v != "a") == Some((2, "b"))
+  example find(Map(1 => "a", 2 => "b"), lambda _, v => v != "a") == Some((2, "b"))
 
 function remove[K, V](k: K, m: Map[K, V]): Map[K, V]
 

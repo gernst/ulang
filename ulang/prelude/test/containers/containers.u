@@ -21,7 +21,7 @@ test predicates() :=
 // exists, forall, and find stop at the first element that decides, so p never reaches the 0 that it divides by
 test predicates_stop() :=
   assert exists(Set(1, 2, 0), lambda x => x == 0 or 1 / x > 0) and not forall(Set(0, 1, 2), lambda x => x > 0 and 1 / x > 0)
-  assert exists(Map(1 => 1, 0 => 0), lambda k, v => k == 0 or 1 / k > 0) and find(Map(0 => "a", 1 => "b"), lambda k, v => k == 0 or 1 / k > 0) == Some((0, "a"))
+  assert exists(Map(1 => 1, 0 => 0), lambda k, _ => k == 0 or 1 / k > 0) and find(Map(0 => "a", 1 => "b"), lambda k, _ => k == 0 or 1 / k > 0) == Some((0, "a"))
   assert exists(Array(1, 0), lambda x => 1 / x > 0) and not forall(Array(0, 1), lambda x => x > 0 and 1 / x > 0) and contains(1, Array(1, 0))
   assert find(Set(0, 1, 2), lambda x => x == 0 or 1 / x > 0) == Some(0) and find(Array(2, 0), lambda x => 2 / x > 0) == Some(2) and find(Array(1), lambda x => x > 1) == None
 
