@@ -16,12 +16,14 @@ procedure load_tester(ref source: Source) raises ParseError, OsError
 // runs the tests of the module m of q, all or the named ones, each on its own, also after a failed one, printing a line per
 // test after label, where passed tells whether all pass, and falsified are the lemmas whose tests found a counterexample,
 // which prove_module neither proves nor takes as facts, and the line of a test that fails only by reaching an error of
-// listed, the errors already printed with their files, names only its position (failure_text)
+// listed, the errors already printed with their files, names only its position (failure_text), and a test fails with
+// TimedOut of ulang/syntax/error.u when it runs longer than timeout, its seconds
 procedure test_module(
   in  q: Prog,
       m: Id,
       names: List[Str],
       args: List[Str],
+      timeout: Option[Int],
       label: Str,
       listed: List[(Str, Diagnostic)],
   out passed: Bool,
@@ -72,6 +74,7 @@ procedure test_module(
       m: Id,
       names: List[Str],
       args: List[Str],
+      timeout: Option[Int],
       label: Str,
       listed: List[(Str, Diagnostic)],
   out passed: Bool,
@@ -85,7 +88,9 @@ procedure test_module(
     passed := false
   end
   for c in tests do
-    test_message(in run, c, out message, refuted, reached)
+    var now: Int
+    os_clock(out now)
+    test_message(in run with deadline := map_option(timeout, lambda s => Deadline(now + s * 1000000000, s)), c, out message, refuted, reached)
     falsified := if refuted then Set(lemma_of_test(cmd_name(c)); falsified) else falsified
     if message == "" then
       os_println(in label ++ "test " ++ cmd_name(c) ++ " passed")
