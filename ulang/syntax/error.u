@@ -51,6 +51,8 @@ data RuntimeError :=
   // of a part or a definition that checking rejected, which the interpreter reached, with the first of its errors as
   // deferred_text writes it
   case Deferred(text: Str)
+  // of a test that ran longer than its limit of seconds, which only the interpreter checks (Deadline of ulang/run/run.u)
+  case TimedOut(seconds: Int)
 
 function runtime_message(e: RuntimeError): Str
 
@@ -144,6 +146,9 @@ function runtime_message(e: RuntimeError): Str :=
 
     case Deferred(text) =>
       "reached " ++ text
+
+    case TimedOut(seconds) =>
+      "ran longer than its limit of " ++ show(seconds) ++ " s"
   end
 
 function deferred_text(ds: List[Diagnostic]): Str :=

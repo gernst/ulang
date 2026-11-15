@@ -22,6 +22,10 @@ lemma transitive_equality(in a: Int, b: Int, c: Int) :=
 lemma conditional_same(in c: Bool, x: Int) :=
   ensures (if c then x else x) == x
 
+// an ascription is its expression
+lemma ascribed_same(in c: Bool, x: Int) :=
+  ensures (if c then x else x: Int) == x
+
 lemma irreflexive_values(in xs: List[Int], b: Bool, x: Int) :=
   ensures not xs < xs and not b < b and not (x, x) < (x, x)
 

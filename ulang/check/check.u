@@ -48,7 +48,8 @@ data TypeError :=
   case Unassigned(name: Name)
   case OutputUnassigned(output: Name, proc: Name)
   case MissingDefinition(name: Name)
-  case SignatureMismatch(name: Name)
+  // a definition that differs from its signature in part
+  case SignatureMismatch(name: Name, part: Differing)
   case PartlyExported(name: Name)
   case PrivateType(name: Name, sort: Name)
   // a formal, local, pattern variable, or formal of a lambda of the name of a local around it
@@ -97,6 +98,14 @@ data TypeError :=
   case Hinted(error: TypeError, hint: Str)
   // an error of the command at the position of an imported module, or of the main module for None
   case Located(module: Option[Id], pos: Pos, error: TypeError)
+
+// the first part in which a definition differs from its signature, each as the signature has it and, with _, as the
+// definition has it, where mode names the formals, formals, ins, outs, or refs
+data Differing :=
+  case DifferingParams(params: List[Id], params_: List[Id])
+  case DifferingFormals(mode: Str, formals: List[Var], formals_: List[Var])
+  case DifferingResult(typ: Type, typ_: Type)
+  case DifferingRaises(raised: List[Type], raised_: List[Type])
 
 // raises the first error of check_all
 procedure check_program(
@@ -799,6 +808,9 @@ function zonk_node(s: State, expr: Expr): Expr :=
     case ETuple(args) =>
       ETuple(List(for arg in args yield zonk_expr(s, arg)))
 
+    case EAnnotated(inner, typ) =>
+      EAnnotated(zonk_expr(s, inner), zonked(s, typ))
+
     case EForm(_, _, _) =>
       expr
 
@@ -1047,6 +1059,9 @@ function unknown_in_expr(expr: At[Expr]): Option[(Pos, Type)] :=
 
     case ETuple(args) =>
       unknown_in_exprs(args)
+
+    case EAnnotated(inner, _) =>
+      unknown_in_expr(inner)
 
     case ELit(_) | EVar(_) =>
       None
@@ -2231,6 +2246,14 @@ procedure infer_node(
       end
       res := ETuple(exprs), typ := TTuple(ts)
 
+    // the expression is checked against the ascribed type, which resolves its fields and overloads and reports a part of
+    // another type at the part, and the checked program keeps the ascription, which the backends take as its expression
+    case EAnnotated(inner, ascribed) =>
+      var typed_inner: At[Expr]
+      normalize(in ascribed, out typ, ref s)
+      check(in env, inner, typ, "the ascription", out typed_inner, ref s)
+      res := EAnnotated(typed_inner, typ)
+
     case EMatch(arg, cases) =>
       var c: At[Expr], u: Type, bs: List[At[Branch[At[Expr]]]]
       fresh(out typ, ref s)
@@ -2724,12 +2747,31 @@ procedure application(
         infers_lambdas(in env, args, ts, ref typed_args, s)
         typed_expr := EApp(fun with that := EVar(x), typed_args)
       else
-        let outer := s.within
-        var typed_args: List[At[Expr]], typed_fun: At[Expr], u: Type
-        s := s with within := List(InCall(name); outer)
-        infer(in env, fun, out typed_fun, u, ref s)
-        apply(in env, u, args, expected, out typed_args, t, ref s)
-        typed_expr := EApp(typed_fun, typed_args), s := s with within := outer
+        match (get(name, env), hidden_functions(s, env, name, size(args)))
+          // the variable is not read, so that no Unassigned follows, and the call has the type TError
+          // of the functions, those that the arguments fit are named, else all
+          case (Some(l), List(f; more)) =>
+            var ts: List[Type], typed_args: List[At[Expr]], r: Type, ok: List[((Name, Scheme), State)]
+            infers_first(in env, args, out typed_args, ts, ref s)
+            infers_lambdas(in env, args, ts, ref typed_args, s)
+            fresh(out r, ref s)
+            trials(in List(f; more), TFun(ts, r), s, out ok)
+            report(in Hinted(CannotUnify(zonk_type(s.sub, l.typ), TFun(ts, r)), hiding_hint(name, if ok == List() then
+              firsts(List(f; more))
+            else
+              List(for ((m, _), _) in ok yield m))), ref s)
+            fresh(out t, ref s)
+            unify(in t, TError, ref s)
+            typed_expr := EApp(fun with that := EVar(Var(name, l.typ)), typed_args)
+
+          case _ =>
+            let outer := s.within
+            var typed_args: List[At[Expr]], typed_fun: At[Expr], u: Type
+            s := s with within := List(InCall(name); outer)
+            infer(in env, fun, out typed_fun, u, ref s)
+            apply(in env, u, args, expected, out typed_args, t, ref s)
+            typed_expr := EApp(typed_fun, typed_args), s := s with within := outer
+        end
       end
 
     case AOk(_, _, ELam(_, _)) =>
@@ -2745,6 +2787,42 @@ procedure application(
       infer(in env, fun, out typed_fun, u, ref s)
       apply(in env, u, args, expected, out typed_args, t, ref s)
       typed_expr := EApp(typed_fun, typed_args)
+  end
+
+// the functions of n of k arguments that a variable n of env hides, if its type is no function of k arguments, so that a
+// call of it likely means one of them, as lines(text) where an out lines: List[Str] hides lines of prelude/str
+function hidden_functions(s: State, env: Env, n: Name, k: Int): List[(Name, Scheme)] :=
+  match get(n, env)
+    case Some(l) if not is_applicable(zonk_type(s.sub, l.typ), k) =>
+      List(for (f, sc) in with_arity(candidates(s, List(), n), k) if is_fun(s.sig, f))
+    case _ =>
+      List()
+  end
+
+// whether a value of typ may be applied to k arguments, also where its type is not yet known
+function is_applicable(typ: Type, k: Int): Bool :=
+  match typ
+    case TFun(ps, _) =>
+      size(ps) == k
+
+    case TMeta(_) | TError =>
+      true
+
+    case _ =>
+      false
+  end
+
+// the hint of a call of a variable n that hides the functions funs of its name
+function hiding_hint(n: Name, funs: List[Name]): Str :=
+  example hiding_hint(unqualified("lines"), List(Name(Some("prelude/str"), "lines"))) == "the variable lines hides the function prelude/str.lines, so rename the variable to call it"
+  "the variable " ++ n.base ++ " hides the function" ++ (if size(funs) > 1 then "s " else " ") ++ join(" and ", List(for f in funs yield qualified_text(f))) ++ ", so rename the variable to call " ++ (if size(funs) > 1 then "them" else "it")
+
+function qualified_text(n: Name): Str :=
+  match n
+    case Name(Some(m), base) =>
+      m ++ "." ++ base
+    case Name(None, base) =>
+      base
   end
 
 // the accessor T.f, or for the suffix .f:= the updater T.f:=, applied to expr and the further arguments, of the type T of
@@ -3930,7 +4008,7 @@ procedure untyped(in xs: List[At[Var]], inits: List[Name], ref s: State) :=
 
     case List(x; rest) =>
       if has_holes(x.that.typ) and not contains(x.that.name, inits) then
-        report(in at_use(decl_pos(s.at, x.pos), MissingType(x.that.name)), ref s)
+        report(in at_use(decl_pos(s.at, x.pos), Hinted(MissingType(x.that.name), "only the call right after the declaration gives a local without a value its type, so declare each before its call or write its type")), ref s)
       end
       untyped(in rest, inits, ref s)
   end
@@ -5169,9 +5247,10 @@ procedure check_signatures(in ex: List[(Pos, Cmd)], im: List[(Pos, Cmd)]) :=
       once(in name, List(for (p, e) in rest if signs_fun(e, name, size(formals)) yield p))
       match List(for (p, c) in im if defines_fun(c, name, size(formals)) yield (p, c))
         case List((p, CFun(_, params_, formals_, typ_, _, _))) =>
-          if params_ != params or vars(formals_) != vars(formals) or typ_ != typ then
-            raise Located(None, p, SignatureMismatch(name))
-          end
+          mismatch(in name, p, List(
+            DifferingParams(params, params_),
+            DifferingFormals("formals", vars(formals), vars(formals_)),
+            DifferingResult(typ, typ_)))
 
         case _ =>
           raise Located(None, pos, MissingDefinition(name))
@@ -5182,9 +5261,13 @@ procedure check_signatures(in ex: List[(Pos, Cmd)], im: List[(Pos, Cmd)]) :=
       once(in name, List(for (p, e) in rest if signs(e, name) yield p))
       match List(for (p, c) in im if defines_proc(c, name) yield (p, c))
         case List((p, CProc(_, params_, ins_, outs_, refs_, raised_, _, _))) =>
-          if params_ != params or vars(ins_) != vars(ins) or vars(outs_) != vars(outs) or vars(refs_) != vars(refs) or raised_ != raised then
-            raise Located(None, p, SignatureMismatch(name))
-          end
+          let parts := List(
+            DifferingParams(params, params_),
+            DifferingFormals("ins", vars(ins), vars(ins_)),
+            DifferingFormals("outs", vars(outs), vars(outs_)),
+            DifferingFormals("refs", vars(refs), vars(refs_)),
+            DifferingRaises(raised, raised_))
+          mismatch(in name, p, parts)
 
         case _ =>
           raise Located(None, pos, MissingDefinition(name))
@@ -5194,10 +5277,7 @@ procedure check_signatures(in ex: List[(Pos, Cmd)], im: List[(Pos, Cmd)]) :=
     case List((pos, CAbstract(name, params)); rest) =>
       match List(for (p, c) in im if defines_data(c, name) yield (p, c))
         case List((p, CData(_, params_, _))) =>
-          if params_ != params then
-            raise Located(None, p, SignatureMismatch(name))
-          end
-
+          mismatch(in name, p, List(DifferingParams(params, params_)))
         case _ =>
           raise Located(None, pos, MissingDefinition(name))
       end
@@ -5205,6 +5285,27 @@ procedure check_signatures(in ex: List[(Pos, Cmd)], im: List[(Pos, Cmd)]) :=
 
     case List(_; rest) =>
       check_signatures(in rest, im)
+  end
+
+// the definition of name at pos agrees with its signature in each of parts, else the first part that differs is the error
+procedure mismatch(in name: Name, pos: Pos, parts: List[Differing]) :=
+  for part in find(parts, differs) do
+    raise Located(None, pos, SignatureMismatch(name, part))
+  end
+
+function differs(part: Differing): Bool :=
+  match part
+    case DifferingParams(params, params_) =>
+      params != params_
+
+    case DifferingFormals(_, formals, formals_) =>
+      formals != formals_
+
+    case DifferingResult(typ, typ_) =>
+      typ != typ_
+
+    case DifferingRaises(raised, raised_) =>
+      raised != raised_
   end
 
 // the signature name is not repeated at the positions others
