@@ -1,5 +1,6 @@
 // the project ulang: the language, its compiler and interpreter, its library, its tests, and the prover, where the cases
-// of ulang/test/errors/ load the library each, which the interpreter does too slowly
+// of ulang/test/errors/ and the scripts of ulang/refactor/test/ load the library each, which the interpreter does too
+// slowly
 
 function project(): Project :=
-  Project(List("ulang/test/errors"))
+  Project(List("ulang/test/errors", "ulang/refactor/test"))

@@ -2,9 +2,13 @@
 
 Suggestions. It extends Diagnostics 3 and 4 (resolution of names, refactorings) with the operations that the history of this repository shows agents doing by hand, and with what an agent needs from the command line to drive them. It takes in the second version of `edit-tool.md`, now removed, the design of an agent that wrote about 4,100 lines of ulang in another project on 12–13 November 2026: the interface of `refactor` is a script of seven actions that writes code by declaration and reports follow-ups as diagnostics with handles (Edit scripts, below), and the named operations of this file are actions that come later, where that loop proves too slow. When something here is decided, it goes into those items, and this file is deleted.
 
+## Status
+
+Step 2 of Order of implementation is begun on the branch `refactor`: `ulang.sh refactor` runs scripts of `@show`, `@put` of whole declarations, `@drop`, and `@check`, with the diagnostics that are new or gone as the reply, see `CLAUDE.md`; missing are handles, `@patch`, `@undo`, `@retry`, the queries, `@check test`, the lock and the journal, and the comparison of resolutions. What the prototype showed: comments are not in the tree, so a doc survives an edit only because the edit splices text by the spans of the declarations, which `format` then normalizes, and the head of an exported signature is taken from the formatted file, since a fragment may write its head and body on one line; a change of arity adds a declaration rather than replacing one, so adding a formal is an `@put` and an `@drop`. Timing: `--dry` of an `@put` into `ulang/check/check.u` takes about 2 seconds, with the check before and after about 2.7.
+
 ## Why ulang is unusually suited to it
 
-- **`format` is canonical and `check` enforces it**, so a tool that changes the parsed tree and prints it by `format_program` produces a diff of exactly the changed parts; no layout is lost, and docs survive since they are syntax.
+- **`format` is canonical and `check` enforces it**, so a tool that changes the parsed tree and prints it by `format_program` produces a diff of exactly the changed parts; no layout is lost, and docs survive if the edit keeps the comments around the declaration, which are not in the tree (Status).
 - **The checked program keeps every position** (`At` since `1c2db95`) and resolves every name to its module, so the qualified name and type of any use are found by its position; overloading, which defeats `grep` (`size` in a file that imports `set` and `map`), is no obstacle once the checker is asked.
 - **The parser desugars nothing**, so the tree that is rewritten is the source as written.
 - **The checks are strong** (exhaustiveness, `HiddenLocal`, definite assignment, `raises`), so "check again after the edit" catches most broken refactorings, and the remaining risk is a use that silently resolves differently, which the tool can rule out by comparison (below).

@@ -1,0 +1,34 @@
+// the scripts of ulang/refactor/refactor.u on files below out/test/refactor/ of the root, which run only compiled, since
+// each parse loads the library, too slowly for the interpreter
+
+import "ulang/refactor"
+
+// a put that replaces a definition and its signature, keeping its doc, and adds a function, then a drop, on a file below
+// out/test/refactor/ of the root, with a check that finds nothing
+test put_and_drop() :=
+  var reply: List[Str], status: Int, text: Str
+  let path := "out/test/refactor/sample.u"
+  os_write_utf8(in path, "export\n\nfunction f(x: Int): Int\n\nimplementation\n\n// one more\nfunction f(x: Int): Int :=\n  x + 1\n")
+  let script := "@put " ++ path ++ "\nfunction f(y: Int): Int := y + 2\nfunction g(): Int := f(1)\n@drop " ++ path ++ ":g\n"
+  run_script(in script, false, lambda in file, out found =>
+    found := List()
+  end, out reply, status)
+  os_read_utf8(in path, out text)
+  assert status == 0
+  assert text == "export\n\nfunction f(y: Int): Int\n\nimplementation\n\n// one more\nfunction f(y: Int): Int :=\n  y + 2\n"
+  assert reply == List(
+    "ok",
+    path ++ ": replaced f/1, added g/0, with the signature of f/1",
+    path ++ ": dropped g/0")
+
+// a fragment that does not parse refuses the script, at its line in the fragment, and writes nothing
+test refused_fragment() :=
+  var reply: List[Str], status: Int, text: Str
+  let path := "out/test/refactor/refused.u"
+  os_write_utf8(in path, "function f(x: Int): Int :=\n  x\n")
+  run_script(in "@put " ++ path ++ "\nfunction g(x: Int): Int :=\n  x +\n", false, lambda in file, out found =>
+    found := List()
+  end, out reply, status)
+  os_read_utf8(in path, out text)
+  assert status == 1 and text == "function f(x: Int): Int :=\n  x\n"
+  assert reply == List("rejected", "fragment 2.6: expression expected but end of input found")

@@ -12,6 +12,7 @@ import "ulang/run"
 import "ulang/compile"
 import "ulang/lint"
 import "ulang/test"
+import "ulang/refactor"
 
 // the command of the arguments, as request reads them
 data Request :=
@@ -25,6 +26,8 @@ data Request :=
   case RCompile(target: Target, output: Str)
   // the tests of the .u files below the directory, by default the root of the project
   case RCompileTests(dir: Option[Str], output: Str)
+  // the script of the file, or of stdin if none, or the one action of the words that start with @, see ulang/refactor/refactor.u
+  case RRefactor(script: Option[Str], inline: Option[Str], dry: Bool)
   case RHelp(command: Option[Str])
   // arguments that request does not read, with what is wrong with them
   case RUsage(problem: Str)
@@ -58,6 +61,9 @@ procedure main() raises OsError :=
 
     case RCompileTests(dir, output) =>
       compile_tests(in dir, output, out status)
+
+    case RRefactor(script, inline, dry) =>
+      refactor(in script, inline, dry, out status)
 
     case RHelp(None) =>
       os_println(in usage())
@@ -115,6 +121,9 @@ function command_request(command: Str, words: List[Str], rest: List[Str]): Reque
 
     case ("compile", _) =>
       compile_request(words, None, false, None)
+
+    case ("refactor", _) =>
+      refactor_request(words, None, None, false)
 
     case ("help", List()) =>
       RHelp(None)
@@ -256,8 +265,30 @@ test usage_errors() :=
   assert request(List("hints", "a.u", "b.u")) == RUsage("hints takes one file")
   assert request(List("hints", "a.u:f")) == RUsage("hints takes a file name.u, not a.u:f")
 
+// the words of refactor: --dry, and a file of the script or an action of its own, @ and its words
+function refactor_request(words: List[Str], script: Option[Str], inline: Option[Str], dry: Bool): Request :=
+  match words
+    case List("--dry"; rest) =>
+      refactor_request(rest, script, inline, true)
+
+    case List(word; rest) =>
+      if starts_with(word, "@") then
+        RRefactor(script, Some(join(" ", words)), dry)
+      else if script == None then
+        refactor_request(rest, Some(word), inline, dry)
+      else
+        RUsage("refactor takes one script")
+
+    case List() =>
+      RRefactor(script, inline, dry)
+  end
+
+test refactor_requests() :=
+  assert request(List("refactor", "--dry", "s.txt")) == RRefactor(Some("s.txt"), None, true)
+  assert request(List("refactor", "@show", "a.u:f")) == RRefactor(None, Some("@show a.u:f"), false)
+
 function commands(): List[Str] :=
-  List("run", "check", "format", "hints", "compile", "help")
+  List("run", "check", "format", "hints", "compile", "refactor", "help")
 
 function usage(): Str :=
   "usage:\n" ++ join("\n", List(for c in commands() yield "  ulang " ++ synopsis(c)))
@@ -282,6 +313,9 @@ function synopsis(command: Str): Str :=
     case "compile" =>
       "compile (<file>[:<procedure>] | --tests [<dir>]) -o <target.c|target.s>"
 
+    case "refactor" =>
+      "refactor [--dry] [<script> | @<action> ...]"
+
     case _ =>
       "help [<command>]"
   end
@@ -302,6 +336,9 @@ function description(command: Str): Str :=
 
     case "compile" =>
       "translates the file to C, or to assembly for x86-64 if the target ends in .s, whose main calls the procedure, main by default, or with --tests the tests of the .u files below the directory, by default the root of the project, with its packages and programs,\n" ++ "whose main takes the arguments of check --test, with the tests of lemmas but without their proofs, and runs them as\n" ++ "check --test does, from the root of the project"
+
+    case "refactor" =>
+      "runs the script of the file, or of stdin, or the one action of the words, a line per action that starts with @,\n" ++ "followed by its fragment: @show T of a file or a declaration file.u:name[/arity], @put F of declarations, each\n" ++ "replacing the one of its name and arity or added, @drop T, and @check F, as one transaction, then checks the\n" ++ "files that changed and reports the diagnostics that are new or gone; --dry writes nothing"
 
     case _ =>
       "prints the usage of all commands, or of one"
@@ -632,6 +669,46 @@ function from_root(root: Str, file: Str): Str :=
 
 test paths_from_root() :=
   assert from_root(".", "./ulang/ulang.u") == "ulang/ulang.u" and from_root("../..", "../../a/b.u") == "a/b.u"
+
+// runs the refactor script of the file, of stdin, or of the inline action, and prints its reply
+procedure refactor(
+  in  script: Option[Str],
+      inline: Option[Str],
+      dry: Bool,
+  out status: Int
+) :=
+  var text: Str, reply: List[Str]
+  status := 0
+  try
+    match (inline, script)
+      case (Some(action), _) =>
+        text := action
+
+      case (None, Some(path)) =>
+        os_read_utf8(in path, out text)
+
+      case (None, None) =>
+        var io: IO
+        io_stdin(out io)
+        io_read_utf8(in io, out text)
+    end
+    run_script(in text, dry, checked_diagnostics, out reply, status)
+    os_println(in join("\n", reply))
+  catch
+    case OsError(m) =>
+      report(in "", List(diagnostic(RuntimeKind, m)), false)
+      status := 1
+  end
+
+// the errors of checking file, each with the file to edit
+procedure checked_diagnostics(in file: Str, out found: List[Str * Diagnostic]) :=
+  var q: Prog, errors: List[Diagnostic], path: Str
+  check_file(in file, true, false, out q, errors)
+  found := List()
+  for d in errors do
+    diagnostic_file(in file, d, out path)
+    found := found ++ List((path, d))
+  end
 
 // the files of the paths, by default of the project, rewritten as format writes them
 procedure format_paths(in paths: List[Str], out status: Int) :=

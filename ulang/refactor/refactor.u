@@ -1,0 +1,556 @@
+// scripted edits of ulang files by declaration, ideas/refactor.md: a script is a sequence of actions, each a line
+// starting with @, which occurs nowhere in ulang, followed by its fragment, the lines up to the next action, taken
+// verbatim; the edits splice the text of whole declarations by the spans of the parsed file, since comments are not in
+// the tree, and every edited file is printed by format_program, so that a fragment needs no layout of its own
+
+import "ulang/syntax"
+import "ulang/format"
+import "ulang/parse"
+
+export
+
+// an action of a script, the words of its line after @, and its fragment, the lines up to the next action
+data Action :=
+  case Action(line: Int, words: List[Str], fragment: Str)
+
+// the actions of a script, where the lines before the first action are ignored
+function actions(script: Str): List[Action] :=
+  example actions("@show a.u\n@put a.u\nf\ng\n") == List(
+      Action(1, List("show", "a.u"), ""),
+      Action(2, List("put", "a.u"), "f\ng"))
+
+// performs the actions of script on the files it names, all or none, and then, unless dry, writes the files that changed
+// and reports the diagnostics that check gives of them which are new or gone, where reply is the lines of the reply, and
+// status 0 if all applied, else 1, with the reason of the refusal
+procedure run_script(
+  in  script: Str,
+      dry: Bool,
+      check: (in Str, out List[Str * Diagnostic]),
+  out reply: List[Str],
+      status: Int
+)
+
+implementation
+
+// what refuses a script, with the reason
+data Refused :=
+  case Refused(message: Str)
+
+// what a declaration is known by in its module, its kind of name, base name, and arity, -1 for types, which are not
+// overloaded
+data Key :=
+  case Key(kind: Str, base: Str, arity: Int)
+
+// lines from first to last, both from 1
+data Range :=
+  case Range(first: Int, last: Int)
+
+function actions(script: Str): List[Action] :=
+  actions_of(List(for (line, i) in numbered(split(script, '\n')) yield (line, i + 1)))
+
+function actions_of(lines: List[Str * Int]): List[Action] :=
+  match lines
+    case List((line, i); rest) =>
+      if starts_with(line, "@") then
+        let (body, more) := fragment_lines(rest) in
+        List(
+          Action(i, words_of(slice(line, 1, size(line))), trimmed_fragment(firsts(body))); actions_of(more))
+      else
+        actions_of(rest)
+
+    case List() =>
+      List()
+  end
+
+function fragment_lines(lines: List[Str * Int]): List[Str * Int] * List[Str * Int] :=
+  match lines
+    case List((line, i); rest) if not starts_with(line, "@") =>
+      let (body, more) := fragment_lines(rest) in
+      (List((line, i); body), more)
+
+    case _ =>
+      (List(), lines)
+  end
+
+// the lines joined, without the blank lines at the end
+function trimmed_fragment(lines: List[Str]): Str :=
+  join("\n", reverse(drop_blank(reverse(lines))))
+
+function drop_blank(lines: List[Str]): List[Str] :=
+  match lines
+    case List(line; rest) if is_blank(line) =>
+      drop_blank(rest)
+    case _ =>
+      lines
+  end
+
+function is_blank(line: Str): Bool :=
+  forall(chars(line), is_space)
+
+function words_of(line: Str): List[Str] :=
+  List(for w in split(line, ' ') if w != "" yield w)
+
+// a target file.u, file.u:name, or file.u:name/n, its path, name, and arity
+function target_of(word: Str): Str * Option[Str] * Option[Int] :=
+  example target_of("a/b.u:f/2") == ("a/b.u", Some("f"), Some(2))
+  match index_of(':', chars(word))
+    case Some(i) =>
+      let path := slice(word, 0, i), rest := slice(word, i + 1, size(word)) in
+      match index_of('/', chars(rest))
+        case Some(j) =>
+          (path, Some(slice(rest, 0, j)), number(slice(rest, j + 1, size(rest))))
+        case None =>
+          (path, Some(rest), None)
+      end
+
+    case None =>
+      (word, None, None)
+  end
+
+function key_of(cmd: Cmd): Option[Key] :=
+  match cmd
+    case CSort(name, _, _) =>
+      Some(Key("type", name.base, -1))
+
+    case CData(name, _, _) =>
+      Some(Key("type", name.base, -1))
+
+    case CAbstract(name, _) =>
+      Some(Key("type", name.base, -1))
+
+    case CFun(name, _, formals, _, _, _) =>
+      Some(Key("value", name.base, size(formals)))
+
+    case CFunSig(name, _, formals, _, _) =>
+      Some(Key("value", name.base, size(formals)))
+
+    case CProc(name, _, ins, outs, refs, _, _, _) =>
+      Some(Key("value", name.base, size(ins) + size(outs) + size(refs)))
+
+    case CProcSig(name, _, ins, outs, refs, _, _) =>
+      Some(Key("value", name.base, size(ins) + size(outs) + size(refs)))
+
+    case CPatAlias(name, _, formals, _, _) =>
+      Some(Key("value", name.base, size(formals)))
+
+    case CTest(name, _, _) =>
+      Some(Key("test", name.base, 0))
+
+    case CLemma(name, _, _, _, _, _) =>
+      Some(Key("lemma", name.base, 0))
+
+    case CNotation(_, _, _) =>
+      None
+  end
+
+// whether cmd is a signature of export or an abstract type, which a definition of the same key implements
+function is_signature(cmd: Cmd): Bool :=
+  match cmd
+    case CFunSig(_, _, _, _, _) =>
+      true
+
+    case CProcSig(_, _, _, _, _, _, _) =>
+      true
+
+    case CAbstract(_, _) =>
+      true
+
+    case _ =>
+      false
+  end
+
+function has_spec(cmd: Cmd): Bool :=
+  match cmd
+    case CFunSig(_, _, _, _, spec) =>
+      spec != Spec(List(), None, List())
+
+    case CProcSig(_, _, _, _, _, _, spec) =>
+      spec != Spec(List(), None, List())
+
+    case _ =>
+      false
+  end
+
+function key_text(key: Key): Str :=
+  if key.arity < 0 then key.base else key.base ++ "/" ++ show(key.arity)
+
+// whether the declaration of key is the one that name and arity select
+function is_selected(key: Key, name: Str, arity: Option[Int]): Bool :=
+  key.base == name and forall(arity, lambda n => n == key.arity)
+
+function main_mod(source: Source): Mod :=
+  match find(source.mods, lambda d => d.name == source.main)
+    case Some(d) =>
+      d
+    case None =>
+      Mod(source.main, List(), List(), List(), List(), List())
+  end
+
+function cmd_of(cmd: At[Cmd]): Option[Cmd] :=
+  match cmd
+    case AOk(_, _, that) =>
+      Some(that)
+
+    case AErr(_, _, that, _) =>
+      Some(that)
+
+    case AUnparsed(_, _, _, _) =>
+      None
+  end
+
+function cmd_key(cmd: At[Cmd]): Option[Key] :=
+  match cmd_of(cmd)
+    case Some(c) =>
+      key_of(c)
+    case None =>
+      None
+  end
+
+function keyed(cmds: List[At[Cmd]]): List[Key * At[Cmd] * Cmd] :=
+  List(for cmd in cmds for c in cmd_of(cmd) for key in key_of(c) yield (key, cmd, c))
+
+function line_at(lines: Array[Str], line: Int): Str :=
+  if 1 <= line and line <= size(lines) then at(line - 1, lines) else ""
+
+function is_comment_line(line: Str): Bool :=
+  starts_with(str(drop_spaces(chars(line))), "//")
+
+function drop_spaces(cs: List[Char]): List[Char] :=
+  match cs
+    case List(' '; rest) =>
+      drop_spaces(rest)
+    case _ =>
+      cs
+  end
+
+// the first line of the doc right above line, the run of comment lines without a blank line, all below floor, or line
+// if it has none
+function doc_start(lines: Array[Str], line: Int, floor: Int): Int :=
+  if line - 1 > floor and is_comment_line(line_at(lines, line - 1)) then
+    doc_start(lines, line - 1, floor)
+  else
+    line
+
+// the last line of a declaration that ends at line, with the indented lines after it, such as comments at the end of
+// its body, since only declarations and sections start at the first column of formatted text
+function tail_end(lines: Array[Str], line: Int): Int :=
+  if line < size(lines) and starts_with(line_at(lines, line + 1), " ") then
+    tail_end(lines, line + 1)
+  else
+    line
+
+function lines_in(lines: Array[Str], within: Range): List[Str] :=
+  List(for i in range(within.first, within.last + 1) yield line_at(lines, i))
+
+// the range of the declaration cmd, with its doc if doc
+function cmd_range(lines: Array[Str], cmd: At[Cmd], floor: Int, doc: Bool): Range :=
+  Range(if doc then
+    doc_start(lines, cmd.span.start.line, floor)
+  else
+    cmd.span.start.line, tail_end(lines, cmd.span.stop.line))
+
+// the head of a definition, the lines up to the one ending in :=, without it
+function head_lines(lines: List[Str]): List[Str] :=
+  match lines
+    case List(line; rest) =>
+      if ends_with(line, " :=") then
+        List(slice(line, 0, size(line) - 3))
+      else
+        List(line; head_lines(rest))
+
+    case List() =>
+      List()
+  end
+
+// the range of the head of the signature cmd, up to its :=, which only a signature with a spec has, else all of it
+function head_range(lines: Array[Str], cmd: At[Cmd]): Range :=
+  let start := cmd.span.start.line in
+  Range(start, start + size(head_lines(lines_in(lines, Range(start, cmd.span.stop.line)))) - 1)
+
+// lines with each splice, a range and the lines that replace it, where the ranges do not overlap
+function spliced(lines: List[Str], splices: List[Range * List[Str]]): List[Str] :=
+  foldl(reverse(sort(List(for (range, new) in splices yield (range.first, range.last, new)))), lines, lambda acc, (first, last, new) => take(first - 1, acc) ++ new ++ drop(last, acc))
+
+procedure current_text(
+  in  path: Str,
+      files: Map[Str, Str],
+  out text: Str
+) raises OsError :=
+  match get(path, files)
+    case Some(edited) =>
+      text := edited
+    case None =>
+      os_read_utf8(in path, out text)
+  end
+
+// the parse of text as the file path, where the errors from the line after offset are those of a fragment, at their
+// lines in it
+procedure parsed(
+  in  path: Str,
+      text: Str,
+      offset: Int,
+  out source: Source
+) raises Refused, OsError :=
+  try
+    parse_file_text(in path, text, out source)
+    require_parsed(in source)
+  catch
+    case ParseErrors(errors) =>
+      raise Refused(join("\n", List(for e in errors yield parse_message(path, offset, parse_diagnostic(e)))))
+    case e =>
+      raise Refused(parse_message(path, offset, parse_diagnostic(e)))
+  end
+
+function parse_message(path: Str, offset: Int, d: Diagnostic): Str :=
+  if offset > 0 and d.pos.line > offset then
+    "fragment " ++ show(d.pos.line - offset) ++ "." ++ show(d.pos.col) ++ ": " ++ d.message
+  else
+    path ++ ":" ++ show(d.pos.line) ++ "." ++ show(d.pos.col) ++ ": " ++ d.message
+
+// text as format writes it, which must parse again
+procedure formatted(
+  in  path: Str,
+      text: Str,
+  out result: Str
+) raises Refused, OsError :=
+  var source: Source, again: Source
+  parsed(in path, text, 0, out source)
+  result := format_program(source)
+  parsed(in path, result, 0, out again)
+
+procedure perform(
+  in  action: Action,
+  ref files: Map[Str, Str],
+      notes: Buffer[Str],
+      checked: List[Str]
+) raises Refused, OsError :=
+  match action.words
+    case List("show", word) =>
+      show_target(in word, files, ref notes)
+
+    case List("put", path) =>
+      put(in path, action.fragment, ref files, notes)
+
+    case List("drop", word) =>
+      drop_target(in word, ref files, notes)
+
+    case List("check") =>
+      skip
+
+    case List("check", path) =>
+      checked := checked ++ List(path)
+
+    case _ =>
+      raise Refused("line " ++ show(action.line) ++ ": unknown action @" ++ join(" ", action.words) ++ ", which is one of @show T, @put F, @drop T, @check [F]")
+  end
+
+procedure show_target(
+  in  word: Str,
+      files: Map[Str, Str],
+  ref notes: Buffer[Str]
+) raises Refused, OsError :=
+  var text: Str, source: Source
+  let (path, name, arity) := target_of(word)
+  current_text(in path, files, out text)
+  match name
+    case None =>
+      notes := notes ++ List("@show " ++ word, text)
+
+    case Some(base) =>
+      parsed(in path, text, 0, out source)
+      let lines := Array(for line in split(text, '\n'))
+      let shown := List(for (key, cmd, _) in keyed(placed_of(main_mod(source))) if is_selected(key, base, arity) yield join("\n", lines_in(lines, cmd_range(lines, cmd, 0, true))))
+      if shown == List() then
+        raise Refused(path ++ " declares no " ++ base)
+      end
+      notes := notes ++ List("@show " ++ word, join("\n\n", shown))
+  end
+
+// replaces each declaration of the fragment the one of its key in the file, or adds it at the end, where a fragment
+// without a doc keeps the doc of the declaration, and an exported one gets the head of its definition in its signature
+procedure put(
+  in  path: Str,
+      fragment: Str,
+  ref files: Map[Str, Str],
+      notes: Buffer[Str]
+) raises Refused, OsError :=
+  var text: Str, source: Source, combined: Source, result: Str
+  current_text(in path, files, out text)
+  parsed(in path, text, 0, out source)
+  let d := main_mod(source), lines := Array(for line in split(text, '\n')), offset := size(lines)
+  if d.implemented == List() and d.exported != List() then
+    raise Refused(path ++ " has no implementation section for the fragment")
+  end
+  parsed(in path, text ++ "\n" ++ fragment, offset, out combined)
+  let all := main_mod(combined), all_lines := Array(for line in split(text ++ "\n" ++ fragment, '\n'))
+  let added := List(for cmd in all.implemented if cmd.span.start.line > offset)
+  if size(placed_of(all)) - size(added) != size(placed_of(d)) or size(all.exported) != size(d.exported) then
+    raise Refused("the fragment continues the declarations of " ++ path ++ " or opens a section")
+  end
+  let keys := List(for (key, _, _) in keyed(added) yield key)
+  for key in repeated(keys) do
+    raise Refused("the fragment declares " ++ key_text(key) ++ " twice")
+  end
+  var splices: List[Range * List[Str]] := List(), appended: List[Str] := List(), done: List[Str] := List(), replaced_keys: List[Key] := List()
+  for cmd in added do
+    let range := cmd_range(all_lines, cmd, offset, true)
+    let new := lines_in(all_lines, range), has_doc := range.first < cmd.span.start.line
+    let new_key := cmd_key(cmd)
+    match find(keyed(placed_of(d)), lambda (key, _, c) => Some(key) == new_key and not is_signature(c))
+      case Some((key, old, _)) =>
+        let replaced := cmd_range(lines, old, 0, has_doc)
+        splices := splices ++ List((replaced, new))
+        done := done ++ List(
+          (if new == lines_in(lines, replaced) then "unchanged " else "replaced ") ++ key_text(key))
+        replaced_keys := replaced_keys ++ List(key)
+
+      case None =>
+        appended := appended ++ List("") ++ new
+        done := done ++ List("added " ++ value_or(map_option(new_key, key_text), "a notation"))
+    end
+  end
+  let base := spliced(List(for line in lines), splices)
+  formatted(in path, join("\n", reverse(drop_blank(reverse(base))) ++ appended ++ List("")), out result)
+  with_signatures(in path, replaced_keys, ref result, done)
+  files := Map(path => result; files)
+  notes := notes ++ List(path ++ ": " ++ join(", ", done))
+
+// gives the signature of each of keys in export the head of its definition, in text, which is formatted, so that each head
+// ends in :=
+procedure with_signatures(
+  in  path: Str,
+      keys: List[Key],
+  ref text: Str,
+      done: List[Str]
+) raises Refused, OsError :=
+  var source: Source, splices: List[Range * List[Str]] := List()
+  parsed(in path, text, 0, out source)
+  let d := main_mod(source), lines := Array(for line in split(text, '\n'))
+  for key in keys do
+    let definition := find(keyed(d.implemented), lambda (k, _, c) => k == key and not is_signature(c))
+    let signature := find(keyed(d.exported), lambda (k, _, c) => k == key and is_signature(c) and not is_abstract(c))
+    match (definition, signature)
+      case (Some((_, def, _)), Some((_, sig, c))) =>
+        let head := head_range(lines, sig), new_head := head_lines(lines_in(lines, cmd_range(lines, def, 0, false)))
+        let written := if has_spec(c) then with_assign(new_head) else new_head
+        if written != lines_in(lines, head) then
+          splices := splices ++ List((head, written))
+          done := done ++ List("with the signature of " ++ key_text(key))
+        end
+
+      case _ =>
+        skip
+    end
+  end
+  if splices != List() then
+    formatted(in path, join("\n", spliced(List(for line in lines), splices)), out text)
+  end
+
+function is_abstract(cmd: Cmd): Bool :=
+  match cmd
+    case CAbstract(_, _) =>
+      true
+    case _ =>
+      false
+  end
+
+// the head with := at the end of its last line
+function with_assign(head: List[Str]): List[Str] :=
+  match reverse(head)
+    case List(last; rest) =>
+      reverse(List(last ++ " :="; rest))
+    case List() =>
+      List()
+  end
+
+// removes the declarations of the target, with their docs and signatures
+procedure drop_target(
+  in  word: Str,
+  ref files: Map[Str, Str],
+      notes: Buffer[Str]
+) raises Refused, OsError :=
+  var text: Str, source: Source, result: Str
+  let (path, name, arity) := target_of(word)
+  let base := value_or(name, "")
+  if base == "" then
+    raise Refused("@drop takes a declaration file.u:name, not " ++ word)
+  end
+  current_text(in path, files, out text)
+  parsed(in path, text, 0, out source)
+  let lines := Array(for line in split(text, '\n'))
+  let dropped := List(for (key, cmd, _) in keyed(placed_of(main_mod(source))) if is_selected(key, base, arity) yield (key, cmd))
+  let keys := distinct(firsts(dropped))
+  if keys == List() then
+    raise Refused(path ++ " declares no " ++ base)
+  end
+  if size(keys) > 1 then
+    raise Refused(path ++ " declares " ++ join(", ", List(for key in keys yield key_text(key))) ++ ", so name one by its arity")
+  end
+  formatted(in path, join("\n", spliced(List(for line in lines), List(for (_, cmd) in dropped yield (cmd_range(lines, cmd, 0, true), List())))), out result)
+  files := Map(path => result; files)
+  notes := notes ++ List(
+    path ++ ": dropped " ++ join(", ", List(for key in keys yield key_text(key))))
+
+procedure run_script(
+  in  script: Str,
+      dry: Bool,
+      check: (in Str, out List[Str * Diagnostic]),
+  out reply: List[Str],
+      status: Int
+) :=
+  var files: Map[Str, Str] := Map(), notes: Buffer[Str] := empty(), checked: List[Str] := List()
+  reply := List(), status := 0
+  try
+    for action in actions(script) do
+      perform(in action, ref files, notes, checked)
+    end
+    var changed: List[Str] := List(), original: Str
+    for path => text in files do
+      os_read_utf8(in path, out original)
+      if text != original then
+        changed := changed ++ List(path)
+      end
+    end
+    if dry then
+      reply := List("dry") ++ List(for note in notes) ++ List(for path in changed yield "would write " ++ path)
+    else
+      let paths := distinct(changed ++ checked)
+      var before: List[Str * Diagnostic] := List(), after: List[Str * Diagnostic] := List(), found: List[Str * Diagnostic]
+      for path in paths do
+        check(in path, out found)
+        before := before ++ found
+      end
+      for path in changed do
+        os_write_utf8(in path, value_or(get(path, files), ""))
+      end
+      for path in paths do
+        check(in path, out found)
+        after := after ++ found
+      end
+      let added := List(for (file, d) in after if not exists(before, lambda (other, e) => is_same(file, d, other, e)))
+      let gone := List(for (file, d) in before if not exists(after, lambda (other, e) => is_same(file, d, other, e)))
+      reply := List(
+        if after == List() then
+          "ok"
+        else
+          "ok, " ++ show(size(after)) ++ " diagnostics") ++ List(for note in notes) ++ (if added == List() and gone == List() then
+        List()
+      else
+        List("diagnostics: +" ++ show(size(added)) ++ " -" ++ show(size(gone)))) ++ List(for (file, d) in added yield "  + " ++ diagnostic_text(file, d)) ++ List(for (file, d) in gone yield "  - " ++ diagnostic_text(file, d))
+    end
+  catch
+    case Refused(message) =>
+      reply := List("rejected", message), status := 1
+    case OsError(message) =>
+      reply := List("rejected", message), status := 1
+  end
+
+// whether two diagnostics are the same but for their positions, which edits move
+function is_same(file: Str, d: Diagnostic, other: Str, e: Diagnostic): Bool :=
+  file == other and d.code == e.code and d.message == e.message
+
+function diagnostic_text(file: Str, d: Diagnostic): Str :=
+  file ++ (if d.pos.line > 0 then
+    ":" ++ show(d.pos.line) ++ "." ++ show(d.pos.col)
+  else
+    "") ++ ": " ++ d.code ++ ": " ++ d.message
