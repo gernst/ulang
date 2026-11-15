@@ -96,13 +96,17 @@ test lints_of_variables() :=
     "  q(in 1, out passed)",
     "  for x in xs do",
     "    n := n",
-    "  end"), out found)
+    "  end",
+    "  var got: Int",
+    "  q(in 2, out got)",
+    "  n := got"), out found)
   assert found == List(
     (Pos(4, 23), "the variable b is never read, write _"),
     (Pos(7, 15), "the variable d is never read, write _"),
     (Pos(7, 54), "the variable x is never read, write _"),
     (Pos(10, 7), "the local unread is never read"),
     (Pos(10, 20), "the local written is never read"),
+    (Pos(10, 34), "the local passed is never read, write _ at the outs that receive it"),
     (Pos(13, 7), "the variable x is never read, write _"))
 
 test lints_of_locals_too_high() :=

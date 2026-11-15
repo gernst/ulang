@@ -490,13 +490,17 @@ function initialized(xs: List[Var], stmts: List[At[Stmt]]): Set[Id] :=
       Set()
   end
 
-// a local that is neither read nor an out or ref of a call is unused, and one without an initial value that only a
+// a local that is neither read nor an out or ref of a call is unused, as is one that is only an out, which out _ drops
+// without a local, and one without an initial value that only a
 // branching statement names, outside its condition, is declared too high, where site, the spans of the statement and of
 // the declaration of a let or var, places the edits
 function local_lints(pos: Pos, name: Id, has_init: Bool, site: Option[(Span, Span)], stmts: List[At[Stmt]]): List[Warning] :=
   name_lints(pos, name) ++ (if not exists(stmts, lambda s => contains(name, stmt_names(s) ++ call_outs(s))) then
     List(
       Warning(UnusedVariable, pos, "the local " ++ name ++ " is never read", None, map_option(site, lambda (local, decl) => EditMove(local, decl, List()))))
+  else if not exists(stmts, lambda s => contains(name, stmt_names(s))) then
+    List(
+      Warning(UnusedVariable, pos, "the local " ++ name ++ " is never read, write _ at the outs that receive it", None, None))
   else if has_init then
     List()
   else
