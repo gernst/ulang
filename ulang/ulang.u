@@ -399,13 +399,13 @@ procedure check_targets(
 ) :=
   var found: List[Target]
   targets_of(in targets, phases.tests, out found)
-  visit_units(in found, phases.tests, lambda in source, q, unit, loaded, out failed =>
+  visit_units(in found, phases.tests, lambda in source, q, unit, listed, out failed =>
     failed := List()
-    if phases.lints and loaded then
+    if phases.lints and listed == List() then
       print_lints(in source, q, unit)
     end
     if phases.tests or phases.proofs then
-      check_unit(in q, unit, found, phases, args, out failed)
+      check_unit(in q, unit, found, phases, args, listed, out failed)
     end
   end, out status)
 
@@ -418,6 +418,7 @@ procedure check_unit(
       found: List[Target],
       phases: Phases,
       args: List[Str],
+      listed: List[(Str, Diagnostic)],
   out failed: List[Str]
 ) :=
   failed := List()
@@ -429,7 +430,7 @@ procedure check_unit(
       passed := false
     end
     for selected in selection(phases.tests, both, names, tests) do
-      test_module(in q, m, selected, args, label, out ran, falsified)
+      test_module(in q, m, selected, args, label, listed, out ran, falsified)
       passed := passed and ran
     end
     for selected in selection(phases.proofs, both, names, lemmas) do
@@ -510,12 +511,13 @@ function is_lemma(cmd: Cmd): Bool :=
 
 // checks each unit of the targets once, where the error of a unit that does not load is reported at its first file, and
 // calls visit with the checked program of each unit that loads, also with errors if it is runnable, whose files then
-// fail, and whether it loaded without errors, which gives the files of the unit that fail, where tested loads them with
+// fail, and the errors printed of it, each with its file, List() if it loaded without errors, which gives the files of the
+// unit that fail, where tested loads them with
 // the tests of their lemmas, then prints how many files passed, where status is the exit status of the worst
 procedure visit_units(
   in  found: List[Target],
       tested: Bool,
-      visit: (in Source, Prog, List[Target], Bool, out List[Str]),
+      visit: (in Source, Prog, List[Target], List[(Str, Diagnostic)], out List[Str]),
   out status: Int
 ) :=
   var units: List[List[Target]], source: Source, q: Prog, errors: List[Diagnostic], failed: Buffer[Str] := empty(), bad: List[Str], cache := no_cache()
@@ -527,11 +529,16 @@ procedure visit_units(
       report(in first_path(unit), errors, size(files_of(found)) > 1)
       failed := failed ++ files_of(unit), status := max(status, load_status(q, errors))
       if is_runnable(q, errors) then
-        visit(in source, q, unit, false, out bad)
+        var listed: Buffer[(Str, Diagnostic)] := empty(), path: Str
+        for d in errors do
+          diagnostic_file(in first_path(unit), d, out path)
+          listed := listed ++ List((path, d))
+        end
+        visit(in source, q, unit, List(for e in listed), out bad)
         status := if bad == List() then status else max(status, 3)
       end
     else
-      visit(in source, q, unit, true, out bad)
+      visit(in source, q, unit, List(), out bad)
       failed := failed ++ bad, status := if bad == List() then status else max(status, 3)
     end
   end
@@ -814,27 +821,6 @@ function claimed_lemma(cmd: Cmd): Option[Str] :=
       Some(name.base)
     case _ =>
       None
-  end
-
-// the line of a test that failed, which names only the position of the error that it reached if the reply lists it
-function failure_text(o: Outcome, listed: List[(Str, Diagnostic)]): Str :=
-  match find(listed, lambda (path, d) => reaches(o.reached, path, d))
-    case Some((path, d)) =>
-      "test " ++ o.name ++ " failed by reaching " ++ path ++ ":" ++ show(d.pos.line) ++ "." ++ show(d.pos.col) ++ ", listed above"
-    case None =>
-      "test " ++ o.name ++ " failed: " ++ o.message
-  end
-
-// whether reached, the text of the error that a run reached, is that of d, of the file path, which a run names without its
-// module if it is in the main module of the run, and else with it
-function reaches(reached: Option[Str], path: Str, d: Diagnostic): Bool :=
-  match reached
-    case Some(text) =>
-      text == deferred_text(List(d with module := None)) or text == deferred_text(List(
-        d with module := Some(value_or(d.module, slice(path, 0, size(path) - 2)))))
-
-    case None =>
-      false
   end
 
 function counted_text(n: Int, noun: Str): Str :=
