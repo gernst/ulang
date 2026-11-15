@@ -136,6 +136,12 @@ function hint_of(e: TypeError): Str :=
     case OrVariables(name, _) =>
       "; bind " ++ name.base ++ " in every alternative, or write _ for it in each"
 
+    case UnknownFieldOwner(field) if ends_with(field, ":=") =>
+      "; ascribe the type of the value, (e: T) with " ++ slice(without_update(field), 1, size(without_update(field))) ++ " := a"
+
+    case UnknownFieldOwner(field) =>
+      "; ascribe the type of the value, (e: T)" ++ field
+
     case WiderRaise(typ) =>
       "; add raises " ++ format_type(typ) ++ " to the procedure type that omits it, or catch " ++ format_type(typ) ++ " in the procedure"
 
@@ -416,8 +422,8 @@ test messages() :=
   assert located_message(Located(None, Pos(1, 1), UnknownConstructor(Name(None, "f")))) == "unknown constructor f at 1.1"
   assert located_message(Located(None, Pos(1, 1), UnknownException(TMeta(2)))) == "the type ?2 of an exception is not fully known at 1.1"
   assert located_message(Located(None, Pos(4, 1), UnknownField(Name(Some("ulang/test/errors/unknown-field"), "Point.z")))) == "unknown field z of Point at 4.1"
-  assert located_message(Located(None, Pos(1, 1), UnknownFieldOwner(".x"))) == "the type of the value of .x is not known there, which an annotation can give at 1.1"
-  assert located_message(Located(None, Pos(1, 1), UnknownFieldOwner(".x:="))) == "the type of the value of .x is not known there, which an annotation can give at 1.1"
+  assert located_message(Located(None, Pos(1, 1), UnknownFieldOwner(".x"))) == "the type of the value of .x is not known there, which an annotation can give; ascribe the type of the value, (e: T).x at 1.1"
+  assert located_message(Located(None, Pos(1, 1), UnknownFieldOwner(".x:="))) == "the type of the value of .x is not known there, which an annotation can give; ascribe the type of the value, (e: T) with x := a at 1.1"
   assert located_message(Located(None, Pos(1, 1), UnknownFieldType(".x:=", TInt()))) == "the type Int of the value of .x is not known at 1.1"
   assert located_message(Located(None, Pos(1, 1), InfiniteType(TMeta(1), TList(TMeta(1))))) == "infinite type ?1 = List[?1] at 1.1"
   assert located_message(Located(None, Pos(1, 1), NoOverload(Name(None, "size"), TFun(List(TInt()), TInt())))) == "no declaration of size has the type Int -> Int at 1.1"

@@ -544,6 +544,10 @@ function term_of(env: List[Name], expr: At[Expr]): Term :=
       let terms := List(for a in args yield term_of(env, a)) in
       tuple_term(terms)
 
+    // an ascription is its expression, whose type the checker has unified with the ascribed one
+    case EAnnotated(inner, _) =>
+      term_of(env, inner)
+
     // procedure values are atoms, told apart by their text
     case EProc(_, _, _, _, _) =>
       EFun(Name(Some("(procedure)"), show(expr.that)))
