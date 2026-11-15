@@ -149,7 +149,7 @@ checked 1 file: 0 new, 1 gone
 tested shapes.u: 1 passed, 0 failed
 ```
 
-Without the `@put into #1`, the reply would have listed the match that the new constructor leaves open as a new diagnostic, so the follow-ups of a change are a list of work, not a search. The status is 0 if the files are clean or have warnings only, 1 if errors remain or the script is refused (`rejected`), and 3 if a test failed. A test that fails by reaching an error of the reply says so instead of repeating it, and the tests that errors keep out of the program are counted as not run.
+Without the `@put into #1`, the reply would have listed the match that the new constructor leaves open as a new diagnostic, so the follow-ups of a change are a list of work, not a search. The status is 0 if the files are clean or have warnings only, 1 if errors remain or the script is refused (`rejected`), and 3 if a test failed. A test that fails by reaching an error of the reply says so instead of repeating it, and the tests and examples that errors keep out of the program are counted as not run, while the lemmas whose tests they keep out are named.
 
 Two queries tell what a module offers and who uses a name, before an edit:
 
@@ -180,8 +180,8 @@ A node N is a handle `#n`, a handle scoped by its declaration `F:name #n`, which
 | `@put [F] before T`, `@put [F] after T` | places the new declarations of the fragment next to the declaration `T` in its section |
 | `@put N`, `@put before N`, `@put after N`, `@put into N` | replaces the node, or inserts code next to it or as its last statement or case, at its indentation, refused for a fragment of another kind than the node, a statement, a case, an expression, or a constructor, or one that writes declarations; a fragment may keep the margin of `@show` |
 | `@drop T` | removes a declaration, with its doc and signature, saying the sections where it had more than one, or a node N |
-| `@patch T` | lines `old => new` within the text of a handle or a declaration, its signature and definition alike, each `old` occurring once; or a block, the old lines, a line `=>` alone, and the new lines; a patch that changes nothing is refused |
-| `@rename T new` | renames a function, procedure, pattern alias, or constructor at its declarations and at every use that resolves to it, several per script, with a warning where the new name meets declarations that the uses also see |
+| `@patch T` | lines `old => new` within the text of a declaration or a node N, its signature and definition alike, each `old` occurring once; or a block, the old lines, a line `=>` alone, and the new lines; a patch that changes nothing is refused |
+| `@rename T new` | renames a function, procedure, pattern alias, or constructor at its declarations and at every use that resolves to it, several per script, with a warning where the new name meets declarations of any arity that the uses also see |
 | `@export T`, `@unexport T` | moves a definition's doc, contract, and examples to a new signature in `export`, with the raises that a procedure infers, or back, refused while another module uses it; a datatype or an alias moves whole |
 | `@fix T [Rule …]` | applies the edits of the lints of a file or a declaration, all or of the rules named |
 | `@undo [n]` | restores the files of a script of the journal, by default the last one |
@@ -191,6 +191,7 @@ A node N is a handle `#n`, a handle scoped by its declaration `F:name #n`, which
 - `@rename` finds the uses by the names that the checker resolved, not by their text, so it never renames another overload or a local. After its writes, it checks every file of the package and every importer that contains the name, and undoes the script if any use resolves differently, e.g. to a local of the new name. It lists the mentions in `CLAUDE.md`, `README.md`, and `ideas/` that it leaves to you.
 - `@fix` rewrites expressions, drops an unused private declaration, writes `_` for an unused pattern variable and at the outs that only feed an unused local, removes an unused local, makes a `var` that nothing assigns a `let`, and moves a local that is declared too high into the branches that use it. A fix that enables another takes a second `@fix`.
 - An error in a fragment names its line in the fragment and in the script, `fragment 2.6, script 3.6`.
+- Paths in actions are normal, `./a.u` is `a.u`, and the handles are kept by their paths from the root, so that they hold from any directory.
 - `--dry` reports and writes nothing, and the journal and the handles are kept in `out/refactor/` of the root; the queries write nothing but the handles they show.
 
 ## Layout

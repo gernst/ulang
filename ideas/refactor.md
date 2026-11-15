@@ -28,16 +28,11 @@ By priority, each the problem and the solution; the causes named are read from t
 
 1. **`--dry` does not show what would break** (R18, 2T): `--dry @drop wire.u:trim` of a function that three others use replied `would write wire.u` and nothing else, since the check reads the files from disk, which a dry run does not write; so did a dry run of a script with 13 errors. Solution: check the texts in memory, which needs `load_file` to take the edited texts of the unit instead of reading them, the overlays of Concurrent edits 7.
 2. **Cascades in the follow-ups of a datatype** (R14, T, 2T): 17 diagnostics for 6 sites after a change of the fields of a constructor, and four for each call of a procedure of the old arity. The messages are Diagnostics 6; they cost in the loop of follow-ups, where an agent reads every diagnostic of a reply to find the few sites to change.
-3. **The tests of lemmas are not among the tests that did not run**: the reply of `@check test` counts the tests and examples that errors kept out of the program, but not the tests `l.lemma`, since whether a lemma gets one depends on whether the types of its formals are enumerable, which the source does not tell. Solution: count them from the generated tests of a check without errors of the unit, or name the lemmas whose tests were not generated.
 
 ### Actions
 
-4. **Fields, types, locals, and modules are not renamed** (R17, Status, 2T): `@rename mail.u:Request.Send.file path` is refused, clearly, and so was `@rename smtp/smtp.u:Envelope.host client`; nor does `@refs` take them. Solution: the record of resolutions of Changes to ulang 1, with uses of types and of fields at their names, which `hints` lacks.
-5. **Examples have no handles and no action of their own** (2W): `@patch F:name` reaches the examples on the signature of an export, but the lines of a spec are no nodes. Solution: the examples, contracts, and other lines of a spec as nodes with handles, and `@example F:name` of a fragment of examples that it adds to the spec of the declaration, wherever its spec stands.
-6. **`@patch` takes no node by its text or position**: `@show`, `@put`, and `@drop` take a node as `F:name "text"` or `F:L.C`, `@patch` only a handle or a declaration. Solution: the same forms of a node for `@patch`.
-7. **A file spelled two ways has two sets of handles**: the handles of a diagnostic are matched by the path as given, so `./x.u` and `x.u` give two handles of one node. Solution: the paths of handles normal, from the root.
-8. **The warning of `@rename` of a name that the uses also see lists only declarations of the same arity**, and its refusal for a use that would resolve differently can name the wrong side, `a use of s would resolve to prelude/str.lower`, where `s` is the formal that the new name `lower` met. Solution: list the declarations of the new name of every arity that the uses see, and name the use by its text and position.
-9. **`@refs` repeats the choice of files of `@rename`**, the members of the package and the files that import it and name the word, in a copy of its own. Solution: one procedure of both.
+3. **Fields, types, locals, and modules are not renamed** (R17, Status, 2T): `@rename mail.u:Request.Send.file path` is refused, clearly, and so was `@rename smtp/smtp.u:Envelope.host client`; nor does `@refs` take them. Solution: the record of resolutions of Changes to ulang 1, with uses of types and of fields at their names, which `hints` lacks.
+4. **Examples have no handles and no action of their own** (2W): `@patch F:name` reaches the examples on the signature of an export, but the lines of a spec are no nodes. Solution: the examples, contracts, and other lines of a spec as nodes with handles, and `@example F:name` of a fragment of examples that it adds to the spec of the declaration, wherever its spec stands.
 
 Planned from the design and not yet asked for by a use: `@retry` of corrected fragments, `@check prove`, `--json`, the placing of locals in fragments, which `@fix` of `LocalTooHigh` does after them, replies such as `gone #9 (replaced by #31)`, the queries `resolve`, `sig`, and `names` of Diagnostics 3, the operations but `move`, which the second client would have used once, and the lock and replay of Concurrent edits.
 
@@ -102,7 +97,7 @@ What the design asks of every action, and what of it is built:
 
 A script is a sequence of actions, each a line that starts with `@`, whose fragment is the lines up to the next, taken verbatim; the actions and their replies are those of Refactoring of `README.md`. Nothing else is needed for writing code: a case is added to a match by `@put into #h`, statements are wrapped in a `try` by `@put #h` of the `try` written around them, and a function is extracted by an `@put` of the function and an `@put` of the call in its place, and since every edited file is printed by `format`, a fragment never needs to be formatted by hand.
 
-`@rename` is an action of its own since renaming is the one follow-up that the checker cannot drive: after a change of the text from `then` to `chain`, every use is merely unknown. It changes the declaration and every use at once, refuses what is no plain name and a name that the package declares already at the arity, with the reason, and undoes the script if any use resolves differently; the fields and constructors of a datatype, `json/query.u:Query.Pipe.then`, are item 4.
+`@rename` is an action of its own since renaming is the one follow-up that the checker cannot drive: after a change of the text from `then` to `chain`, every use is merely unknown. It changes the declaration and every use at once, refuses what is no plain name and a name that the package declares already at the arity, with the reason, and undoes the script if any use resolves differently; the fields and constructors of a datatype, `json/query.u:Query.Pipe.then`, are item 3.
 
 ### Handles
 
@@ -126,7 +121,7 @@ Named operations, actions beyond those built: rename is `@rename`; those that ar
 
 ### 1. Rename
 
-The most frequent refactoring, and the one where text tools fail by overloading, by strings, and by field punning. `@rename` does it for functions, procedures, pattern aliases, and constructors, only the selected overload, so renaming `set.size` leaves `map.size`, in export and implementation alike; the rest waits for the record of resolutions (item 4):
+The most frequent refactoring, and the one where text tools fail by overloading, by strings, and by field punning. `@rename` does it for functions, procedures, pattern aliases, and constructors, only the selected overload, so renaming `set.size` leaves `map.size`, in export and implementation alike; the rest waits for the record of resolutions (item 3):
 
 - **Declarations**: types, type aliases, lemmas, and tests.
 - **Fields**: the declaration in every constructor that has it (one type across constructors), accessors `e.f`, updates `with f :=`, and the pattern variables that bind the field by its name, with their uses in the case, as the rule of style "patterns bind the names of the fields" requires; refused where the new name would hide a local (`HiddenLocal`) or clash in the case.
@@ -275,18 +270,17 @@ What can stay strict: with the tool, locals in the innermost body that uses them
 
 ## Order of implementation
 
-Done: the edit scripts with their transaction, replies, handles, and the journal of `@undo`, but for the lock and the replay of Concurrent edits; `@fix` of the edits that the lints carry; `@outline` and `@refs`; of the operations, the rename of declarations, several per script, and the writing of modules, imports, and exports. So the order is now:
+Done: the edit scripts with their transaction, replies, handles, and the journal of `@undo`, but for the lock and the replay of Concurrent edits; `@fix` of the edits that the lints carry; `@outline` and `@refs`; the small items left by that work, the lemmas not tested, `@patch` of any node, one path per file, the messages of `@rename`, and one choice of its files; of the operations, the rename of declarations, several per script, and the writing of modules, imports, and exports. So the order is now:
 
-1. The small items 3, 6, 7, 8, and 9.
-2. `--dry` with its check, Open items 1, which needs the overlays of `load_file`.
-3. `@example` and the handles of the lines of a spec, Open items 5.
-4. `resolve`, `sig`, `names`: the other queries of Diagnostics 3, by position on the checked program.
-5. The record of resolutions, Changes to ulang 1, then `@rename` and `@refs` of fields, types, and locals (Open items 4); then of modules with docs.
-6. The mechanical follow-ups, the hints of fragments with `@retry`, `expand-wildcard`, and the fixes of errors in `@fix`, `write-raises` and the others: small, and each the fix of an existing error; with the messages of item 2 from the checker, Diagnostics 6.
-7. The changes of ulang 3 to 6, at any time, each making step 6 smaller.
-8. Signature changes and datatype changes beyond `@put`, if the follow-ups prove too many: `tuple-to-record`, `introduce-alias`, `function-to-procedure`.
-9. `move`.
-10. Rewrites by pattern, shared with lint.
-11. `extract-procedure`, `to-case`, as needs show.
+1. `--dry` with its check, Open items 1, which needs the overlays of `load_file`.
+2. `@example` and the handles of the lines of a spec, Open items 4.
+3. `resolve`, `sig`, `names`: the other queries of Diagnostics 3, by position on the checked program.
+4. The record of resolutions, Changes to ulang 1, then `@rename` and `@refs` of fields, types, and locals (Open items 3); then of modules with docs.
+5. The mechanical follow-ups, the hints of fragments with `@retry`, `expand-wildcard`, and the fixes of errors in `@fix`, `write-raises` and the others: small, and each the fix of an existing error; with the messages of item 2 from the checker, Diagnostics 6.
+6. The changes of ulang 3 to 6, at any time, each making step 5 smaller.
+7. Signature changes and datatype changes beyond `@put`, if the follow-ups prove too many: `tuple-to-record`, `introduce-alias`, `function-to-procedure`.
+8. `move`.
+9. Rewrites by pattern, shared with lint.
+10. `extract-procedure`, `to-case`, as needs show.
 
 Each operation has tests in `ulang/refactor/test/`, scripts on files before and after, which run only compiled, and its refusals there too.
