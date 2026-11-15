@@ -312,8 +312,9 @@ data Mod :=
 data Comment :=
   case Comment(pos: Pos, text: Str, own_line: Bool, blank_after: Bool, next: Pos, next_word: Str)
 
-// the files with sections of a directory, other than project.u, which see each other's exports and notations without
-// imports, known by the directory from the root, "" for the root, and prelude for the library
+// the .u files of a directory, other than project.u, which see each other's exports and notations without imports,
+// known by the directory from the root, "" for the root, and prelude for the library, so that the id of a package is the
+// directory of each of its members, module_dir, as the loaders name them
 data Package :=
   case Package(id: Id, members: List[Id])
 
@@ -463,7 +464,7 @@ function library_name(module: Str, base: Id): Name
 function module_dir(id: Id): Str
 
 // the modules that d sees besides itself: the implicit imports, the members of the packages it imports, and the members
-// of the package of its directory, whose member it is or, for a program, not
+// of the package of its directory, whose member it is
 function seen_modules(d: Mod, packages: List[Package]): List[Id]
 
 function unplaced(cmds: List[Cmd]): List[At[Cmd]]

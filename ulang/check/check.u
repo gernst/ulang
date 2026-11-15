@@ -323,7 +323,6 @@ function foreign_names(): Map[Str, Str] :=
     "count" => "size",
     "print" => "os_println(in text)",
     "println" => "os_println(in text)",
-    "append" => "xs ++ ys",
     "concat" => "xs ++ ys",
     "toString" => "show",
     "to_string" => "show",
@@ -1652,7 +1651,7 @@ procedure map_state[A, B](
   var y: B, found: Buffer[B] := empty()
   for x in xs do
     step(in x, out y, ref s)
-    found := found ++ List(y)
+    found := append(found, y)
   end
   ys := List(for z in found)
 
@@ -4056,7 +4055,7 @@ procedure check_proof(
     let outer := s.at
     s := s with at := step.pos
     proof_step(in outs, step.that, out typed_step, ref env, s)
-    steps := steps ++ List(AOk(step.pos, step.span, typed_step)), s := s with at := outer
+    steps := append(steps, AOk(step.pos, step.span, typed_step)), s := s with at := outer
   end
   match proof.split
     case Some(placed) =>
@@ -4399,7 +4398,7 @@ procedure contract(
   for a in spec.pre do
     var b: At[Expr]
     check(in bind(ins ++ refs), a, TBool(), "the requires", out b, ref s)
-    pre := pre ++ List(b)
+    pre := append(pre, b)
   end
   match spec.post
     case Some(e) =>
@@ -4435,7 +4434,7 @@ procedure claim_proof(
         let outer := s.at
         s := s with at := step.pos
         check(in env, cond, TBool(), "the invariant", out c, ref s)
-        invariants := invariants ++ List(AOk(step.pos, step.span, StepInvariant(c))), s := s with at := outer
+        invariants := append(invariants, AOk(step.pos, step.span, StepInvariant(c))), s := s with at := outer
 
       // written has only invariants
       case _ =>
@@ -5132,7 +5131,7 @@ function in_main(main: Id, e: TypeError): TypeError :=
   end
 
 // the modules in the order of mods, where the members of a package, which follow each other, are checked together, and
-// a module of no package on its own
+// a module of no package, which only the fixtures of tests make, on its own
 function units(mods: List[Mod], packages: List[Package]): List[List[Mod]] :=
   match mods
     case List() =>

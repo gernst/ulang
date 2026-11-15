@@ -34,7 +34,7 @@ Each property has a definition, a formal handle, what ulang does, and what is op
 
 **In ulang.** Every variable is declared, by `let` if it is bound once and by `var` if it is assigned; the modes show at every call, `p(in a, out b, ref c)`; what a procedure raises is checked and, if exported, declared (`UndeclaredRaise`); no formal or local hides another (`HiddenLocal`); and there are no implicit conversions. The hooks `show`, `compare`, and `==` are the one convention that changes the meaning of a builtin from elsewhere, bounded by their fixed shape (`MisshapenHook`) and by their module being that of the datatype.
 
-**Open.** The effects of `os` (Later 1); the polymorphism over raised sets, without which a generic `retry` must fix what its argument raises (Checker 3); and the hooks of `compare`, which must agree with structural equality unchecked (`H1 HookAgreement` of `ideas/lint.md`).
+**Open.** The effects of `os` (Later 1) and the hooks of `compare`, which must agree with structural equality unchecked (`H1 HookAgreement` of `ideas/lint.md`).
 
 ### 2.3 Non-redundancy
 
@@ -112,7 +112,7 @@ The levers that a language or toolchain has for these properties, and where ulan
 
 | Lever | Properties | ulang |
 |---|---|---|
-| Effects in signatures | locality, explicitness | pure functions, modes, checked raises; `uses os` and raised sets open (Later 1, Checker 3) |
+| Effects in signatures | locality, explicitness | pure functions, modes, checked raises; `uses os` open (Later 1), no polymorphism over raised sets (`rejected.md`) |
 | Contracts as part of signatures | locality, failing loudly, grounding | contracts and claims of procedures; of functions open (Verification 1, `prove.md`) |
 | Canonical forms | uniformity, proportionality | one construct each, the format enforced by `check` |
 | Equivalence instead of identity of definitions | non-redundancy | the e-graph lints (`ideas/lint.md`), where Unison identifies definitions by the hash of their syntax |
