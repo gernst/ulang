@@ -413,6 +413,12 @@ function commands_of(cmds: List[At[Cmd]]): List[Cmd]
 // the errors of the parts of cmd, of those that do not parse and of those that a phase rejected, in the order of the source
 function part_errors(cmd: Cmd): List[Diagnostic]
 
+// the errors of the parts of cmd that generate no code, which a program leaves out: all of a lemma or a test, also of one
+// that does not parse, and those of the contract of a function or a procedure
+function code_free_errors(cmd: At[Cmd]): List[Diagnostic]
+
+function is_lemma_or_test(cmd: Cmd): Bool
+
 // the expressions of a claim, the assumptions and the conclusion, or the ins of the call
 function claim_exprs(claim: Claim): List[At[Expr]]
 
@@ -1283,6 +1289,73 @@ function part_errors(cmd: Cmd): List[Diagnostic] :=
 
     case CProcSig(_, _, _, _, _, _, spec) =>
       errors_in_spec(spec)
+
+    case CAbstract(_, _) =>
+      List()
+
+    case CPatAlias(_, _, _, _, _) =>
+      List()
+  end
+
+function code_free_errors(cmd: At[Cmd]): List[Diagnostic] :=
+  match cmd
+    case AUnparsed(_, _, text, error) =>
+      if starts_with(text, "lemma ") or starts_with(text, "test ") then
+        List(error)
+      else
+        List()
+
+    case AOk(_, _, that) =>
+      if is_lemma_or_test(that) then
+        part_errors(that)
+      else
+        code_free_parts(that)
+
+    case AErr(_, _, that, _) =>
+      if is_lemma_or_test(that) then cmd_errors(cmd) else code_free_parts(that)
+  end
+
+function is_lemma_or_test(cmd: Cmd): Bool :=
+  match cmd
+    case CLemma(_, _, _, _, _, _) =>
+      true
+
+    case CTest(_, _, _) =>
+      true
+
+    case _ =>
+      false
+  end
+
+// the errors of the contract of cmd, the parts of a definition that generate no code
+function code_free_parts(cmd: Cmd): List[Diagnostic] :=
+  match cmd
+    case CFun(_, _, _, _, spec, _) =>
+      errors_in_spec(spec)
+
+    case CProc(_, _, _, _, _, _, spec, _) =>
+      errors_in_spec(spec)
+
+    case CFunSig(_, _, _, _, spec) =>
+      errors_in_spec(spec)
+
+    case CProcSig(_, _, _, _, _, _, spec) =>
+      errors_in_spec(spec)
+
+    case CTest(_, _, _) =>
+      List()
+
+    case CLemma(_, _, _, _, _, _) =>
+      List()
+
+    case CSort(_, _, _) =>
+      List()
+
+    case CData(_, _, _) =>
+      List()
+
+    case CNotation(_, _, _) =>
+      List()
 
     case CAbstract(_, _) =>
       List()
