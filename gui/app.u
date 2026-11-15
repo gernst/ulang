@@ -1,0 +1,74 @@
+// a program of a window in the architecture of Elm: a model, a pure update by the events of the program, and a pure
+// view, run in a window of window.u of the library, which takes the lines of patches and gives the lines of events
+
+export
+
+data App[M, E] :=
+  case App(title: Str, init: M, update: (E, M) -> M, view: M -> Widget[E])
+
+data GuiError :=
+  case GuiError(message: Str)
+
+// the model after the events, as the window would have it after them
+function simulate[M, E](app: App[M, E], events: List[E]): M
+
+// runs the app in a window of its own until the window closes
+procedure gui_run[M, E](in app: App[M, E]) raises GuiError, OsError
+
+implementation
+
+function simulate[M, E](app: App[M, E], events: List[E]): M :=
+  foldl(events, app.init, lambda model, event => app.update(event, model))
+
+procedure gui_run[M, E](in app: App[M, E]) raises GuiError, OsError :=
+  var window
+  window_open(in app.title, 360, 240, out window)
+  serve(in app, window)
+  window_close(in window)
+
+procedure serve[M, E](
+  in  app: App[M, E],
+      window: Window
+) raises GuiError, OsError :=
+  var tree := app.view(app.init)
+  require_fitting(in tree)
+  let (ops, first_placed, first_next) := create(0, 0, skeleton(tree), 1)
+  send(in window, List(OTitle(app.title); ops))
+  var model := app.init, placed := first_placed, next := first_next, open := true
+  while open do
+    var text
+    window_next(in window, out text)
+    match decode(text)
+      case Some(EClose) =>
+        open := false
+
+      case Some(event) =>
+        match handle(tree, placed, event)
+          case Some(e) =>
+            let updated := app.update(e, model)
+            let view := app.view(updated)
+            require_fitting(in view)
+            let (patches, now_placed, now_next) := diff(placed, skeleton(view), next)
+            send(in window, patches)
+            model := updated, tree := view, placed := now_placed, next := now_next
+
+          // of a widget that the last patches removed
+          case None =>
+            skip
+        end
+
+      case None =>
+        raise GuiError("the window sent " ++ text)
+    end
+  end
+
+procedure require_fitting[E](in w: Widget[E]) raises GuiError :=
+  match misplaced(w)
+    case List() =>
+      skip
+    case wrong =>
+      raise GuiError("attributes that their widgets lack: " ++ join(", ", wrong))
+  end
+
+procedure send(in window: Window, ops: List[Op]) raises OsError :=
+  window_apply(in window, join("", List(for op in ops yield encode(op) ++ "\n")))

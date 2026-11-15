@@ -1835,3 +1835,5 @@ static u_value show_listener(u_value v) {
 const struct u_type u_io_type = {"io.IO", compare_streams, u_equals_by_compare, show_stream};
 const struct u_type u_socket_type = {"io.IO", compare_streams, u_equals_by_compare, show_stream};
 const struct u_type u_listener_type = {"io.Listener", compare_streams, u_equals_by_compare, show_listener};
+
+#include "window.c"

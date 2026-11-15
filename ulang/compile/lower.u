@@ -158,7 +158,7 @@ function proc_name(n: Name): Str :=
   if is_native(n) then "p_" ++ n.base else "p_" ++ mangle(n)
 
 function is_native(n: Name): Bool :=
-  (n.path == library_module("os") or n.path == library_module("io")) and contains(n.base, native_procs())
+  (n.path == library_module("os") or n.path == library_module("io") or n.path == library_module("window")) and contains(n.base, native_procs())
 
 function native_procs(): Set[Id] :=
   Set(
@@ -193,7 +193,12 @@ function native_procs(): Set[Id] :=
     "io_listen",
     "io_accept",
     "io_port",
-    "io_close_listener")
+    "io_close_listener",
+    "window_open",
+    "window_apply",
+    "window_next",
+    "window_shot",
+    "window_close")
 
 function builtin_functions(): Map[Name, (Str, Int)] :=
   Map(
