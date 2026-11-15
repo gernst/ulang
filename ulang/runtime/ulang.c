@@ -1068,11 +1068,15 @@ void u_fail_text(const char *format, u_value text) {
 
 static struct u_handler *handlers = NULL;
 
-struct u_handler *u_push(void) {
-  struct u_handler *h = GC_MALLOC(sizeof(struct u_handler));
+struct u_handler *u_push_saved(int n) {
+  struct u_handler *h = GC_MALLOC(sizeof(struct u_handler) + (size_t)n * sizeof(u_value));
   h->next = handlers;
   handlers = h;
   return h;
+}
+
+struct u_handler *u_push(void) {
+  return u_push_saved(0);
 }
 
 struct u_handler *u_push_cache(u_value *cache) {

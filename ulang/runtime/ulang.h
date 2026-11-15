@@ -246,6 +246,9 @@ struct u_handler {
   u_value value;
   const char *type;
   u_value *cache;
+  // the variables that the body of the try assigns, as before it, which its handlers restore, kept here and not in locals
+  // of the function of the try, whose copies clang -O2 and gcc -O3 drop
+  u_value saved[];
 };
 
 void u_args(int argc, char **argv);
@@ -289,6 +292,7 @@ u_value u_io_path(u_value io);
 
 
 struct u_handler *u_push(void);
+struct u_handler *u_push_saved(int n);
 struct u_handler *u_push_cache(u_value *cache);
 void u_pop(struct u_handler *h);
 int u_has_type(struct u_handler *h, const char *type);
