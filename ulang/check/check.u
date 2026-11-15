@@ -581,7 +581,7 @@ function is_hook(f: Name, k: Int): Bool :=
 function proc_scheme(sig: Sig, p: Name): Scheme :=
   match proc_of(sig, p)
     case Some(proc) =>
-      Scheme(proc.params, TProc(proc.ins, proc.outs, proc.refs, RUnknown(0)))
+      Scheme(proc.params, TProc(proc.ins, proc.outs, proc.refs, RPending))
     case None =>
       Scheme(List(), THole)
   end
@@ -1408,7 +1408,7 @@ procedure unify_toward(in d: Direction, t: Type, t_: Type, ref s: State) :=
   end
 
 // the raises r and r_ of the procedure types t and t_ relate in the direction d, where two sets are compared at once,
-// and the other pairs are bounds, which the raises pass checks, while RUnknown(0) is the raises of the type of a call,
+// and the other pairs are bounds, which the raises pass checks, while RPending is the raises of the type of a call,
 // which take none
 procedure unify_raises(
   in  d: Direction,
@@ -1419,10 +1419,10 @@ procedure unify_raises(
   ref s: State
 ) :=
   match (r, r_)
-    case (RUnknown(0), _) =>
+    case (RPending, _) =>
       skip
 
-    case (_, RUnknown(0)) =>
+    case (_, RPending) =>
       skip
 
     case (RSet(names), RSet(names_)) =>
@@ -1514,7 +1514,7 @@ procedure instantiate(in sc: Scheme, out t: Type, ref s: State) :=
   var m: List[Type * Type]
   instance(in sc.params, out m, ref s)
   match subst(zonk_type(s.sub, sc.typ), m)
-    case TProc(ins, outs, refs, RUnknown(0)) =>
+    case TProc(ins, outs, refs, RPending) =>
       var r: Raises
       fresh_raises(out r, ref s)
       t := TProc(ins, outs, refs, r)
@@ -3723,7 +3723,7 @@ procedure call_variable(
   fresh_list(in ins, out is, ref s)
   fresh_list(in outs, out os, ref s)
   fresh_list(in refs, out rs, ref s)
-  unify(in typ, TProc(is, os, rs, RUnknown(0)), ref s)
+  unify(in typ, TProc(is, os, rs, RPending), ref s)
   unique(in "out or ref", List(for y in outs ++ refs yield y.name), ref s)
   checks(in env, "procedure " ++ p.base, ins, is, out typed_ins, ref s)
   variables(in env, assignable, outs, out typed_outs, ref s)
@@ -3770,7 +3770,7 @@ procedure overloaded_call(
   infers(in env, ins, out typed_ins, is, ref s)
   variables(in env, assignable, outs, out typed_outs, ref s)
   variables(in env, assignable, refs, out typed_refs, ref s)
-  choose(in p, List(for q in qs yield (q, proc_scheme(s.sig, q))), TProc(is, List(for x in typed_outs yield x.typ), List(for x in typed_refs yield x.typ), RUnknown(0)), out m, ref s)
+  choose(in p, List(for q in qs yield (q, proc_scheme(s.sig, q))), TProc(is, List(for x in typed_outs yield x.typ), List(for x in typed_refs yield x.typ), RPending), out m, ref s)
   stmt := SCall(m, typed_ins, typed_outs, typed_refs)
 
 procedure declared_call(
