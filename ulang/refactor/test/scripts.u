@@ -55,3 +55,19 @@ test handles() :=
 
 procedure nothing_found(in file: Str, out found: List[Str * Diagnostic]) :=
   found := List()
+
+// @rename renames a function at its signature, definition, and examples and its uses in the members of its package, by
+// resolution, so that a local of the old name keeps it, and refuses a new name that a local would capture
+test renames() :=
+  var reply: List[Str], status: Int, text: Str, other: Str
+  let state := "out/test/refactor/renames", dir := "out/test/refactor/renames/p"
+  os_write_utf8(in os_join(dir, "a.u"), "export\n\nfunction f(x: Int): Int :=\n  example f(1) == 2\n\nimplementation\n\nfunction f(x: Int): Int :=\n  x + 1\n")
+  os_write_utf8(in os_join(dir, "b.u"), "function g(y: Int): Int :=\n  let f := 1 in\n  f + y\n\nfunction h(y: Int): Int :=\n  f(y)\n")
+  run_script(in "@rename " ++ dir ++ "/a.u:f y", false, state, nothing_found, out reply, status)
+  assert status == 1 and take(1, reply) == List("rejected")
+  run_script(in "@rename " ++ dir ++ "/a.u:f next", false, state, nothing_found, out reply, status)
+  os_read_utf8(in os_join(dir, "a.u"), out text)
+  os_read_utf8(in os_join(dir, "b.u"), out other)
+  assert status == 0
+  assert text == "export\n\nfunction next(x: Int): Int :=\n  example next(1) == 2\n\nimplementation\n\nfunction next(x: Int): Int :=\n  x + 1\n"
+  assert other == "function g(y: Int): Int :=\n  let f := 1 in\n  f + y\n\nfunction h(y: Int): Int :=\n  next(y)\n"

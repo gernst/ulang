@@ -6,6 +6,7 @@
 import "ulang/syntax"
 import "ulang/format"
 import "ulang/parse"
+import "ulang/check"
 
 export
 
@@ -51,10 +52,10 @@ data Range :=
   case Range(first: Int, last: Int)
 
 // what the actions of a script have done so far: the texts of the files they edited, the lines of the reply, the files
-// to check at the end, the table of handles, the scripts of the journal that the script undoes, and the directory of the
-// state
+// to check at the end, the table of handles, the scripts of the journal that the script undoes, the directory of the
+// state, and the files whose uses must resolve after the writes to the names given, in order, else the script is undone
 data Edits :=
-  case Edits(files: Map[Str, Str], notes: Buffer[Str], checked: List[Str], handles: Handles, undone: List[Int], state: Str)
+  case Edits(files: Map[Str, Str], notes: Buffer[Str], checked: List[Str], handles: Handles, undone: List[Int], state: Str, expected: List[Str * List[Name]])
 
 // the handles that the scripts so far have shown, kept in out/refactor/handles.txt of the root, the next number, and
 // whether the script changed it
@@ -383,6 +384,12 @@ procedure perform(in action: Action, ref edits: Edits) raises Refused, OsError :
     case List("undo", word) =>
       undo(in Some(word), ref edits)
 
+    case List("rename", word, new) =>
+      if edits.files != Map() then
+        raise Refused("@rename stands alone in its script, since it compares the resolutions of the files on disk")
+      end
+      rename(in word, new, ref edits)
+
     case List("check") =>
       skip
 
@@ -390,7 +397,7 @@ procedure perform(in action: Action, ref edits: Edits) raises Refused, OsError :
       edits := edits with checked := edits.checked ++ List(path)
 
     case _ =>
-      let actions := "@show T, @put F, @put [before|after|into] #h, @drop T, @patch T, @undo [n], @check [F]"
+      let actions := "@show T, @put F, @put [before|after|into] #h, @drop T, @patch T, @rename T new, @undo [n], @check [F]"
       raise Refused("line " ++ show(action.line) ++ ": unknown action @" ++ join(" ", action.words) ++ ", which is one of " ++ actions)
   end
 
@@ -1085,8 +1092,11 @@ procedure run_script(
     var handles: Handles
     let dir := state
     load_handles(in dir, out handles)
-    var edits := Edits(Map(), empty(), List(), handles, List(), state)
+    var edits := Edits(Map(), empty(), List(), handles, List(), state, List())
     for action in actions(script) do
+      if edits.expected != List() then
+        raise Refused("@rename stands alone in its script, since it compares the resolutions of the files on disk")
+      end
       perform(in action, ref edits)
     end
     if edits.handles.changed then
@@ -1112,6 +1122,20 @@ procedure run_script(
       end
       for c in changes do
         os_write_utf8(in c.path, c.after)
+      end
+      var differences: List[Str] := List(), uses: List[Span * Name * Int]
+      for (path, names) in edits.expected do
+        resolutions(in path, out uses)
+        for difference in first_difference(List(for (_, name, _) in uses yield name), names) do
+          differences := differences ++ List(path ++ ": a use of " ++ difference)
+        end
+      end
+      if differences != List() then
+        for c in changes do
+          os_write_utf8(in c.path, c.before)
+        end
+        raise Refused(join("\n", List(
+          "the edit changes the resolution of other names, so nothing is written:") ++ differences))
       end
       journal_numbers(in dir, out done, undone, undos)
       let number := foldl(done, 0, max) + 1
@@ -1150,6 +1174,235 @@ procedure run_script(
       reply := List("rejected", message), status := 1
     case OsError(message) =>
       reply := List("rejected", message), status := 1
+  end
+
+// the first name of found that is not the one of expected, as a text
+function first_difference(found: List[Name], expected: List[Name]): Option[Str] :=
+  example first_difference(List(Name(Some("m"), "f")), List(Name(Some("m"), "g"))) == Some("m.g resolves to m.f")
+  match (found, expected)
+    case (List(n; rest), List(e; more)) =>
+      if n == e then
+        first_difference(rest, more)
+      else
+        Some(format_name(e) ++ " resolves to " ++ format_name(n))
+
+    case (List(), List()) =>
+      None
+
+    case (List(n; _), List()) =>
+      Some(format_name(n) ++ " is new")
+
+    case (List(), List(e; _)) =>
+      Some(format_name(e) ++ " is gone")
+  end
+
+// the uses of names in the main module of the file at path, as the checker resolves them, in the order of their spans,
+// each over the span that writes it, with the number of formals of its type at the use (hints of ulang/check/hints.u)
+procedure resolutions(
+  in  path: Str,
+  out uses: List[Span * Name * Int]
+) raises Refused, OsError :=
+  var q: Prog, text: Str
+  os_read_utf8(in path, out text)
+  try
+    var source: Source
+    parse_file_text(in path, text, out source)
+    if has_errors(source) then
+      var errors: List[TypeError]
+      check_partial(in without_unparsed(source), unparsed_names(source), no_tests, out q, errors)
+    else
+      var errors: List[TypeError]
+      check_all(in source, no_tests, out q, errors)
+    end
+  catch
+    case ParseError(message, _) =>
+      raise Refused(path ++ ": " ++ message)
+
+    case e =>
+      raise Refused(path ++ ": " ++ parse_diagnostic(e).message)
+
+    case e =>
+      raise Refused(path ++ ": " ++ internal_message(e))
+  end
+  uses := List(for h in hints(text, q) for use in use_of(h) yield use)
+
+function use_of(h: Hint): Option[Span * Name * Int] :=
+  match h
+    case HUse(span, name, typ) =>
+      Some((span, name, arity_of(typ)))
+    case _ =>
+      None
+  end
+
+// the .u files below dir, without hidden directories and those named out, as check walks them
+procedure source_files(in dir: Str, out files: List[Str]) :=
+  var entries: List[Str * Bool] := List(), below: List[Str]
+  try
+    os_list(in dir, out entries)
+  catch
+    case OsError(_) =>
+      entries := List()
+  end
+  files := List()
+  for (name, is_dir) in entries if not starts_with(name, ".") do
+    let path := if dir == "." then name else os_join(dir, name)
+    if is_dir and name != "out" then
+      source_files(in path, out below)
+      files := files ++ below
+    else
+      if not is_dir and ends_with(name, ".u") and name != "project.u" then
+        files := files ++ List(path)
+      end
+    end
+  end
+
+function is_name_char(c: Char): Bool :=
+  is_letter(c) or is_digit(c) or c == '_'
+
+function is_plain_name(name: Str): Bool :=
+  match chars(name)
+    case List(c; rest) =>
+      (is_letter(c) or c == '_') and forall(rest, is_name_char)
+    case List() =>
+      false
+  end
+
+// line with each occurrence of name as a whole word replaced by new
+function with_word(line: Str, name: Str, new: Str): Str :=
+  example with_word("f(x) + ff(f)", "f", "g") == "g(x) + ff(g)"
+  let starts := List(for i in occurrences(line, name) if is_word_at(line, i, size(name)) yield i) in
+  foldl(reverse(starts), line, lambda acc, i => slice(acc, 0, i) ++ new ++ slice(acc, i + size(name), size(acc)))
+
+function is_word_at(line: Str, i: Int, n: Int): Bool :=
+  (i == 0 or not is_name_char(at(i - 1, line))) and (i + n >= size(line) or not is_name_char(at(i + n, line)))
+
+// line with name at each of cols, from 1, replaced by new, where name stands there
+function at_cols(line: Str, cols: List[Int], name: Str, new: Str): Str :=
+  foldl(reverse(sort(cols)), line, lambda acc, col => if slice(acc, col - 1, col - 1 + size(name)) == name then
+    slice(acc, 0, col - 1) ++ new ++ slice(acc, col - 1 + size(name), size(acc))
+  else
+    acc)
+
+// the number of formals of a function or constructor of type typ, or of a procedure
+function arity_of(typ: Type): Int :=
+  match typ
+    case TFun(args, _) =>
+      size(args)
+
+    case TProc(ins, outs, refs, _) =>
+      size(ins) + size(outs) + size(refs)
+
+    case _ =>
+      0
+  end
+
+// renames the function, procedure, pattern alias, or constructor of the target, a declaration file.u:name[/arity], at
+// its declarations and the examples on them, and at every use that resolves to it in the files of the project and of
+// its package that contain the name, which must resolve after the writes as before but for the new name, else the script is undone
+procedure rename(
+  in  word: Str,
+      new: Str,
+  ref edits: Edits
+) raises Refused, OsError :=
+  var text: Str, source: Source, here: Str, root: Str, files: List[Str], uses: List[Span * Name * Int]
+  let (path, chosen, arity) := target_of(word)
+  let base := value_or(chosen, "")
+  if not is_plain_name(base) or not is_plain_name(new) then
+    raise Refused("@rename takes a declaration file.u:name of a plain name and a plain name, not " ++ word ++ " and " ++ new)
+  end
+  current_text(in path, edits.files, out text)
+  parsed(in path, text, no_fragment(), out source)
+  let d := main_mod(source), lines := Array(for line in split(text, '\n'))
+  let decls := List(for (key, cmd, c) in keyed(placed_of(d)) if key.kind == "value" and is_selected(key, base, arity) yield (key, cmd, c))
+  let constrs := List(for (_, cmd, c) in keyed(placed_of(d)) for constr in constrs_of(c) if constr_name(constr) == base yield (cmd, constr))
+  let arities := distinct(List(for (key, _, _) in decls yield key.arity) ++ List(for (_, constr) in constrs yield constr_arity(constr)))
+  match arities
+    case List(_) =>
+      skip
+
+    case List() =>
+      raise Refused(path ++ " declares no function, procedure, pattern alias, or constructor " ++ base ++ ", and types and fields are not renamed yet")
+
+    case _ =>
+      raise Refused(path ++ " declares " ++ base ++ " of several arities, so name one, " ++ base ++ "/n")
+  end
+  let n := value_or(get_at(0, arities), 0)
+  let members := List(for m in source.mods if is_member(source, d.name, m.name) for cmd in placed_of(m) yield cmd)
+  let clashes := exists(keyed(members), lambda (key, _, c) => key.kind == "value" and key.base == new and key.arity == n or exists(constrs_of(c), lambda constr => constr_name(constr) == new))
+  if clashes then
+    raise Refused("the package of " ++ path ++ " already declares " ++ new ++ "/" ++ show(n))
+  end
+  let target := Name(Some(d.name), base), renamed := Name(Some(d.name), new)
+  os_cwd(out here)
+  project_root(in here, out root)
+  var own: List[Str]
+  source_files(in if root == here then "." else root, out files)
+  source_files(in os_dirname(path), out own)
+  files := distinct(List(for file in own if not contains(file, files) and not contains("./" ++ file, files)) ++ files)
+  var count := 0, touched := 0
+  var expected: List[Str * List[Name]] := List()
+  for file in files do
+    var file_text: Str
+    os_read_utf8(in file, out file_text)
+    if size(occurrences(file_text, base)) > 0 or size(occurrences(file_text, new)) > 0 then
+      resolutions(in file, out uses)
+      let hits := List(for (span, name, k) in uses if name == target and k == n yield span)
+      expected := expected ++ List(
+        (file, List(for (_, name, k) in uses yield if name == target and k == n then renamed else name)))
+      let file_lines := Array(for line in split(file_text, '\n'))
+      var edited := List(for line in file_lines)
+      if file == path or file == "./" ++ path then
+        edited := declared(lines, decls, constrs, base, new)
+      end
+      edited := List(for (line, i) in numbered(edited) yield at_cols(line, List(for span in hits if span.start.line == i + 1 yield span.start.col), base, new))
+      if hits != List() or file == path then
+        var result: Str, formatted_source: Source
+        formatted(in file, join("\n", edited), no_fragment(), out result, formatted_source)
+        edits := edits with files := Map(file => result; edits.files)
+        count := count + size(hits), touched := touched + 1
+      end
+    end
+  end
+  edits := edits with expected := expected
+  note(in "renamed " ++ format_name(target) ++ " to " ++ new ++ ": " ++ show(count) ++ " uses in " ++ show(touched) ++ " files", ref edits)
+
+// the lines of the file whose declarations of base are decls and constrs, with new at the name of each and in the
+// examples on them
+function declared(lines: Array[Str], decls: List[Key * At[Cmd] * Cmd], constrs: List[At[Cmd] * At[Constr]], base: Str, new: Str): List[Str] :=
+  let heads := List(for (_, cmd, _) in decls yield cmd.span.start.line) in
+  let specs := List(for (_, cmd, _) in decls for i in range(cmd.span.start.line, tail_end(lines, cmd.span.stop.line) + 1) if starts_with(str(drop_spaces(chars(line_at(lines, i)))), "example ") yield i) in
+  let cases := List(for (_, constr) in constrs yield constr.span.start.line) in
+  List(for i in range(1, size(lines) + 1) yield if contains(i, heads) or contains(i, specs) or contains(i, cases) then
+    with_word(line_at(lines, i), base, new)
+  else
+    line_at(lines, i))
+
+// whether the module other is main or a member of its package
+function is_member(source: Source, main: Id, other: Id): Bool :=
+  main == other or exists(source.packages, lambda p => contains(main, p.members) and contains(other, p.members))
+
+function constrs_of(cmd: Cmd): List[At[Constr]] :=
+  match cmd
+    case CData(_, _, constrs) =>
+      constrs
+    case _ =>
+      List()
+  end
+
+function constr_name(constr: At[Constr]): Str :=
+  match constr
+    case AOk(_, _, Constr(name, _)) =>
+      name.base
+    case _ =>
+      ""
+  end
+
+function constr_arity(constr: At[Constr]): Int :=
+  match constr
+    case AOk(_, _, Constr(_, fields)) =>
+      size(fields)
+    case _ =>
+      0
   end
 
 // whether two diagnostics are the same but for their positions, which edits move
