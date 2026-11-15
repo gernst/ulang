@@ -27,7 +27,7 @@ CC = clang
 endif
 CFLAGS = -O2 -std=c11 -Wall -Wno-unused-variable -Wno-unused-function -I ulang/runtime -DULANG_LIB='"$(CURDIR)/ulang/prelude"'
 LIBS = -lgmp -lgc
-RUNTIME = ulang/runtime/ulang.c ulang/runtime/ulang.h
+RUNTIME = ulang/runtime/ulang.c ulang/runtime/ulang.h ulang/runtime/window.c
 SOURCES = $(wildcard ulang/*.u ulang/*/*.u)
 
 # each binary is run by a copy of bootstrap/ulang.sh next to it, of the same name, which gives it the large stack that the

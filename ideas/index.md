@@ -25,3 +25,4 @@ Plans of work in progress, each deleted when its work is done:
 - `ideas/prove.md`: the prover, its proofs, and contracts
 - `ideas/lint.md`: the rules of lints that need the e-graph of the prover
 - `ideas/refactor.md`: the open items of the command `refactor`, from its uses and its design, with what working on them needs (Diagnostics 4)
+- `ideas/gui.md`: graphical interfaces over GTK 4, functional on the side of ulang in the architecture of Elm, tried out in `gui/`
