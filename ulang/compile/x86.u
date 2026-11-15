@@ -6,6 +6,7 @@
 import "ulang/syntax"
 import "ulang/format"
 import "ulang/check"
+import "ulang/expand"
 
 export
 
@@ -622,13 +623,10 @@ procedure compile_expr(in defs: Defs, env: Slots, expr: At[Expr], ref e: Emit) :
       compile_args(in defs, env, List(fun; args), out all, ref e)
       call_runtime(in "u_apply", take(1, all) ++ List(AVal(OImm(size(args)))) ++ drop(1, all), ref e)
 
-    // the checker makes the formals variables
     case ELam(formals, body) =>
-      match pattern_vars(formals)
-        case Some(xs) =>
-          compile_lambda(in defs, env, xs, body, ref e)
-        case None =>
-          raise Unexpected("lambda of patterns")
+      match expanded_lambda(expr.pos, expr.span, formals, body)
+        case (xs, b) =>
+          compile_lambda(in defs, env, xs, b, ref e)
       end
 
     case EProc(ins, outs, refs, _, stmt) =>

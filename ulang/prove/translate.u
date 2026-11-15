@@ -5,6 +5,7 @@
 
 import "ulang/syntax"
 import "ulang/check"
+import "ulang/expand"
 
 export
 
@@ -525,8 +526,8 @@ function term_of(env: List[Name], expr: At[Expr]): Term :=
       EApp(f, terms)
 
     case ELam(formals, body) =>
-      let xs := lambda_vars(formals) in
-      let inner := term_of(bind(xs, env), body) in
+      let (xs, b) := expanded_lambda(expr.pos, expr.span, formals, body) in
+      let inner := term_of(bind(xs, env), b) in
       ELam(xs, inner)
 
     case ELet(bindings, body) =>

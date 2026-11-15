@@ -5,6 +5,7 @@
 import "ulang/syntax"
 import "ulang/format"
 import "ulang/check"
+import "ulang/expand"
 
 export
 
@@ -417,13 +418,10 @@ procedure evaluate(
     case EFor(form, _, _, _) =>
       raise UntranslatedForm(form_name(form))
 
-    // the checker makes the formals variables
     case ELam(formals, body) =>
-      match pattern_vars(formals)
-        case Some(xs) =>
-          v := VFunClos(env, xs, body)
-        case None =>
-          raise Unexpected("lambda of patterns")
+      match expanded_lambda(expr.pos, expr.span, formals, body)
+        case (xs, b) =>
+          v := VFunClos(env, xs, b)
       end
 
     case EProc(ins, outs, refs, _, stmt) =>

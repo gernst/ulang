@@ -466,8 +466,6 @@ function implicit_elem(form: Form, gens: List[Gen]): Option[Yield]
 
 function form_name(form: Form): Id
 
-function lambda_vars(formals: List[At[Pat]]): List[Var]
-
 // a lambda of the variables xs, placed at pos
 function lambda_of(pos: Pos, span: Span, xs: List[Var], body: At[Expr]): Expr
 
@@ -828,10 +826,6 @@ function seen_modules(d: Mod, packages: List[Package]): List[Id] :=
 // commands without positions, as programs that are not parsed have them
 function unplaced(cmds: List[Cmd]): List[At[Cmd]] :=
   List(for c in cmds yield nowhere(c))
-
-// the variables of the formals of a checked lambda, which the checker makes variables
-function lambda_vars(formals: List[At[Pat]]): List[Var] :=
-  value_or(pattern_vars(formals), List())
 
 function lambda_of(pos: Pos, span: Span, xs: List[Var], body: At[Expr]): Expr :=
   ELam(List(for x in xs yield AOk(pos, span, PVar(x))), body)

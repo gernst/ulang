@@ -2141,7 +2141,18 @@ procedure infer_node(
           res := ELam(List(for (p, x) in zip(bound, xs) yield AOk(p.pos, p.span, PVar(x))), b), typ := TFun(List(for x in xs yield x.typ), u)
 
         case None =>
-          translated(in env, AOk(pos, span, lambda_match(s, pos, span, pats, body)), expected, out res, typ, ref s)
+          var ts: List[Type]
+          fresh_list(in pats, out ts, ref s)
+          match expected
+            case Some((t, what)) =>
+              var u: Type
+              lambda_patterns(in env, pats, ts, body, out res, u, ref s)
+              expect(in pos, what, t, u, ref s)
+              typ := t
+
+            case None =>
+              lambda_patterns(in env, pats, ts, body, out res, typ, ref s)
+          end
       end
 
     // the body sees the variables around it, but assigns only the outs and refs of the lambda, and its loops are its
@@ -2891,11 +2902,76 @@ procedure infers_first(
     typed_exprs := typed_exprs ++ List(typed_expr), ts := ts ++ List(t)
   end
 
-// lambda x, p => e with a pattern p that is no variable is lambda x, (1) => match (1) case p => e end, with formals that
-// users cannot write for the patterns, which are matched in the body as the formals of folds are
-function lambda_match(s: State, pos: Pos, span: Span, pats: List[At[Pat]], body: At[Expr]): Expr :=
-  let xs := List(for (p, i) in numbered(pats) yield formal_of(s, p, "(" ++ show(i) ++ ")", THole)) in
-  ELam(List(for (p, x) in zip(pats, xs) yield formal_at(p, x)), matched(s, pos, span, zip(xs, pats), body))
+// a lambda x, p => e of the formal types ts, with a pattern p that is no variable, whose variables e sees as those of a
+// case, checked for exhaustiveness as the pattern of a let, where the checked lambda keeps p, annotated by its type,
+// which the expansion of ulang/expand/expand.u matches against a formal of that type
+procedure lambda_patterns(
+  in  env: Env,
+      pats: List[At[Pat]],
+      ts: List[Type],
+      body: At[Expr],
+  out res: Expr,
+      typ: Type,
+  ref s: State
+) :=
+  var xs: List[Var], ys: List[Var] := List(), typed_pats: List[At[Pat]] := List(), b: At[Expr], u: Type
+  formals(in "formal", List(for (p, t) in zip(pats, ts) if is_pvar(s, p) for x in formal_var(p, t) yield x), out xs, ref s)
+  unhidden(in env, xs, ref s)
+  for (p, t) in zip(pats, ts) if not is_pvar(s, p) do
+    var typed_pat: At[Pat], zs: List[Var]
+    binders(in p, t, out typed_pat, zs, ref s)
+    typed_pats := typed_pats ++ List(AOk(p.pos, p.span, PAnnotated(typed_pat, t))), ys := ys ++ zs
+  end
+  unique(in "pattern variable", List(for y in ys yield y.name), ref s)
+  unhidden(in bind(xs) ++ env, ys, ref s)
+  infer(in bind(ys) ++ bind(xs) ++ env, body, out b, u, ref s)
+  solve(ref s)
+  for (p, typed_pat) in zip(List(for p in pats if not is_pvar(s, p)), typed_pats) do
+    match typed_pat.that
+      case PAnnotated(inner, t) =>
+        coverage(in t, List((inner, true)), List(p), ref s)
+      case _ =>
+        skip
+    end
+  end
+  let checked := lambda_formals(s, pats, xs, typed_pats)
+  res := ELam(checked, b), typ := TFun(List(for p in checked yield formal_type(p.that)), u)
+
+// the checked formals of pats, where xs are those that are variables and typed_pats the others, in their order
+function lambda_formals(s: State, pats: List[At[Pat]], xs: List[Var], typed_pats: List[At[Pat]]): List[At[Pat]] :=
+  match (pats, xs, typed_pats)
+    case (List(p; more), List(x; xs_), _) if is_pvar(s, p) =>
+      List(
+        AOk(p.pos, p.span, PVar(x)); lambda_formals(s, more, xs_, typed_pats))
+
+    case (List(_; more), _, List(q; qs)) =>
+      List(q; lambda_formals(s, more, xs, qs))
+
+    case _ =>
+      List()
+  end
+
+// the formal of a lambda that is the variable p, of the type t
+function formal_var(p: At[Pat], t: Type): List[At[Var]] :=
+  match p.that
+    case PVar(x) =>
+      List(AOk(p.pos, p.span, Var(x.name, t)))
+    case _ =>
+      List()
+  end
+
+// the type of a checked formal of a lambda, a variable or an annotated pattern
+function formal_type(pat: Pat): Type :=
+  match pat
+    case PVar(x) =>
+      x.typ
+
+    case PAnnotated(_, t) =>
+      t
+
+    case _ =>
+      THole
+  end
 
 // the formal x of a lambda that a translation makes, at the part p that it binds, the pattern that it names or the
 // container of a fold, so that a formal keeps the span of its pattern
@@ -2973,8 +3049,17 @@ procedure infer_lambda(
 ) :=
   var u: Type
   match (expr.that, zonk_type(s.sub, t))
+    case (ELam(formals, _), TFun(ps, _)) if size(ps) == size(formals) and variables_of(s, formals) != None =>
+      infer(in env, expr with that := typed_formals(expr.that, ps), out typed_expr, u, ref s)
+
     case (ELam(formals, body), TFun(ps, _)) if size(ps) == size(formals) =>
-      infer(in env, expr with that := typed_formals(lambda_match(s, expr.pos, expr.span, formals, body), ps), out typed_expr, u, ref s)
+      let outer := s.at, before := size(s.errors)
+      var x: Expr, errors: List[Diagnostic]
+      s := s with at := expr.pos
+      lambda_patterns(in env, formals, ps, body, out x, u, ref s)
+      take_errors(in expr.pos, before, out errors, ref s)
+      typed_expr := checked_at(expr.pos, expr.span, x, errors), s := s with at := outer
+
     case _ =>
       infer(in env, expr, out typed_expr, u, ref s)
   end

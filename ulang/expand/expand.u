@@ -1,0 +1,78 @@
+// the expansions of the constructs that the checked program of ulang/check/check.u keeps as the source wrote them, with
+// their names resolved and their types inferred, into the smaller language that the interpreter of ulang/run/run.u, the
+// compilers of ulang/compile/, and translate of ulang/prove/translate.u translate, each of which expands a construct
+// where it meets one
+
+import "ulang/syntax"
+
+export
+
+// the formals and the body of the lambda of variables that a lambda of formals at pos is, where a formal that is no
+// variable is a pattern annotated by its type t, as the checker keeps it, which the body matches against a formal of the
+// type t that users cannot write: lambda x, p => e is lambda x, (1) => match (1) case p => e end
+function expanded_lambda(pos: Pos, span: Span, formals: List[At[Pat]], body: At[Expr]): (List[Var], At[Expr])
+
+implementation
+
+function expanded_lambda(pos: Pos, span: Span, formals: List[At[Pat]], body: At[Expr]): (List[Var], At[Expr]) :=
+  match pattern_vars(formals)
+    case Some(xs) =>
+      (xs, body)
+
+    case None =>
+      let xs := List(for (p, i) in numbered(formals) yield formal_of(p, i)) in
+      (xs, matched_body(pos, span, List(for (p, x) in zip(formals, xs) for q in formal_pattern(p) yield (x, q)), body))
+  end
+
+// the variable of a formal that is one, else the formal (i) of the type of its pattern
+function formal_of(p: At[Pat], i: Int): Var :=
+  match p.that
+    case PVar(x) =>
+      x
+
+    case PAnnotated(_, t) =>
+      Var(unqualified("(" ++ show(i) ++ ")"), t)
+
+    case _ =>
+      Var(unqualified("(" ++ show(i) ++ ")"), THole)
+  end
+
+// the pattern of a formal that is no variable
+function formal_pattern(p: At[Pat]): List[At[Pat]] :=
+  match p.that
+    case PVar(_) =>
+      List()
+
+    case PAnnotated(inner, _) =>
+      List(inner)
+
+    case _ =>
+      List(p)
+  end
+
+// body under a match of the variables against the patterns of pairs, if there are any
+function matched_body(pos: Pos, span: Span, pairs: List[(Var, At[Pat])], body: At[Expr]): At[Expr] :=
+  match pairs
+    case List() =>
+      body
+
+    case _ =>
+      AOk(pos, span, EMatch(scrutinee(pos, span, firsts(pairs)), List(
+        AOk(pos, span, Branch(matched_pattern(pos, span, seconds(pairs)), None, body)))))
+  end
+
+function matched_pattern(pos: Pos, span: Span, pats: List[At[Pat]]): At[Pat] :=
+  match pats
+    case List(pat) =>
+      pat
+    case _ =>
+      AOk(pos, span, PTuple(pats))
+  end
+
+function scrutinee(pos: Pos, span: Span, xs: List[Var]): At[Expr] :=
+  match xs
+    case List(x) =>
+      AOk(pos, span, EVar(x))
+    case _ =>
+      AOk(pos, span, ETuple(List(for x in xs yield AOk(pos, span, EVar(x)))))
+  end
