@@ -185,7 +185,7 @@ The containers share names and the order of their arguments, the element or key 
 - `Option[A]` is `None` or `Some(value)`, with `or_else`, `value_or`, and `map_option`;
 - strings: `chars(s)` and `str(cs)`, `int(c)` and `chr(n)`, `slice(s, i, j)`, `split(s, c)`, `join(sep, strs)`, `lines`, `trim`, `starts_with`, `ends_with`, `index_of(part, s)`, `number(s)` as an option, `lower`, `upper`, and `is_digit`, `is_letter`, `is_space` of characters. A `Char` is a Unicode code point, which `size`, `at`, and `slice` count, and strings have no folds, so a loop over characters goes over `chars(s)`;
 - `Buffer[A]` collects the elements of a loop that adds at the end, `b := b ++ List(x)`, read out by `List(for x in b)`;
-- `Int` is unbounded; `/` and `%` raise `DivisionByZero`; `min`, `max`, `abs`, and `gcd`; `first` and `second` of pairs;
+- `Int` is unbounded, where compiled code allocates every `Int` outside -16 to 255; `/` and `%` raise `DivisionByZero`; `min`, `max`, `abs`, and `gcd`; `first` and `second` of pairs;
 - `compare(a, b)` is a total order of all values, `-1`, `0`, or `1`, which `<`, `<=`, `>`, and `>=` follow, and `==` compares structurally, also containers. A datatype may declare its own `compare`, `==`, or `show` in its module, which the builtins then use;
 - files and the system, procedures that raise `OsError`: `os_args(out args)`, `os_read_utf8(in path, out text)`, `os_write_utf8(in path, text)`, `os_read_bytes` and `os_write_bytes` of an `Array[Byte]`, `os_list`, `os_walk`, `os_cwd`, and `os_print(in text)`, `os_println`, `os_print_error`, `os_exit(in code)`; streams by `io_open`, `io_stdin`, `io_read_line`, `io_read_bytes`, `io_write_utf8`, and `io_close`, of the module `io`.
 

@@ -1,10 +1,10 @@
 # Refactor: scripted editing of ulang files by `ulang.sh`
 
-Suggestions. It extends Diagnostics 3 and 4 (resolution of names, refactorings) with the operations that the history of this repository shows agents doing by hand, and with what an agent needs from the command line to drive them. It takes in the second version of `edit-tool.md`, now removed, the design of an agent that wrote about 4,100 lines of ulang in another project on 12–13 November 2026: the interface of `refactor` is a script of seven actions that writes code by declaration and reports follow-ups as diagnostics with handles (Edit scripts, below), and the named operations of this file are actions that come later, where that loop proves too slow. When something here is decided, it goes into those items, and this file is deleted.
+The open items of the command `refactor`, from its uses, and the design that they come from, with the operations that the history of this repository shows agents doing by hand; the refactorings in general are Diagnostics 4, and the queries `resolve`, `refs`, `sig`, and `names` on the command line, with the record of resolutions behind them, Diagnostics 3. It takes in the second version of `edit-tool.md`, now removed, the design of an agent that wrote about 4,100 lines of ulang in another project on 12–13 November 2026: the interface of `refactor` is a script of actions that writes code by declaration and reports follow-ups as diagnostics with handles (Edit scripts, below), and the named operations of this file are actions that come later, where that loop proves too slow. What is built is described in Refactoring of `README.md`, and an item that is done is deleted here.
 
 ## Status
 
-Built, on `main` since `494eeff`, see Refactoring of `README.md`: `@show` with handles, `@put` of declarations, also of new modules, imports, and exports, and at handles (`before`, `after`, `into`), `@export` and `@unexport`, `@drop`, `@patch`, `@rename` of functions, procedures, pattern aliases, and constructors, several per script, `@fix` of the edits that the lints carry (step 4 of Order of implementation, but for `CollectingLoop`, which rewrites statements, and `SwallowedException`, whose fix is a choice), `@undo` with a journal, and `@check [test] [F]`, where the reply lists the diagnostics and lints that are new or gone in the files it checked. Open are the items below, then the rest of this file, which is the design that they come from.
+Built, on `main` since `494eeff`, see Refactoring of `README.md`: ten actions, `@show` with handles, `@put` of declarations, also of new modules, imports, and exports, and at handles (`before`, `after`, `into`), `@export` and `@unexport`, `@drop`, `@patch`, also of the signature and the definition of a declaration together, `@rename` of functions, procedures, pattern aliases, and constructors, several per script, `@fix` of the edits that the lints carry, but for `CollectingLoop`, which rewrites statements, and `SwallowedException`, whose fix is a choice, `@undo` with a journal, and `@check [test] [F]`, where the reply lists the diagnostics and lints that are new or gone in the files it checked. Open are the items below, then the rest of this file, which is the design that they come from, marked where it differs from what was built.
 
 What the prototype showed:
 
@@ -18,9 +18,7 @@ Uses so far, whose points are the items below:
 
 - A trial by an agent that knew only the docs, three edits of `ulang/parse/parse.u` at their first attempts; its points on the reply, on the docs, and on `@rename` and the docs are fixed, and its move of a local in two `@put`s is now one `@fix`.
 - A mail client of about 560 lines in five modules, POP3 and SMTP, written through `refactor` by an agent on 15 November 2026 against `494eeff` (its `REPORT.md`, R1 to R20 below), and the same project of about 650 lines replayed from the scripts of a stand-in driver (its `TRIPUPS.md`, T below). Both found the core loop right: `@put` of whole declarations, follow-ups as diagnostics, `@show` then `@put` by handle, `@rename` by resolution, also into the importers of the package, which the stand-in by text got wrong, `@fix` of `LocalTooHigh`, and `@undo`, which rescued two mistakes. A patch line split at each ` => ` in turn, which T met mangled in the stand-in, is refused where several splits match. They left the tool only for what it could not write, files, sections, imports, and exports, which `@put`, `@export`, and `@unexport` write since.
-The numbers of items in the next paragraphs are those of `e6bff95`, before items 1 to 4, 12, 19, and 27 were done, and 15 but for `@check test`.
-
-- A second mail client, 809 lines in six files, POP3 and SMTP over a stream on stdin and stdout, written through `refactor` by another agent on 15 November 2026 against `b86cc59`, which had read the items of this file first (its trip-ups, 2T1 to 2T12 below, and its report, 2R): 30 scripts, 15 seconds of tool time in all, the slowest 1.1 seconds, 20 of them with status 0, 5 with 1, and 5 with 3; three modules passed their tests on the first script that wrote them, a move across files with exports was one script, both renames found their uses in importers and left the word in comments alone, a new constructor gave one follow-up at the right match, and `@undo` took back a wrong `@drop` in 0.2 seconds. Its seven edits by hand were all for items 1 to 3, and it confirmed items 2 to 4, 9, 11, 14 to 21, and 29. Its order of what to fix first: writing modules (items 1 to 3), the silent losses (items 3, 7, and 8), handles to trust (items 10, 11, and 17), and the first line and the repeats (items 14, 15, and 20), then `--dry` with a check (item 18) and examples of an existing signature (item 4); it treated every handle as valid for one script only and ran `@show` before each edit by handle, which doubled the calls, and stopped reading the first line of a reply for the exit status. Its review of its own record (its `WORKFLOW.md`, 2W): the seven edits by hand were each by shell outside any declaration, `project.u`, four skeletons of a header, an import, `export` with one datatype, and `implementation` with one function, an empty `mail.u`, and the header and imports of `mail.u` that a script dropped; ten reads of files outside `@show`, nine of which asked what is in which section and in which order, since a reply names the declarations it added but not their section, and one of which, not a reply, showed that `@drop` had removed both copies of a datatype (item 7); so in the first half, while the modules got their shape, it read whole files as often as with text edits, and only from its 16th script on by `@show` alone, about fifteen calls. Its commands missed, by what each would have saved: `@put F` that creates a file with its header, imports, and sections (items 1 and 3, all seven edits by hand); `@export` (item 2, six scripts of the workaround, each confirmed by a read); an outline (item 5, nine of the ten reads); a position as a target (item 17); `@uses` (item 6); a replace of another arity at its place (item 30); a node by its text (item 13); `@example` (item 4); `@import` (item 1); and `@check` that prints the state (item 14); once each `@move`, which `@put` and `@drop` did well enough, and `--dry` that checks (item 18); not missed: the multi-line `@patch` and several renames per script (items 26 and 27). Its judgement: the seven actions are the right ones inside a declaration, and what they miss is the module as a thing to write, file, header, imports, sections, and export, and the questions before an edit, what is here, where is this position, and who uses this, the queries that this file had listed as not yet asked for.
+- A second mail client, 809 lines in six files, POP3 and SMTP over a stream on stdin and stdout, written through `refactor` by another agent on 15 November 2026 against `b86cc59`, which had read the items of this file first (its trip-ups, 2T1 to 2T12 below, and its report, 2R): 30 scripts, 15 seconds of tool time in all, the slowest 1.1 seconds, 20 of them with status 0, 5 with 1, and 5 with 3; three modules passed their tests on the first script that wrote them, a move across files with exports was one script, both renames found their uses in importers and left the word in comments alone, a new constructor gave one follow-up at the right match, and `@undo` took back a wrong `@drop` in 0.2 seconds. Its seven edits by hand were all for writing modules, imports, and exports, done since, and it confirmed items 5, 7, 9 to 15, and 22, and others done since. Its order of what to fix first: writing modules, done, the silent losses (items 3 and 4, and one done), handles to trust (items 6, 7, and 12), and the first line and the repeats (items 9, 10, and 14), then `--dry` with a check (item 13) and examples of an existing signature, done by `@patch` of a declaration; it treated every handle as valid for one script only and ran `@show` before each edit by handle, which doubled the calls, and stopped reading the first line of a reply for the exit status. Its review of its own record (its `WORKFLOW.md`, 2W): the seven edits by hand were each by shell outside any declaration, `project.u`, four skeletons of a header, an import, `export` with one datatype, and `implementation` with one function, an empty `mail.u`, and the header and imports of `mail.u` that a script dropped; ten reads of files outside `@show`, nine of which asked what is in which section and in which order, since a reply then named the declarations it added but not their section, and one of which, not a reply, showed that `@drop` had removed both copies of a datatype (item 3); so in the first half, while the modules got their shape, it read whole files as often as with text edits, and only from its 16th script on by `@show` alone, about fifteen calls. Its commands missed, by what each would have saved: `@put F` that creates a file with its header, imports, and sections (done, all seven edits by hand); `@export` (done, six scripts of the workaround, each confirmed by a read); an outline (item 1, nine of the ten reads); a position as a target (item 12); `@uses` (item 2); a replace of another arity at its place (item 23); a node by its text (item 8); `@example` (item 24); `@import` (done, by the `import` lines of `@put`); and `@check` that prints the state (item 9); once each `@move`, which `@put` and `@drop` did well enough, and `--dry` that checks (item 13); not missed: the multi-line `@patch` (item 20) and several renames per script, done. Its judgement: its actions are the right ones inside a declaration, and what they miss is the module as a thing to write, file, header, imports, sections, and export, and the questions before an edit, what is here, where is this position, and who uses this, the queries that this file had listed as not yet asked for.
 
 ## Open items
 
@@ -28,8 +26,8 @@ By priority, each the problem and the solution; the causes named are read from t
 
 ### Queries
 
-1. **No overview of a module** (2W): nine of the ten reads of files outside `@show` asked what is in which section and in which order, and `@show F` of a whole file is no way to tell an agent what a module of 500 lines offers. Solution: `@outline F`, one line per declaration with its section, kind, arity, and whether it is exported, and its handle (Queries first), and the reply of an `@put` that names the section of each declaration it adds.
-2. **No uses of a declaration** (2W): before changing the arity of the exported `smtp_send`, the agent could not ask who calls it, so it broke the calls and read the four sites off the errors. Solution: `@refs F:name[/n]`, the uses with their handles and declarations (Queries first), by the resolutions of `hints`.
+1. **No overview of a module** (2W): nine of the ten reads of files outside `@show` asked what is in which section and in which order, and `@show F` of a whole file is no way to tell an agent what a module of 500 lines offers; the reply of `@put` names the section of each declaration it adds since, `exported X` or `added X`, but not where in it. Solution: `@outline F`, one line per declaration with its section, kind, arity, line count, and whether it is exported, and its handle, so that an agent reads a 4000-line `check.u` by parts.
+2. **No uses of a declaration** (2W): before changing the arity of the exported `smtp_send`, the agent could not ask who calls it, so it broke the calls and read the four sites off the errors. Solution: `@refs F:name[/n]`, the uses with their handles and declarations, by the resolutions of `hints`, as `refs` of Diagnostics 3 gives them on the command line.
 
 ### Silent changes
 
@@ -40,18 +38,18 @@ By priority, each the problem and the solution; the causes named are read from t
 
 5. **A handle outlives its context and can hit the wrong node** (R11, the one edit that damaged a file): `@put #3`, meant for `#17`, replaced a `var` in the client's `smtp.u`, from an `@show` two scripts before, by an `if`, under `ok` and status 0. Handles are global, and a reply that uses one names neither its file nor its kind. Solution: an optional scope, `@put mail.u:inbox #17`, refused if the handle lies elsewhere; a fragment whose kind, statement, case, expression, or constructor, differs from the node's is refused, also declarations after a constructor, which the second client used to write into `export` (2T1), as `@export` does since; and the reply of an edit by handle names the declaration, `smtp.u:send/3 #3`.
 6. **Identical statements in one declaration share or swap handles** (R12, 2T6): after `@put after #31` of a case whose `login` and `pop_quit` repeat those of another case, the new ones were shown with the handles of the old ones, and `@show #36` printed lines of the other case; in the second client, after `@put before #50` of a case whose `enter`, `pop_stat`, and `pop_quit` repeat those of the next case, the new statements took `#52`, `#53`, and `#58`, which the `@show` just before had given to the statements of the `Listing` case, which took `#62`, `#98`, and `#64` of the case after it, so an `@put after #53` planned from that `@show` would have edited the wrong case under `ok`. Cause: `node_of` and `rebase` find a node by the hash of its text first, among equal texts by their index or rank, which an insertion shifts. Solution: find a node by its path in the tree of nodes first, and by its text only where the path no longer leads to the same text.
-7. **`@patch` of a declaration makes all its handles stale** (2T5), also a patch that changes nothing, `os_exit(in 2) => os_exit(in 2)`, while `@put` at a handle rebases them: after a patch of one line of a case of `serve`, `#49`, `#60`, and `#61` were `gone, since an edit removed its node in serve/3`; a patch of another declaration, and an `@rename` of a function that the declaration calls, keep them. The refusal is safe, but the cause that it names is wrong. Solution: `@patch` rebases the handles of its declaration as `@put` does (`rebase` of `ulang/refactor/refactor.u`).
+7. **`@patch` of a declaration makes all its handles stale** (2T5), also a patch that changes nothing, `os_exit(in 2) => os_exit(in 2)`: after a patch of one line of a case of `serve`, `#49`, `#60`, and `#61` were `gone, since an edit removed its node in serve/3`, while a patch of another declaration and an `@rename` of a function that the declaration calls keep them. Cause: `patch` of `ulang/refactor/refactor.u` rebases the handles, but for a declaration its region is the whole declaration with its doc, with `keep`, so `is_removed` counts every node inside it as removed but the one of the whole region. Solution: rebase by the lines that the patch changed, the region from the first to the last line that differs, so that the nodes outside it move by their text and their paths as after an `@put` at a handle.
 8. **A node can be addressed only by a handle** (2W), which takes an `@show` first, goes stale (items 5 and 7), and swaps among identical statements (item 6), so that for small changes `@patch F:name` with its old text was the preferred action, which needs none of that. Solution: a node addressed by its text, `@put before mail.u:serve "case Listing"`, refused unless the text starts exactly one node of the declaration, as `@patch` is refused unless its old text occurs once.
 
 ### Replies
 
 9. **The first line of a reply counts the state, not the change, and `ok` means applied, not correct** (R8, R15, T, 2T11): `ok, 4 diagnostics` stood above `1 new, 1 gone`; a reply with 17 errors started with `ok` and exited 0, and type errors were listed under `with lints:`; in the second client `ok, 13 diagnostics` at status 3 and `ok, 5 diagnostics` at status 1, and a script of only `@check` after an edit from outside replied `ok, 1 diagnostic` and `0 new, 0 gone`, the one error only as a raw JSON line of the test run. Solution: `applied, 3 errors, 1 warning` or `applied, clean`, errors and warnings counted apart, and the status 1 while errors remain, as `check` gives, so 1 means either refused or not clean, which the first line tells; and a script that edits nothing lists the diagnostics of the state, since it has no change to compare.
-10. **`@check test` repeats the errors** (R9, T, 2T): each diagnostic counts once in a reply since, where the check of a file reported the errors of all members of its package for each file of it that a script touched, but after `@check test` each type error appears again as raw JSON of the load, which the driver's `check_targets` prints before the tests, and once more as a failed test, `reached the type error` (Testing 8). Solution: the tests run without printing the errors of the load, and a test that fails by reaching a type error that the reply lists is counted, not repeated.
+10. **`@check test` repeats the errors** (R9, T, 2T): each type error of the reply appears again as the raw JSON of the load, which `check_targets` of `ulang/ulang.u` prints before the tests, and once more as a failed test, `reached the type error`, which is Testing 8. Solution: the tests of a script run without printing the errors of the load, which the reply has listed; the failed tests are Testing 8.
 11. **Diagnostics of files that the script did not touch come and go** (R10, 2T10): `Unformatted at 2.1` of an empty `mail.u`, as new or gone, in replies of scripts that did not touch it. Likely cause: `load_file` of `ulang/ulang.u` checks the format of the members only when the unit has no other errors, so the error of a sibling appears and disappears with the others. Solution: compare what is checked alike before and after, the format of every member in both; and an empty file is formatted, not `Unformatted`.
-12. **Diagnostics carry positions, not handles** (R13, T, 2T): every fix by handle needs an `@show` first, while the design promised `+ #51 … ` lines to fix by `@put #51` (Follow-ups as diagnostics); for call sites in several declarations the second client found `@patch F:name` with the old text quicker, four sites in one script without an `@show`. Solution: each new diagnostic of the reply gets the handle of the innermost node around its position, and a position is a target, `@show mail.u:79.3`, the node there with its handle, which three scripts of the second client would have used (2W).
+12. **Diagnostics carry positions, not handles** (R13, T, 2T): every fix by handle needs an `@show` first, while the design promised a handle on each follow-up to fix by `@put` (Follow-ups as diagnostics); for call sites in several declarations the second client found `@patch F:name` with the old text quicker, four sites in one script without an `@show`. Solution: each new diagnostic of the reply gets the handle of the innermost node around its position, and a position is a target, `@show mail.u:79.3`, the node there with its handle, which three scripts of the second client would have used (2W).
 13. **`--dry` does not show what would break** (R18, 2T): `--dry @drop wire.u:trim` of a function that three others use replied `would write wire.u` and nothing else, since the check reads the files from disk, which a dry run does not write; so did a dry run of a script with 13 errors. Solution: check the texts in memory, which needs `load_file` to take the edited texts of the unit instead of reading them, the overlays of Concurrent edits 7.
-14. **Cascades in the follow-ups of a datatype** (R14, T, 2T): 17 diagnostics for 6 sites, since a pattern of the wrong arity binds nothing, so a variable of the case fell through to a function of the library, `expected Int but found Str -> Option[Int]`, and a handler became `NeverRaised`; a construction of the wrong arity is `cannot unify (Str, List[Str], …) -> Envelope and (Str, …) -> ?40`, where a pattern gets `expects 6 arguments, got 5` and a second line `the pattern expects 1 components, got 0`; and each call of a procedure of the old arity got four, `expects 3 ins, got 4`, `expects 0 values, got 1`, which needs the first to be understood, a `Mismatch`, and a `CannotUnify` with a metavariable. These are of the checker, Diagnostics 6, but the loop of follow-ups is where they cost: a pattern of the wrong arity should still bind the variables of its fields, a construction should be `expects 6 fields, got 5`, as the example of Follow-ups as diagnostics assumed, and a call of the wrong arity one message.
-15. **`@check test` of a unit with one type error ran no test**, `0 of 2 files passed`, under a reply that starts with `ok` (R15); in the second client the other tests ran, and the examples did not, without a word, three failed tests and no `request.example.n` (2T, Testing 8). Solution: run the tests as `check --test` does with deferred errors, say which tests did not run and why, and count in the first line (item 9).
+14. **Cascades in the follow-ups of a datatype** (R14, T, 2T): 17 diagnostics for 6 sites after a change of the fields of a constructor, and four for each call of a procedure of the old arity. The messages are Diagnostics 6; they cost in the loop of follow-ups, where an agent reads every diagnostic of a reply to find the few sites to change.
+15. **`@check test` does not say which tests did not run** (R15, 2T): a unit with one type error ran no test, `0 of 2 files passed`, under a reply that starts with `ok`; in the second client the other tests ran and the examples did not, without a word. Solution: the reply says which tests did not run and why, and counts them in its first line (item 9); running them with the deferred errors is Testing 8.
 16. **The positions of errors in a fragment count from the fragment** (2T7): `fragment 64.124` was line 65 of the script, and with several actions the offset differs for each, so the fix of line 64 left the error. Solution: give the line of the script too, `script 65.124`.
 17. **The reply of `@put #n` shows only the first of the statements it placed** (2T8): `replaced #123` and `var message := …`, while the `report := …` after it was placed too, as `@show` confirmed. Solution: list each placed node with its handle.
 18. **A declaration is no place of `@put`** (2T9): `@put after message/message.u:Message` is `no handle message/message.u:Message, which @show gives`. Solution: `@put F after T`, planned; until then the message says that `@put F` appends.
@@ -61,20 +59,21 @@ By priority, each the problem and the solution; the causes named are read from t
 
 20. **`@patch` cannot add a line** (R7, prototype): a second line is read as another `old => new`, and `\n` cannot stand for a newline since it occurs in code, where the stand-in's escapes rewrote ulang's `"\r\n"` (T). Solution: a multi-line form, the old lines, a line `=>` alone, which formatted code never has, since a case body starts on the next line, and the new lines; until then `@put` at a handle, as the docs say.
 21. **`@rename` can make a later ambiguity without a word** (REPORT): `@rename wire.u:lower size` made a `size(Str): Str` beside `size(Str): Int`, legal, since overloading is by type, but the next use whose type does not decide is `Ambiguous`. Solution: report the declarations of the new name that the uses also see, as a warning of the reply.
-22. **Fields, types, locals, and modules are not renamed** (R17, Status, 2T): `@rename mail.u:Request.Send.file path` is refused, clearly, and so was `@rename smtp/smtp.u:Envelope.host client`. Solution: the record of resolutions of Changes to ulang 1, with uses of types and of fields at their names, which `hints` lacks.
+22. **Fields, types, locals, and modules are not renamed** (R17, Status, 2T): `@rename mail.u:Request.Send.file path` is refused, clearly, and so was `@rename smtp/smtp.u:Envelope.host client`. Solution: the record of resolutions of Diagnostics 3, with uses of types and of fields at their names, which `hints` lacks, then the renames of operation 1.
 23. **A declaration of another arity cannot replace one at its place** (2W): changing the arity of the exported `smtp_send` was an `@put` of the new one, an `@drop smtp_send/4`, which took the exported signature with it, and the export again by the workaround of 2T1, which `@export` replaces since, in two scripts with 13 diagnostics between them. Solution: `@put F:smtp_send/4` of a fragment of another arity replaces the target at its place, and its signature in `export` with it, and the follow-ups are its calls.
+24. **Examples have no handles and no action of their own** (2W): `@patch F:name` reaches the examples on the signature of an export since `0982d52`, but the lines of a spec are no nodes of `line_nodes` of `ulang/refactor/nodes.u`, so no handle names an example or a contract, and an example is added only by an `@put` of the whole declaration or a patch of a line next to it. Solution: a node per line of a spec, and `@example F:name`, whose fragment of examples joins the spec of the signature of an exported name, else of its definition.
 
-Planned from the design and not yet asked for by a use: `@retry` of corrected fragments, `@check prove`, `--json`, the placing of locals in fragments, replies such as `gone #9 (replaced by #31)`, the queries but `outline` and `refs` (items 1 and 2), the operations but `move`, which the second client would have used once, and the lock and replay of Concurrent edits.
+Planned from the design and not yet asked for by a use: `@retry` of corrected fragments, `@check prove`, `--json`, the placing of locals in fragments, which `@fix` of `LocalTooHigh` does after them, replies such as `gone #9 (replaced by #31)`, the queries `resolve`, `sig`, and `names` of Diagnostics 3, the operations but `move`, which the second client would have used once, and the lock and replay of Concurrent edits.
 
 ## Why ulang is unusually suited to it
 
-- **`format` is canonical and `check` enforces it**, so a tool that changes the parsed tree and prints it by `format_program` produces a diff of exactly the changed parts; no layout is lost, and docs survive if the edit keeps the comments around the declaration, which are not in the tree (Status).
+- **`format` is canonical and `check` enforces it**, so a tool that prints every edited file by `format_program` produces a diff of exactly the changed parts, and no layout is lost.
 - **The checked program keeps every position** (`At` since `1c2db95`) and resolves every name to its module, so the qualified name and type of any use are found by its position; overloading, which defeats `grep` (`size` in a file that imports `set` and `map`), is no obstacle once the checker is asked.
 - **The parser desugars nothing**, so the tree that is rewritten is the source as written.
 - **The checks are strong** (exhaustiveness, `HiddenLocal`, definite assignment, `raises`), so "check again after the edit" catches most broken refactorings, and the remaining risk is a use that silently resolves differently, which the tool can rule out by comparison (below).
 - **A declaration names itself**: within a module, overloading is only by arity, so a fragment `function emphasis(…) := …` says which declaration it replaces by its name and arity, and an edit of whole declarations needs no address.
 - **`@` occurs nowhere in ulang**, so a script can delimit fragments by lines starting with `@` and take them verbatim, without escaping.
-- **Docs reference code in a checked grammar** (`` `name` of `file` ``, `checks/docs.u`), so moves and renames can update `CLAUDE.md`, `README.md`, and `ideas/` too, which Code 4 demands and agents forget.
+- **Docs reference code in a checked grammar** (`` `name` of `file` ``, `checks/docs.u`), so `@rename` lists the mentions in `CLAUDE.md`, `README.md`, and `ideas/` (`doc_references` of `ulang/refactor/refactor.u`), and moves and renames could rewrite them, which Code 4 demands and agents forget; planned.
 
 ## What the history shows done by hand
 
@@ -86,7 +85,7 @@ Each of these was a commit of many mechanical edits, several with regular expres
 - moves of declarations between modules and of tests between files (`26c9c42`, `64a4092`), and the split of `ulang/` into a package per phase (`ff02be2`);
 - functions turned into procedures when they had to raise (`8084d78`: `as_type`, `type_apply`), and `raises` written into the exported signatures (`9335b69`);
 - 211 failing files turned into cases of `ulang/test/errors/` (`15b55d4`);
-- the expansion of `case _` into named constructors, still open (Code 1);
+- the expansion of `case _` into named constructors, mostly done, the rest Code 1, by the alternatives of `ideas/or-patterns.md`;
 - exports added because another member needed a private helper (`covers_all` and `strip_yield`, both exported since).
 
 ## How an agent edits
@@ -99,13 +98,13 @@ From that session:
 4. The expensive part is the follow-ups: after a change of a datatype or a signature, finding every site that has to change too.
 5. It already uses the diagnostics as a list of work: change, check, fix what is reported, until nothing is.
 
-So the tool makes this loop safe and cheap before it adds a vocabulary of refactorings, which is much to learn for an agent with almost no ulang in its training, and against the principle of one way of each thing. The first version of that design had about 40 actions, one per refactoring, as the operations below are; the second has seven:
+So the tool makes this loop safe and cheap before it adds a vocabulary of refactorings, which is much to learn for an agent with almost no ulang in its training, and against the principle of one way of each thing. The first version of that design had about 40 actions, one per refactoring, as the operations below are; the second has a few that write code by declaration, of which ten are built:
 
 | | Named operations | Edit script |
 |---|---|---|
-| Actions | about 40, one per refactoring | 7, plus `@retry` |
+| Actions | about 40, one per refactoring | the ten of `README.md`, plus the planned `@retry` |
 | Code | in arguments, by operation | in fragments, by declaration, which names itself |
-| Follow-ups | each operation updates its sites | the checker reports them, with handles; mechanical ones applied |
+| Follow-ups | each operation updates its sites | the checker reports them; mechanical ones applied, planned |
 | Addressing | names, positions, selectors, placements | declarations by name, everything else by the handles the agent sees |
 | To learn | a vocabulary of refactorings | ulang, plus `@put` |
 
@@ -113,148 +112,55 @@ The named operations are better at large changes across modules, a move of a dec
 
 ## The command
 
-`refactor` is the only command that edits sources by their meaning, as `format` is the only one that edits their layout: `check` only reports, also the edits that errors and lints propose, and `format` always rewrites, since `check` reports the files that differ (`format --check` is gone).
+`refactor` is the only command that edits sources by their meaning, as `format` is the only one that edits their layout: `check` only reports, also the edits that errors and lints propose. It is `ulang.sh refactor [--dry] [<script> | @<action> …]` (`refactor_request` of `ulang/ulang.u`), the script from a file or stdin or one action on the command line, run in one process, so that a unit is loaded and checked once, not per action; the edits of the lints are the action `@fix T [Rule …]`, all or those of the rules named, and the named operations below would be further actions of the same script, `@move` and so on.
 
-One command, `ulang.sh refactor --script <file> [--dry] [--json]`, or the script on stdin, whose actions are those of Edit scripts, below, run in one process, so that a unit is loaded and checked once, not per action (checking `ulang/ulang.u` takes about a second); a single action may be given on the command line, `ulang.sh refactor @rename …`, as a script of one line. The operation `fix [<path> …] [--rule <Code> …]`, the edits that the errors and lints of the files propose, all or those of the rules named, and the named operations below are further actions of the same script, `@fix`, `@move`, and so on.
+What the design asks of every action, and what of it is built:
 
-Common to all operations:
-
-1. **Preconditions**: the affected units load, check, and are formatted, else the operation is refused with the errors; nothing half-applied.
-2. **Edit on the parsed tree**, at positions found in the checked program, printed by `format_program`.
-3. **Postconditions**: the edited units check, and every use outside the target resolves as before, modulo the renaming the operation declares. Positions move with the edit, so the comparison is by the sequence of resolved names in the traversal order of each command, which a rename keeps and a move maps by the old and new module; a difference is reported as the use, the name before, and the name after.
-4. **Output**: a script is one transaction, it writes all its files or none, and `--dry` reports without writing; the reply is plain text for agents (Replies, below), `--json` gives the edits and the affected sites as records, one per line, matching the JSON lines of the diagnostics, for the extension. Applying by default, where this file proposed a dry run by default, follows the loop of the agent, which checks the state after the edit and goes on from its diagnostics; `@undo` and the journal of Concurrent edits make it reversible.
-5. **Targets** extend the existing `file.u:name`: `file.u:name/n` for a declaration of arity `n`, `module.name/arity` for an overload (`prelude/set.size/1`), `module.T.f` for a field, `module.T.C` for a constructor, `file.u:L.C` for the use at a position, a local as `file.u:proc/local`, and a handle `#n` for a node that a reply showed.
+1. **Preconditions**: the design refuses an action unless the affected units load, check, and are formatted; built is only the refusal of a file that does not parse (`parsed` of `ulang/refactor/refactor.u`), since the reply lists the diagnostics that are new or gone, so errors before an edit do not hide what it changed.
+2. **The edit**: the design edits the parsed tree; built is a splice of the text of whole declarations and nodes by the spans of the parsed file, which `format` then prints, since comments are not in the tree (Status).
+3. **Postconditions**: every use outside the target resolves as before, modulo the renaming that the action declares, compared by the sequence of resolved names in the traversal order of each command, since positions move with the edit, which a rename keeps and a move maps by the old and new module, a difference reported as the use, the name before, and the name after; built only for `@rename` (`commit_rename` and `first_difference` of `ulang/refactor/refactor.u`), planned for the other actions.
+4. **Output**: a script is one transaction, it writes all its files or none, and `--dry` reports without writing; the reply is plain text for agents, and `--json`, the edits and the affected sites as records, one per line, matching the JSON lines of the diagnostics, for the extension, is planned. Applying by default, where this file once proposed a dry run by default, follows the loop of the agent, which checks the state after the edit and goes on from its diagnostics, and `@undo` makes it reversible.
+5. **Targets**: built are a file, a declaration `file.u:name[/n]` (`target_of`), and a handle `#n`; planned are `module.name/arity` for an overload (`prelude/set.size/1`), `module.T.f` for a field, `module.T.C` for a constructor, a position `file.u:L.C` (item 12), and a local as `file.u:proc/local`.
 
 ## Edit scripts
 
-A script is a sequence of actions. An action starts with a line beginning with `@`, and the lines up to the next `@` line are its fragment, taken verbatim.
+A script is a sequence of actions, each a line that starts with `@`, whose fragment is the lines up to the next, taken verbatim; the actions and their replies are those of Refactoring of `README.md`. Nothing else is needed for writing code: a case is added to a match by `@put into #h`, statements are wrapped in a `try` by `@put #h` of the `try` written around them, and a function is extracted by an `@put` of the function and an `@put` of the call in its place, and since every edited file is printed by `format`, a fragment never needs to be formatted by hand.
 
-| Action | Fragment | What it does |
-|---|---|---|
-| `@show T` | none | the canonical text of `T` with handles; `T` is a file, a declaration `file.u:name/n`, or a handle |
-| `@put [F] [where]` | declarations, or statements, cases, an expression | writes code, below |
-| `@drop T` | none | removes a declaration or a node |
-| `@rename T new` | none | renames a declaration, field, constructor, formal, local, or module everywhere, operation 1 |
-| `@patch T` | lines `old => new` | text substitution within the canonical text of `T` only, each `old` occurring exactly once |
-| `@check [T]` | none | diagnostics, tests (`@check test`), lemmas (`@check prove`); implied at the end of every script |
-| `@undo [n]` | none | undoes the last script, or script `n` of the journal |
+`@rename` is an action of its own since renaming is the one follow-up that the checker cannot drive: after a change of the text from `then` to `chain`, every use is merely unknown. It changes the declaration and every use at once, refuses what is no plain name and a name that the package declares already at the arity, with the reason, and undoes the script if any use resolves differently; the fields and constructors of a datatype, `json/query.u:Query.Pipe.then`, are item 22.
 
-### `@put`
+### Handles
 
-- **Declarations, without placement**: each declaration of the fragment replaces the one of the same name and arity in the file `F`, or is added at the end of its section if there is none; `@put F after file.u:name/n` places new ones after a given declaration. An `export` in front of a definition (Changes to ulang, 6) puts its signature into the `export` section; without that change, the tool keeps the signature in `export` and the definition in `implementation` in step itself, also the contracts and examples, which stand on the signature of an exported name.
-- **Code into a declaration**: `@put #h` replaces the node `#h` by the fragment, which must be of the same kind, a statement, a case, or an expression; `@put after #h`, `@put before #h`, and `@put into #h`, as its last statement or case, insert new nodes.
-- **Placing locals**: a `var` of a fragment that only the branches of one statement after it use moves into each branch that uses it, where it is first needed, so the rule of style on locals costs nothing; this is the edit of `LocalTooHigh`.
-
-Nothing else is needed for writing code: a case is added to a match by `@put into #h`, statements are wrapped in a `try` by `@put #h` of the `try` written around them, and a function is extracted by an `@put` of the function and an `@put` of the call in its place. Every fragment goes through the preconditions and postconditions above and is printed by `format_program`, so a fragment never needs to be formatted by hand.
-
-`@rename` is an action of its own since renaming is the one follow-up that the checker cannot drive: after a change of the text from `then` to `chain`, every use is merely unknown. It changes the declaration and every use at once and refuses keywords, the names of forms, and names that would clash, with the reason; for a datatype it also renames fields and constructors (`json/query.u:Query.Pipe.then`).
-
-### Replies
-
-Short enough to read in full every time:
-
-```
-ok | ok, 3 diagnostics | rejected | dry
-<one block per action: what changed>
-<diagnostics: only what changed, with handles>
-```
-
-Handles stand in a left margin, which the tool strips again when code with handles is pasted back into a fragment:
-
-```
-@show json/query.u:term/2
-   procedure term(out q: Query, ref cs: List[Char]) raises QueryError :=
-#7   var w: Str
-#8   match cs
-#9     case List('.'; _) =>
-#10      path(out q, ref cs)
-#11    case _ =>
-#12      word(out w, ref cs)
-         …
-```
-
-Handles appear only where the agent sees code anyway, in `@show` and in diagnostics, and stay valid across formatting and edits elsewhere; when their node goes away, the reply says `gone #9 (replaced by #31)`, and an edit from outside the tool, noticed by the hashes of the files (Concurrent edits, 2), makes the handles of the changed declarations `stale`, which the next reply names. They are nodes of the parsed tree, kept by the `At` of each part, not positions, which edits move.
+`@show` puts the handles in a left margin, which `@put` strips again when code with handles is pasted back into a fragment. Each is kept in `out/refactor/handles.txt` of the root by its number, its file, the key of its declaration, its index among the nodes of the declaration, and the hash of the text of its node (`handle_line` of `ulang/refactor/refactor.u`), so it stays valid across formatting and edits elsewhere; the edits of a script move those of their declaration (`rebase`, items 6 and 7), and a handle whose node an edit from outside changed is `stale` when it is next used, one whose node an edit removed `gone` (`resolved`). Planned: the handles of diagnostics (item 12), and `gone #9 (replaced by #31)` in the reply of the edit that removed the node.
 
 ### Follow-ups as diagnostics
 
-After a change of a datatype, a signature, or a name, the reply lists every site that no longer checks, with its handle and its code, so the agent fixes them by `@put` on the handles, in the same script or the next. The follow-ups that leave no decision are fixes in the sense of Refactor, fix, lint, optimize, below, and are applied and listed as applied:
-
-- a removed field becomes `_` in patterns and is dropped from constructions;
-- a removed formal is dropped from the calls whose argument for it has no effect;
-- the arguments of a call are put in the order of the modes after an `@put` of a signature whose formals moved between `in`, `out`, and `ref`, which `change-mode` of operation 3 does as a named operation.
-
-What needs a value or a decision is left to the agent as a diagnostic: a new field at a construction, a new case of a match, a new `in` formal at a call. Adding a title to links, which took that agent three failed text edits:
-
-```
-@put md/inline.u
-data Inline :=
-  case Text(s: Str)
-  …
-  case Link(body: List[Inline], url: Str, title: Str)
-  …
-```
-
-```
-ok, 2 diagnostics
-md/inline.u: data Inline replaced
-applied: #53 render_inline/1  case Link(body, url, _) =>
-applied: #54 plain_inline/1   case Link(body, _, _) =>
-diagnostics: +2
-  + #51 link/1      Link(inlines(text, '['), url)    expects 3 fields, got 2
-  + #52 autolink/1  Link(List(Text(url)), url)       expects 3 fields, got 2
-```
-
-```
-@put #51
-Link(inlines(text, '['), url, title)
-@put #52
-Link(List(Text(url)), url, "")
-```
-
-Two scripts and no search; with the defaults of fields (Changes to ulang, 4), one script without diagnostics. So `add-field`, `add-constructor`, `fill-cases`, and `add-formal` below are an `@put` and its follow-ups, and need no actions of their own unless the follow-ups become too many to fix by hand.
+After a change of a datatype, a signature, or a name, the reply lists every site that no longer checks, so the agent fixes them in the same script or the next, by `@put` at the handles of item 12. Planned: the follow-ups that leave no decision are fixes in the sense of Refactor, fix, lint, optimize, below, and are applied and listed as applied: a new field becomes `_` in patterns, a removed field becomes `_` in patterns and is dropped from constructions, a removed formal is dropped from the calls whose argument for it has no effect, and the arguments of a call are put in the order of the modes after an `@put` of a signature whose formals moved between `in`, `out`, and `ref`, which `change-mode` of operation 3 does as a named operation. What needs a value or a decision is left to the agent as a diagnostic: a new field at a construction, a new case of a match, a new `in` formal at a call. Adding a title to links, which took that agent three failed text edits, is then an `@put` of the datatype with the field `title: Str` in `Link`, whose reply lists the patterns of `Link` as applied and the two constructions as `expects 3 fields, got 2` with their handles (item 14), and a script of an `@put` at each: two scripts and no search; with the defaults of fields (Changes to ulang, 4), one script without diagnostics. So `add-field`, `add-constructor`, `fill-cases`, and `add-formal` below are an `@put` and its follow-ups, and need no actions of their own unless the follow-ups become too many to fix by hand.
 
 ### Errors in fragments
 
-A fragment that does not parse is reported at its own line and column, with the hints of the habits of other languages, `hint_at` and `operator_hint` of `ulang/parse/parse.u` and `hint_of` of `ulang/check/message.u`, and the corrected fragment:
-
-```
-rejected
-@put #12, fragment 1.3: an assignment is written x := e, without assign
-  corrected:  x := 2
-  @retry applies the corrections
-```
-
-So also for `call`, `assign`, and `local`, which earlier versions had, `return`, `break`, `+=`, `+` of strings, `[1, 2]`, modes out of order, a keyword as a name, and an `else if` without its own `end`. The tool is the cheapest place for these hints, since it sees every piece of code an agent writes before it reaches a file; `@retry` is the one action beyond the seven, and exists only for them.
+A fragment that does not parse is refused at its own line and column, `fragment 1.3: …` (`parse_message` of `ulang/refactor/refactor.u`, and item 16), with the hints of the habits of other languages, `hint_at` and `operator_hint` of `ulang/parse/parse.u` and `hint_of` of `ulang/check/message.u`. Planned: the corrected fragment in the reply, `corrected:  x := 2` after `an assignment is written x := e, without assign`, also for `return`, `break`, `+=`, `+` of strings, `[1, 2]`, modes out of order, a keyword as a name, and an `else if` without its own `end`, which `@retry` applies, the one action beyond the built ones, which exists only for them; the tool is the cheapest place for these hints, since it sees every piece of code an agent writes before it reaches a file.
 
 ## Queries first
 
-Before any edit, an agent needs to find what to edit; these are Diagnostics 3, and every refactoring is built on them:
-
-- `resolve file.u:L.C`: qualified name, type, and declaration of the use there.
-- `refs <target>`: all uses in the project, by resolution, not by text, with positions and the enclosing declaration, also of fields (accessors, updates, constructions, patterns).
-- `sig <module>`: the exported signatures without bodies, the cheap way to learn a package (Writing ulang tells agents to read the `export` sections).
-- `outline <file>`: declarations with kind, position, exported or private, and line count, so that an agent reads a 4000-line `check.u` by parts.
-- `names <word>`: every use of a word as any name, declaration, field, local, formal, or pattern variable, in the project and the library, which the working rule before making a word a keyword asks for (unclear.md: `raises` as a field name broke the seed).
-
-`@show` of a file is the text with handles, `outline` the overview without bodies; the queries are actions of the script too, `@resolve`, `@refs`, `@sig`, `@outline`, `@names`, which only report. The record of resolutions behind `resolve` and `refs` is also what `@rename` and the handles of diagnostics need (Changes to ulang, 1).
+Before any edit, an agent needs to find what to edit: the queries `resolve`, `refs`, `sig`, and `names`, and the record of resolutions behind them, which `@rename`, the handles of diagnostics, and the comparison of resolutions need too, are Diagnostics 3; `@outline` and `@refs` as actions of a script are items 1 and 2.
 
 ## Operations, by value for an agent
 
-Named operations, actions beyond the seven: rename is `@rename`; those that are an `@put` with its follow-ups (operations 2, 3 except `write-raises` and `function-to-procedure`, and 4 except `tuple-to-record` and `introduce-alias`) wait until the loop of `@put` and diagnostics proves too slow for them; the rest, moves, rewrites by pattern, `write-raises`, `function-to-procedure --transitive`, `extract-procedure`, and `to-case`, change many sites by an analysis that an agent gets wrong by hand, and are worth having as actions.
+Named operations, actions beyond those built: rename is `@rename`; those that are an `@put` with its follow-ups (operations 2, 3 except `write-raises` and `function-to-procedure`, and 4 except `tuple-to-record` and `introduce-alias`) wait until the loop of `@put` and diagnostics proves too slow for them; the rest, moves, rewrites by pattern, `write-raises`, `function-to-procedure --transitive`, `extract-procedure`, and `to-case`, change many sites by an analysis that an agent gets wrong by hand, and are worth having as actions.
 
 ### 1. Rename
 
-The most frequent refactoring, and the one where text tools fail by overloading, by strings, and by field punning.
+The most frequent refactoring, and the one where text tools fail by overloading, by strings, and by field punning. `@rename` does it for functions, procedures, pattern aliases, and constructors, only the selected overload, so renaming `set.size` leaves `map.size`, in export and implementation alike; the rest waits for the record of resolutions (item 22):
 
-- **Declarations**: function, procedure, type, alias, constructor, pattern alias, lemma, test; only the selected overload, so renaming `set.size` leaves `map.size`. In export and implementation alike.
+- **Declarations**: types, type aliases, lemmas, and tests.
 - **Fields**: the declaration in every constructor that has it (one type across constructors), accessors `e.f`, updates `with f :=`, and the pattern variables that bind the field by its name, with their uses in the case, as the rule of style "patterns bind the names of the fields" requires; refused where the new name would hide a local (`HiddenLocal`) or clash in the case.
 - **Locals, formals, type parameters**, with `HiddenLocal` as the guard, which also makes this the fix for that error.
 - **Packages and modules**: move the directory or file, rewrite the `import` lines and the qualified names in docs; refused for names with `-` or keywords in the path.
-- **References in the docs**: `` `old` of `file` `` in `CLAUDE.md`, `README.md`, `ideas/`, and the `//` docs of the sources, by the grammar of `checks/docs.u`, reported separately so that an agent sees prose that may need rewording.
+- **References in the docs**: `` `old` of `file` `` in `CLAUDE.md`, `README.md`, `ideas/`, and the `//` docs of the sources, rewritten by the grammar of `checks/docs.u`, where `@rename` now only lists them, and reported separately so that an agent sees prose that may need rewording.
 
 ### 2. Expand `case _` and fill in missing cases
 
-- `expand-wildcard file.u:L.C`: replace the `case _` of a match over a datatype by one case per remaining constructor, each with the body of the wildcard and its variables as `_`; the style rule asks for exactly this over `Cmd`, `Expr`, and `Stmt`, and Code 1 lists the places.
+- `expand-wildcard file.u:L.C`: replace the `case _` of a match over a datatype by one case of the remaining constructors as alternatives, with the body of the wildcard, as `ideas/or-patterns.md` plans; the style rule asks for exactly this, and Code 1 lists the places left.
 - `fill-cases file.u:L.C --body <expr>`: the missing cases that `NotExhaustive` reports, with a body given by the agent (for procedures commonly `raise Unexpected("…")`), as the fix that Diagnostics 2 wants offered with the error.
 - With `add-constructor` (below), the listing of every match that the new constructor makes non-exhaustive, as one report rather than an error per run.
 
@@ -262,7 +168,7 @@ The most frequent refactoring, and the one where text tools fail by overloading,
 
 - `add-formal <target> <name>: <type> --arg <expr> [--at i]`: the formal in export and implementation, the argument at every call, with `<expr>` evaluated in the caller's scope, refused if it does not check there.
 - `remove-formal`, refused if the formal is used in the body; `reorder-formals`.
-- `change-mode <proc> <formal> in|out|ref`: the formal moves to its group, the arguments at each `call` too, since arguments go by mode in the order `in`, `out`, `ref`, which is the kind of reordering agents get wrong.
+- `change-mode <proc> <formal> in|out|ref`: the formal moves to its group, the arguments at each call too, since arguments go by mode in the order `in`, `out`, `ref`, which is the kind of reordering agents get wrong.
 - `write-raises [<target>]`: write the inferred raises of private procedures, or the reported ones of `UndeclaredRaise`, into the signatures, export and implementation alike, and into procedure types of formals that `UntypedRaise` names; this turns a listing of errors of raises into one command.
 - `function-to-procedure <fun>`: the function becomes a procedure with an `out` result, each call in a statement becomes a call of the procedure before it, into a fresh `var`; calls inside expressions of other functions are listed, since those functions must turn into procedures too (`--transitive` does so). This was the cost of removing `raise` from expressions.
 
@@ -274,10 +180,9 @@ The most frequent refactoring, and the one where text tools fail by overloading,
 - `tuple-to-record <type position> <Name>(<field>: …)`: replace a tuple type in a signature or field by a new datatype, rewriting constructions `(a, b)` and patterns `(x, y)` of values of that type, found by type, not by syntax; this was `8e97aed`.
 - `introduce-alias <pattern> as <Name>(formals)`: declare a pattern alias and replace every pattern, and every construction where it builds, that is an instance of it, as `2ab6b2f` did for `VInt`, `ENil`, and the like; a guard `if constr == cons_name()` is listed as a candidate.
 
-### 5. Moves and visibility
+### 5. Moves
 
-- `move <decl> <module>`: the declaration with its doc and tests, the signature into the export section of the target if it was exported or is used outside, imports added to the users that now need the target's package and removed where unused; refused with the list of the private names it uses that the target does not see (`--with-deps` moves them along, if nothing else uses them), and refused if the imports would form a cycle of packages or break the layers (`ulang/syntax` before `ulang/format` before `ulang/parse` …). Moves within a package need no imports, since members see each other. This is Code 4.
-- `export <decl>` and `unexport <decl>`: built as `@export` and `@unexport`, brought forward by use; the fix for `strip_yield` of Code 6.
+- `move <decl> <module>`: the declaration with its doc and tests, the signature into the export section of the target if it was exported or is used outside, imports added to the users that now need the target's package and removed where unused; refused with the list of the private names it uses that the target does not see (`--with-deps` moves them along, if nothing else uses them), and refused if the imports would form a cycle of packages or break the layers (`ulang/syntax` before `ulang/format` before `ulang/parse` …). Moves within a package need no imports, since members see each other, and the visibility of a declaration is `@export` and `@unexport`. This is Code 4.
 - `move-test <test> <file>`: into the file of its feature, refused on a name clash there; helpers it needs move or are listed.
 
 ### 6. Rewrites by pattern
@@ -293,7 +198,6 @@ Patterns are written in ulang syntax and parsed by the parser of their context (
 
 ### 7. Statements and locals
 
-- `hoist-locals <proc>` per the style rule that each `let` and `var` stands in the innermost body that uses it, where it is first needed, in each case that uses it: mechanical, checkable, and a frequent review comment.
 - `extract-procedure file.u:L.C-L.C <name>`: the statements become a procedure whose `in`, `out`, and `ref` formals are computed from what the block reads, assigns, and must define on every path, and whose `raises` from what it raises; Diagnostics 4 rejects extraction because text edits do it well, which holds for functions but not here, where the modes and definite assignment are the analysis an agent gets wrong; worth reconsidering for procedures only.
 - `inline <fun>` at one call or all: for the opposite direction, where the call becomes a `let` of the formals, and refused for functions without parameters, which are computed once.
 
@@ -308,9 +212,9 @@ Not every change of code belongs to a command that an agent invokes with a targe
 
 | Kind | Decided by | Scope | Lands in | Run |
 |---|---|---|---|---|
-| refactoring | the agent: a name, a place, a default | any, across modules | the sources | `refactor <op>`, on request |
-| fix | an error, with one obvious edit | the site of the error | the sources | listed with the error by `check`, applied by `refactor fix` |
-| canonicalization | the code alone: a normal form exists | local, one part | the sources | reported by `check --lint`, applied by `refactor fix` |
+| refactoring | the agent: a name, a place, a default | any, across modules | the sources | an action of `refactor`, on request |
+| fix | an error, with one obvious edit | the site of the error | the sources | listed with the error by `check`, applied by `@fix`, planned |
+| canonicalization | the code alone: a normal form exists | local, one part | the sources | reported by `check --lint`, applied by `@fix` |
 | optimization | the cost of evaluation | local or whole program | the C only | `compile`, always |
 
 The tests that sort a change:
@@ -320,64 +224,54 @@ The tests that sort a change:
 - **Is it determined by the code, meaning-preserving, and better by a cost that every reader shares?** Then it is a canonicalization, for lint. To be applied without review it must also be terminating (the cost strictly decreases), confluent (the order of applying rules does not matter), and idempotent, as `format` is; the e-graph of `lint.md` gives the first two by construction, since extraction picks one cheapest representative per class.
 - **Is it only faster, and less clear to read?** Then it is an optimization and never edits the sources: fusion of comprehensions, which `ulang/compile/compile.u` already does by nested loops, unrolling, constant folding, a fold that `size(List(for …))` counts instead of building the list, sharing of repeated pure subexpressions, and the extraction by the cost of evaluation (`lint.md`, step 6 of its order). Rewriting the source for speed would undo the canonical form that lint establishes.
 
-So of the operations above, two are no operations of their own, but edits that `refactor fix` applies: `hoist-locals` is `LocalTooHigh` of `ulang/lint/lint.u` (the style rule fixes the place, so no choice is left), and `write-raises` is a fix. `expand-wildcard` stays a refactoring, which a lint of a `case _` over a datatype that grows (Diagnostics 5) reports and offers as its fix, since whether a `case _` should be expanded depends on whether the datatype grows, which the project declares (below).
+So of the operations above, two are no operations of their own, but edits that `@fix` applies: moving locals into the innermost body that uses them is `LocalTooHigh` of `ulang/lint/lint.u`, built, since the style rule fixes the place, so no choice is left, and `write-raises` is a fix of errors, planned. `expand-wildcard` stays a refactoring, which a lint of a `case _` (Diagnostics 5) offers as its fix where the match names two or more constructors besides it (`ideas/or-patterns.md`).
 
 ### Canonical forms missing from `lint.u` and `lint.md`
 
-Candidates beyond the rules of `ideas/lint.md` and Diagnostics 5, each determined by the code and each a rewrite with a test before and after:
+Candidates beyond the rules of `ideas/lint.md` and the walks that Diagnostics 5 holds open, a `match` of one irrefutable case, an `if contains(k, m)` before a `get(k, m)`, and appends in loops that suggest a `Buffer`, each determined by the code and each a rewrite with a test before and after:
 
 - **Booleans and conditionals**: `match c case true => a case false => b end` to `if c then a else b`; `if not c then a else b` to `if c then b else a`; `if c then skip else s end` to `if not c then s end`; `if a then b else false` to `a and b`, `if a then true else b` to `a or b`; `not exists(xs, p)` and `forall(xs, not p)` to one of them.
 - **Empty containers and identities**: `size(xs) == 0` to `xs == List()`, also of sets, maps, and strings; `xs ++ List()`, `List() ++ xs`, `s ++ ""`; `e with f := e.f`; `let x := e in x` to `e`.
 - **Lambdas**: `lambda x => f(x)` to `f` where `f` is one declaration, not an overload that the lambda's type resolves, which the comparison of resolutions decides; a `foldr` or `foldl` whose step only conses or adds to a set or a map to the comprehension.
-- **Maps**: `for (k, v) in List(for x in m)` to `for k => v in m`, the rule that `CLAUDE.md`, Style, states from a mistake (`field_table_decls`); `match get(k, m) case Some(v) => v case None => d end` to `value_or` (R2, on the branch); `if contains(k, m) then … get(k, m)` (Diagnostics 5).
-- **Statements**: a `try` whose only handler raises what it caught, unchanged, to its body; a local whose initial value every path overwrites before reading it, to a declaration without a value; `match` over a pair of one case to a `let`.
-- **Names by the rules of style**: a pattern variable that binds a field under another name, where the field's name is free, to the field's name (Style: "patterns bind the names of the fields"); numbered names (`NumberedName`) are reported but not renamed, since the new name is a choice, which `rename` then carries out.
+- **Maps**: `for (k, v) in List(for x in m)` to `for k => v in m`, the rule that `CLAUDE.md`, Style, states from a mistake (`field_table_decls`), where `CopiedContainer` of `ulang/lint/lint.u` gives `for (k, v) in m`; a `match` on `get(k, m)` that spells out `value_or` is `Folded`.
+- **Statements**: a `try` whose only handler raises what it caught, unchanged, to its body; a local whose initial value every path overwrites before reading it, to a declaration without a value.
+- **Names by the rules of style**: a pattern variable that binds a field under another name, where the field's name is free, to the field's name (Style: "patterns bind the names of the fields"); numbered names (`NumberedName`) are reported but not renamed, since the new name is a choice, which `@rename` then carries out.
 - **Order of declarations**: the definitions of `implementation` in the order of their signatures in `export`, which keeps diffs of the two sections parallel; only if the order is not used as documentation, so opt-in.
 
 ### Smells that are reported, not rewritten
 
-Their fix is a choice of data structure or algorithm, so lint names the site and the cost, and the agent decides:
+Their fix is a choice of data structure or algorithm, so lint names the site and the cost, and the agent decides; appends in loops, also of strings, are those of Diagnostics 5:
 
 - `contains(x, xs)` of a list inside a loop or comprehension over another container, quadratic, where a `Set` would do;
 - `at(i, xs)` or `get` of an association list in a loop;
-- `s := s ++ t` of strings in a loop, where `join` of a `Buffer` would do, like the appends to lists of Diagnostics 5;
 - `foldr` over a list that grows with the input, which recurses as deep as the list (the stack is unlimited, but the depth is still memory);
 - the same `get(k, m)` repeated in one body, which is a `let` or a `match` once.
 
 ### What connects them
 
-- **One frame of edits, two owners.** The rule and its edit stay together, the application of edits does not:
-
-  | Part | Owner | Why |
-  |---|---|---|
-  | find a place and the edit to make there | the rule, in `ulang/lint/lint.u` or the checker | both come from the same match, so the place found and the edit cannot drift apart |
-  | the edit, a part replaced, a statement or command inserted, moved, or deleted, a name renamed | a datatype of the package of `refactor` | lints, the hints of errors, and the operations of agents make the same kinds of edits |
-  | apply, print by `format_program`, check again, compare the resolutions, write or diff | the package of `refactor` | one safety check for every source of edits, and the hard part, safety under overloading |
-  | what to show | the driver | `check --lint` prints a warning with its edit, `refactor fix` carries it out, and a reply of a script lists the follow-ups it applied |
-
-  So a finding of lint and a fix carry their edits as values of that datatype, instead of the one expression of `Warning.replacement` now, and `refactor fix` takes them through the same preconditions, the re-check, the comparison of resolutions, and the replay under concurrent edits; lint never writes files by a path of its own, and has no `--apply`. The rules on `walks` without a replacement show which edits come first: `LocalTooHigh` moves a declaration into the branches that use it, `UnusedPrivate` deletes a command, `UnusedVariable` writes `_` or drops a local; the warnings that were left in the sources as its cases are fixed by `@fix` (Status), and the test `fixes` of `ulang/refactor/test/scripts.u` keeps one case of each rule. The script that moved 84 locals by the warnings of `LocalTooHigh` on `walks`, by the text, shows the edit: the declaration leaves its `local` line and joins, or opens, the first `local` line of each branch that names it.
+- **One frame of edits, two owners.** The rule and its edit stay together, the application of edits does not: a rule of `ulang/lint/lint.u` finds a place and the edit to make there in one match, as an `Edit` of `ulang/syntax/syntax.u` in its `Warning`, so that the two cannot drift apart; `check --lint` prints the warning, and `@fix` applies the edit (`fix` and `local_splices` of `ulang/refactor/refactor.u`), so lint never writes files by a path of its own and has no `--apply`, and the test `fixes` of `ulang/refactor/test/scripts.u` keeps one case of each rule. Planned: the hints of errors and the operations of agents make the same kinds of edits, and `@fix` takes them all through the comparison of resolutions and the replay under concurrent edits, one safety check for every source of edits.
 - **One matcher.** The rewrites by pattern of operation 6 are the rules of lint written in ulang syntax: the library of canonical forms is a set of rules shipped with the tool, and a project adds its own for a migration, which is a lint rule that runs once.
-- **Project policy in `project.u`.** What the rules would hard-code, the datatypes that grow (`Cmd`, `Expr`, `Stmt` for the lint of `case _`, Diagnostics 5), which rules are on, and the threshold of R4, are fields of `Project` of `ulang/prelude/os.u`, as the directories that run only compiled already are.
-- **An enforced tier.** Rules that are terminating, confluent, and uncontroversial can be enforced as `format` is: `check` fails on a part that is not canonical, and `make reformat` applies them by `format` and `refactor fix --apply --rule …` of those rules, so agents never chase them as warnings. The rest stays opt-in, which answers open question 5 of `ideas/lint.md` per rule rather than for all.
+- **Project policy in `project.u`.** What the rules would hard-code, which rules are on and the threshold of R4 of `ideas/lint.md`, are fields of `Project` of `ulang/prelude/os.u`, as the directories that run only compiled already are.
+- **An enforced tier.** Rules that are terminating, confluent, and uncontroversial can be enforced as `format` is: `check` fails on a part that is not canonical, and `make reformat` applies them by `format` and `@fix` of those rules, so agents never chase them as warnings. The rest stays opt-in, which answers open question 5 of `ideas/lint.md` per rule rather than for all.
 
 ## Output for agents
 
 - **A script applies, `--dry` only reports** (The command, 4): the reply shows what changed and the diagnostics that changed, not the diff, which costs more context than the agent needs to go on.
 - **Each refusal names the site and the reason** in the terms of the errors (`HiddenLocal at 12.5`, `uses private parse_type`), and a suggestion (`--with-deps`, a different name), since an agent learns the tool from its messages.
-- **Batch by script**, actions applied in order on the tree of the previous one, one check per unit at the end and a report per action, so that a migration of 20 renames is one run of about a second instead of twenty.
-- **Exit status**: 0 applied and clean, 1 refused or with errors left, which the first line tells apart, 2 usage, as for the other commands (Open items 9).
-- **The VS Code extension** gets rename (F2) and the code actions of operations 2 and 3 from the same commands with `--json`.
+- **Batch by script**, built: actions applied in order on the text of the previous one, one check of each file before the writes and one after, and a note per action, so that a migration of 20 renames is one run instead of twenty.
+- **Exit status**: 0 applied, 1 refused, 2 usage, as for the other commands, and 3 if a test of `@check test` fails; 1 also while errors remain is item 9.
+- **The VS Code extension** gets rename (F2) and the code actions of operations 2 and 3 from the same commands with `--json`, planned.
 
 ## Concurrent edits
 
-Several sessions edit the same files at once, also `CLAUDE.md` and `ideas/`, and each commits only its own hunks (working rules of `CLAUDE.md`). A refactoring reads many files, checks for a second, and writes many files, so another session can write in between, and a rename that missed the uses another session just added breaks its build. What helps, from cheap to thorough:
+Several sessions edit the same files at once, also `CLAUDE.md` and `ideas/`, and each commits only its own hunks (working rules of `CLAUDE.md`). A refactoring reads many files, checks for a second, and writes many files, so another session can write in between, and a rename that missed the uses another session just added breaks its build. What helps, from cheap to thorough, planned but for the journal of 6:
 
 1. **Operations are intent, not text.** A refactoring is stored as what it does, `rename prelude/set.size/1 cardinality`, addressed by names, not by positions, so it can be run again on any later version of the files. That is the main lever: conflicts are resolved by replaying the operation, not by merging its diff. Targets by position, `file.u:L.C`, are turned into names when the operation is planned, and a script keeps the names.
-2. **Optimistic writes.** `--apply` records the hash of each file it read; just before writing, it reads them again, and if any changed, it replays the operation on the new text (preconditions, edit, check, comparison) and tries again, a few times, then gives up with the files that keep changing. Each file is written to a temporary file and renamed, so no reader sees half a file, and the check–compare–write window is guarded by a lock, `out/refactor.lock` by `flock`, held only for the comparison and the writes, never for the check, which the replay repeats instead. Other tools that write sources, `format` and the editor, take the same lock or the same hashes.
+2. **Optimistic writes.** A script records the hash of each file it read; just before writing, it reads them again, and if any changed, it replays the operation on the new text (preconditions, edit, check, comparison) and tries again, a few times, then gives up with the files that keep changing. Each file is written to a temporary file and renamed, so no reader sees half a file, and the check–compare–write window is guarded by a lock, `out/refactor.lock` by `flock`, held only for the comparison and the writes, never for the check, which the replay repeats instead. Other tools that write sources, `format` and the editor, take the same lock or the same hashes.
 3. **Uses added after the rename.** A replay finds them, since `refs` is by resolution. For sessions that are still writing code against the old name, `rename --keep-old` leaves the old declaration as a forwarder, `function size[A](s: Set[A]): Int := cardinality(s)`, marked by a doc, which lint reports and `refactor remove-forwarders` removes later by inlining; the transition then needs no coordination.
 4. **Uncommitted edits of others that do not check.** The precondition "the units check" then fails for reasons that are not the agent's. `--base HEAD` runs the operation on the committed version, `git show HEAD:file`, in memory, and replays it on the working tree, where only the files the operation touches need to parse, and the result per file is either applied or reported as a conflict; the hunks of the operation are its own, which matches the rule of committing only one's own hunks, and `--patch out.diff` writes them for `git apply --cached`.
 5. **Merging at the level of declarations.** Since `format` is canonical, two versions of a file differ by whole commands far more often than by lines within them, so a three-way merge of the parsed trees by command (base, ours, theirs; a command changed on one side only is taken, on both sides is a conflict, compared by `strip_cmd`) resolves what a line merge reports as a conflict only because a neighbouring line moved; `ulang.sh merge base ours theirs` as a git merge driver for `*.u`, also usable by sessions that do not refactor. It needs the diff of declarations of `lint.md` (P1).
-6. **A journal.** Each applied script is appended to `out/refactor.log` with its session, time, files, and the text of the files before it, so that `@undo n` restores them, as a replay of the inverse where other edits followed, and `refactor log` tells a session which changes in the working tree are its own when it commits, and which operations of other sessions touched the files it is about to edit.
+6. **A journal.** Built: each script that writes is `out/refactor/journal/N.txt` of the root, with the text of each of its files before and after it (`journal_text` of `ulang/refactor/refactor.u`), and `@undo n` restores them, refused if a file changed after the script. Planned: the session and time of each script, the replay of the inverse where other edits followed, and `refactor log`, which tells a session which changes in the working tree are its own when it commits, and which operations of other sessions touched the files it is about to edit.
 7. **Editor buffers.** Unsaved edits in VS Code are versions too: the extension passes them as overlays, `--overlay file.u=<path of the buffer contents>`, so that a rename from the editor sees them, and it reloads the files the operation wrote.
 
 Out of scope: operational transformation or CRDTs at the level of characters, which solve live co-editing of one buffer, not the edits of agents, which are seconds to minutes apart and best rebased as operations.
@@ -399,24 +293,25 @@ With 3 and 4, adding a field, the most common change of data, is one `@put` of t
 For drafting:
 
 5. **A hole, `todo`**, an expression of any type and a statement, which raises `Todo` at runtime, is an open goal for the prover, and whose remaining uses `check --test` lists, so a draft checks before every case is written, and a new constructor is stubbed in each match by `@put into #h` of `case Scroll(_) => todo`.
-6. **An optional inline export**, `export function f(…): T := …` beside the sections, so that a fragment is the whole truth of a declaration; optional, since the tool keeps the sections in step anyway.
+6. **An optional inline export**, `export function f(…): T := …` beside the sections, so that a fragment is the whole truth of a declaration; optional, since `@put` and `@export` keep the sections in step anyway.
 
-What can stay strict: with the tool, locals in the innermost body that uses them, the canonical format, the signatures that `implementation` repeats, and the order of modes cost an agent nothing, so they stay, and docs that are nodes of the tree move with their declaration, so no structural edit loses them.
+What can stay strict: with the tool, locals in the innermost body that uses them, the canonical format, the signatures that `implementation` repeats, and the order of modes cost an agent nothing, so they stay, and docs, which are not in the tree, move with their declaration, since an edit splices the lines of the declaration with the comments right above it, so no structural edit loses them.
 
 ## Order of implementation
 
-Done: 2 and 3 but for the lock and the replay, 4, of 5 the rename of declarations, several per script, and the writing of modules, imports, and exports that use asked for first, so the order is now:
+Done: the edit scripts with their transaction, replies, handles, `--dry`, and the journal of `@undo`, but for the lock and the replay of Concurrent edits; `@fix` of the edits that the lints carry; of the operations, the rename of declarations, several per script; and the writing of modules, imports, and exports that use asked for first. So the order is now:
 
 1. The silent changes, the safety of handles, and nodes by their text, Open items 3 to 8, since item 5 is the one edit that damaged a file.
-2. `outline` and `refs`, Open items 1 and 2, which the second client asked for before an edit, and the position as a target of item 12.
+2. `@outline` and `@refs`, Open items 1 and 2, which the second client asked for before an edit, and the position as a target of item 12.
 3. Replies, Open items 9 to 13 and 15 to 19: the first line, the errors of `@check test` once, handles on diagnostics, and `--dry` with its check, which needs the overlays of `load_file`.
-4. `resolve`, `sig`, `names`: the other queries, by position on the checked program.
-5. The record of resolutions, Changes to ulang 1, then `@rename` of fields, types, and locals (Open items 21 and 22); then of modules with docs.
-6. The mechanical follow-ups, the hints of fragments with `@retry`, `expand-wildcard`, and the fixes of errors in `refactor fix`, `write-raises` and the others: small, and each the fix of an existing error; with the messages of item 14 from the checker.
-7. The changes of ulang 3 to 6, at any time, each making step 6 smaller.
-8. Signature changes and datatype changes beyond `@put`, if the follow-ups prove too many: `tuple-to-record`, `introduce-alias`, `function-to-procedure`.
-9. `move`.
-10. Rewrites by pattern, shared with lint.
-11. `extract-procedure`, `to-case`, as needs show.
+4. The actions of Open items 20, 23, and 24: the multi-line `@patch`, a declaration of another arity at its place, and `@example` with the handles of the lines of a spec.
+5. `resolve`, `sig`, `names`: the other queries of Diagnostics 3, by position on the checked program.
+6. The record of resolutions, Changes to ulang 1, then `@rename` of fields, types, and locals (Open items 21 and 22); then of modules with docs.
+7. The mechanical follow-ups, the hints of fragments with `@retry`, `expand-wildcard`, and the fixes of errors in `@fix`, `write-raises` and the others: small, and each the fix of an existing error; with the messages of item 14 from the checker, Diagnostics 6.
+8. The changes of ulang 3 to 6, at any time, each making step 7 smaller.
+9. Signature changes and datatype changes beyond `@put`, if the follow-ups prove too many: `tuple-to-record`, `introduce-alias`, `function-to-procedure`.
+10. `move`.
+11. Rewrites by pattern, shared with lint.
+12. `extract-procedure`, `to-case`, as needs show.
 
 Each operation has tests in `ulang/refactor/test/`, scripts on files before and after, which run only compiled, and its refusals there too.
