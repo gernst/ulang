@@ -724,6 +724,34 @@ test guarded_handlers() :=
   end
   assert n == 2
 
+test alternatives_in_statements() :=
+  var n := 0
+  for (k, 0) | (_, k) in List((1, 0), (5, 2)) do
+    n := n + k
+  end
+  assert n == 3
+  match Some(n)
+    case Some(1 | 2) | None =>
+      n := 0
+
+    case Some(3 | 4) =>
+      n := 10
+
+    case Some(_) =>
+      n := 20
+  end
+  assert n == 10
+  try
+    raise 7
+  catch
+    case 1 | 7 =>
+      n := 1
+  end
+  assert n == 1
+  assert raises 3 | 4 do
+    raise 4
+  end
+
 data Shape :=
   case Circle(label: Str, radius: Int)
   case Box(label: Str)

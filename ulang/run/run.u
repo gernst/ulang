@@ -352,6 +352,21 @@ function match_into(pat: At[Pat], v: Val, env: Bindings): Option[Bindings] :=
     // checked patterns have no annotations
     case (PAnnotated(inner, _), _) =>
       match_into(inner, v, env)
+
+    // the first alternative that matches binds the variables
+    case (POr(alts), _) =>
+      match alts
+        case List() =>
+          None
+
+        case List(alt; rest) =>
+          match match_into(alt, v, env)
+            case Some(inner) =>
+              Some(inner)
+            case None =>
+              match_into(AOk(pat.pos, pat.span, POr(rest)), v, env)
+          end
+      end
   end
 
 function match_all_into(pats: List[At[Pat]], vs: List[Val], env: Bindings): Option[Bindings] :=
@@ -1227,7 +1242,9 @@ function restored(names: List[Name], outer: Bindings, env: Bindings): Bindings :
       end
   end
 
-// the first case whose pattern matches v and whose guard holds, with env and the variables that the pattern binds
+// the first case whose pattern matches v and whose guard holds, with env and the variables that the pattern binds, where
+// a case with alternatives is the cases of its alternatives, of which match_into binds the first that matches, so that
+// they are tried only if its guard fails
 procedure select[A](
   in  run: Run,
       env: Bindings,
@@ -1248,7 +1265,11 @@ procedure select[A](
           if ok then
             sel := Some((body, inner, pattern_names(pat)))
           else
-            select(in run, env, v, rest, out sel, ref cache)
+            if has_alternatives(pat) then
+              select(in run, env, v, List(for q in alternatives(pat) yield Branch(q, guard, body)) ++ rest, out sel, ref cache)
+            else
+              select(in run, env, v, rest, out sel, ref cache)
+            end
           end
 
         case None =>
@@ -1311,7 +1332,11 @@ procedure handle(
         end
       end
       if not ok then
-        handle(in run, rest, v, t, ref env, cache)
+        if typ == t and guard != None and has_alternatives(pat) then
+          handle(in run, List(for q in alternatives(pat) yield Catch(typ, q, guard, body)) ++ rest, v, t, ref env, cache)
+        else
+          handle(in run, rest, v, t, ref env, cache)
+        end
       end
   end
 

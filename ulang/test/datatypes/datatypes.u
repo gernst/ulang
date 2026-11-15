@@ -245,3 +245,62 @@ test updates() :=
   assert raises MissingField("Shape.radius") do
     b := b with radius := 1
   end
+
+data Token :=
+  case TNum(num: Int)
+  case TNeg(num: Int)
+  case TPlus
+  case TMinus
+  case TEnd
+
+// alternatives that bind the same variables share one body
+function token_value(t: Token): Int :=
+  match t
+    case TNum(n) | TNeg(n) =>
+      n
+    case TPlus | TMinus | TEnd =>
+      0
+  end
+
+// nested alternatives, in a constructor and in a tuple
+function is_operator(t: Option[Token]): Bool :=
+  match t
+    case Some(TPlus | TMinus) =>
+      true
+    case Some(TNum(_) | TNeg(_) | TEnd) | None =>
+      false
+  end
+
+// alternatives whose variables are in other orders and positions
+function first_of(p: Int * Token): Int :=
+  match p
+    case (k, TPlus | TEnd) | (_, TNum(k) | TNeg(k)) =>
+      k
+    case (k, TMinus) =>
+      -k
+  end
+
+// a guard that fails on one alternative tries the next, as the cases of the alternatives do
+function non_zero(p: Int * Int): Int :=
+  match p
+    case (x, 0) | (0, x) if x != 0 =>
+      x
+    case _ =>
+      -1
+  end
+
+test alternatives() :=
+  assert List(for t in List(TNum(3), TNeg(4), TPlus, TEnd) yield token_value(t)) == List(3, 4, 0, 0)
+  assert List(for t in List(Some(TPlus), Some(TMinus), Some(TEnd), None) yield is_operator(t)) == List(true, true, false, false)
+  assert List(
+    first_of((1, TPlus)),
+    first_of((1, TNum(5))),
+    first_of((1, TNeg(6))),
+    first_of((2, TMinus))) == List(1, 5, 6, -2)
+  assert List(non_zero((3, 0)), non_zero((0, 4)), non_zero((0, 0)), non_zero((1, 2))) == List(3, 4, -1, -1)
+
+test alternatives_in_irrefutable_patterns() :=
+  assert (let (n, 0) | (_, n) := (4, 1) in
+  n) == 1
+  assert List(for (n, 0) | (_, n) in List((1, 0), (5, 2)) yield n) == List(1, 2)
+  assert (lambda (n, 0) | (_, n) => n)((7, 0)) == 7

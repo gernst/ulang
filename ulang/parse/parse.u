@@ -451,6 +451,9 @@ function hint_at(what: Str, toks: Tokens): Str :=
     case (TKw(","), tok) if contains(tok, List(TKw("in"), TKw("out"), TKw("ref"))) =>
       "; modes come in the order in, out, ref, each once before its group, as in ref a, b"
 
+    case (TKw("|"), _) if what != "pattern" =>
+      "; | separates the alternatives of a pattern, and the operators of Bool are and, or, and not"
+
     case (TKw("["), _) =>
       "; containers are forms, List(1, 2), Set(…), Map(k => v), and Array(…), and [ ] holds only type arguments"
 
@@ -1464,6 +1467,15 @@ procedure parse_pattern(
 ) :=
   let pos := head_pos(toks)
   parse_operators(in notation, params, pat_ops(), out pat, ref toks)
+  if at_kw(toks, "|") then
+    var alts: List[At[Pat]] := List(pat), alt: At[Pat]
+    while at_kw(toks, "|") do
+      advance(ref toks)
+      parse_operators(in notation, params, pat_ops(), out alt, ref toks)
+      alts := alts ++ List(alt)
+    end
+    pat := AOk(pos, span_from(pos, toks), POr(alts))
+  end
   if at_kw(toks, ":") then
     var typ: Type
     advance(ref toks)
@@ -2404,12 +2416,12 @@ procedure parse_spec(
   end
   if at_kw(toks, "requires") then
     advance(ref toks)
-    parse_separated(in notation, params, parse_expr, at_comma, out pre, ref toks)
+    parse_separated(in notation, params, parse_contract_expr, at_comma, out pre, ref toks)
   end
   if at_kw(toks, "ensures") then
     var concl: At[Expr]
     advance(ref toks)
-    parse_expr(in notation, params, out concl, ref toks)
+    parse_contract_expr(in notation, params, out concl, ref toks)
     post := Some(concl)
   end
   while at_kw(toks, "example") do
@@ -2420,6 +2432,44 @@ procedure parse_spec(
     found := found ++ List(x)
   end
   spec := Spec(pre, post, List(for x in found))
+
+// an assumption or the conclusion of a contract, or one that does not parse, which fails no declaration, since it
+// generates no code, up to the next ensures or example if one follows before the next command, else up to its error, where
+// the body then starts
+procedure parse_contract_expr(
+  in  notation: Notation,
+      params: List[Id],
+  out expr: At[Expr],
+  ref toks: Tokens
+) :=
+  let pos := head_pos(toks), next := has_next_spec_part(toks)
+  var skipped: Buffer[Str] := empty()
+  try
+    parse_expr(in notation, params, out expr, ref toks)
+  catch
+    case ParseError(message, at) =>
+      while not (at_kw(toks, "ensures") or at_kw(toks, "example") or starts_command(toks) or not next and not head_pos(toks) < at) do
+        skipped := skipped ++ List(format_token(head_token(toks)))
+        advance(ref toks)
+      end
+      expr := AUnparsed(pos, span_from(pos, toks), joined(List(for t in skipped)), parse_diagnostic(ParseError(message, at)))
+  end
+
+// whether an ensures or an example follows before the next command
+function has_next_spec_part(toks: Tokens): Bool :=
+  match toks
+    case List((_, TKw("ensures"), _); _) =>
+      true
+
+    case List((_, TKw("example"), _); _) =>
+      true
+
+    case List((_, tok, _); more) if not is_command_token(tok) =>
+      has_next_spec_part(more)
+
+    case _ =>
+      false
+  end
 
 // the example at pos after its keyword, as far as its expression goes, so that a body after the examples starts with
 // what cannot continue it, or one that does not parse, whose test fails, which fails no declaration, up to the next example
@@ -3750,3 +3800,10 @@ test code_free_parse_errors_of_lemmas() :=
   parse_text_recovering(in "procedure main() :=\n  skip\n\nlemma broken(in n: Int) :=\n  ensures\n\nprocedure go() :=\n  x = 1\n", out source)
   assert size(parse_errors(source)) == 2
   assert code_free_parse_errors(source) == take(1, parse_errors(source))
+
+test contracts_recover() :=
+  var source: Source
+  parse_text_recovering(in "procedure inc(in n: Int, out m: Int) :=\n  requires\n  ensures m\n  m := n\n", out source)
+  assert size(parse_errors(source)) == 1
+  assert code_free_parse_errors(source) == parse_errors(source)
+  assert unparsed_names(source) == empty()

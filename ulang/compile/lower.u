@@ -107,8 +107,10 @@ function symbol_of_show(t: Name, defs: Defs): Str
 
 implementation
 
+// the C text of n with each character other than a letter, a digit, or _ as _ and its code point and _, by the runs of the
+// text, since a list per character took a tenth of the cells of the compiler, which mangles a name at each use
 function mangle(n: Name): Str :=
-  str(List(for c in chars(c_text(n)) for d in mangle_char(c) yield d))
+  join("", List(for run in runs(c_text(n), 0, 0) yield if is_plain(at(0, run)) then run else "_" ++ show(int(at(0, run))) ++ "_"))
 
 function c_text(n: Name): Str :=
   match n.module
@@ -118,11 +120,24 @@ function c_text(n: Name): Str :=
       format_name(n)
   end
 
-function mangle_char(c: Char): List[Char] :=
-  if is_letter(c) or is_digit(c) or c == '_' then
-    List(c)
+function is_plain(c: Char): Bool :=
+  is_letter(c) or is_digit(c) or c == '_'
+
+// the longest runs of plain characters of text and the other characters one by one, from index start, where the
+// characters from start up to i are plain
+function runs(text: Str, start: Int, i: Int): List[Str] :=
+  example runs("ab/c.", 0, 0) == List("ab", "/", "c", ".")
+  example runs("", 0, 0) == List()
+  if i >= size(text) then
+    run(text, start, i)
+  else if is_plain(at(i, text)) then
+    runs(text, start, i + 1)
   else
-    chars("_" ++ show(int(c)) ++ "_")
+    run(text, start, i) ++ List(slice(text, i, i + 1); runs(text, i + 1, i + 1))
+
+// the run of text from start up to i, if it is not empty
+function run(text: Str, start: Int, i: Int): List[Str] :=
+  if start < i then List(slice(text, start, i)) else List()
 
 function fun_name(n: Name, k: Int): Str :=
   "f_" ++ mangle(n) ++ "_" ++ show(k)

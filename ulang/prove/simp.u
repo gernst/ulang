@@ -1699,6 +1699,10 @@ function match_pat(decls: Decls, p: Pat, t: Term): PatMatch :=
     // checked patterns have no annotations
     case PAnnotated(inner, _) =>
       match_pat(decls, inner.that, t)
+
+    // translate of ulang/prove/translate.u gives the cases of the alternatives instead
+    case POr(_) =>
+      Stuck
   end
 
 function match_pats(decls: Decls, ps: List[Pat], ts: List[Term]): PatMatch :=

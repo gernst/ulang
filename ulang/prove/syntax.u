@@ -976,6 +976,9 @@ function print_pat(p: Pat): Str :=
     // checked patterns have no annotations
     case PAnnotated(inner, _) =>
       print_pat(inner.that)
+
+    case POr(alts) =>
+      join(" | ", List(for q in alts yield print_pat(q.that)))
   end
 
 // the atoms first, as written, then the constant

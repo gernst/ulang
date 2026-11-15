@@ -302,7 +302,7 @@ function run_stmt(exec: Exec, env: List[Name], stmt: At[Stmt], rest: List[Item],
 
     case SMatch(arg, cases) =>
       let a := term_of(env, arg) in
-      let typed_cases := List(for d in cases yield run_case(exec, env, d, rest)) in
+      let typed_cases := List(for d in expanded_cases(cases) yield run_case(exec, env, d, rest)) in
       ProofTerm(steps, Some(MatchTerm(a, typed_cases, stmt.pos)), pos)
 
     case SWhile(cond, body) =>
@@ -488,10 +488,10 @@ function steps_term(formals: List[Var], env: List[Name], steps: List[At[Step]], 
 function split_term(formals: List[Var], env: List[Name], split: At[Split]): SplitTerm :=
   match split.that
     case SplitInduction(x, cases) =>
-      InductionTerm(value_or(index_of(x.name, List(for f in formals yield f.name)), 0), List(for c in cases yield case_term(formals, env, c)), split.pos)
+      InductionTerm(value_or(index_of(x.name, List(for f in formals yield f.name)), 0), List(for c in expanded_cases(cases) yield case_term(formals, env, c)), split.pos)
 
     case SplitMatch(arg, cases) =>
-      MatchTerm(term_of(env, arg), List(for c in cases yield case_term(formals, env, c)), split.pos)
+      MatchTerm(term_of(env, arg), List(for c in expanded_cases(cases) yield case_term(formals, env, c)), split.pos)
 
     case SplitIf(cond, left, right) =>
       IfTerm(term_of(env, cond), proof_term(formals, env, left, split.pos), map_option(right, lambda p => proof_term(formals, env, p, split.pos)), split.pos)
@@ -537,7 +537,7 @@ function term_of(env: List[Name], expr: At[Expr]): Term :=
       EIte(c, a, b)
 
     case EMatch(arg, cases) =>
-      let a := term_of(env, arg), bs := List(for br in cases yield branch_term(env, br)) in
+      let a := term_of(env, arg), bs := List(for br in expanded_cases(cases) yield branch_term(env, br)) in
       EMatch(a, bs)
 
     case ETuple(args) =>
@@ -577,10 +577,9 @@ function let_term(env: List[Name], bindings: List[At[Pat] * At[Expr]], body: At[
       let_match(env, if size(pats) == 1 then at(0, from_list(pats)).that else PTuple(pats), if size(values) == 1 then at(0, from_list(values)) else tuple_term(values), body)
   end
 
-// the match of value against the irrefutable pat, which binds in body
+// the match of value against the irrefutable pat, which binds in body, a case for each of its alternatives
 function let_match(env: List[Name], pat: Pat, value: Term, body: At[Expr]): Term :=
-  let inner := term_of(bind(pattern_vars(pat), env), body) in
-  EMatch(value, List(TermBranch(pat, None, inner)))
+  EMatch(value, List(for q in alternatives(nowhere(pat)) yield TermBranch(q.that, None, term_of(bind(pattern_vars(q.that), env), body))))
 
 function branch_term(env: List[Name], d: At[Branch[At[Expr]]]): TermBranch :=
   let br := d.that in

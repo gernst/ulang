@@ -140,6 +140,8 @@ data Pat :=
   case PTuple(args: List[At[Pat]])
   // p: T, whose type the checker unifies with T and which checked patterns do not have
   case PAnnotated(pat: At[Pat], typ: Type)
+  // the alternatives p | q | …, which bind the same variables with the same types, of which the first that matches binds them
+  case POr(alts: List[At[Pat]])
 
 // the proof of a lemma after its contract, see ideas/prove.md, section 4: steps that add facts and witnesses, then at most one
 // split, which ends it, since it replaces the goal by its cases, each a proof of its own; without steps and split, the
@@ -384,6 +386,19 @@ function pat_var(n: Id): At[Pat]
 function pattern_expr(p: At[Pat]): Option[At[Expr]]
 
 function pattern_names(pat: At[Pat]): List[Name]
+
+// the patterns without alternatives that pat matches together, in order, where nested alternatives multiply out from
+// the left, so that a case with alternatives is the cases of these, each with its guard and body, as the backends run it
+function alternatives(pat: At[Pat]): List[At[Pat]] :=
+  example alternatives(pat_var("x")) == List(pat_var("x"))
+
+// whether pat has alternatives, also nested
+function has_alternatives(pat: At[Pat]): Bool
+
+// the cases with alternatives as the cases of their alternatives
+function expanded_cases[A](cases: List[At[Branch[A]]]): List[At[Branch[A]]]
+
+function expanded_handlers(cases: List[At[Catch]]): List[At[Catch]]
 
 // the variables of patterns that are all variables
 function pattern_vars(pats: List[At[Pat]]): Option[List[Var]]
@@ -833,6 +848,10 @@ function pattern_value(pos: Pos, span: Span, p: Pat): Option[Expr] :=
 
     case PAnnotated(inner, _) =>
       pattern_value(inner.pos, inner.span, inner.that)
+
+    // which alternative to build is open
+    case POr(_) =>
+      None
   end
 
 function raised_types(raised: Raises): List[Type] :=
@@ -886,6 +905,69 @@ function pattern_vars(pats: List[At[Pat]]): Option[List[Var]] :=
       None
   end
 
+function alternatives(pat: At[Pat]): List[At[Pat]] :=
+  match pat.that
+    case POr(alts) =>
+      List(for a in alts for q in alternatives(a) yield q)
+
+    case PApp(constr, args) =>
+      List(for qs in combinations(args) yield pat with that := PApp(constr, qs))
+
+    case PTuple(args) =>
+      List(for qs in combinations(args) yield pat with that := PTuple(qs))
+
+    case PAnnotated(inner, typ) =>
+      List(for q in alternatives(inner) yield pat with that := PAnnotated(q, typ))
+
+    case PWild =>
+      List(pat)
+
+    case PLit(_) =>
+      List(pat)
+
+    case PVar(_) =>
+      List(pat)
+  end
+
+// the lists of an alternative of each of pats, those of the first varying slowest
+function combinations(pats: List[At[Pat]]): List[List[At[Pat]]] :=
+  match pats
+    case List() =>
+      List(List())
+    case List(p; rest) =>
+      List(for q in alternatives(p) for qs in combinations(rest) yield List(q; qs))
+  end
+
+function has_alternatives(pat: At[Pat]): Bool :=
+  match pat.that
+    case POr(_) =>
+      true
+
+    case PApp(_, args) =>
+      exists(args, has_alternatives)
+
+    case PTuple(args) =>
+      exists(args, has_alternatives)
+
+    case PAnnotated(inner, _) =>
+      has_alternatives(inner)
+
+    case PWild =>
+      false
+
+    case PLit(_) =>
+      false
+
+    case PVar(_) =>
+      false
+  end
+
+function expanded_cases[A](cases: List[At[Branch[A]]]): List[At[Branch[A]]] :=
+  List(for d in cases for q in alternatives(d.that.pat) yield d with that := (d.that with pat := q))
+
+function expanded_handlers(cases: List[At[Catch]]): List[At[Catch]] :=
+  List(for d in cases for q in alternatives(d.that.pat) yield d with that := (d.that with pat := q))
+
 function pattern_names(pat: At[Pat]): List[Name] :=
   match pat.that
     case PVar(x) =>
@@ -899,6 +981,15 @@ function pattern_names(pat: At[Pat]): List[Name] :=
 
     case PAnnotated(inner, _) =>
       pattern_names(inner)
+
+    // the first alternative, since all bind the same names
+    case POr(alts) =>
+      match alts
+        case List(alt; _) =>
+          pattern_names(alt)
+        case List() =>
+          List()
+      end
 
     case PWild =>
       List()
@@ -1214,6 +1305,9 @@ function strip_pattern(pat: Pat): Pat :=
 
     case PAnnotated(inner, typ) =>
       PAnnotated(strip_pat(inner), typ)
+
+    case POr(alts) =>
+      POr(List(for a in alts yield strip_pat(a)))
 
     case PWild =>
       pat

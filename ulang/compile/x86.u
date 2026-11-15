@@ -626,6 +626,10 @@ procedure compile_expr(in defs: Defs, env: Slots, expr: At[Expr], ref e: Emit) :
     case EProc(ins, outs, refs, _, stmt) =>
       compile_proc_lambda(in defs, env, vars(ins), vars(outs), vars(refs), stmt, ref e)
 
+    // a let of a pattern with alternatives is a match of its value with a case for each
+    case ELet(List((pat, value)), body) if has_alternatives(pat) =>
+      compile_expr(in defs, env, expr with that := EMatch(value, List(nowhere(Branch(pat, None, body)))), ref e)
+
     case ELet(bindings, body) =>
       var slots: List[Int], binds: Slots
       compile_spilled(in defs, env, seconds(bindings), out slots, ref e)
@@ -804,7 +808,7 @@ procedure expr_cases(
       done: Str,
   ref e: Emit
 ) :=
-  for d in cases do
+  for d in expanded_cases(cases) do
     match d
       case AOk(_, _, Branch(pat, guard, body)) =>
         var next: Str, binds: Slots
@@ -1119,7 +1123,7 @@ procedure compile_stmt(in defs: Defs, env: Slots, stmt: At[Stmt], ref e: Emit) :
     // the checker gives the list of the items and patterns that match every item, so that the loop walks the list and binds
     // the pattern to each item
     case SFor(List(GVal(pat, over)), body) =>
-      var l: Int, top: Str, done: Str, binds: Slots
+      var l: Int, top: Str, done: Str
       compile_expr(in defs, env, over, ref e)
       spill(out l, ref e)
       new_label(out top, ref e)
@@ -1130,8 +1134,24 @@ procedure compile_stmt(in defs: Defs, env: Slots, stmt: At[Stmt], ref e: Emit) :
         ILea(ORip(descriptor_name(cons_name())), Rcx),
         ICmp(OReg(Rcx), OMem(Rax, name_offset())),
         IJcc(CondNe, done)), ref e)
-      bind_pat(in pat.that, l, List(0), out binds, ref e)
-      compile_stmt(in defs, binds ++ env, body, ref e)
+      if has_alternatives(pat) then
+        var step: Str
+        new_label(out step, ref e)
+        for q in alternatives(pat) do
+          var next: Str, binds: Slots
+          new_label(out next, ref e)
+          test_pat(in q.that, l, List(0), next, ref e)
+          bind_pat(in q.that, l, List(0), out binds, ref e)
+          compile_stmt(in defs, binds ++ env, body, ref e)
+          emit(in IJmp(step), ref e)
+          place(in next, ref e)
+        end
+        place(in step, ref e)
+      else
+        var binds: Slots
+        bind_pat(in pat.that, l, List(0), out binds, ref e)
+        compile_stmt(in defs, binds ++ env, body, ref e)
+      end
       emit_all(in List(
         IMov(slot(l), OReg(Rax)),
         IMov(OMem(Rax, items_offset()), OReg(Rax)),
@@ -1207,7 +1227,7 @@ procedure handler_cases(
       done: Str,
   ref e: Emit
 ) :=
-  for d in hs do
+  for d in expanded_handlers(hs) do
     match d
       case AOk(_, _, Catch(typ, pat, guard, s)) =>
         var next: Str, v: Int, binds: Slots
@@ -1246,7 +1266,7 @@ procedure stmt_cases(
       done: Str,
   ref e: Emit
 ) :=
-  for d in cases do
+  for d in expanded_cases(cases) do
     match d
       case AOk(_, _, Branch(pat, guard, body)) =>
         var next: Str, binds: Slots

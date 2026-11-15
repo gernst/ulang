@@ -476,6 +476,36 @@ test pattern_alias_clash() :=
       "  C(n)"))
   end
 
+test or_variables_extra() :=
+  assert raises Located(None, Pos(3, 17), OrVariables(_, true)) do
+    check_text(in "ulang/test/errors/or-variables-extra.u", List(
+      "function f(o: Option[Int]): Int :=",
+      "  match o",
+      "    case None | Some(n) =>",
+      "      0",
+      "  end"))
+  end
+
+test or_variables_missing() :=
+  assert raises Located(None, Pos(3, 20), OrVariables(_, false)) do
+    check_text(in "ulang/test/errors/or-variables-missing.u", List(
+      "function f(o: Option[Int]): Int :=",
+      "  match o",
+      "    case Some(n) | None =>",
+      "      n",
+      "  end"))
+  end
+
+test or_variables_type() :=
+  assert raises Located(None, Pos(3, 22), CannotUnify(_, _)) do
+    check_text(in "ulang/test/errors/or-variables-type.u", List(
+      "function f(p: Int * Bool): Int :=",
+      "  match p",
+      "    case (n, true) | (_, n) =>",
+      "      0",
+      "  end"))
+  end
+
 test pattern_alias_extra_variable() :=
   assert raises Located(None, Pos(1, 1), AliasVariables(_)) do
     check_text(in "ulang/test/errors/pattern-alias-extra-variable.u", List("pattern Pair(x: Int): Int * Int :=", "  (x, y)"))

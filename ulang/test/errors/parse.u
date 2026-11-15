@@ -139,6 +139,11 @@ test operator_character() :=
     check_text(in "ulang/test/errors/operator-character.u", List("function f(): Int :=", "  1 <|> 2"))
   end
 
+test operator_bar() :=
+  assert raises ParseError("declaration expected but | found; | separates the alternatives of a pattern, and the operators of Bool are and, or, and not", Pos(2, 5)) do
+    check_text(in "ulang/test/errors/operator-bar.u", List("function f(b: Bool): Bool :=", "  b | b"))
+  end
+
 test operator_or() :=
   assert raises ParseError("unexpected character; the operators of Bool are and, or, and not", Pos(2, 5)) do
     check_text(in "ulang/test/errors/operator-or.u", List("function f(b: Bool): Bool :=", "  b || b"))
