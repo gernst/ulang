@@ -68,9 +68,11 @@ install_seed = if cmp -s $(1) bootstrap/ulang.c; then echo "the seed is unchange
 # Each run has a stage directory of its own in out/, which is removed if the run succeeds, and then make builds out/ulang.bin
 # again from the new seed.
 
-# out/ulang.bin, the sources compiled by the seed, compiles them again, whose program must compile them to the same C, since
-# the C of the seed may differ, and that becomes the seed
-selfcompile: out/ulang.bin out/ulang.sh
+# out/ulang.bin compiles the sources, whose program must compile them to the same C, since the C of the compiler that compiled
+# it may differ, and that becomes the seed; out/ulang.bin is built if it is missing, but not rebuilt by the seed if it is older
+# than the sources, so that a binary that knows a syntax which the seed does not compiles the sources that use it
+selfcompile: out/ulang.sh
+	[ -f out/ulang.bin ] || $(MAKE) out/ulang.bin
 	stage=$$(mktemp -d out/stage-XXXXXX) && \
 	out/ulang.sh compile ulang/ulang.u -o $$stage/ulang2.c && \
 	$(CC) $(CFLAGS) $$stage/ulang2.c ulang/runtime/ulang.c $(LIBS) -o $$stage/ulang2.bin && \
