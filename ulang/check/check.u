@@ -723,7 +723,8 @@ function solved_raises(solved: Option[Map[Int, Set[Name]]], raised: Raises): Rai
   end
 
 function zonk_type(su: Subst, t: Type): Type :=
-  match resolve(su, t)
+  let u := resolve(su, t) in
+  match u
     case TSort(name, args) =>
       TSort(name, List(for a in args yield zonk_type(su, a)))
 
@@ -736,7 +737,7 @@ function zonk_type(su: Subst, t: Type): Type :=
     case TTuple(types) =>
       TTuple(List(for a in types yield zonk_type(su, a)))
 
-    case u =>
+    case THole | TMeta(_) | TParam(_) | TError =>
       u
   end
 

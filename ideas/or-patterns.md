@@ -2,11 +2,11 @@
 
 A plan: the matches that end in `case _` named by alternatives, `case A | B =>`, as Code 1 and the rule of style in `CLAUDE.md`, Style, ask, now that the language has them (`CLAUDE.md`, Syntax and translations). Delete this file when the steps below are done, and move what stays true into `CLAUDE.md`.
 
-Done: the 12 sites over `Type` and `raises_modules` of `ulang/check/uses.u` over `Raises`. The steps, each after the one before: the other sites below, one commit per package, `ulang/check` first, handed over to `main` after each package or two, since other sessions edit `ulang/check/check.u` all the time; then the lint and the refactoring.
+Done: the 12 sites over `Type`, `zonk_type` of `ulang/check/check.u`, whose catch-all is a variable, and `raises_modules` of `ulang/check/uses.u` over `Raises`. The steps, each after the one before: the other sites below, one commit per package, `ulang/check` first, handed over to `main` after each package or two, since other sessions edit `ulang/check/check.u` all the time; then the lint and the refactoring.
 
 ## The sites
 
-The scan of 15 November 2026 (`main` at 1ccb2d3), by the constructor names in the heads of the cases, outside the directories `test/`, found 109 matches with a `case _` that name two or more constructors of one datatype; 5 of them are matches on tuples whose heads only name `Some` and `None` inside, which drop out. The others, by the rule of style:
+The scan of 15 November 2026 (`main` at 1ccb2d3), by the constructor names in the heads of the cases, outside the directories `test/`, found 109 matches with a `case _` that name two or more constructors of one datatype, and 3 whose catch-all is a variable, `case u =>`, of which `zonk_type` of `ulang/check/check.u` is a traversal and `field_access` of `ulang/check/check.u` and `at_stmt` of `ulang/parse/parse.u` keep theirs, a dispatch whose catch-all is an error and one on the next token; 5 of them are matches on tuples whose heads only name `Some` and `None` inside, which drop out. The others, by the rule of style:
 
 - Convert (60 sites):
   - `has_holes`, `subst`, `occurs`, `solved_type`, `zonk_pattern`, `zonk_cmd`, `unknown_in_expr`, `unknown_in_cmd`, `head_of`, `constructors_of`, `has_procs`, `loosened`, `takes_fixed`, `has_error_type`, `command`, `native`, `private_in`, `pattern_constrs`, `exposed`, `example_owner`, and `spec_of` of `ulang/check/check.u`
