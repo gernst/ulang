@@ -839,14 +839,31 @@ function name_lints(pos: Pos, name: Id): List[Warning] :=
   else
     List()
 
-// whether name ends in a digit after a letter, as e1 or stmt2
+// whether name ends in a digit after a letter, as e1 or stmt2, but in a standard name after its last _, whose digit is no
+// index, as os_read_utf8, while those of more digits, as sha256 or x86, end in no digit after a letter
 function is_numbered(name: Id): Bool :=
+  example is_numbered("stmt2")
+  example is_numbered("os_read_utf8") == false
   match reverse(chars(name))
     case List(c, d; _) =>
-      is_digit(c) and is_letter(d)
+      is_digit(c) and is_letter(d) and not contains(value_or(last(split(name, '_')), name), standard_names())
     case _ =>
       false
   end
+
+// the names of encodings, hashes, and protocols that end in a digit after a letter
+function standard_names(): Set[Id] :=
+  Set(
+    "utf8",
+    "md5",
+    "sha1",
+    "ipv4",
+    "ipv6",
+    "pop3",
+    "http2",
+    "http3",
+    "int8",
+    "uint8")
 
 // the variables that pat binds, each at its position, where a capitalized name is a constructor or an alias without
 // formals
