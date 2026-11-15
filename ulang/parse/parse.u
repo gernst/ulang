@@ -2345,8 +2345,41 @@ procedure parse_pat_alias(in notation: Notation, out cmd: Cmd, ref toks: Tokens)
   expect(in TKw(":"), ref toks)
   parse_type(in notation, params, out r, ref toks)
   expect(in TKw(":="), ref toks)
-  parse_pattern(in notation, params, out pat, ref toks)
+  if at_case(toks) then
+    let at := head_pos(toks)
+    var alts: List[At[Pat]]
+    parse_alias_cases(in notation, params, out alts, ref toks)
+    pat := AOk(at, span_from(at, toks), POr(alts))
+  else
+    parse_pattern(in notation, params, out pat, ref toks)
+    require_cases(in pat)
+  end
   cmd := CPatAlias(unqualified(name), params, xs, r, pat)
+
+// the alternatives of a pattern alias, each after case, as the constructors of a datatype are
+procedure parse_alias_cases(
+  in  notation: Notation,
+      params: List[Id],
+  out alts: List[At[Pat]],
+  ref toks: Tokens
+) :=
+  alts := List()
+  while at_case(toks) do
+    var alt: At[Pat]
+    advance(ref toks)
+    parse_pattern(in notation, params, out alt, ref toks)
+    require_cases(in alt)
+    alts := alts ++ List(alt)
+  end
+
+// a pattern of an alias without alternatives at its top, which follow case each
+procedure require_cases(in pat: At[Pat]) raises ParseError :=
+  match pat.that
+    case POr(_) =>
+      raise ParseError("the alternatives of a pattern alias follow case, one on each line, as in pattern P(): T := case A case B", pat.pos)
+    case _ =>
+      skip
+  end
 
 // a procedure, which is a signature without :=, or with := and a spec that the next command follows
 procedure parse_procedure(in notation: Notation, out cmd: Cmd, ref toks: Tokens) :=
@@ -3759,6 +3792,20 @@ test parsed_tuple_types() :=
     TFun(List(int, str), int),
     TFun(List(pair), int),
     TTuple(List()))
+
+// the alternatives of a pattern alias after case, one on each line, are one pattern of alternatives
+test parsed_alias_cases() :=
+  var d: Mod, found: List[Pat] := List()
+  parse_text(in "pattern Small(): Option[Int] :=\n  case None\n  case Some(1)\n  case Some(2 | 3)\n", out d)
+  for c in commands_of(d.implemented) do
+    match c
+      case CPatAlias(_, _, _, _, AOk(_, _, POr(alts))) =>
+        found := List(for a in alts yield strip_pat(a).that)
+      case _ =>
+        skip
+    end
+  end
+  assert size(found) == 3
 
 // the doc of a declaration is the run of comments right above it, without a blank line between
 test parsed_docs() :=
