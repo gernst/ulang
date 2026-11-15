@@ -284,10 +284,54 @@ function pattern_tests(pat: Pat, v: CExpr): List[CExpr] :=
     case PWild | PVar(_) =>
       List()
 
-    // alternatives and annotations, which expanded_cases and expanded_handlers of ulang/syntax/syntax.u take apart before
-    case PAnnotated(_, _) | POr(_) =>
+    // one test of the alternatives where they stand, whose variables match_expr assigns if they bind any
+    case POr(alts) =>
+      List(
+        disjunction(List(for a in alts yield conjunction(pattern_tests(a.that, v)))))
+
+    // annotations, which the checker drops but at the top of the alternatives of handlers, which expanded_handlers of
+    // ulang/syntax/syntax.u takes apart before
+    case PAnnotated(_, _) =>
       List()
   end
+
+// the test that v matches pat, which assigns the variables of pat as its operands, so that alternatives that bind
+// variables are tested where they stand, each assigning them, where an assignment holds, since no value is NULL; if
+// matched, v matches pat, so that only the alternatives but the last at each | are tested
+function match_expr(pat: Pat, v: CExpr, matched: Bool): CExpr :=
+  match pat
+    case PLit(_) =>
+      if matched then CeNum(1) else conjunction(pattern_tests(pat, v))
+
+    case PApp(constr, args) =>
+      let tag := if matched then
+        List()
+      else
+        List(c_call("u_is_con", List(v, descriptor(constr)))) in
+      operands(tag ++ List(for (p, i) in numbered(args) yield match_expr(p.that, field(v, i), matched)))
+
+    case PTuple(args) =>
+      operands(List(for (p, i) in numbered(args) yield match_expr(p.that, field(v, i), matched)))
+
+    case PName(name, _) =>
+      CeBinary("=", CeVar(var_name(name)), v)
+
+    case PWild =>
+      CeNum(1)
+
+    case POr(alts) =>
+      let n := size(alts) in
+      disjunction(List(for (a, i) in numbered(alts) yield match_expr(a.that, v, matched and i == n - 1)))
+
+    // annotations, which the checker drops but at the top of the alternatives of handlers, which expanded_handlers of
+    // ulang/syntax/syntax.u takes apart before
+    case PAnnotated(_, _) =>
+      CeNum(1)
+  end
+
+// the conjunction of the tests cs without those that always hold
+function operands(cs: List[CExpr]): CExpr :=
+  conjunction(List(for c in cs if c != CeNum(1) yield c))
 
 function field_tests(ps: List[(At[Pat], Int)], v: CExpr): List[CExpr] :=
   List(for (p, i) in ps for t in pattern_tests(p.that, field(v, i)) yield t)
@@ -307,8 +351,13 @@ function pattern_binds(pat: Pat, v: CExpr): List[CStmt] :=
     case PWild | PLit(_) =>
       List()
 
-    // alternatives and annotations, which expanded_cases and expanded_handlers of ulang/syntax/syntax.u take apart before
-    case PAnnotated(_, _) | POr(_) =>
+    // alternatives that bind nothing, since case_stmts lets match_expr assign the variables of the others
+    case POr(_) =>
+      List()
+
+    // annotations, which the checker drops but at the top of the alternatives of handlers, which expanded_handlers of
+    // ulang/syntax/syntax.u takes apart before
+    case PAnnotated(_, _) =>
       List()
   end
 
@@ -633,7 +682,7 @@ procedure expr_cases(
       var bs: List[CStmt], rb: CExpr, here: List[CStmt], rest: List[CStmt]
       let env_: Vars := in_scope(pattern_names(pat)) ++ env
       compile_expr(in defs, env_, e, out bs, rb, ref g)
-      case_stmts(in defs, env_, t, case_alternatives(pat, v, more == List() and guard == None), v, guard, bs ++ List(CsAssign(CeVar(t), rb)), out here, ref g)
+      case_stmts(in defs, env_, t, case_alternatives(pat, v, guard != None, more == List() and guard == None), v, guard, bs ++ List(CsAssign(CeVar(t), rb)), out here, ref g)
       expr_cases(in defs, env, more, v, t, out rest, ref g)
       ss := here ++ rest
 
@@ -1075,7 +1124,8 @@ function handler_tests(c: Catch, h: Str, v: CExpr): List[CExpr] :=
   end
 
 // a case of the alternatives alts, each with its tests that v matches its pattern, while flag is unset, where the body
-// runs once: a case of one alternative tests, binds, and runs the guard and the body, as it always has; alternatives
+// runs once: a case of one alternative tests, binds, and runs the guard and the body, as it always has, where alternatives
+// inside that bind variables are tested by match_expr, which assigns the variables that the case declares; alternatives
 // that bind nothing, without a guard, are one test of the disjunction of theirs; and others declare the variables of
 // the case, which each alternative that applies assigns, and set m if the guard holds, so that a guard that fails on
 // one tries the next, before the body runs if m is set
@@ -1102,7 +1152,14 @@ procedure case_stmts(
         case None =>
           skip
       end
-      ss := List(case_if(flag, tests, pat, v, guarded_body))
+      if has_bound_alternatives(pat) then
+        let names := pattern_names(pat)
+        ss := List(
+          CsBlock(List(for x in names yield CsDecl(value_type(), var_name(x), Some(CeVar("NULL")))) ++ List(
+            CsIf(conjunction(List(not_flag(flag)) ++ tests), guarded_body, List()))))
+      else
+        ss := List(case_if(flag, tests, pat, v, guarded_body))
+      end
 
     case _ if guard == None and forall(alts, lambda (_, pat) => pattern_names(pat) == List()) =>
       ss := List(
@@ -1132,16 +1189,20 @@ procedure case_stmts(
         CsBlock(List(for x in names yield CsDecl(value_type(), var_name(x), Some(CeVar("NULL")))) ++ List(declare_int(m, 0)) ++ List(for t in tried) ++ List(CsIf(CeVar(m), body, List()))))
   end
 
-// the alternatives of the pattern of a case with their tests that v matches them, where one of them matches if the case is
-// matched, the last of a match without a guard, which is exhaustive, or of a let or for, whose pattern is irrefutable: then
-// the last alternative needs no test, as a case _ has none, and if they bind no variables, the last alone stands for all
-function case_alternatives(pat: At[Pat], v: CExpr, matched: Bool): List[(List[CExpr], At[Pat])] :=
-  let alts := alternatives(pat), n := size(alts) in
-  if not matched then
-    List(for q in alts yield (pattern_tests(q.that, v), q))
+// the alternatives of the pattern of a case, tested one after another, by tested_alternatives of ulang/syntax/syntax.u,
+// with their tests that v matches them, by match_expr for those that bind variables in alternatives; if the case is
+// matched, the last of a match without a guard, which is exhaustive, or that of a let or for, whose pattern is
+// irrefutable, it is one alternative, which tests only the alternatives that it has inside, as a case _ tests nothing
+function case_alternatives(pat: At[Pat], v: CExpr, guarded: Bool, matched: Bool): List[(List[CExpr], At[Pat])] :=
+  List(for q in tested_alternatives(pat, guarded) yield (alternative_tests(q, v, matched), q))
+
+function alternative_tests(pat: At[Pat], v: CExpr, matched: Bool): List[CExpr] :=
+  if has_bound_alternatives(pat) then
+    List(match_expr(pat.that, v, matched))
+  else if matched then
+    List()
   else
-    let tested := if pattern_names(pat) == List() then List() else take(n - 1, alts) in
-    List(for q in tested yield (pattern_tests(q.that, v), q)) ++ List(for q in drop(n - 1, alts) yield (List(), q))
+    pattern_tests(pat.that, v)
 
 // the declarations of pattern_binds as assignments of the variables, which case_stmts declares
 function assigned(binds: List[CStmt]): List[CStmt] :=
@@ -1170,7 +1231,7 @@ procedure stmt_cases(
       var bs: List[CStmt], here: List[CStmt], rest: List[CStmt]
       let env_: Vars := in_scope(pattern_names(pat)) ++ env
       compile_stmt(in defs, env_, s, out bs, ref g)
-      case_stmts(in defs, env_, d, case_alternatives(pat, v, more == List() and guard == None), v, guard, List(CsAssign(CeVar(d), CeNum(1))) ++ bs, out here, ref g)
+      case_stmts(in defs, env_, d, case_alternatives(pat, v, guard != None, more == List() and guard == None), v, guard, List(CsAssign(CeVar(d), CeNum(1))) ++ bs, out here, ref g)
       stmt_cases(in defs, env, more, v, d, out rest, ref g)
       ss := here ++ rest
 
