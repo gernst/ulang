@@ -3237,11 +3237,11 @@ procedure pattern_binders(
 
     // each alternative matches t and binds the variables of the first, with their types, which the case sees
     case POr(alts) =>
-      var typed_alts: Buffer[At[Pat]] := empty(), first: Option[List[Var]] := None
+      var typed_alts: List[At[Pat]] := List(), first: Option[List[Var]] := None
       for alt in alts do
         var typed_alt: At[Pat], ys: List[Var]
         binders(in alt, t, out typed_alt, ys, ref s)
-        typed_alts := append(typed_alts, typed_alt)
+        typed_alts := typed_alts ++ List(typed_alt)
         match first
           case None =>
             first := Some(ys)
@@ -3249,7 +3249,7 @@ procedure pattern_binders(
             same_variables(in alt.pos, zs, ys, ref s)
         end
       end
-      typed_pat := AOk(pos, span, POr(List(for a in typed_alts))), xs := value_or(first, List())
+      typed_pat := AOk(pos, span, POr(typed_alts)), xs := value_or(first, List())
   end
 
 // the variables ys of an alternative at pos against those of the first, xs, with the same types

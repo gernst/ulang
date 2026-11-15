@@ -1468,13 +1468,13 @@ procedure parse_pattern(
   let pos := head_pos(toks)
   parse_operators(in notation, params, pat_ops(), out pat, ref toks)
   if at_kw(toks, "|") then
-    var alts: Buffer[At[Pat]] := append(empty(), pat), alt: At[Pat]
+    var alts: List[At[Pat]] := List(pat), alt: At[Pat]
     while at_kw(toks, "|") do
       advance(ref toks)
       parse_operators(in notation, params, pat_ops(), out alt, ref toks)
-      alts := append(alts, alt)
+      alts := alts ++ List(alt)
     end
-    pat := AOk(pos, span_from(pos, toks), POr(List(for a in alts)))
+    pat := AOk(pos, span_from(pos, toks), POr(alts))
   end
   if at_kw(toks, ":") then
     var typ: Type
