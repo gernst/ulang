@@ -310,6 +310,21 @@ data Mod :=
   // a file of import "p" lines of packages, then export, builtin, and implementation, each followed by its commands
   case Mod(name: Id, imports: List[At[Id]], exported: List[At[Cmd]], builtins: List[At[Cmd]], implemented: List[At[Cmd]], comments: List[Comment])
 
+// an edit of a module that a lint proposes and refactor fix applies (ulang/refactor/refactor.u), at the spans and
+// positions of the parsed module
+data Edit :=
+  // the part at span replaced by expr, in parentheses, which format drops where the precedence does not need them
+  case EditExpr(span: Span, expr: At[Expr])
+  // the command at pos removed, with its doc
+  case EditDrop(pos: Pos)
+  // the pattern variable at span written _
+  case EditWild(span: Span)
+  // the var of the statement at span written let
+  case EditLet(span: Span)
+  // the declaration over decl of the statement let or var over local removed from it, and with it the statement if it
+  // has no other, and declared by var at the start of each of bodies, the spans of the bodies that use it
+  case EditMove(local: Span, decl: Span, bodies: List[Span])
+
 // a line of a comment, from // to the end of the line, which the tree does not hold, since format places it back by the
 // spans of the parts: its text without // and the space after it, whether only spaces come before it on its line, whether
 // a blank line follows it, and the position of the next token of code, or of the end of the input, with its text if it is

@@ -34,9 +34,10 @@ data Lint :=
   // a var with a value that no statement after it assigns, which is a let
   case UnassignedVar
 
-// a warning of lint at pos of a module, with the expression to write instead if there is one
+// a warning of lint at pos of a module, with the expression to write instead if there is one, and the edit that removes
+// it if there is one, which needs no choice
 data Warning :=
-  case Warning(lint: Lint, pos: Pos, message: Str, replacement: Option[At[Expr]])
+  case Warning(lint: Lint, pos: Pos, message: Str, replacement: Option[At[Expr]], edit: Option[Edit])
 
 // the warnings of module d, of its commands in the order of the module, and then of its unused private declarations
 function lints(d: Mod): List[Warning]
@@ -99,11 +100,11 @@ function placed_cmd_lints(pos: Pos, cmd: Cmd): List[Warning] :=
 // the lints of the part expr, the construct at its position and its parts, where an unparsed part has none
 function expr_lints(fun: Id, expr: At[Expr]): List[Warning] :=
   match expr
-    case AOk(pos, _, that) =>
-      placed_lints(fun, pos, that) ++ part_lints(fun, that)
+    case AOk(pos, span, that) =>
+      placed_lints(fun, pos, span, that) ++ part_lints(fun, that)
 
-    case AErr(pos, _, that, _) =>
-      placed_lints(fun, pos, that) ++ part_lints(fun, that)
+    case AErr(pos, span, that, _) =>
+      placed_lints(fun, pos, span, that) ++ part_lints(fun, that)
 
     case AUnparsed(_, _, _, _) =>
       List()
@@ -250,17 +251,17 @@ function catch_lints(fun: Id, c: At[Catch]): List[Warning] :=
   swallowed(c.pos, handler.body) ++ binder_lints(List(handler.pat), scope) ++ option_lints(fun, handler.guard) ++ stmt_lints(fun, handler.body)
 
 // the lints of the construct expr at pos, which its parts do not include
-function placed_lints(fun: Id, pos: Pos, expr: Expr): List[Warning] :=
+function placed_lints(fun: Id, pos: Pos, span: Span, expr: Expr): List[Warning] :=
   match expr
     case EIte(cond, then_expr, else_expr) =>
       match (literal_bool(then_expr), literal_bool(else_expr))
         case (Some(true), Some(false)) =>
           List(
-            Warning(BoolIte, pos, "an if of true and false is its condition", Some(cond)))
+            rewritten(BoolIte, pos, span, "an if of true and false is its condition", cond))
 
         case (Some(false), Some(true)) if fun != "not" =>
           List(
-            Warning(BoolIte, pos, "an if of false and true is not of its condition", Some(expr_app("not", List(cond)))))
+            rewritten(BoolIte, pos, span, "an if of false and true is not of its condition", expr_app("not", List(cond))))
 
         case _ =>
           List()
@@ -270,7 +271,7 @@ function placed_lints(fun: Id, pos: Pos, expr: Expr): List[Warning] :=
       match option_default(parts(cases))
         case Some(d) =>
           List(
-            Warning(Folded, pos, "a match that gives the value of an option, or else a default, is value_or", Some(expr_app("value_or", List(arg, d)))))
+            rewritten(Folded, pos, span, "a match that gives the value of an option, or else a default, is value_or", expr_app("value_or", List(arg, d))))
 
         case None =>
           List()
@@ -279,6 +280,10 @@ function placed_lints(fun: Id, pos: Pos, expr: Expr): List[Warning] :=
     case _ =>
       List()
   end
+
+// a warning whose edit writes expr instead of the part at span
+function rewritten(lint: Lint, pos: Pos, span: Span, message: Str, expr: At[Expr]): Warning :=
+  Warning(lint, pos, message, Some(expr), Some(EditExpr(span, expr)))
 
 function literal_bool(expr: At[Expr]): Option[Bool] :=
   match strip_expr(expr)
@@ -292,9 +297,9 @@ function literal_bool(expr: At[Expr]): Option[Bool] :=
 // takes them from the container itself, where a map gives its pairs to a single pattern
 function iterated_list(over: At[Expr]): List[Warning] :=
   match over
-    case AOk(pos, _, EFor(FList, List(g), elem, None)) if is_identity(g, elem) =>
+    case AOk(pos, span, EFor(FList, List(g), elem, None)) if is_identity(g, elem) =>
       List(
-        Warning(CopiedContainer, pos, "a list that is only iterated, of the elements of a container, is that container", Some(gen_over(g))))
+        rewritten(CopiedContainer, pos, span, "a list that is only iterated, of the elements of a container, is that container", gen_over(g)))
 
     case _ =>
       List()
@@ -383,7 +388,7 @@ function is_capitalized(name: Id): Bool :=
 function swallowed(pos: Pos, body: At[Stmt]): List[Warning] :=
   if is_skip(body) then
     List(
-      Warning(SwallowedException, pos, "a handler that only skips swallows what it catches", None))
+      Warning(SwallowedException, pos, "a handler that only skips swallows what it catches", None, None))
   else
     List()
 
@@ -404,7 +409,7 @@ function is_skip(stmt: At[Stmt]): Bool :=
 // the warnings of the locals xs of a block at pos, each at its declaration
 function locals_lints(pos: Pos, xs: List[At[Var]], stmts: List[At[Stmt]]): List[Warning] :=
   let inits := initialized(vars(xs), stmts) in
-  List(for x in xs for w in local_lints(decl_pos(pos, x.pos), x.that.name.base, contains(x.that.name.base, inits), stmts) yield w)
+  List(for x in xs for w in local_lints(decl_pos(pos, x.pos), x.that.name.base, contains(x.that.name.base, inits), None, stmts) yield w)
 
 // the warnings of the locals that the SLocal statements of stmts declare, each read by the declarations after it in its
 // statement and by the statements after that
@@ -416,34 +421,45 @@ function declared_lints(stmts: List[At[Stmt]]): List[Warning] :=
     case List(stmt; rest) =>
       match stmt_part(stmt)
         case SLocal(mutable, decls) =>
-          decls_lints(decls, rest) ++ (if mutable then unassigned_vars(decls, rest) else List()) ++ declared_lints(rest)
+          decls_lints(stmt.span, decls, rest) ++ (if mutable then unassigned_vars(stmt.span, decls, rest) else List()) ++ declared_lints(rest)
         case _ =>
           declared_lints(rest)
       end
   end
 
-// the declarations with values of a var whose variables no statement in rest assigns
-function unassigned_vars(decls: List[(At[Pat], Option[At[Expr]])], rest: List[At[Stmt]]): List[Warning] :=
+// the declarations with values of a var over local whose variables no statement in rest assigns, which are a let, an edit
+// of the keyword if they are all its declarations
+function unassigned_vars(local: Span, decls: List[(At[Pat], Option[At[Expr]])], rest: List[At[Stmt]]): List[Warning] :=
   let changed := Set(for s in rest for x in assigned(s) ++ call_outs(s) yield x) in
-  List(for (pat, init) in decls if init != None and forall(pat_vars(pat), lambda (_, x) => not contains(x, changed)) yield Warning(UnassignedVar, pat.pos, "the var " ++ join(", ", List(for (_, x) in pat_vars(pat) yield x)) ++ " is never assigned after its value, declare it by let", None))
+  let unassigned := List(for (pat, init) in decls if init != None and forall(pat_vars(pat), lambda (_, x) => not contains(x, changed)) yield pat) in
+  let edit := if size(unassigned) == size(decls) then Some(EditLet(local)) else None in
+  List(for pat in unassigned yield Warning(UnassignedVar, pat.pos, "the var " ++ join(", ", List(for (_, x) in pat_vars(pat) yield x)) ++ " is never assigned after its value, declare it by let", None, edit))
 
-function decls_lints(decls: List[(At[Pat], Option[At[Expr]])], rest: List[At[Stmt]]): List[Warning] :=
+function decls_lints(local: Span, decls: List[(At[Pat], Option[At[Expr]])], rest: List[At[Stmt]]): List[Warning] :=
   match decls
     case List() =>
       List()
+
     case List((pat, init); more) =>
-      decl_lints(pat, init != None, exprs_names(List(for (_, i) in more for e in i yield e)), rest) ++ decls_lints(more, rest)
+      let decl := Span(pat.span.start, match init
+        case Some(value) =>
+          value.span.stop
+        case None =>
+          pat.span.stop
+      end) in
+      decl_lints(pat, init != None, exprs_names(List(for (_, i) in more for e in i yield e)), (local, decl), rest) ++ decls_lints(local, more, rest)
   end
 
 // a local that is a variable, also with an annotation, as a local of a block, and the variables of a pattern as those of
 // other patterns
-function decl_lints(pat: At[Pat], has_init: Bool, later: Set[Id], rest: List[At[Stmt]]): List[Warning] :=
+// where site is the span of the statement and of the declaration
+function decl_lints(pat: At[Pat], has_init: Bool, later: Set[Id], site: (Span, Span), rest: List[At[Stmt]]): List[Warning] :=
   match pat_vars(pat)
     case List((pos, name)) if is_variable(pat) =>
       if contains(name, later) then
         name_lints(pos, name)
       else
-        local_lints(pos, name, has_init, rest)
+        local_lints(pos, name, has_init, Some(site), rest)
 
     case xs =>
       List(for (pos, name) in xs for w in var_lints(pos, name, later ++ Set(for s in rest for x in stmt_names(s) ++ call_outs(s) yield x)) yield w)
@@ -475,21 +491,40 @@ function initialized(xs: List[Var], stmts: List[At[Stmt]]): Set[Id] :=
   end
 
 // a local that is neither read nor an out or ref of a call is unused, and one without an initial value that only a
-// branching statement names, outside its condition, is declared too high
-function local_lints(pos: Pos, name: Id, has_init: Bool, stmts: List[At[Stmt]]): List[Warning] :=
+// branching statement names, outside its condition, is declared too high, where site, the spans of the statement and of
+// the declaration of a let or var, places the edits
+function local_lints(pos: Pos, name: Id, has_init: Bool, site: Option[(Span, Span)], stmts: List[At[Stmt]]): List[Warning] :=
   name_lints(pos, name) ++ (if not exists(stmts, lambda s => contains(name, stmt_names(s) ++ call_outs(s))) then
     List(
-      Warning(UnusedVariable, pos, "the local " ++ name ++ " is never read", None))
+      Warning(UnusedVariable, pos, "the local " ++ name ++ " is never read", None, map_option(site, lambda (local, decl) => EditMove(local, decl, List()))))
   else if has_init then
     List()
   else
-    too_high(pos, name, List(for s in stmts if is_named(name, s))))
+    too_high(pos, name, site, List(for s in stmts if is_named(name, s))))
 
-function too_high(pos: Pos, name: Id, users: List[At[Stmt]]): List[Warning] :=
+function too_high(pos: Pos, name: Id, site: Option[(Span, Span)], users: List[At[Stmt]]): List[Warning] :=
   match users
     case List(s) if is_branching(name, stmt_part(s)) =>
+      let bodies := List(for body in branch_bodies(stmt_part(s)) if is_named(name, body) yield body.span) in
+      let edit := map_option(site, lambda (local, decl) => EditMove(local, decl, bodies)) in
       List(
-        Warning(LocalTooHigh, pos, "the local " ++ name ++ " is used only in the branches of one statement, which declare it where they use it", None))
+        Warning(LocalTooHigh, pos, "the local " ++ name ++ " is used only in the branches of one statement, which declare it where they use it", None, edit))
+
+    case _ =>
+      List()
+  end
+
+// the bodies of the branches of stmt, of an if, a match, or a try
+function branch_bodies(stmt: Stmt): List[At[Stmt]] :=
+  match stmt
+    case SIf(_, left, right) =>
+      List(left, right)
+
+    case SMatch(_, cases) =>
+      List(for br in parts(cases) yield br.body)
+
+    case STry(body, catches) =>
+      List(body; List(for c in parts(catches) yield c.body))
 
     case _ =>
       List()
@@ -551,7 +586,7 @@ function collecting_loop(x: Id, stmts: List[At[Stmt]]): List[Warning] :=
   end
 
 function collected(pos: Pos, x: Id, list: At[Expr]): Warning :=
-  Warning(CollectingLoop, pos, "a loop that only appends to " ++ x ++ " is the list that it builds, which " ++ x ++ " can be assigned", Some(list))
+  Warning(CollectingLoop, pos, "a loop that only appends to " ++ x ++ " is the list that it builds, which " ++ x ++ " can be assigned", Some(list), None)
 
 // the element e of a body assign x := x ++ List(e) that does not name x
 function appended(x: Id, body: At[Stmt]): Option[At[Expr]] :=
@@ -575,7 +610,7 @@ function unused_privates(d: Mod): List[Warning] :=
   List(for c in d.implemented for (kind, name) in private_decl(c) if not contains(name, exported ++ reached) yield unused(c.pos, kind, name))
 
 function unused(pos: Pos, kind: Str, name: Id): Warning :=
-  Warning(UnusedPrivate, pos, "nothing reaches the private " ++ kind ++ " " ++ name, None)
+  Warning(UnusedPrivate, pos, "nothing reaches the private " ++ kind ++ " " ++ name, None, Some(EditDrop(pos)))
 
 function exported_names(d: Mod): Set[Id] :=
   Set(for c in commands_of(d.exported ++ d.builtins) for n in declared_name(c) yield n)
@@ -724,7 +759,7 @@ function var_lints(pos: Pos, name: Id, scope: Set[Id]): List[Warning] :=
     List()
   else
     List(
-      Warning(UnusedVariable, pos, "the variable " ++ name ++ " is never read, write _", None)))
+      Warning(UnusedVariable, pos, "the variable " ++ name ++ " is never read, write _", None, Some(EditWild(Span(pos, Pos(pos.line, pos.col + size(name))))))))
 
 // the warnings of the variables of the generators gens, each read in the generators after it or in scope
 function gens_binder_lints(gens: List[Gen], scope: Set[Id]): List[Warning] :=
@@ -760,7 +795,7 @@ function decl_pos(outer: Pos, pos: Pos): Pos :=
 function decl_name_lints(pos: Pos, name: Id, results: List[Type]): List[Warning] :=
   name_lints(pos, name) ++ (if starts_with(name, "show_") and exists(results, is_str) then
     List(
-      Warning(ShowName, pos, "the name " ++ name ++ " is show if it gives text that parses back, else format_ if it prints into another language", None))
+      Warning(ShowName, pos, "the name " ++ name ++ " is show if it gives text that parses back, else format_ if it prints into another language", None, None))
   else
     List())
 
@@ -775,7 +810,7 @@ function is_str(typ: Type): Bool :=
 function name_lints(pos: Pos, name: Id): List[Warning] :=
   if is_numbered(name) then
     List(
-      Warning(NumberedName, pos, "the name " ++ name ++ " has a numeric index, name it by its role", None))
+      Warning(NumberedName, pos, "the name " ++ name ++ " has a numeric index, name it by its role", None, None))
   else
     List()
 

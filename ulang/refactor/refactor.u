@@ -7,6 +7,7 @@ import "ulang/syntax"
 import "ulang/format"
 import "ulang/parse"
 import "ulang/check"
+import "ulang/lint"
 
 export
 
@@ -381,6 +382,9 @@ procedure perform(in action: Action, ref edits: Edits) raises Refused, OsError :
     case List("patch", word) =>
       patch(in word, action.fragment, ref edits)
 
+    case List("fix", word; rules) =>
+      fix(in word, rules, ref edits)
+
     case List("undo") =>
       undo(in None, ref edits)
 
@@ -406,7 +410,7 @@ procedure perform(in action: Action, ref edits: Edits) raises Refused, OsError :
       edits := edits with checked := edits.checked ++ List(path)
 
     case _ =>
-      let actions := "@show T, @put F, @put [before|after|into] #h, @drop T, @patch T, @rename T new, @undo [n], @check [test] [F]"
+      let actions := "@show T, @put F, @put [before|after|into] #h, @drop T, @patch T, @rename T new, @fix T [Rule ...], @undo [n], @check [test] [F]"
       raise Refused("line " ++ show(action.line) ++ ": unknown action @" ++ join(" ", action.words) ++ ", which is one of " ++ actions)
   end
 
@@ -1110,7 +1114,7 @@ procedure run_script(
       perform(in action, ref edits)
     end
     if edits.handles.changed then
-      os_write_utf8(in os_join(dir, "handles.txt"), join("\n", List(for h in edits.handles.entries yield handle_line(h))) ++ "\n")
+      os_write_utf8(in os_join(dir, "handles.txt"), join("\n", List(for h in saved_entries(handles, edits.handles, dry) yield handle_line(h))) ++ "\n")
     end
     var changes: List[Change] := List(), original: Str
     for path => text in edits.files do
@@ -1422,6 +1426,137 @@ function constr_arity(constr: At[Constr]): Int :=
       0
   end
 
+// a splice of a text, the characters from start to stop replaced by text, which fixes the warnings of fixed
+data Splice :=
+  case Splice(start: Int, stop: Int, text: Str, fixed: List[Str])
+
+// applies the edits of the warnings of the lints of the file of word, or of the declaration that word names, of the
+// rules if any, together, where those that overlap an edit taken before are skipped, for a second @fix to take
+procedure fix(
+  in  word: Str,
+      rules: List[Str],
+  ref edits: Edits
+) raises Refused, OsError :=
+  var text: Str, source: Source, result: Str, formatted_source: Source
+  let (path, name, arity) := target_of(word)
+  current_text(in path, edits.files, out text)
+  parsed(in path, text, no_fragment(), out source)
+  let d := main_mod(source), lines := Array(for line in split(text, '\n'))
+  let regions := List(for (key, cmd, _) in keyed(placed_of(d)) if forall(name, lambda base => is_selected(key, base, arity)) yield cmd_range(lines, cmd, 0, true))
+  let selected := List(for w in lints(d) if rules == List() or contains(show(w.lint), rules) if name == None or exists(regions, lambda r => r.first <= w.pos.line and w.pos.line <= r.last) yield w)
+  let fixable := List(for w in selected for edit in w.edit yield (w, edit))
+  let starts := line_starts(lines)
+  let splices := edit_splices(source, d, text, lines, starts, List(for (w, edit) in fixable yield (show(w.lint) ++ " at " ++ show(w.pos.line) ++ "." ++ show(w.pos.col), edit)))
+  let taken := without_overlaps(sort(List(for sp in splices yield (sp.start, sp.stop, sp.text, sp.fixed))), -1)
+  let fixed := foldl(reverse(taken), text, lambda acc, (start, stop, new, _) => slice(acc, 0, start) ++ new ++ slice(acc, stop, size(acc)))
+  formatted(in path, fixed, no_fragment(), out result, formatted_source)
+  edits := edits with files := Map(path => result; edits.files)
+  let unfixable := size(selected) - size(fixable)
+  let labels := distinct(List(for (_, _, _, fixed_labels) in taken for label in fixed_labels yield label))
+  let skipped := distinct(List(for sp in splices for label in sp.fixed if not contains(label, labels) yield label))
+  let overlapping := if skipped == List() then
+    ""
+  else
+    ", skipped inside or across another edit, which a second @fix takes if it still applies: " ++ join(", ", skipped)
+  let rest := overlapping ++ (if unfixable > 0 then
+    ", " ++ counted(unfixable, "warning") ++ " without an edit"
+  else
+    "")
+  note(in path ++ ": fixed " ++ join(", ", labels) ++ rest, ref edits)
+
+// the offsets of the starts of the lines, from 1, and of the end
+function line_starts(lines: Array[Str]): Array[Int] :=
+  Array(for n in reverse(foldl(List(for line in lines), List(0), lambda acc, line => List(value_or(get_at(0, acc), 0) + size(line) + 1; acc))))
+
+function offset_of(starts: Array[Int], pos: Pos): Int :=
+  at(pos.line - 1, starts) + pos.col - 1
+
+function line_offset(starts: Array[Int], line: Int): Int :=
+  at(min(line, size(starts)) - 1, starts)
+
+// the splices of the edits in the text of the module d of source, each with the label of its warning, where the edits of
+// the declarations of one statement are one splice of it
+function edit_splices(source: Source, d: Mod, text: Str, lines: Array[Str], starts: Array[Int], edits: List[Str * Edit]): List[Splice] :=
+  let moves := List(for (label, edit) in edits for (local, decl, bodies) in move_of(edit) yield (local, decl, bodies, label)) in
+  let locals := distinct(List(for (local, _, _, _) in moves yield local)) in
+  List(for (label, edit) in edits for sp in simple_splice(source, d, text, lines, starts, edit) yield sp with fixed := List(label)) ++ List(for local in locals for sp in local_splices(text, lines, starts, local, List(for (l, decl, bodies, _) in moves if l == local yield (decl, bodies))) yield sp with fixed := List(for (l, _, _, label) in moves if l == local yield label))
+
+function move_of(edit: Edit): Option[Span * Span * List[Span]] :=
+  match edit
+    case EditMove(local, decl, bodies) =>
+      Some((local, decl, bodies))
+    case _ =>
+      None
+  end
+
+function simple_splice(source: Source, d: Mod, text: Str, lines: Array[Str], starts: Array[Int], edit: Edit): Option[Splice] :=
+  match edit
+    case EditExpr(span, expr) =>
+      Some(Splice(offset_of(starts, span.start), offset_of(starts, span.stop), "(" ++ format_module_expr(source, d.name, expr) ++ ")", List()))
+
+    case EditDrop(pos) =>
+      map_option(find(placed_of(d), lambda cmd => cmd.pos == pos), lambda cmd => let range := cmd_range(lines, cmd, 0, true) in
+      Splice(line_offset(starts, range.first), line_offset(starts, range.last + 1), "", List()))
+
+    case EditWild(span) =>
+      Some(Splice(offset_of(starts, span.start), offset_of(starts, span.stop), "_", List()))
+
+    case EditLet(span) =>
+      let start := offset_of(starts, span.start) in
+      if slice(text, start, start + 3) == "var" then
+        Some(Splice(start, start + 3, "let", List()))
+      else
+        None
+
+    case EditMove(_, _, _) =>
+      None
+  end
+
+// the splices that remove the declarations of moves from the statement over local, and the statement if none is left, and
+// declare each by var at the start of the bodies that it moves into, those of one body in one var
+function local_splices(text: Str, lines: Array[Str], starts: Array[Int], local: Span, moves: List[Span * List[Span]]): List[Splice] :=
+  let first := offset_of(starts, local.start), last := offset_of(starts, local.stop) in
+  let stmt := slice(text, first, last) in
+  let decl_texts := List(for (decl, _) in moves yield slice(text, offset_of(starts, decl.start), offset_of(starts, decl.stop))) in
+  let kept := foldl(reverse(sort(List(for (decl, _) in moves yield (offset_of(starts, decl.start) - first, offset_of(starts, decl.stop) - first)))), stmt, without_decl) in
+  let removal := if is_blank(slice(kept, 3, size(kept))) then
+    Splice(line_offset(starts, local.start.line), line_offset(starts, local.stop.line + 1), "", List())
+  else
+    Splice(first, last, kept, List()) in
+  let bodies := distinct(List(for (_, spans) in moves for body in spans yield body)) in
+  List(
+    removal; List(for body in bodies yield Splice(line_offset(starts, body.start.line), line_offset(starts, body.start.line), repeat(" ", body.start.col - 1) ++ "var " ++ join(", ", declared_in(body, moves, decl_texts)) ++ "\n", List())))
+
+// the texts of the declarations of moves that move into body
+function declared_in(body: Span, moves: List[Span * List[Span]], decl_texts: List[Str]): List[Str] :=
+  List(for ((_, spans), t) in zip(moves, decl_texts) if contains(body, spans) yield t)
+
+// stmt without the declaration from start to stop, and the comma after it, else the one before it
+function without_decl(stmt: Str, range: Int * Int): Str :=
+  example without_decl("var a: Int, b, c", (4, 10)) == "var b, c"
+  example without_decl("var a: Int, b", (12, 13)) == "var a: Int"
+  let (start, stop) := range in
+  if stop + 2 <= size(stmt) and slice(stmt, stop, stop + 2) == ", " then
+    slice(stmt, 0, start) ++ slice(stmt, stop + 2, size(stmt))
+  else if start >= 2 and slice(stmt, start - 2, start) == ", " then
+    slice(stmt, 0, start - 2) ++ slice(stmt, stop, size(stmt))
+  else
+    slice(stmt, 0, start) ++ slice(stmt, stop, size(stmt))
+
+// the splices, sorted, without those that overlap one before them, where last is the stop of the last one taken
+function without_overlaps(splices: List[Int * Int * Str * List[Str]], last: Int): List[Int * Int * Str * List[Str]] :=
+  match splices
+    case List((start, stop, new, labels); rest) =>
+      if start < last and stop > start then
+        without_overlaps(rest, last)
+      else
+        List(
+          (start, stop, new, labels); without_overlaps(rest, max(last, stop)))
+
+    case List() =>
+      List()
+  end
+
 // whether two diagnostics are the same but for their positions, which edits move
 function is_same(file: Str, d: Diagnostic, other: Str, e: Diagnostic): Bool :=
   file == other and d.code == e.code and d.message == e.message
@@ -1461,3 +1596,10 @@ function counted(n: Int, noun: Str): Str :=
   example counted(1, "file") == "1 file"
   example counted(2, "file") == "2 files"
   show(n) ++ " " ++ noun ++ (if n == 1 then "" else "s")
+
+// the handles to save after a script, which a dry run does not move, so that it saves only those that it adds
+function saved_entries(before: Handles, after: Handles, dry: Bool): List[Handle] :=
+  if dry then
+    before.entries ++ List(for h in after.entries if h.number >= before.next yield h)
+  else
+    after.entries

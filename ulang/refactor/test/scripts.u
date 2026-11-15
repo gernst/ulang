@@ -71,3 +71,17 @@ test renames() :=
   assert status == 0
   assert text == "export\n\nfunction next(x: Int): Int :=\n  example next(1) == 2\n\nimplementation\n\nfunction next(x: Int): Int :=\n  x + 1\n"
   assert other == "function g(y: Int): Int :=\n  let f := 1 in\n  f + y\n\nfunction h(y: Int): Int :=\n  next(y)\n"
+
+// @fix applies the edit of each lint that has one, an expression rewritten, a declaration dropped, a variable written
+// _, and a local moved into the branches that use it, where a second @fix takes what the first enables, a var made let
+test fixes() :=
+  var reply: List[Str], status: Int, tested: List[Str], text: Str
+  let state := "out/test/refactor/fixes", path := "out/test/refactor/fixes/f.u"
+  os_write_utf8(in path, "function is_pos(n: Int): Bool :=\n  if n > 0 and n < 10 then true else false\n\nfunction first(o: Option[Int]): Int :=\n  match o\n    case Some(x) =>\n      x\n    case None =>\n      0\n  end\n\nfunction unused_helper(n: Int): Int :=\n  n\n\nprocedure classify(in n: Int, out text: Str) :=\n  var label: Str, count := 1, spare: Int\n  let k := n + 1\n  if is_pos(n) then\n    label := \"pos\"\n    text := label ++ show(count) ++ show(first(Some(k)))\n  else\n    label := \"neg\"\n    text := label\n  end\n\nfunction pairs(xs: List[Int * Int]): List[Int] :=\n  List(for (a, b) in xs yield a)\n\nprocedure main() :=\n  var t: Str\n  classify(in 3, out t)\n  os_println(in t)\n")
+  run_script(in "@fix " ++ path, false, state, nothing_found, out reply, status, tested)
+  os_read_utf8(in path, out text)
+  assert status == 0
+  assert text == "function is_pos(n: Int): Bool :=\n  n > 0 and n < 10\n\nfunction first(o: Option[Int]): Int :=\n  value_or(o, 0)\n\nprocedure classify(in n: Int, out text: Str) :=\n  var count := 1\n  let k := n + 1\n  if is_pos(n) then\n    var label: Str\n    label := \"pos\"\n    text := label ++ show(count) ++ show(first(Some(k)))\n  else\n    var label: Str\n    label := \"neg\"\n    text := label\n  end\n\nprocedure main() :=\n  var t: Str\n  classify(in 3, out t)\n  os_println(in t)\n"
+  run_script(in "@fix " ++ path, false, state, nothing_found, out reply, status, tested)
+  os_read_utf8(in path, out text)
+  assert text == "function is_pos(n: Int): Bool :=\n  n > 0 and n < 10\n\nfunction first(o: Option[Int]): Int :=\n  value_or(o, 0)\n\nprocedure classify(in n: Int, out text: Str) :=\n  let count := 1\n  let k := n + 1\n  if is_pos(n) then\n    var label: Str\n    label := \"pos\"\n    text := label ++ show(count) ++ show(first(Some(k)))\n  else\n    var label: Str\n    label := \"neg\"\n    text := label\n  end\n\nprocedure main() :=\n  var t: Str\n  classify(in 3, out t)\n  os_println(in t)\n"
