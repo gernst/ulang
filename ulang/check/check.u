@@ -1339,7 +1339,7 @@ procedure unify(in t: Type, t_: Type, ref s: State) :=
 
 // t and t_ are the same type, but for the raises of their procedure types, which are bounds of how values of t relate
 // to those of t_ in the direction d, flipped for the arguments of functions and the ins of procedures, and the same both
-// ways for refs and the arguments of datatypes, whose params a field of a procedure type may take as ins
+// ways for refs and the invariant params of datatypes
 procedure unify_toward(in d: Direction, t: Type, t_: Type, ref s: State) :=
   let a := resolve(s.sub, t), b := resolve(s.sub, t_)
   match (a, b)
@@ -1361,10 +1361,10 @@ procedure unify_toward(in d: Direction, t: Type, t_: Type, ref s: State) :=
       end
 
     case (TMeta(meta), _) =>
-      bind_meta(in meta, b, ref s)
+      bind_toward(in d, meta, b, true, ref s)
 
     case (_, TMeta(meta)) =>
-      bind_meta(in meta, a, ref s)
+      bind_toward(in d, meta, a, false, ref s)
 
     case (TParam(x), TParam(y)) =>
       if x != y then
@@ -1373,7 +1373,10 @@ procedure unify_toward(in d: Direction, t: Type, t_: Type, ref s: State) :=
 
     case (TSort(f, xs), TSort(g, ys)) =>
       if f == g and size(xs) == size(ys) then
-        unifies(in xs, ys, ref s)
+        let fixed := fixed_of(s.sig, f)
+        for ((x, i), y) in zip(numbered(xs), ys) do
+          unify_toward(in if contains(i, fixed) then Both else d, x, y, ref s)
+        end
       else
         report(in CannotUnify(zonk_type(s.sub, t), zonk_type(s.sub, t_)), ref s)
       end
@@ -1459,6 +1462,122 @@ function bounds_toward(d: Direction, m: Id, pos: Pos, r: Raises, r_: Raises): Li
 
     case From =>
       List(Bound(m, pos, r_, r))
+  end
+
+// binds the unknown meta to t, or, where values flow between them, to a copy of t whose raises are unknowns of their own,
+// bounded by those of t in the direction d, where first tells whether meta is the first of the types unified, so that
+// the values that reach meta from several places may raise what each of them raises
+procedure bind_toward(
+  in  d: Direction,
+      meta: Int,
+      t: Type,
+      first: Bool,
+  ref s: State
+) :=
+  let u := zonk_type(s.sub, t)
+  if d == Both or not has_procs(u) then
+    bind_meta(in meta, t, ref s)
+  else
+    var copy: Type
+    loosened(in u, out copy, ref s)
+    bind_meta(in meta, copy, ref s)
+    if first then
+      unify_toward(in d, copy, u, ref s)
+    else
+      unify_toward(in d, u, copy, ref s)
+    end
+  end
+
+function has_procs(t: Type): Bool :=
+  match t
+    case TProc(_, _, _, _) =>
+      true
+
+    case TSort(_, args) =>
+      exists(args, has_procs)
+
+    case TFun(args, res) =>
+      exists(List(res; args), has_procs)
+
+    case TTuple(types) =>
+      exists(types, has_procs)
+
+    case _ =>
+      false
+  end
+
+// t with fresh unknowns for all its raises
+procedure loosened(in t: Type, out u: Type, ref s: State) :=
+  match t
+    case TProc(ins, outs, refs, _) =>
+      var us: List[Type], r: Raises
+      loosened_all(in ins ++ outs ++ refs, out us, ref s)
+      fresh_raises(out r, ref s)
+      u := TProc(take(size(ins), us), take(size(outs), drop(size(ins), us)), drop(size(ins) + size(outs), us), r)
+
+    case TSort(name, args) =>
+      var us: List[Type]
+      loosened_all(in args, out us, ref s)
+      u := TSort(name, us)
+
+    case TFun(args, res) =>
+      var us: List[Type], v: Type
+      loosened_all(in args, out us, ref s)
+      loosened(in res, out v, ref s)
+      u := TFun(us, v)
+
+    case TTuple(types) =>
+      var us: List[Type]
+      loosened_all(in types, out us, ref s)
+      u := TTuple(us)
+
+    case _ =>
+      u := t
+  end
+
+procedure loosened_all(in ts: List[Type], out us: List[Type], ref s: State) :=
+  var u: Type
+  us := List()
+  for t in ts do
+    loosened(in t, out u, ref s)
+    us := us ++ List(u)
+  end
+
+// sig with the invariant params of the datatypes names, which grow from none until no field of their constructors takes
+// a param that is not invariant yet in a position that is not covariant
+function with_variances(sig: Sig, names: List[Name]): Sig :=
+  let next := foldl(names, sig, lambda acc, n => with_fixed(acc, n, fixed_params(acc, n))) in
+  if List(for n in names yield fixed_of(next, n)) == List(for n in names yield fixed_of(sig, n)) then
+    sig
+  else
+    with_variances(next, names)
+
+// the positions of the params of the datatype n that a field of one of its constructors takes where its values flow in
+function fixed_params(sig: Sig, n: Name): Set[Int] :=
+  Set(for k in value_or(members_of(sig, n), List()) for constr in constr_of(sig, k) for (p, i) in numbered(constr.params) if exists(constr.fields, lambda f => takes_fixed(sig, p, f, true)) yield i)
+
+// whether t takes the param p where its values flow in, in an argument of a function, an in or a ref of a procedure, or
+// an invariant param of a datatype, where covariant tells whether the positions around t are all covariant
+function takes_fixed(sig: Sig, p: Type, t: Type, covariant: Bool): Bool :=
+  match t
+    case TParam(_) =>
+      t == p and not covariant
+
+    case TSort(name, args) =>
+      let fixed := fixed_of(sig, name) in
+      exists(numbered(args), lambda (a, i) => takes_fixed(sig, p, a, covariant and not contains(i, fixed)))
+
+    case TFun(args, res) =>
+      exists(args, lambda a => takes_fixed(sig, p, a, false)) or takes_fixed(sig, p, res, covariant)
+
+    case TProc(ins, outs, refs, _) =>
+      exists(ins ++ refs, lambda a => takes_fixed(sig, p, a, false)) or exists(outs, lambda a => takes_fixed(sig, p, a, covariant))
+
+    case TTuple(types) =>
+      exists(types, lambda a => takes_fixed(sig, p, a, covariant))
+
+    case _ =>
+      false
   end
 
 function flipped(d: Direction): Direction :=
@@ -2024,11 +2143,14 @@ procedure infer_node(
       end
 
     case EIte(cond, then_expr, else_expr) =>
-      var b: At[Expr], c: At[Expr], l: At[Expr], u: Type
+      var b: At[Expr], c: At[Expr], l: At[Expr], u: Type, w: Type
       check(in env, cond, TBool(), "the condition of if", out c, ref s)
       infer(in env, then_expr, out l, u, ref s)
-      check(in env, else_expr, u, "the else branch", out b, ref s)
-      res := EIte(c, l, b), typ := u
+      // the value is of either branch, so it may raise what each raises
+      fresh(out w, ref s)
+      unify_toward(in Into, u, w, ref s)
+      check(in env, else_expr, w, "the else branch", out b, ref s)
+      res := EIte(c, l, b), typ := w
 
     case ETuple(items) =>
       var exprs: List[At[Expr]], ts: List[Type]
@@ -5181,6 +5303,7 @@ procedure check_package(
   declare_datas(in builtins, ref s)
   each_placed(in declare_sorts, alias_order(List(for p in placed if alias_names(p) != None), List()), ref s)
   each_placed(in declare_constrs, placed, ref s)
+  s := with_sig(s, with_variances(s.sig, List(for n => _ in s.sig.datas if exists(n.module, lambda m => contains(m, members)) yield n)))
   each_placed(in declare_pat_aliases, placed, ref s)
   each_placed(in declare_funs, placed, ref s)
   each_placed(in declare_procs, placed, ref s)
