@@ -338,7 +338,7 @@ function description(command: Str): Str :=
       "translates the file to C, or to assembly for x86-64 if the target ends in .s, whose main calls the procedure, main by default, or with --tests the tests of the .u files below the directory, by default the root of the project, with its packages and programs,\n" ++ "whose main takes the arguments of check --test, with the tests of lemmas but without their proofs, and runs them as\n" ++ "check --test does, from the root of the project"
 
     case "refactor" =>
-      "runs the script of the file, or of stdin, or the one action of the words, a line per action that starts with @,\n" ++ "followed by its fragment: @show T of a file, a declaration file.u:name[/arity], or a handle #n, with the handles of\n" ++ "its nodes, @put F of declarations, each replacing the one of its name and arity or added, @put [before|after|into] #n\n" ++ "of code, @drop T, @patch T of lines old => new, @rename T new, @undo [n] of a script of the journal, and @check\n" ++ "F, as one transaction, then checks the files that changed and reports the diagnostics that are new or gone; an inline @put or\n" ++ "@patch takes its fragment from stdin; --dry writes nothing"
+      "runs the script of the file, or of stdin, or the one action of the words, a line per action that starts with @,\n" ++ "followed by its fragment: @show T of a file, a declaration file.u:name[/arity], or a handle #n, with the handles of\n" ++ "its nodes, @put F of declarations, each replacing the one of its name and arity or added, @put [before|after|into] #n\n" ++ "of code, @drop T, @patch T of lines old => new, @rename T new, @undo [n] of a script of the journal, and @check\n" ++ "[test] [F], as one transaction, then checks the files that changed and reports the diagnostics that are new or gone,\n" ++ "and with @check test runs their tests after the reply; an inline @put or @patch takes its fragment from stdin; --dry\n" ++ "writes nothing"
 
     case _ =>
       "prints the usage of all commands, or of one"
@@ -678,9 +678,9 @@ procedure refactor(
       dry: Bool,
   out status: Int
 ) :=
-  var text: Str, reply: List[Str]
   status := 0
   try
+    var text: Str, reply: List[Str]
     match (inline, script)
       case (Some(action), _) =>
         text := action
@@ -701,8 +701,14 @@ procedure refactor(
     end
     var state: Str
     state_dir(out state)
-    run_script(in text, dry, state, checked_diagnostics, out reply, status)
+    var tested: List[Str]
+    run_script(in text, dry, state, checked_diagnostics, out reply, status, tested)
     os_println(in join("\n", reply))
+    if tested != List() then
+      var tests_status: Int
+      check_targets(in List(for path in tested yield Target(path, None)), Phases(false, true, false), List(), out tests_status)
+      status := max(status, tests_status)
+    end
   catch
     case OsError(m) =>
       report(in "", List(diagnostic(RuntimeKind, m)), false)

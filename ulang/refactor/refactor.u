@@ -25,15 +25,17 @@ function actions(script: Str): List[Action] :=
 procedure state_dir(out dir: Str) raises OsError
 
 // performs the actions of script on the files it names, all or none, and then, unless dry, writes the files that changed
-// and reports the diagnostics that check gives of them which are new or gone, where reply is the lines of the reply, and
-// status 0 if all applied, else 1, with the reason of the refusal
+// and reports the diagnostics that check gives of them which are new or gone, where reply is the lines of the reply,
+// status 0 if all applied, else 1, with the reason of the refusal, and tested the files whose tests to run after the
+// reply, those that changed and those of @check, if the script has @check test
 procedure run_script(
   in  script: Str,
       dry: Bool,
       state: Str,
       check: (in Str, out List[Str * Diagnostic]),
   out reply: List[Str],
-      status: Int
+      status: Int,
+      tested: List[Str]
 )
 
 implementation
@@ -53,9 +55,10 @@ data Range :=
 
 // what the actions of a script have done so far: the texts of the files they edited, the lines of the reply, the files
 // to check at the end, the table of handles, the scripts of the journal that the script undoes, the directory of the
-// state, and the files whose uses must resolve after the writes to the names given, in order, else the script is undone
+// state, the files whose uses must resolve after the writes to the names given, in order, else the script is undone,
+// and whether to run the tests
 data Edits :=
-  case Edits(files: Map[Str, Str], notes: Buffer[Str], checked: List[Str], handles: Handles, undone: List[Int], state: Str, expected: List[Str * List[Name]])
+  case Edits(files: Map[Str, Str], notes: Buffer[Str], checked: List[Str], handles: Handles, undone: List[Int], state: Str, expected: List[Str * List[Name]], tests: Bool)
 
 // the handles that the scripts so far have shown, kept in out/refactor/handles.txt of the root, the next number, and
 // whether the script changed it
@@ -393,11 +396,17 @@ procedure perform(in action: Action, ref edits: Edits) raises Refused, OsError :
     case List("check") =>
       skip
 
+    case List("check", "test") =>
+      edits := edits with tests := true
+
+    case List("check", "test", path) =>
+      edits := edits with checked := edits.checked ++ List(path), tests := true
+
     case List("check", path) =>
       edits := edits with checked := edits.checked ++ List(path)
 
     case _ =>
-      let actions := "@show T, @put F, @put [before|after|into] #h, @drop T, @patch T, @rename T new, @undo [n], @check [F]"
+      let actions := "@show T, @put F, @put [before|after|into] #h, @drop T, @patch T, @rename T new, @undo [n], @check [test] [F]"
       raise Refused("line " ++ show(action.line) ++ ": unknown action @" ++ join(" ", action.words) ++ ", which is one of " ++ actions)
   end
 
@@ -1085,14 +1094,15 @@ procedure run_script(
       state: Str,
       check: (in Str, out List[Str * Diagnostic]),
   out reply: List[Str],
-      status: Int
+      status: Int,
+      tested: List[Str]
 ) :=
-  reply := List(), status := 0
+  reply := List(), status := 0, tested := List()
   try
     var handles: Handles
     let dir := state
     load_handles(in dir, out handles)
-    var edits := Edits(Map(), empty(), List(), handles, List(), state, List())
+    var edits := Edits(Map(), empty(), List(), handles, List(), state, List(), false)
     for action in actions(script) do
       if edits.expected != List() then
         raise Refused("@rename stands alone in its script, since it compares the resolutions of the files on disk")
@@ -1168,6 +1178,7 @@ procedure run_script(
         List("diagnostics: +" ++ show(size(added)) ++ " -" ++ show(size(gone)))
       let listed := List(for (file, d) in added yield "  + " ++ diagnostic_text(file, d)) ++ List(for (file, d) in gone yield "  - " ++ diagnostic_text(file, d))
       reply := List(verdict) ++ List(for n in edits.notes) ++ journaled ++ counts ++ listed
+      tested := if edits.tests then paths else List()
     end
   catch
     case Refused(message) =>
