@@ -34,8 +34,8 @@ struct u_name {
 
 // the built-in types, where integers that fit into a long long are of u_int_type with num, and others of u_big_type
 // with an mpz_t, such that each integer has one representation
-extern const struct u_type u_int_type, u_big_type, u_bool_type, u_char_type, u_byte_type, u_io_type, u_str_type, u_tuple_type, u_closure_type, u_proc_type,
-  u_array_type;
+extern const struct u_type u_int_type, u_big_type, u_bool_type, u_char_type, u_byte_type, u_io_type, u_socket_type,
+  u_listener_type, u_str_type, u_tuple_type, u_closure_type, u_proc_type, u_array_type;
 
 // the datatypes whose constructors the builtins create, where the compiled program defines the descriptors of those of
 // the prelude and its modules, which every program has, and the runtime that of OsError, which programs need not import
@@ -81,7 +81,9 @@ struct u_object {
       long long length;
       int width;
     };
-    // a stream, NULL once it is closed, with the path it was opened with and the number of its opening, which orders streams
+    // a stream, NULL once it is closed, with the path it was opened with and the number of its opening, which orders streams,
+    // of u_io_type, or of u_socket_type for a connection, which is written by send of its descriptor, or a listener of
+    // u_listener_type, whose FILE holds the descriptor of its socket
     struct {
       FILE *file;
       u_value path;
@@ -277,6 +279,9 @@ void p_os_cwd(u_value *dir);
 void p_os_chdir(u_value dir);
 void p_os_library(u_value name, u_value *text);
 void p_os_library_dir(u_value *path);
+void p_os_env(u_value name, u_value *value);
+void p_os_time(u_value *seconds);
+void p_os_clock(u_value *nanoseconds);
 
 // the procedures of the builtin section of io.u, on objects of u_io_type
 void p_io_stdin(u_value *io);
@@ -288,6 +293,11 @@ void p_io_read_until(u_value io, u_value delimiter, u_value *bytes);
 void p_io_read_all(u_value io, u_value *bytes);
 void p_io_write_bytes(u_value io, u_value bytes);
 void p_io_close(u_value io);
+void p_io_connect(u_value host, u_value port, u_value *io);
+void p_io_listen(u_value host, u_value port, u_value *listener);
+void p_io_accept(u_value listener, u_value *io);
+void p_io_port(u_value listener, u_value *port);
+void p_io_close_listener(u_value listener);
 u_value u_io_path(u_value io);
 
 

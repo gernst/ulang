@@ -1,5 +1,5 @@
-// streams of bytes, of files and of standard input, output, and error, which the builtin section reads and writes, and
-// the text of UTF-8 in lines over them; a stream is passed in, since its state is the system's, which a try does not
+// streams of bytes, of files, of connections of TCP, and of standard input, output, and error, which the builtin
+// section reads and writes, and the text of UTF-8 in lines over them; a stream is passed in, since its state is the system's, which a try does not
 // undo, as it does not undo a written file, and it stays open until io_close, or until the collector finds it unreachable
 
 export
@@ -24,6 +24,9 @@ procedure io_write_utf8(in io: IO, text: Str) raises OsError
 builtin
 
 type IO
+
+// a socket that accepts connections of TCP, ordered by its opening among the streams, and shown with its host and port
+type Listener
 
 procedure io_stdin(out io: IO)
 
@@ -55,7 +58,27 @@ procedure io_write_bytes(in io: IO, bytes: Array[Byte]) raises OsError
 // writes what is buffered, where a closed stream raises OsError on every use
 procedure io_close(in io: IO) raises OsError
 
-// the path that the stream was opened with, or stdin, stdout, or stderr
+// a connection of TCP to the port of a host, a name or an address of IPv4 or IPv6, whose stream reads what the peer
+// writes and writes unbuffered, where a write to a peer that has closed raises OsError
+procedure io_connect(in host: Str, port: Int, out io: IO) raises OsError
+
+// a socket that listens on the port of the host, every address for "", and a port that the system chooses for 0
+procedure io_listen(
+  in  host: Str,
+      port: Int,
+  out listener: Listener
+) raises OsError
+
+// waits for the next connection to the listener and gives its stream
+procedure io_accept(in listener: Listener, out io: IO) raises OsError
+
+// the port that the listener listens on
+procedure io_port(in listener: Listener, out port: Int) raises OsError
+
+// after which every use of the listener raises OsError
+procedure io_close_listener(in listener: Listener) raises OsError
+
+// the path that the stream was opened with, the host:port of a connection, or stdin, stdout, or stderr
 function io_path(io: IO): Str
 
 implementation

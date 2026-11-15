@@ -164,6 +164,9 @@ function native_procs(): Set[Id] :=
     "os_is_dir",
     "os_cwd",
     "os_chdir",
+    "os_env",
+    "os_time",
+    "os_clock",
     "io_stdin",
     "io_stdout",
     "io_stderr",
@@ -172,7 +175,12 @@ function native_procs(): Set[Id] :=
     "io_read_until",
     "io_read_all",
     "io_write_bytes",
-    "io_close")
+    "io_close",
+    "io_connect",
+    "io_listen",
+    "io_accept",
+    "io_port",
+    "io_close_listener")
 
 function builtin_functions(): Map[Name, (Str, Int)] :=
   Map(

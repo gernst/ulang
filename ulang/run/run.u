@@ -14,6 +14,8 @@ data Val :=
   case VByte(num: Int)
   // a stream of the interpreter itself, which the program reads and writes
   case VIO(io: IO)
+  // a listener of the interpreter itself, which accepts the connections of the program
+  case VListener(listener: Listener)
   case VObj(constr: Name, args: List[Val])
   case VArr(values: Array[Val])
   case VFunClos(env: Map[Name, Val], formals: List[Var], body: At[Expr])
@@ -100,6 +102,9 @@ function format_value(v: Val): Str :=
 
     case VIO(io) =>
       show(io)
+
+    case VListener(listener) =>
+      show(listener)
 
     case VTuple(args) =>
       "(" ++ format_values(args) ++ ")"
@@ -255,7 +260,7 @@ procedure incomparable(in v: Val) :=
     case VProc(_) | VProcClos(_, _, _, _, _) =>
       raise CompareProcedures
 
-    case VLit(_) | VByte(_) | VIO(_) | VObj(_, _) | VArr(_) =>
+    case VLit(_) | VByte(_) | VIO(_) | VListener(_) | VObj(_, _) | VArr(_) =>
       skip
 
     case VFunClos(_, _, _) | VFun(_, _) | VCon(_) | VPrim(_) =>
@@ -912,6 +917,9 @@ procedure compare_values(
     case (VIO(x), VIO(y)) =>
       r := compare(x, y)
 
+    case (VListener(x), VListener(y)) =>
+      r := compare(x, y)
+
     case (VBool(x), VBool(y)) =>
       r := order(if x then 1 else 0, if y then 1 else 0)
 
@@ -1483,6 +1491,27 @@ procedure os_proc(in n: Name, ins: List[Val], out outs: List[Val]) :=
         os_chdir(in path)
         outs := List()
 
+      case ("prelude/os.os_env", List(VStr(name))) =>
+        var value: Option[Str]
+        os_env(in name, out value)
+        outs := List(
+          match value
+            case Some(text) =>
+              VSome(VStr(text))
+            case None =>
+              VNone()
+          end)
+
+      case ("prelude/os.os_time", List()) =>
+        var seconds: Int
+        os_time(out seconds)
+        outs := List(VInt(seconds))
+
+      case ("prelude/os.os_clock", List()) =>
+        var nanoseconds: Int
+        os_clock(out nanoseconds)
+        outs := List(VInt(nanoseconds))
+
       case ("prelude/os.os_print_error", List(VStr(msg))) =>
         os_print_error(in msg)
         outs := List()
@@ -1532,6 +1561,30 @@ procedure os_proc(in n: Name, ins: List[Val], out outs: List[Val]) :=
 
       case ("prelude/io.io_close", List(VIO(io))) =>
         io_close(in io)
+        outs := List()
+
+      case ("prelude/io.io_connect", List(VStr(host), VInt(port))) =>
+        var io: IO
+        io_connect(in host, port, out io)
+        outs := List(VIO(io))
+
+      case ("prelude/io.io_listen", List(VStr(host), VInt(port))) =>
+        var listener: Listener
+        io_listen(in host, port, out listener)
+        outs := List(VListener(listener))
+
+      case ("prelude/io.io_accept", List(VListener(listener))) =>
+        var io: IO
+        io_accept(in listener, out io)
+        outs := List(VIO(io))
+
+      case ("prelude/io.io_port", List(VListener(listener))) =>
+        var port: Int
+        io_port(in listener, out port)
+        outs := List(VInt(port))
+
+      case ("prelude/io.io_close_listener", List(VListener(listener))) =>
+        io_close_listener(in listener)
         outs := List()
 
       case _ =>

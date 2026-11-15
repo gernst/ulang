@@ -1,13 +1,17 @@
 #define _POSIX_C_SOURCE 200809L
 
 #include <dirent.h>
+#include <errno.h>
 #include <gc.h>
 #include <limits.h>
+#include <netdb.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/socket.h>
 #include <sys/stat.h>
+#include <time.h>
 #include <unistd.h>
 
 #include "ulang.h"
@@ -1310,6 +1314,32 @@ void p_os_chdir(u_value dir) {
   if (chdir(system_path(dir, "cannot change to "))) os_error("cannot change to ", dir);
 }
 
+void p_os_env(u_value name, u_value *value) {
+  size_t n;
+  const char *s = u_utf8(name, &n);
+  if (n == 0 || memchr(s, 0, n) || memchr(s, '=', n)) os_error("no name of a variable of the environment: ", name);
+  const char *bytes = getenv(s);
+  if (!bytes) {
+    *value = &o_option_46_None;
+    return;
+  }
+  u_value t = u_from_utf8(bytes, u_strlen(bytes));
+  if (!t) os_error("the variable of the environment ", u_concat(name, u_mk_lit(" is not UTF-8")));
+  *value = u_mk_con(&n_option_46_Some, 1, t);
+}
+
+void p_os_time(u_value *seconds) {
+  struct timespec ts;
+  clock_gettime(CLOCK_REALTIME, &ts);
+  *seconds = u_mk_int(ts.tv_sec);
+}
+
+void p_os_clock(u_value *nanoseconds) {
+  struct timespec ts;
+  clock_gettime(CLOCK_MONOTONIC, &ts);
+  *nanoseconds = u_mk_int((long long)ts.tv_sec * 1000000000LL + ts.tv_nsec);
+}
+
 // the path of a target without ./ in front and / at the end, "" for the root
 static char *normal_target(const char *path) {
   while (path[0] == '.' && path[1] == '/') path += 2;
@@ -1493,12 +1523,16 @@ void p_os_library(u_value name, u_value *result) {
 static long long openings = 0;
 static u_value std_streams[3];
 
-static u_value stream(FILE *file, u_value path) {
-  u_value io = object(&u_io_type);
+static u_value stream_of(const struct u_type *type, FILE *file, u_value path) {
+  u_value io = object(type);
   io->file = file;
   io->path = path;
   io->serial = openings++;
   return io;
+}
+
+static u_value stream(FILE *file, u_value path) {
+  return stream_of(&u_io_type, file, path);
 }
 
 static u_value std_stream(int k, FILE *file, const char *name) {
@@ -1600,10 +1634,25 @@ void p_io_read_all(u_value io, u_value *bytes) {
   *bytes = byte_array(s, n);
 }
 
+// by send, without the SIGPIPE that a write to a peer that has closed would raise, which would end the program
+static void send_all(int fd, const unsigned char *s, size_t n, u_value io) {
+  while (n > 0) {
+    ssize_t m = send(fd, s, n, MSG_NOSIGNAL);
+    if (m < 0 && errno == EINTR) continue;
+    if (m <= 0) os_error("cannot write ", io->path);
+    s += m;
+    n -= (size_t)m;
+  }
+}
+
 void p_io_write_bytes(u_value io, u_value bytes) {
   FILE *f = open_file(io);
   unsigned char *s = (unsigned char *)text(bytes->size);
   for (int i = 0; i < bytes->size; i++) s[i] = (unsigned char)bytes->items[i]->num;
+  if (io->type == &u_socket_type) {
+    send_all(fileno(f), s, bytes->size, io);
+    return;
+  }
   if (fwrite(s, 1, bytes->size, f) != (size_t)bytes->size) os_error("cannot write ", io->path);
   if (f == stdout || f == stderr) fflush(f);
 }
@@ -1617,6 +1666,129 @@ void p_io_close(u_value io) {
   }
   io->file = NULL;
   if (fclose(f)) os_error("cannot close ", io->path);
+}
+
+// host:port, with the host in brackets if it is an address of IPv6
+static u_value host_port(const char *host, const char *port) {
+  int v6 = strchr(host, ':') != NULL;
+  char *s = text(strlen(host) + strlen(port) + 4);
+  sprintf(s, v6 ? "[%s]:%s" : "%s:%s", host, port);
+  return u_from_utf8(s, strlen(s));
+}
+
+// the addresses of host and port for a socket of TCP, those of listening if passive, where "" is every address for
+// listening and the loopback for connecting
+static struct addrinfo *addresses(u_value host, u_value port, int passive, char *digits) {
+  long long least = passive ? 0 : 1;
+  if (port->type != &u_int_type || port->num < least || port->num > 65535) os_error("no port: ", u_show(port));
+  sprintf(digits, "%lld", port->num);
+  const char *name = system_path(host, "no host: ");
+  struct addrinfo hints = {0}, *list;
+  hints.ai_family = AF_UNSPEC;
+  hints.ai_socktype = SOCK_STREAM;
+  hints.ai_flags = passive ? AI_PASSIVE : 0;
+  int e = getaddrinfo(name[0] ? name : NULL, digits, &hints, &list);
+  if (e) os_error("cannot resolve ", u_concat(host_port(name, digits), u_concat(u_mk_lit(": "), u_mk_str(gai_strerror(e)))));
+  return list;
+}
+
+// a stream of the connected socket fd, read through its FILE and written by send
+static u_value socket_stream(int fd, u_value path) {
+  FILE *f = fdopen(fd, "rb");
+  if (!f) {
+    close(fd);
+    os_error("cannot read ", path);
+  }
+  u_value io = stream_of(&u_socket_type, f, path);
+  GC_REGISTER_FINALIZER(io, close_unreachable, NULL, NULL, NULL);
+  return io;
+}
+
+void p_io_connect(u_value host, u_value port, u_value *io) {
+  char digits[24];
+  struct addrinfo *list = addresses(host, port, 0, digits);
+  u_value path = host_port(u_utf8(host, NULL), digits);
+  int fd = -1;
+  for (struct addrinfo *a = list; a && fd < 0; a = a->ai_next) {
+    fd = socket(a->ai_family, a->ai_socktype, a->ai_protocol);
+    if (fd >= 0 && connect(fd, a->ai_addr, a->ai_addrlen)) {
+      close(fd);
+      fd = -1;
+    }
+  }
+  freeaddrinfo(list);
+  if (fd < 0) os_error("cannot connect to ", path);
+  *io = socket_stream(fd, path);
+}
+
+void p_io_listen(u_value host, u_value port, u_value *listener) {
+  char digits[24];
+  struct addrinfo *list = addresses(host, port, 1, digits);
+  int fd = -1;
+  for (struct addrinfo *a = list; a && fd < 0; a = a->ai_next) {
+    fd = socket(a->ai_family, a->ai_socktype, a->ai_protocol);
+    int yes = 1;
+    if (fd >= 0 && (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof yes) || bind(fd, a->ai_addr, a->ai_addrlen) ||
+                    listen(fd, SOMAXCONN))) {
+      close(fd);
+      fd = -1;
+    }
+  }
+  freeaddrinfo(list);
+  u_value path = host_port(u_utf8(host, NULL), digits);
+  if (fd < 0) os_error("cannot listen on ", path);
+  FILE *f = fdopen(fd, "rb");
+  if (!f) {
+    close(fd);
+    os_error("cannot listen on ", path);
+  }
+  *listener = stream_of(&u_listener_type, f, path);
+  GC_REGISTER_FINALIZER(*listener, close_unreachable, NULL, NULL, NULL);
+  // the port that the system chose for port 0
+  u_value chosen;
+  p_io_port(*listener, &chosen);
+  sprintf(digits, "%lld", chosen->num);
+  (*listener)->path = host_port(u_utf8(host, NULL), digits);
+}
+
+static int listening(u_value listener) {
+  if (!listener->file) os_error("closed listener ", listener->path);
+  return fileno(listener->file);
+}
+
+void p_io_accept(u_value listener, u_value *io) {
+  int fd = listening(listener);
+  struct sockaddr_storage peer;
+  socklen_t n;
+  int conn;
+  do {
+    n = sizeof peer;
+    conn = accept(fd, (struct sockaddr *)&peer, &n);
+  } while (conn < 0 && errno == EINTR);
+  if (conn < 0) os_error("cannot accept on ", listener->path);
+  char host[1025], port[32];
+  if (getnameinfo((struct sockaddr *)&peer, n, host, sizeof host, port, sizeof port, NI_NUMERICHOST | NI_NUMERICSERV)) {
+    strcpy(host, "?");
+    strcpy(port, "?");
+  }
+  *io = socket_stream(conn, host_port(host, port));
+}
+
+void p_io_port(u_value listener, u_value *port) {
+  struct sockaddr_storage addr;
+  socklen_t n = sizeof addr;
+  char host[1025], digits[32];
+  if (getsockname(listening(listener), (struct sockaddr *)&addr, &n) ||
+      getnameinfo((struct sockaddr *)&addr, n, host, sizeof host, digits, sizeof digits, NI_NUMERICHOST | NI_NUMERICSERV))
+    os_error("cannot tell the port of ", listener->path);
+  *port = u_mk_int(atoll(digits));
+}
+
+void p_io_close_listener(u_value listener) {
+  FILE *f = listener->file;
+  listening(listener);
+  listener->file = NULL;
+  if (fclose(f)) os_error("cannot close ", listener->path);
 }
 
 u_value u_io_path(u_value io) {
@@ -1635,4 +1807,14 @@ static u_value show_stream(u_value v) {
   return text_value(&t);
 }
 
+static u_value show_listener(u_value v) {
+  struct u_text t = {NULL, 0, 0, 1};
+  append(&t, "<listener ");
+  append(&t, u_utf8(v->path, NULL));
+  append(&t, ">");
+  return text_value(&t);
+}
+
 const struct u_type u_io_type = {"io.IO", compare_streams, u_equals_by_compare, show_stream};
+const struct u_type u_socket_type = {"io.IO", compare_streams, u_equals_by_compare, show_stream};
+const struct u_type u_listener_type = {"io.Listener", compare_streams, u_equals_by_compare, show_listener};
