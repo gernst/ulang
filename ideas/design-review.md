@@ -17,7 +17,7 @@ The semantic core suits writers that make plausible mistakes and readers that ar
 
 Each finding with the evidence of `unclear.md` (section 3) where it has some, and a proposal.
 
-1. **The documentation fails principle 5.** `CLAUDE.md` is about 15,000 words, sentences of 150 words with chains of "`x` of `y` of `z`", mixing the language, the implementation, and the workflow, loaded into every session; three trip-ups are about keywords, which no place lists. Proposal: Documentation 1 first, in progress on the branch `docsplit`; the reference begins with the grammar and the list of keywords, and states each rule by an example that runs.
+1. **The documentation fails principle 5.** `CLAUDE.md` is about 15,000 words, sentences of 150 words with chains of "`x` of `y` of `z`", mixing the language, the implementation, and the workflow, loaded into every session; three trip-ups are about keywords, which no place lists. Proposal: Documentation 1, done as `LANGUAGE.md`, which begins with the habits that fail and the list of keywords, and whose examples run.
 2. **Prose drifts, and prose is the only training data.** `DESIGN.md` described comments as part of the tree since 8cdf304 took them out, and the prelude still described lists as `[a, b; xs]`, sets as `{a, b}`, and arrays as `|a, b|`, both fixed with this file. `checks/docs.u` checks that the names exist, not that the claims hold. Proposal: claims about values become examples; a check that the sources contain no syntax that the lexer rejects inside comments, such as `[a, b]` outside type arguments, would have caught the second.
 3. **Overloading across modules works against locality.** Which `size` a call takes depends on the imports and the types, so an example written on `set.size` silently tests `list.size`, `empty()` as the accumulator of a `foldl` is ambiguous among three modules, and `UnknownFieldOwner` asks for a type that cannot be written in an expression. Proposal: Modules 2 (qualifiers) and Syntax 5 (ascription) are the two fixes, both needed, and Diagnostics 3 (`sig` and `resolve`) makes the resolution visible before it surprises.
 4. **Keywords that are common English words**, `pattern`, `example`, `test`, `data`, `raises`, `requires`, `ensures`, `correct`, `invariant`, and `induction`, natural names of fields and locals, which tripped agents five times. Proposal: those that occur only at fixed places, `correct`, `invariant`, `induction`, `requires`, and `ensures` after `:=`, `pattern` and `example` at the start of a command or line of a spec, become contextual; the rest get a hint with a name to write instead, `raised` for `raises`, `cmd` for `test`.
@@ -49,7 +49,7 @@ All entries of `unclear.md` as of 5cd2fe1, which leaves it empty but for its hea
 - `List(for _ => h in m)` needs `yield h`, since a pattern with `_` is no value, which "yields what its pattern binds" does not make plain: the message could say so, or `yield` could be omitted where the pattern binds exactly one variable.
 - A parse error in the head of a procedure skips the whole command, so an error in its body is reported only after the first is fixed: the parser could resume inside the body of a head that does not parse.
 
-**Facts for the documentation**, for the reference of Documentation 1 or for `CLAUDE.md` once the branch `docsplit` is merged:
+**Facts for the documentation**, for `LANGUAGE.md` or `CLAUDE.md`:
 
 - A hint of `hint_of` of `ulang/check/message.u` is no `Hinted` of `ulang/check/check.u`, so a case reads such a hint by `located_message`.
 - A case of `ulang/test/errors/` runs alone in the interpreter, `check --test ulang/test/errors/types.u:<name>`; only the walk of `check --test` skips the directory.
@@ -169,7 +169,7 @@ Keep the small programs, which test the language on real tasks and found trip-up
 
 ## 5. Order
 
-The ranks `A`, in an order that lets each help the next: Documentation 1; Compiler 1 and Testing 6; Diagnostics 6 and 3; Syntax 5 and Modules 2; Library 2, since done; Build 1 cut to `--test-compiled`; and the soundness items of Verification. Then the decisions without work: Compiler 2, Syntax 6, Modules 1 with Later 1, and the proposals 2.4 to 2.8, each into its item or into `ideas/rejected.md`.
+The ranks `A`, in an order that lets each help the next: Documentation 1, done; Compiler 1 and Testing 6; Diagnostics 6 and 3; Syntax 5 and Modules 2; Library 2, since done; Build 1 cut to `--test-compiled`; and the soundness items of Verification. Then the decisions without work: Compiler 2, Syntax 6, Modules 1 with Later 1, and the proposals 2.4 to 2.8, each into its item or into `ideas/rejected.md`.
 
 ## 6. The review of c079446
 

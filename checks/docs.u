@@ -6,6 +6,10 @@
 
 import "ulang/syntax"
 import "ulang/parse"
+import "ulang/check"
+import "ulang/format"
+import "ulang/run"
+import "ulang/test/cases"
 
 // the declarations of a file
 data Decls :=
@@ -252,9 +256,9 @@ test checked() :=
   assert is_declared("T.f:=", DModule(Set("T"), Map("T" => Set("f")))) and is_declared("T.compare", DModule(Set("T"), Map()))
   assert not is_declared("T.g", DModule(Set("T"), Map("T" => Set("f")))) and is_declared("u_*", DWords(Set("u_text")))
 
-// the start of the line of CLAUDE.md that lists the keywords, in backticks after this, up to the one before a semicolon
+// the start of the line of LANGUAGE.md that lists the keywords, in backticks after this, up to the one before a semicolon
 function keywords_start(): Str :=
-  "- The keywords, `keywords` of `ulang/parse/lex.u`,"
+  "- Keywords are no names,"
 
 // the spans in backticks of a line split at its backticks from i on, up to the one that a semicolon follows
 function listed_from(spans: Array[Str], i: Int): List[Str] :=
@@ -267,10 +271,10 @@ function listed_from(spans: Array[Str], i: Int): List[Str] :=
 
 // the keywords that a line listing them gives, the spans after those of keywords_start
 function listed_keywords(line: Str): Set[Str] :=
-  Set(for k in listed_from(from_list(split(line, '`')), 5))
+  Set(for k in listed_from(from_list(split(line, '`')), 1))
 
 test listed() :=
-  assert listed_keywords("- The keywords, `keywords` of `ulang/parse/lex.u`, are: `_`, `if`, and `end`; `and` is a name") == Set("_", "if", "end")
+  assert listed_keywords("- Keywords are no names: `_`, `if`, and `end`; `and` is a name") == Set("_", "if", "end")
 
 // the keywords of the lexer that the document does not list, and the words that it lists that are none
 procedure keyword_problems(in doc: Str, out problems: List[Str]) :=
@@ -285,22 +289,86 @@ procedure keyword_problems(in doc: Str, out problems: List[Str]) :=
       problems := List(doc ++ ": not one line starts with " ++ keywords_start())
   end
 
+// a block of code of a document, with the line of its opening fence
+data Block :=
+  case Block(line: Int, lines: List[Str])
+
+// the blocks of the lines from line n on that open with a fence of the language u, ```u, and end with a fence ```
+function blocks_from(lines: List[Str], n: Int): List[Block] :=
+  match lines
+    case List() =>
+      List()
+
+    case List(line; rest) =>
+      if line == "```u" then
+        let (code, after) := split_on(rest, "```") in
+        List(Block(n, code); blocks_from(after, n + size(code) + 2))
+      else
+        blocks_from(rest, n + 1)
+  end
+
+test blocks() :=
+  assert blocks_from(List("a", "```u", "x", "y", "```", "```", "z", "```", "```u", "w", "```"), 1) == List(Block(2, List("x", "y")), Block(9, List("w")))
+
+// the blocks of u in the document that fail to parse, check, keep their format, or pass their tests, each run as a file of
+// its own in checks/, alone in its package
+procedure block_problems(in doc: Str, out problems: List[Str]) :=
+  var text: Str, found: Buffer[Str] := empty()
+  try
+    os_read_utf8(in doc, out text)
+    for b in blocks_from(split(text, '\n'), 1) do
+      let at_block := doc ++ ":" ++ show(b.line) ++ ": "
+      try
+        run_text(in "checks/block_" ++ show(b.line) ++ ".u", b.lines)
+      catch
+        case e: ParseError =>
+          found := found ++ List(at_block ++ show(e))
+
+        case e: TypeError =>
+          found := found ++ List(at_block ++ show(e))
+
+        case e: Unformatted =>
+          found := found ++ List(at_block ++ show(e))
+
+        case e: InternalError =>
+          found := found ++ List(at_block ++ show(e))
+
+        case e: OsError =>
+          found := found ++ List(at_block ++ show(e))
+
+        case e: Thrown =>
+          found := found ++ List(at_block ++ show(e))
+
+        case e: RuntimeError =>
+          found := found ++ List(at_block ++ show(e))
+      end
+    end
+  catch
+    case e: OsError =>
+      found := found ++ List(doc ++ ": " ++ show(e))
+  end
+  problems := List(for p in found)
+
 // prints the references of the documents that are not declared in their files, run at the root of the project, and fails
-// if there is one; the documents are CLAUDE.md, README.md, and those of ideas/ but review.md, whose references are those of
-// the commit that it reviewed; and the keywords of the lexer that CLAUDE.md does not list as such
+// if there is one; the documents are CLAUDE.md, README.md, LANGUAGE.md, and those of ideas/ but review.md, whose
+// references are those of the commit that it reviewed; the keywords of the lexer that LANGUAGE.md does not list as such;
+// and the blocks of u in LANGUAGE.md that fail
 procedure main() raises OsError :=
   var cache: Map[Str, Option[Decls]] := empty(), found: List[Str] := List(), entries: List[(Str, Bool)]
   os_list(in "ideas", out entries)
   for doc in List(
     "CLAUDE.md",
-    "README.md"; List(for (name, is_dir) in entries if not is_dir and ends_with(name, ".md") and name != "review.md" yield "ideas/" ++ name)) do
+    "README.md",
+    "LANGUAGE.md"; List(for (name, is_dir) in entries if not is_dir and ends_with(name, ".md") and name != "review.md" yield "ideas/" ++ name)) do
     var problems: List[Str]
     problems_of(in doc, out problems, ref cache)
     found := found ++ problems
   end
   var missing: List[Str]
-  keyword_problems(in "CLAUDE.md", out missing)
-  found := found ++ missing
+  keyword_problems(in "LANGUAGE.md", out missing)
+  var failing: List[Str]
+  block_problems(in "LANGUAGE.md", out failing)
+  found := found ++ missing ++ failing
   for problem in found do
     os_println(in problem)
   end
