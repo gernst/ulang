@@ -99,7 +99,7 @@ bootstrap: bootstrap/ulang.bin
 # every .u file of the project, also of the library and of the tests of the packages in their subfolders test/, but those of
 # ulang/test/errors/, which project.u declares to run only compiled, run by out/ulang.bin with all its tests in the
 # working directory, the root, must succeed; interpreted only, so that nothing is compiled but the tool, while testerrors,
-# testc, testasm, testelf, and testdocs compile tests or checks of their own
+# testc, testelf, and testdocs compile tests or checks of their own
 .PHONY: test
 test: out/ulang.bin out/ulang.sh
 	out/ulang.sh check --test --prove
@@ -146,47 +146,17 @@ testerrors: $(ERRORS)/errors.bin $(ERRORS)/errors.sh
 testc: $(SUITE)/suite.bin $(SUITE)/suite.sh
 	$(SUITE)/suite.sh
 
-# the tests of the project as testc runs them, but compiled to assembly by ulang/compile/x86.u, which as and the linker
-# turn into a binary with the runtime, compiled once to out/asm/ulang.o, without compiling C of programs
+# the runtime compiled once to an object, which the linker joins with the objects of programs that ulang/compile/elf.u
+# encodes, without compiling C of programs
 ASM = out/asm
-SUITE_ASM = out/suite-asm
 
 $(ASM)/ulang.o: $(RUNTIME) Makefile
 	mkdir -p $(ASM)
 	$(CC) $(CFLAGS) -c ulang/runtime/ulang.c -o $@
 
-$(SUITE_ASM)/suite.s: out/ulang.bin out/ulang.sh $(PROJECT_SOURCES)
-	mkdir -p $(SUITE_ASM)
-	out/ulang.sh compile --tests -o $@
-
-$(SUITE_ASM)/suite.bin: $(SUITE_ASM)/suite.s $(ASM)/ulang.o
-	$(CC) $< $(ASM)/ulang.o $(LIBS) -o $@
-
-$(SUITE_ASM)/suite.sh: $(SCRIPT)
-	mkdir -p $(SUITE_ASM)
-	cp $(SCRIPT) $@
-
-.PHONY: testasm
-testasm: $(SUITE_ASM)/suite.bin $(SUITE_ASM)/suite.sh
-	$(SUITE_ASM)/suite.sh
-
-# out/ulang.bin compiles the sources to assembly, whose compiler, assembled and linked with the runtime, must compile them
-# to the same assembly and to the same C as out/ulang.bin, which keeps building the tool and the seed from C
-.PHONY: selfcompileasm
-selfcompileasm: out/ulang.bin out/ulang.sh $(ASM)/ulang.o
-	stage=$$(mktemp -d out/stage-XXXXXX) && \
-	out/ulang.sh compile ulang/ulang.u -o $$stage/ulang2.s && \
-	$(CC) $$stage/ulang2.s $(ASM)/ulang.o $(LIBS) -o $$stage/ulang2.bin && \
-	cp $(SCRIPT) $$stage/ulang2.sh && \
-	$$stage/ulang2.sh compile ulang/ulang.u -o $$stage/ulang3.s && \
-	cmp $$stage/ulang2.s $$stage/ulang3.s && \
-	out/ulang.sh compile ulang/ulang.u -o $$stage/ulang2.c && \
-	$$stage/ulang2.sh compile ulang/ulang.u -o $$stage/ulang3.c && \
-	cmp $$stage/ulang2.c $$stage/ulang3.c && \
-	rm -r -- "$${stage:?}"
-
-# the tests of the project as testasm runs them, but encoded to an object by ulang/compile/elf.u, which only the linker
-# turns into a binary, without as
+# the tests of the project as testc runs them, but translated by ulang/compile/x86.u and encoded to an object by
+# ulang/compile/elf.u, which only the linker turns into a binary, without as; the .s that x86.u also writes is a view for
+# debugging, without targets of its own
 SUITE_ELF = out/suite-elf
 
 $(SUITE_ELF)/suite.o: out/ulang.bin out/ulang.sh $(PROJECT_SOURCES)
@@ -204,8 +174,8 @@ $(SUITE_ELF)/suite.sh: $(SCRIPT)
 testelf: $(SUITE_ELF)/suite.bin $(SUITE_ELF)/suite.sh
 	$(SUITE_ELF)/suite.sh
 
-# as selfcompileasm, through the objects of ulang/compile/elf.u: the compiler of the object of the sources compiles them to
-# the same object and to the same C as out/ulang.bin
+# out/ulang.bin compiles the sources to an object by ulang/compile/elf.u, whose compiler, linked with the runtime, must
+# compile them to the same object and to the same C as out/ulang.bin, which keeps building the tool and the seed from C
 .PHONY: selfcompileelf
 selfcompileelf: out/ulang.bin out/ulang.sh $(ASM)/ulang.o
 	stage=$$(mktemp -d out/stage-XXXXXX) && \
