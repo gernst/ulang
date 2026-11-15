@@ -1,0 +1,87 @@
+// the scripts of ulang/refactor/refactor.u that place, replace, drop, and patch declarations, on files below
+// out/test/refactor/declarations/ of the root, which run only compiled, as those of scripts.u
+
+import "ulang/syntax"
+import "ulang/refactor"
+
+procedure no_diagnostics(in file: Str, out found: List[(Str, Diagnostic)]) :=
+  found := List()
+
+// @drop of a name that both sections declare drops both and says so
+test drops_both_sections() :=
+  var reply: List[Str], status: Int, text: Str
+  let state := "out/test/refactor/declarations/drops", path := "out/test/refactor/declarations/drops.u"
+  os_write_utf8(in path, "export\n\ndata W :=\n  case A\n\nfunction f(x: Int): Int\n\nimplementation\n\ndata W :=\n  case B\n\nfunction f(x: Int): Int :=\n  x\n\nfunction g(): Int :=\n  0\n")
+  run_script(in "@drop " ++ path ++ ":W\n@drop " ++ path ++ ":f\n", false, state, no_diagnostics, out reply, status, _)
+  os_read_utf8(in path, out text)
+  assert status == 0 and text == "function g(): Int :=\n  0\n"
+  assert take(3, reply) == List(
+    "ok",
+    path ++ ": dropped W (export and implementation)",
+    path ++ ": dropped f/1 (export and implementation)")
+
+// @put of a declaration of the name and arity of one of another type replaces it and says so
+test replaces_other_type() :=
+  var reply: List[Str], status: Int
+  let state := "out/test/refactor/declarations/types", path := "out/test/refactor/declarations/types.u"
+  os_write_utf8(in path, "function lower(c: Char): Char :=\n  c\n\nfunction id(n: Int): Int :=\n  n\n")
+  run_script(in "@put " ++ path ++ "\nfunction lower(s: Str): Str := s\nfunction id(m: Int): Int := m\n", false, state, no_diagnostics, out reply, status, _)
+  assert status == 0
+  assert take(2, reply) == List("ok", path ++ ": replaced lower/1, of another type, replaced id/1")
+
+// @put after and before a declaration place the new declarations next to it, in its section
+test puts_next_to() :=
+  var reply: List[Str], status: Int, text: Str
+  let state := "out/test/refactor/declarations/next", path := "out/test/refactor/declarations/next.u"
+  os_write_utf8(in path, "export\n\nfunction c(): Int\n\nimplementation\n\nfunction a(): Int :=\n  1\n\n// the third\nfunction c(): Int :=\n  3\n")
+  run_script(in "@put " ++ path ++ " after " ++ path ++ ":a\nfunction b(): Int := 2\n@put before " ++ path ++ ":a\nfunction z(): Int := 0\n@put before " ++ path ++ ":c\nexport\nfunction b(): Int\n", false, state, no_diagnostics, out reply, status, _)
+  os_read_utf8(in path, out text)
+  assert status == 0
+  assert text == "export\n\nfunction b(): Int\n\nfunction c(): Int\n\nimplementation\n\nfunction z(): Int :=\n  0\n\nfunction a(): Int :=\n  1\n\nfunction b(): Int :=\n  2\n\n// the third\nfunction c(): Int :=\n  3\n"
+  run_script(in "@put " ++ path ++ " after other.u:a\nfunction y(): Int := 0\n", false, state, no_diagnostics, out reply, status, _)
+  assert status == 1
+  run_script(in "@put after " ++ path ++ ":q\nfunction y(): Int := 0\n", false, state, no_diagnostics, out reply, status, _)
+  assert status == 1 and reply == List("rejected", path ++ " declares no q")
+
+// @put F:name of a fragment of another arity replaces the declaration at its place, and its signature in export, while
+// a fragment without the name, or a new arity that the file declares already, is refused
+test replaces_arity() :=
+  var reply: List[Str], status: Int, text: Str
+  let state := "out/test/refactor/declarations/arity", path := "out/test/refactor/declarations/arity.u"
+  os_write_utf8(in path, "export\n\n// sends\nfunction f(x: Int): Int\n\nfunction g(): Int\n\nimplementation\n\nfunction f(x: Int): Int :=\n  x\n\nfunction g(): Int :=\n  f(1)\n\nfunction h(x: Int, y: Int): Int :=\n  x\n\nfunction h(x: Int): Int :=\n  x\n")
+  run_script(in "@put " ++ path ++ ":f\nfunction f(x: Int, y: Int): Int := x + y\nfunction k(): Int := 0\n", false, state, no_diagnostics, out reply, status, _)
+  os_read_utf8(in path, out text)
+  assert status == 0
+  assert text == "export\n\n// sends\nfunction f(x: Int, y: Int): Int\n\nfunction g(): Int\n\nimplementation\n\nfunction f(x: Int, y: Int): Int :=\n  x + y\n\nfunction k(): Int :=\n  0\n\nfunction g(): Int :=\n  f(1)\n\nfunction h(x: Int, y: Int): Int :=\n  x\n\nfunction h(x: Int): Int :=\n  x\n"
+  assert take(2, reply) == List(
+    "ok",
+    path ++ ": replaced f/1 by f/2, added k/0, with the signature of f/2")
+  run_script(in "@put " ++ path ++ ":g\nfunction h(): Int := 1\n", false, state, no_diagnostics, out reply, status, _)
+  assert status == 1
+  run_script(in "@put " ++ path ++ ":h/2\nfunction h(n: Int): Int := n\n", false, state, no_diagnostics, out reply, status, _)
+  assert status == 1 and reply == List(
+    "rejected",
+    path ++ " declares h/1 already, so the fragment cannot replace h/2 by it")
+
+// @patch of a declaration keeps the handles of its nodes, refuses a patch that changes nothing, and adds lines by its
+// form of several lines, the old lines, a line => alone, and the new lines
+test patches_keep_handles() :=
+  var reply: List[Str], status: Int, text: Str
+  let state := "out/test/refactor/declarations/patches", path := "out/test/refactor/declarations/patches.u"
+  os_write_utf8(in os_join(state, "handles.txt"), "")
+  os_write_utf8(in path, "function f(x: Int): Int :=\n  match x\n    case 0 =>\n      1\n    case _ =>\n      x\n  end\n\nprocedure p(out y: Int) :=\n  y := 1\n")
+  run_script(in "@show " ++ path ++ ":f", false, state, no_diagnostics, out reply, status, _)
+  run_script(in "@patch " ++ path ++ ":f\ncase 0 => case 1\n", false, state, no_diagnostics, out reply, status, _)
+  assert status == 0
+  run_script(in "@put #3\n2\n", false, state, no_diagnostics, out reply, status, _)
+  assert status == 0
+  run_script(in "@patch " ++ path ++ ":f\ncase 1 => case 1\n", false, state, no_diagnostics, out reply, status, _)
+  assert status == 1 and reply == List(
+    "rejected",
+    "@patch: fragment line 1, \"case 1 => case 1\", changes nothing")
+  run_script(in "@patch " ++ path ++ ":p\n  y := 1\n=>\n  y := 1\n  y := y + 1\n", false, state, no_diagnostics, out reply, status, _)
+  os_read_utf8(in path, out text)
+  assert status == 0
+  assert text == "function f(x: Int): Int :=\n  match x\n    case 1 =>\n      2\n    case _ =>\n      x\n  end\n\nprocedure p(out y: Int) :=\n  y := 1\n  y := y + 1\n"
+  run_script(in "@patch " ++ path ++ ":p\ny := 2\n=>\ny := 3\n", false, state, no_diagnostics, out reply, status, _)
+  assert status == 1
