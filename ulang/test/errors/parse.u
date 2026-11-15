@@ -367,6 +367,12 @@ test proof_call_refs() :=
     check_text(in "ulang/test/errors/proof-call-refs.u", List("lemma a(in x: Int) :=", "  ensures x == x", "  b(in x, ref y)"))
   end
 
+// the outs of a call of a lemma are its witnesses, which no _ drops
+test proof_call_dropped_out() :=
+  assert raises ParseError("a call of a lemma has no out _, since its outs are witnesses", Pos(3, 3)) do
+    check_text(in "ulang/test/errors/proof-call-dropped-out.u", List("lemma a(in x: Int) :=", "  ensures x == x", "  b(in x, out _)"))
+  end
+
 test function_contract() :=
   assert raises ParseError("a function has no contract yet, its properties are lemmas", Pos(2, 3)) do
     check_text(in "ulang/test/errors/function-contract.u", List("function f(x: Int): Int :=", "  requires x > 0", "  x"))
@@ -380,6 +386,16 @@ test claim_refs() :=
       "",
       "lemma p_correct(in y: Int) :=",
       "  correct p(ref y)"))
+  end
+
+test claim_dropped_out() :=
+  assert raises ParseError("a claim correct p(…) has no out _, since its outs are those of the lemma", Pos(5, 3)) do
+    check_text(in "ulang/test/errors/claim-dropped-out.u", List(
+      "procedure p(out y: Int) :=",
+      "  y := 1",
+      "",
+      "lemma p_correct(out y: Int) :=",
+      "  correct p(out _)"))
   end
 
 test proof_assert_raises() :=

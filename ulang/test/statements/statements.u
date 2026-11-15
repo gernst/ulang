@@ -300,6 +300,30 @@ test locals_anywhere() :=
   split_at(in 1, List(1, 2, 3), out xs, ys)
   assert (xs, ys, n) == (List(1), List(2, 3), 0)
 
+// out _ drops the value of an out, also of a procedure value, of a procedure that raises, and in a lambda passed to a call
+// that drops an out itself
+test dropped_outs() :=
+  var ys, z: Int
+  split_at(in 1, List(1, 2, 3), out _, ys)
+  assert ys == List(2, 3)
+  split_at(in 2, ys, out _, _)
+  let p := step(false)
+  p(in 1, out _)
+  twice(in lambda in x, out y =>
+    var rest
+    split_at(in x, List(1, 2, 3), out _, rest)
+    y := size(rest)
+  end, 1, out _)
+  twice(in double, 3, out z)
+  assert z == 12
+  try
+    sign(in 0, out _)
+    assert false
+  catch
+    case Failed =>
+      skip
+  end
+
 // for p in c if q do … end runs its body for the elements of a container in the order of its fold
 test for_lists() :=
   var sum := 0, seen: List[Int] := List()

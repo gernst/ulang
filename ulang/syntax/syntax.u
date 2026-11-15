@@ -357,6 +357,12 @@ pattern PName(name: Name, typ: Type): Pat :=
 
 function unqualified(x: Id): Name
 
+// the out _ of a call, whose value the call drops, which the parser keeps as a variable of the name _, a keyword, which
+// no other variable has, and the checker replaces by a local of a name that users cannot write
+function dropped_out(): Var
+
+function is_dropped(x: Var): Bool
+
 function arity(t: Type): Int
 
 // the packages that d imports, in the order of its import lines
@@ -573,6 +579,12 @@ function escape(c: Char, delimiter: Char): Str :=
 // a name without a module, of a local or a builtin, or before checking
 function unqualified(x: Id): Name :=
   Name(None, x)
+
+function dropped_out(): Var :=
+  Var(unqualified("_"), THole)
+
+function is_dropped(x: Var): Bool :=
+  x.name == unqualified("_")
 
 // the number of arguments of a function type, functions are overloaded by it
 function arity(t: Type): Int :=

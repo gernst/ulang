@@ -3591,6 +3591,12 @@ procedure statement_node(
       statement(in assignable, body, out l, ref inner, s)
       y := SWhile(c, l), s := s with loop_assigned := s.loop_assigned ++ newly_assigned(env, inner)
 
+    // each out _ is a local of a block around the call, which nothing reads
+    case SCall(proc, ins, outs, refs) if exists(outs, is_dropped) =>
+      let kept := kept_outs(outs, 1)
+      let locals := List(for (x, local) in zip(outs, kept) if is_dropped(x) yield AOk(pos, span_at(pos), local))
+      block_statement(in assignable, locals, List(AOk(pos, span, SCall(proc, ins, kept, refs))), None, out y, ref env, s)
+
     // a procedure that a variable holds and the refs are read
     case SCall(proc, ins, outs, refs) =>
       call_proc(in env, assignable, proc, ins, outs, refs, out y, ref s)
@@ -3728,6 +3734,20 @@ function loop_body(gens: List[Gen], body: At[Stmt]): At[Stmt] :=
       AOk(body.pos, body.span, SIf(cond, body, AOk(body.pos, span_at(body.span.stop), SSkip)))
     case _ =>
       body
+  end
+
+// outs with a local for each out _, under a name that users cannot write, numbered from i
+function kept_outs(outs: List[Var], i: Int): List[Var] :=
+  match outs
+    case List() =>
+      List()
+
+    case List(x; rest) =>
+      if is_dropped(x) then
+        let local := Var(generated_name("out " ++ show(i)), THole) in
+        List(local; kept_outs(rest, i + 1))
+      else
+        List(x; kept_outs(rest, i))
   end
 
 // the variables that the leading assignments of a block assign one at a time, as local x := e does
