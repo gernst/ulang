@@ -57,7 +57,7 @@ function projectRoot(file) {
 }
 
 // runs ulang.bin with args in the directory of file, or for tests at the root of its project, where tests run, resolving
-// to its exit code, output, and errors, with a stack as large as the system allows, since the interpreter recurses as
+// to its exit code, output, errors, and working directory, with a stack as large as the system allows, since the interpreter recurses as
 // deeply as the programs it runs
 function ulang(args, file) {
   return new Promise((resolve) => {
@@ -68,8 +68,9 @@ function ulang(args, file) {
       return;
     }
     const script = 'ulimit -s unlimited 2>/dev/null; exec "$0" "$@"';
-    cp.execFile("sh", ["-c", script, bin, ...args], { cwd: args.includes("--test") ? projectRoot(file) : path.dirname(file) }, (error, stdout, stderr) => {
-      resolve({ code: error ? error.code || 1 : 0, stdout, stderr });
+    const cwd = args.includes("--test") ? projectRoot(file) : path.dirname(file);
+    cp.execFile("sh", ["-c", script, bin, ...args], { cwd }, (error, stdout, stderr) => {
+      resolve({ code: error ? error.code || 1 : 0, stdout, stderr, cwd });
     });
   });
 }
@@ -166,8 +167,9 @@ function activate(context) {
 
   // errors of file in the error output of ulang, without a position at the start of the file, and those of another
   // module, known by its path from the root, at the import of its package, the directory of the module, or else at the
-  // start, as for a sibling, pointing to the module, where the errors of proofs are warnings
-  function diagnose(file, stderr, stdout) {
+  // start, as for a sibling, pointing to the file of the module, the file of the diagnostic from cwd, where ulang ran, where
+  // the errors of proofs are warnings
+  function diagnose(file, stderr, stdout, cwd) {
     const found = [];
     const lines = fs.existsSync(file) ? fs.readFileSync(file, "utf8").split("\n") : [];
     for (const line of (stderr + "\n" + (stdout || "")).split("\n")) {
@@ -201,7 +203,8 @@ function activate(context) {
       const position = new vscode.Position(Math.max(imported, 0), 0);
       const text = message + " in " + module + (row ? " at " + row + "." + column : "");
       const diagnostic = new vscode.Diagnostic(new vscode.Range(position, position.translate(0, 1)), text, vscode.DiagnosticSeverity.Error);
-      const source = [path.join(root, moduleFile + ".u")].find((f) => fs.existsSync(f)) || "";
+      // the file that ulang names, also of the library, else the module's path from the root
+      const source = [d.file && path.resolve(cwd, d.file), path.join(root, moduleFile + ".u")].find((f) => f && fs.existsSync(f)) || "";
       if (row && source) {
         diagnostic.relatedInformation = [new vscode.DiagnosticRelatedInformation(new vscode.Location(vscode.Uri.file(source), at), message)];
       }
@@ -219,7 +222,7 @@ function activate(context) {
     const file = document.uri.fsPath;
     const result = await ulang([...commandWords[command], ...(names.length ? names.map((name) => file + ":" + name) : [file])], file);
     if (!result) return;
-    diagnose(file, result.stderr, result.stdout);
+    diagnose(file, result.stderr, result.stdout, result.cwd);
     if (show) {
       output.clear();
       output.append(result.stdout);
@@ -246,7 +249,7 @@ function activate(context) {
     tests.forEach((t) => run.started(t));
     const result = await ulang(["check", "--test", "--prove", file.uri.fsPath], file.uri.fsPath);
     if (!result) return;
-    diagnose(file.uri.fsPath, result.stderr, result.stdout);
+    diagnose(file.uri.fsPath, result.stderr, result.stdout, result.cwd);
     const outcomes = new Map();
     for (const line of result.stdout.split("\n")) {
       const match = testLine.exec(line);
