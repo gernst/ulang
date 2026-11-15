@@ -3,6 +3,7 @@
 const vscode = require("vscode");
 const cp = require("child_process");
 const fs = require("fs");
+const os = require("os");
 const path = require("path");
 
 // an error is one JSON object on a line, as format_diagnostic of ulang/syntax/error.u writes it, with the fields file,
@@ -271,19 +272,39 @@ function activate(context) {
     return vscode.window.activeTextEditor && vscode.window.activeTextEditor.document;
   }
 
-  // the hints of each document by its version, from ulang hints of the saved file, refreshed on save, and none for a
-  // version that is not saved, whose positions they would miss
+  // the hints of each document by its version, from ulang hints of the file, with the text of an unsaved buffer passed by
+  // --overlay from a file of its own in a temporary directory, refreshed on save and once the edits of a buffer have
+  // paused, and none for a version of a buffer before that, so that typing runs no check per key
   const hints = new Map();
   const hintsChanged = new vscode.EventEmitter();
-  context.subscriptions.push(hintsChanged);
+  const settled = new Map();
+  const editing = new Map();
+  const buffers = fs.mkdtempSync(path.join(os.tmpdir(), "ulang-buffers-"));
+  let buffered = 0;
+  context.subscriptions.push(hintsChanged, {
+    dispose: () => {
+      editing.forEach(clearTimeout);
+      fs.rmSync(buffers, { recursive: true, force: true });
+    },
+  });
 
   function hintsOf(doc) {
-    if (doc.languageId !== "ulang" || doc.uri.scheme !== "file" || doc.isDirty) return Promise.resolve([]);
+    if (doc.languageId !== "ulang" || doc.uri.scheme !== "file") return Promise.resolve([]);
     const key = doc.uri.toString();
+    if (doc.isDirty && settled.get(key) !== doc.version) return Promise.resolve([]);
     const cached = hints.get(key);
     if (cached && cached.version === doc.version) return cached.found;
     const file = doc.uri.fsPath;
-    const found = ulang(["hints", file], file).then((result) => (result ? result.stdout.split("\n").map(parseHint).filter((h) => h) : []));
+    let args = ["hints", file], buffer;
+    if (doc.isDirty) {
+      buffer = path.join(buffers, `${buffered++}.u`);
+      fs.writeFileSync(buffer, doc.getText());
+      args = ["hints", "--overlay", `${file}=${buffer}`, file];
+    }
+    const found = ulang(args, file).then((result) => {
+      if (buffer) fs.rmSync(buffer, { force: true });
+      return result ? result.stdout.split("\n").map(parseHint).filter((h) => h) : [];
+    });
     hints.set(key, { version: doc.version, found });
     return found;
   }
@@ -291,6 +312,18 @@ function activate(context) {
   function refreshHints(doc) {
     hints.delete(doc.uri.toString());
     hintsChanged.fire();
+  }
+
+  // the hints of a buffer whose edits have paused for a while
+  function refreshLater(doc) {
+    if (doc.languageId !== "ulang") return;
+    const key = doc.uri.toString();
+    clearTimeout(editing.get(key));
+    editing.set(key, setTimeout(() => {
+      editing.delete(key);
+      settled.set(key, doc.version);
+      refreshHints(doc);
+    }, 500));
   }
 
   context.subscriptions.push(
@@ -329,7 +362,16 @@ function activate(context) {
         },
       }
     ),
-    vscode.workspace.onDidCloseTextDocument((doc) => hints.delete(doc.uri.toString()))
+    vscode.workspace.onDidChangeTextDocument((event) => {
+      if (event.contentChanges.length > 0) refreshLater(event.document);
+    }),
+    vscode.workspace.onDidCloseTextDocument((doc) => {
+      const key = doc.uri.toString();
+      hints.delete(key);
+      settled.delete(key);
+      clearTimeout(editing.get(key));
+      editing.delete(key);
+    })
   );
 
   context.subscriptions.push(

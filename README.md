@@ -94,6 +94,8 @@ out/ulang.sh compile --tests -o suite.c   # compiles the tests of the whole proj
 out/ulang.sh format file.u                # rewrites it in the layout that check requires
 out/ulang.sh hints file.u                 # checks it and prints the resolved names and types of its parts and the inferred
                                           # raises, as JSON lines of hover and inlay hints, which the VS Code extension shows
+out/ulang.sh hints --overlay file.u=buf.u file.u  # the same with the text of buf.u as that of file.u, an unsaved
+                                          # buffer of an editor, as check and refactor take it, also repeated
 out/ulang.sh compile file.u -o file.c     # compiles a program to C, whose main calls the procedure main
 out/ulang.sh refactor script.txt          # runs a script of edits by declaration, see Refactoring
 out/ulang.sh help                         # lists the commands
