@@ -823,6 +823,10 @@ function zonk_pattern(s: State, pat: Pat): Pat :=
     case POr(alts) =>
       POr(List(for q in alts yield zonk_pat(s, q)))
 
+    // the type of an alternative of a handler, see handler_pattern
+    case PAnnotated(inner, typ) =>
+      PAnnotated(zonk_pat(s, inner), zonked(s, typ))
+
     case _ =>
       pat
   end
@@ -3264,6 +3268,40 @@ procedure pattern_binders(
       typed_pat := AOk(pos, span, POr(typed_alts)), xs := value_or(first, List())
   end
 
+// the pattern of a handler of type typ, where the alternatives at the top may match exceptions of different types: each
+// is annotated by its type, which expanded_handlers of ulang/syntax/syntax.u makes the type of its handler, and the
+// handler has the type THole, so that its readers take its alternatives apart first
+procedure handler_pattern(
+  in  pat: At[Pat],
+      typ: Type,
+  out u: Type,
+      typed_pat: At[Pat],
+      xs: List[Var],
+  ref s: State
+) :=
+  match pat
+    case AOk(pos, span, POr(alts)) if typ == THole =>
+      var typed_alts: List[At[Pat]] := List(), first: Option[List[Var]] := None
+      for alt in alts do
+        var t: Type, typed_alt: At[Pat], ys: List[Var]
+        normalize(in THole, out t, ref s)
+        binders(in alt, t, out typed_alt, ys, ref s)
+        typed_alts := typed_alts ++ List(AOk(alt.pos, alt.span, PAnnotated(typed_alt, t)))
+        match first
+          case None =>
+            first := Some(ys)
+          case Some(zs) =>
+            same_variables(in alt.pos, zs, ys, ref s)
+        end
+      end
+      u := THole, typed_pat := AOk(pos, span, POr(typed_alts)), xs := value_or(first, List())
+      unique(in "pattern variable", List(for x in xs yield x.name), ref s)
+
+    case _ =>
+      normalize(in typ, out u, ref s)
+      typed_pattern(in pat, u, out typed_pat, xs, ref s)
+  end
+
 // the variables ys of an alternative at pos against those of the first, xs, with the same types
 procedure same_variables(
   in  pos: Pos,
@@ -3567,8 +3605,7 @@ procedure statement_node(
     // the variables after the body are those before, as at the start of a handler, since it raises if the test passes
     case SAssertRaises(typ, pat, body) =>
       var u: Type, p: At[Pat], xs: List[Var], b: At[Stmt], inner: Env := env
-      normalize(in typ, out u, ref s)
-      typed_pattern(in pat, u, out p, xs, ref s)
+      handler_pattern(in pat, typ, out u, p, xs, ref s)
       match xs
         case List(x; _) =>
           report(in RaisesVariables(x.name), ref s)
@@ -4068,8 +4105,7 @@ procedure handler_list(
 
     case List(AOk(pos, span, Catch(typ, pat, g, body)); more) =>
       var u: Type, typed_pat: At[Pat], xs: List[Var], typed_guard: Option[At[Expr]], typed_body: At[Stmt], rest: List[At[Catch]], inner: Env
-      normalize(in typ, out u, ref s)
-      typed_pattern(in pat, u, out typed_pat, xs, ref s)
+      handler_pattern(in pat, typ, out u, typed_pat, xs, ref s)
       unhidden(in env, xs, ref s)
       inner := bind(xs) ++ env
       guard(in inner, g, out typed_guard, ref s)

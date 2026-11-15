@@ -752,6 +752,40 @@ test alternatives_in_statements() :=
     raise 4
   end
 
+data Refused :=
+  case Refused(reason: Str)
+
+// raises Refused, a text, or Fail by k
+procedure refuse(in k: Int) raises Refused, Str, Fail :=
+  match k
+    case 1 =>
+      raise Refused("one")
+
+    case 2 =>
+      raise "two"
+
+    case _ =>
+      raise Fail
+  end
+
+// the alternatives of a handler match exceptions of their own types, and bind the same variables
+test alternatives_of_types() :=
+  var texts := List()
+  for k in List(1, 2, 3) do
+    try
+      refuse(in k)
+    catch
+      case Refused(text) | text =>
+        texts := texts ++ List(text)
+      case Fail =>
+        texts := texts ++ List("fail")
+    end
+  end
+  assert texts == List("one", "two", "fail")
+  assert raises Refused(_) | Fail do
+    refuse(in 3)
+  end
+
 data Shape :=
   case Circle(label: Str, radius: Int)
   case Box(label: Str)

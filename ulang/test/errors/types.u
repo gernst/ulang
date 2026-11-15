@@ -808,6 +808,28 @@ test raise_never() :=
       "  end"))
   end
 
+test raise_never_alternative() :=
+  assert raises Located(None, Pos(15, 19), NeverRaised(_)) do
+    check_text(in "ulang/test/errors/raise-never-alternative.u", List(
+      "data Bad :=",
+      "  case Bad(code: Int)",
+      "",
+      "data Worse :=",
+      "  case Worse(code: Int)",
+      "",
+      "procedure fail(in n: Int) raises Bad :=",
+      "  raise Bad(n)",
+      "",
+      "procedure code(in n: Int, out k: Int) :=",
+      "  try",
+      "    fail(in n)",
+      "    k := 0",
+      "  catch",
+      "    case Bad(c) | Worse(c) =>",
+      "      k := c",
+      "  end"))
+  end
+
 test raise_not_exception() :=
   assert raises Located(None, Pos(2, 3), NotAnException(_)) do
     check_text(in "ulang/test/errors/raise-not-exception.u", List("test raised() :=", "  raise Some(1)"))
