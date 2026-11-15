@@ -394,10 +394,10 @@ procedure items_of(
       case LInstr(instr) =>
         var code: Code
         encode_instr(in instr, out code)
-        buf := append(buf, ItemCode(chunk_of(code.bytes), code.refs))
+        buf := buf ++ List(ItemCode(chunk_of(code.bytes), code.refs))
 
       case _ =>
-        buf := append(buf, ItemLine(line))
+        buf := buf ++ List(ItemLine(line))
     end
   end
   items := List(for item in buf)
@@ -466,7 +466,7 @@ procedure place(
       case ItemLine(LLabel(name)) =>
         labels := put(name, (sec, offset), labels)
       case _ =>
-        buf := append(buf, Placed(sec, offset, item)), offset := offset + item_size(item, offset)
+        buf := buf ++ List(Placed(sec, offset, item)), offset := offset + item_size(item, offset)
     end
   end
   placed := List(for p in buf)

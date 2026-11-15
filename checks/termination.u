@@ -7,7 +7,7 @@ import "ulang/parse"
 import "ulang/check"
 import "ulang/prove"
 
-procedure main() :=
+procedure main() raises OsError, ParseError, TypeError, InternalError :=
   var source: Source, q: Prog, open: List[Str] := List()
   parse_file(in "ulang/ulang.u", out source)
   require_parsed(in source)
