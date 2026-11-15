@@ -83,6 +83,7 @@ out/ulang.sh run file.u:go                # calls its procedure go instead
 out/ulang.sh check file.u                 # checks it: errors of parsing, of types, and of format
 out/ulang.sh check --test file.u          # also runs its tests one by one
 out/ulang.sh check --test file.u:name     # runs one of them
+out/ulang.sh check --test --timeout 10 file.u  # fails each test that runs longer than 10 s
 out/ulang.sh check --prove file.u         # also proves its lemmas, which --test --prove does after the tests
 out/ulang.sh check --lint file.u          # also prints the lints, as warnings, with simpler expressions to write
 out/ulang.sh check --test dir             # the files below dir, which must pass

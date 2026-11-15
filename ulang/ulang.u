@@ -35,7 +35,7 @@ data Request :=
 
 // the phases of check after loading: the lints of the files that load, as warnings, the tests, and the proofs of the lemmas
 data Phases :=
-  case Phases(lints: Bool, tests: Bool, proofs: Bool)
+  case Phases(lints: Bool, tests: Bool, proofs: Bool, timeout: Option[Int])
 
 // a file or a directory, or a file name.u with the name of a declaration after its last :
 data Target :=
@@ -106,7 +106,7 @@ function command_request(command: Str, words: List[Str], rest: List[Str]): Reque
       RUsage("run takes one file")
 
     case ("check", _) =>
-      check_request(words, Phases(false, false, false), List(), rest)
+      check_request(words, Phases(false, false, false, None), List(), rest)
 
     case ("format", _) =>
       paths_request(command, words, RFormat(words))
@@ -168,6 +168,14 @@ function check_request(words: List[Str], phases: Phases, targets: List[Target], 
     case List("--prove"; more) =>
       check_request(more, phases with proofs := true, targets, rest)
 
+    case List("--timeout", seconds; more) =>
+      match number(seconds)
+        case Some(n) if n > 0 =>
+          check_request(more, phases with timeout := Some(n), targets, rest)
+        case _ =>
+          RUsage("check takes a positive number of seconds after --timeout")
+      end
+
     case List(word; more) =>
       if starts_with(word, "-") then
         RUsage("check does not take " ++ word)
@@ -177,6 +185,8 @@ function check_request(words: List[Str], phases: Phases, targets: List[Target], 
     case List() =>
       if rest != List() and not phases.tests then
         RUsage("check takes arguments after -- only with --test")
+      else if phases.timeout != None and not phases.tests then
+        RUsage("check takes --timeout only with --test")
       else if exists(targets, lambda t => t.name != None) and not (phases.tests or phases.proofs) then
         RUsage("check takes names only with --test or --prove")
       else
@@ -236,10 +246,10 @@ function target_of(word: Str): Target :=
 test requests() :=
   assert request(List("run", "a.u")) == RRun(Target("a.u", None), List())
   assert request(List("run", "a.u:go", "--", "x")) == RRun(Target("a.u", Some("go")), List("x"))
-  assert request(List("check", "--test", "a.u:t", "dir", "b:c")) == RCheck(List(Target("a.u", Some("t")), Target("dir", None), Target("b:c", None)), Phases(false, true, false), List())
-  assert request(List("check")) == RCheck(List(), Phases(false, false, false), List())
-  assert request(List("check", "a.u", "--lint")) == RCheck(List(Target("a.u", None)), Phases(true, false, false), List())
-  assert request(List("check", "--prove", "a.u:l", "--test")) == RCheck(List(Target("a.u", Some("l"))), Phases(false, true, true), List())
+  assert request(List("check", "--test", "a.u:t", "dir", "b:c")) == RCheck(List(Target("a.u", Some("t")), Target("dir", None), Target("b:c", None)), Phases(false, true, false, None), List())
+  assert request(List("check")) == RCheck(List(), Phases(false, false, false, None), List())
+  assert request(List("check", "a.u", "--lint")) == RCheck(List(Target("a.u", None)), Phases(true, false, false, None), List())
+  assert request(List("check", "--prove", "a.u:l", "--test")) == RCheck(List(Target("a.u", Some("l"))), Phases(false, true, true, None), List())
   assert request(List("format", "a.u")) == RFormat(List("a.u"))
   assert request(List("compile", "-o", "a.c", "--tests")) == RCompileTests(None, "a.c")
   assert request(List("compile", "--tests", "ulang/test", "-o", "a.c")) == RCompileTests(Some("ulang/test"), "a.c")
@@ -255,9 +265,13 @@ test usage_errors() :=
   assert request(List("check", "a.u:t")) == RUsage("check takes names only with --test or --prove")
   assert request(List("check", "--lint", "a.u:t")) == RUsage("check takes names only with --test or --prove")
   assert request(List("check", "-v", "a.u")) == RUsage("check does not take -v")
+  assert request(List("check", "--test", "--timeout", "5", "a.u")) == RCheck(List(Target("a.u", None)), Phases(false, true, false, Some(5)), List())
+  assert request(List("check", "--timeout", "5", "a.u")) == RUsage("check takes --timeout only with --test")
+  assert request(List("check", "--test", "--timeout", "0")) == RUsage("check takes a positive number of seconds after --timeout")
+  assert request(List("check", "--test", "--timeout")) == RUsage("check does not take --timeout")
   assert request(List("format", "--check")) == RUsage("format takes no options")
   assert request(List("format", "a.u", "--", "x")) == RUsage("format takes no arguments after --")
-  assert request(List("check", "--test", "a.u", "--", "-v")) == RCheck(List(Target("a.u", None)), Phases(false, true, false), List("-v"))
+  assert request(List("check", "--test", "a.u", "--", "-v")) == RCheck(List(Target("a.u", None)), Phases(false, true, false, None), List("-v"))
   assert request(List("run", "dir")) == RUsage("run takes a file name.u, not dir")
   assert request(List("compile", "a.u")) == RUsage("compile takes -o <target.c> or -o <target.s>")
   assert request(List("compile", "a.u", "--tests", "-o", "a.c")) == RUsage("compile --tests takes a directory, whose packages and programs it compiles, not a file")
@@ -321,7 +335,7 @@ function synopsis(command: Str): Str :=
       "run <file>[:<procedure>] [-- args]"
 
     case "check" =>
-      "check [--lint] [--test] [--prove] [<path>[:<name>] ...] [-- args]"
+      "check [--lint] [--test [--timeout <seconds>]] [--prove] [<path>[:<name>] ...] [-- args]"
 
     case "format" =>
       "format [<path> ...]"
@@ -345,7 +359,7 @@ function description(command: Str): Str :=
       "calls the procedure, main by default, which takes no parameters, where os_args gives the arguments after --"
 
     case "check" =>
-      "checks the files, also below directories, by default the project, each unit loaded once, with the errors of parsing,\n" ++ "of types, and of format, and adds the phases of the options, which run as far as the errors allow: --lint prints the\n" ++ "lints of the files that load, as warnings with the rule and, where it has one, the simpler expression to write, which\n" ++ "do not fail the check; --test runs the tests, all or the named ones, in the working directory, where the arguments\n" ++ "after -- are those of os_args, printing a line per test; --prove proves the lemmas, all or the named ones, where a\n" ++ "recursive function unfolds only if the prover proves that it terminates, unless code that the lemmas may reach has\n" ++ "errors, and a lemma whose test found a counterexample is falsified; a file passes if it loads and its phases pass, and\n" ++ "with several files, check prints the files that do not pass and how many do"
+      "checks the files, also below directories, by default the project, each unit loaded once, with the errors of parsing,\n" ++ "of types, and of format, and adds the phases of the options, which run as far as the errors allow: --lint prints the\n" ++ "lints of the files that load, as warnings with the rule and, where it has one, the simpler expression to write, which\n" ++ "do not fail the check; --test runs the tests, all or the named ones, in the working directory, where the arguments\n" ++ "after -- are those of os_args, printing a line per test, each failed if it runs longer than the seconds of --timeout;\n" ++ "--prove proves the lemmas, all or the named ones, where a\n" ++ "recursive function unfolds only if the prover proves that it terminates, unless code that the lemmas may reach has\n" ++ "errors, and a lemma whose test found a counterexample is falsified; a file passes if it loads and its phases pass, and\n" ++ "with several files, check prints the files that do not pass and how many do"
 
     case "format" =>
       "rewrites the files, also below directories, by default the project, as format_program writes them, where check\n" ++ "reports the files that differ"
@@ -418,13 +432,13 @@ procedure check_targets(
 ) :=
   var found: List[Target]
   targets_of(in targets, phases.tests, out found)
-  visit_units(in found, phases.tests, lambda in source, q, unit, loaded, out failed =>
+  visit_units(in found, phases.tests, lambda in source, q, unit, listed, out failed =>
     failed := List()
-    if phases.lints and loaded then
+    if phases.lints and listed == List() then
       print_lints(in source, q, unit)
     end
     if phases.tests or phases.proofs then
-      check_unit(in q, unit, found, phases, args, out failed)
+      check_unit(in q, unit, found, phases, args, listed, out failed)
     end
   end, out status)
 
@@ -437,6 +451,7 @@ procedure check_unit(
       found: List[Target],
       phases: Phases,
       args: List[Str],
+      listed: List[(Str, Diagnostic)],
   out failed: List[Str]
 ) :=
   failed := List()
@@ -448,7 +463,7 @@ procedure check_unit(
       passed := false
     end
     for selected in selection(phases.tests, both, names, tests) do
-      test_module(in q, m, selected, args, label, out ran, falsified)
+      test_module(in q, m, selected, args, phases.timeout, label, listed, out ran, falsified)
       passed := passed and ran
     end
     for selected in selection(phases.proofs, both, names, lemmas) do
@@ -529,12 +544,13 @@ function is_lemma(cmd: Cmd): Bool :=
 
 // checks each unit of the targets once, where the error of a unit that does not load is reported at its first file, and
 // calls visit with the checked program of each unit that loads, also with errors if it is runnable, whose files then
-// fail, and whether it loaded without errors, which gives the files of the unit that fail, where tested loads them with
+// fail, and the errors printed of it, each with its file, List() if it loaded without errors, which gives the files of the
+// unit that fail, where tested loads them with
 // the tests of their lemmas, then prints how many files passed, where status is the exit status of the worst
 procedure visit_units(
   in  found: List[Target],
       tested: Bool,
-      visit: (in Source, Prog, List[Target], Bool, out List[Str]),
+      visit: (in Source, Prog, List[Target], List[(Str, Diagnostic)], out List[Str]),
   out status: Int
 ) :=
   var units: List[List[Target]], source: Source, q: Prog, errors: List[Diagnostic], failed: Buffer[Str] := empty(), bad: List[Str], cache := no_cache()
@@ -546,11 +562,16 @@ procedure visit_units(
       report(in first_path(unit), errors, size(files_of(found)) > 1)
       failed := failed ++ files_of(unit), status := max(status, load_status(q, errors))
       if is_runnable(q, errors) then
-        visit(in source, q, unit, false, out bad)
+        var listed: Buffer[(Str, Diagnostic)] := empty(), path: Str
+        for d in errors do
+          diagnostic_file(in first_path(unit), d, out path)
+          listed := listed ++ List((path, d))
+        end
+        visit(in source, q, unit, List(for e in listed), out bad)
         status := if bad == List() then status else max(status, 3)
       end
     else
-      visit(in source, q, unit, true, out bad)
+      visit(in source, q, unit, List(), out bad)
       failed := failed ++ bad, status := if bad == List() then status else max(status, 3)
     end
   end
@@ -842,27 +863,6 @@ function claimed_lemma(cmd: Cmd): Option[Str] :=
       Some(name.base)
     case _ =>
       None
-  end
-
-// the line of a test that failed, which names only the position of the error that it reached if the reply lists it
-function failure_text(o: Outcome, listed: List[(Str, Diagnostic)]): Str :=
-  match find(listed, lambda (path, d) => reaches(o.reached, path, d))
-    case Some((path, d)) =>
-      "test " ++ o.name ++ " failed by reaching " ++ path ++ ":" ++ show(d.pos.line) ++ "." ++ show(d.pos.col) ++ ", listed above"
-    case None =>
-      "test " ++ o.name ++ " failed: " ++ o.message
-  end
-
-// whether reached, the text of the error that a run reached, is that of d, of the file path, which a run names without its
-// module if it is in the main module of the run, and else with it
-function reaches(reached: Option[Str], path: Str, d: Diagnostic): Bool :=
-  match reached
-    case Some(text) =>
-      text == deferred_text(List(d with module := None)) or text == deferred_text(List(
-        d with module := Some(value_or(d.module, slice(path, 0, size(path) - 2)))))
-
-    case None =>
-      false
   end
 
 function counted_text(n: Int, noun: Str): Str :=
