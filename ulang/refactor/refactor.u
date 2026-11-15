@@ -458,6 +458,15 @@ procedure perform(in action: Action, ref edits: Edits) raises Refused, OsError :
     case List("refs", word) =>
       refs(in word, ref edits)
 
+    case List("sig", word) =>
+      sig(in word, ref edits)
+
+    case List("resolve", word) =>
+      resolve(in word, ref edits)
+
+    case List("resolve", file, at) =>
+      resolve(in file ++ ":" ++ at, ref edits)
+
     case List("check") =>
       skip
 
@@ -471,7 +480,7 @@ procedure perform(in action: Action, ref edits: Edits) raises Refused, OsError :
       edits := edits with checked := edits.checked ++ List(path)
 
     case _ =>
-      let actions := "@show T, @put F, @put F:name, @put [before|after] F:name, @put [before|after|into] N, @drop T, where a node N is #h, F:name #h, F:name \"text\", or F:L.C, @patch T, @rename T new, @outline F, @refs T, @export T, @unexport T, @fix T [Rule ...], @undo [n], @check [test] [F]"
+      let actions := "@show T, @put F, @put F:name, @put [before|after] F:name, @put [before|after|into] N, @drop T, where a node N is #h, F:name #h, F:name \"text\", or F:L.C, @patch T, @rename T new, @outline F, @refs T, @sig name, @sig M, @resolve F:L.C, @export T, @unexport T, @fix T [Rule ...], @undo [n], @check [test] [F]"
       raise Refused("line " ++ show(action.line) ++ ": unknown action @" ++ join(" ", action.words) ++ ", which is one of " ++ actions)
   end
 
@@ -3027,5 +3036,209 @@ function constr_type(constr: At[Constr], result: Type): Option[Type] :=
         TFun(List(for f in fields yield f.typ), result))
 
     case _ =>
+      None
+  end
+
+// the exported signatures that word names: of a module, a file F.u or a path from the root such as ulang/check/check or
+// prelude/str of the library, its export and builtin sections as the file has them; else of a name, every exported
+// declaration of it in the modules of the project and the library, across overloads, so that an agent learns the types
+// of a name without reading the modules
+procedure sig(in word: Str, ref edits: Edits) raises Refused, OsError :=
+  if is_module_word(word) then
+    module_sig(in word, ref edits)
+  else
+    name_sig(in word, ref edits)
+  end
+
+// whether word of @sig names a module, a file or a path of names with a /, rather than a name, also of an operator
+function is_module_word(word: Str): Bool :=
+  example is_module_word("prelude/str")
+  example is_module_word("a/b.u")
+  example not is_module_word("lines")
+  example not is_module_word("/")
+  ends_with(word, ".u") or size(split(word, '/')) > 1 and forall(split(word, '/'), is_plain_name)
+
+// the file of the module that word names, a file as written, a module of the library in the directory of the library,
+// and any other from the root of the project
+procedure module_file(in word: Str, out path: Str) raises OsError :=
+  var here: Str
+  os_cwd(out here)
+  if ends_with(word, ".u") then
+    path := word
+  else
+    if starts_with(word, "prelude/") then
+      var lib: Str
+      os_library_dir(out lib)
+      path := normal_file(here, here, os_join(lib, slice(word, size("prelude/"), size(word)) ++ ".u"))
+    else
+      var root: Str
+      project_root(in here, out root)
+      path := normal_file(here, here, os_join(root, word ++ ".u"))
+    end
+  end
+
+// the export and builtin sections of the module that word names, as its file writes them
+procedure module_sig(in word: Str, ref edits: Edits) raises Refused, OsError :=
+  var path: Str, text: Str
+  module_file(in word, out path)
+  try
+    current_text(in path, edits.files, out text)
+  catch
+    case OsError(message) =>
+      raise Refused("@sig " ++ word ++ ": no module there, " ++ message)
+  end
+  match exported_lines(Array(for line in split(text, '\n')))
+    case List() =>
+      note(in "@sig " ++ word ++ ": " ++ path ++ " exports nothing, since it has no export section", ref edits)
+    case shown =>
+      note(in join("\n", List("@sig " ++ word ++ ": " ++ path) ++ shown), ref edits)
+  end
+
+// the lines of the export and builtin sections of a formatted file, from the keyword of the first to the last line that
+// is not blank before implementation
+function exported_lines(lines: Array[Str]): List[Str] :=
+  example exported_lines(Array("export", "", "type T", "", "implementation", "data T := case T")) == List("export", "", "type T")
+  match List(for word_line in List(keyword_line(lines, "export"), keyword_line(lines, "builtin")) for i in word_line yield i)
+    case List(start; _) =>
+      let stop := value_or(keyword_line(lines, "implementation"), size(lines) + 1) in
+      reverse(drop_blank(reverse(lines_in(lines, Range(start, stop - 1)))))
+
+    case List() =>
+      List()
+  end
+
+// the exported declarations of name in the modules of the project and the library, each with its qualified name and its
+// text, a signature with its examples unless they take more than spec_lines lines, a datatype whole, and of a constructor
+// the head of its datatype and its line; the files that name it are parsed, each with its package and its imports, unless
+// an earlier parse loaded its module
+procedure name_sig(in name: Str, ref edits: Edits) raises Refused, OsError :=
+  var here: Str, root: Str, lib: Str, walked: List[Str], library: List[Str]
+  os_cwd(out here)
+  project_root(in here, out root)
+  os_library_dir(out lib)
+  source_files(in root, out walked)
+  source_files(in lib, out library)
+  var covered: Set[Id] := Set(), mods: List[(Mod, Str)] := List(), unparsed: List[Str] := List()
+  for f in distinct(List(for w in walked ++ library yield normal_path(w))) do
+    var text: Str
+    let file := normal_file(here, here, f)
+    current_text(in file, edits.files, out text)
+    let lines := Array(for line in split(text, '\n'))
+    let id := module_id_of(normal_path(lib), normal_path(root), f)
+    if not contains(id, covered) and has_word(join("\n", List(for line in exported_lines(lines) if not is_comment_line(line))), name) then
+      try
+        var source: Source
+        parsed(in file, text, no_fragment(), out source)
+        for m in source.mods if not contains(m.name, covered) do
+          covered := covered ++ Set(m.name)
+          let module_path := if starts_with(m.name, "prelude/") then
+            os_join(lib, slice(m.name, size("prelude/"), size(m.name)) ++ ".u")
+          else
+            os_join(root, m.name ++ ".u")
+          mods := mods ++ List((m, normal_file(here, here, module_path)))
+        end
+      catch
+        case Refused(message) =>
+          unparsed := unparsed ++ List(message)
+      end
+    end
+  end
+  var found: List[(Id, Int, List[Str])] := List()
+  for (m, path) in mods do
+    let cmds := List(for cmd in m.exported ++ m.builtins for c in cmd_of(cmd) if declares(c, name) yield (cmd, c))
+    if cmds != List() then
+      var text: Str
+      current_text(in path, edits.files, out text)
+      let lines := Array(for line in split(text, '\n'))
+      for (cmd, c) in cmds do
+        found := found ++ List((m.name, cmd.span.start.line, sig_lines(lines, cmd, c, name)))
+      end
+    end
+  end
+  if found == List() then
+    raise Refused("@sig " ++ name ++ ": no module of the project or the library exports " ++ name)
+  end
+  let shown := List(for (m, _, text) in sort(found) yield sig_entry(format_name(Name(Some(m), name)), text))
+  let modules := size(distinct(List(for (m, _, _) in found yield m)))
+  note(in join("\n", List(
+    "@sig " ++ name ++ ": " ++ counted(size(found), "declaration") ++ " in " ++ counted(modules, "module")) ++ shown ++ List(for message in unparsed yield "  not parsed: " ++ message)), ref edits)
+
+// the module of the file at path, as the parser names it, where lib and root are the directories of the library and of the
+// project, all absolute and normal
+function module_id_of(lib: Str, root: Str, path: Str): Id :=
+  example module_id_of("/r/prelude", "/r", "/r/prelude/str.u") == "prelude/str"
+  example module_id_of("/l", "/r", "/r/b/c.u") == "b/c"
+  let base := slice(path, 0, size(path) - size(".u")) in
+  if os_dirname(path) == lib then
+    "prelude/" ++ slice(base, size(lib) + 1, size(base))
+  else if starts_with(base, root ++ "/") then
+    slice(base, size(root) + 1, size(base))
+  else
+    base
+
+// whether c declares name, as a function, procedure, pattern alias, type, or constructor
+function declares(c: Cmd, name: Str): Bool :=
+  exists(key_of(c), lambda key => key.base == name) or exists(constrs_of(c), lambda constr => constr_name(constr) == name)
+
+// the lines of the declaration cmd of name for @sig: a declaration of name whole, but for a spec of more than spec_lines
+// lines, which it leaves out, and of a constructor of name the head of its datatype and the constructor
+function sig_lines(lines: Array[Str], cmd: At[Cmd], c: Cmd, name: Str): List[Str] :=
+  let all := lines_in(lines, cmd_range(lines, cmd, 0, false)) in
+  if exists(key_of(c), lambda key => key.base == name) then
+    let head := lines_in(lines, head_range(lines, cmd)) in
+    if is_signature(c) and size(all) - size(head) > spec_lines() then
+      head ++ List(
+        "    (" ++ counted(size(all) - size(head), "line") ++ " of examples)")
+    else
+      all
+  else
+    List(line_at(lines, cmd.span.start.line)) ++ List(for constr in constrs_of(c) if constr_name(constr) == name for line in lines_in(lines, Range(constr.span.start.line, constr.span.stop.line)) yield line)
+
+function spec_lines(): Int :=
+  4
+
+// an entry of @sig, the qualified name and the text of its declaration, on one line if it has one
+function sig_entry(qualified: Str, text: List[Str]): Str :=
+  example sig_entry("m.f", List("function f(): Int")) == "m.f: function f(): Int"
+  example sig_entry("m.f", List("function f(): Int :=", "  example f() == 1")) == "m.f:\n  function f(): Int :=\n    example f() == 1"
+  match text
+    case List(line) =>
+      qualified ++ ": " ++ line
+    case _ =>
+      join("\n", List(qualified ++ ":"; List(for line in text yield "  " ++ line)))
+  end
+
+// the qualified name and the type of the use at the position F:L.C, or the type of the variable declared there, from
+// the hints of the checked file, the innermost one if several spans contain the position
+procedure resolve(in word: Str, ref edits: Edits) raises Refused, OsError :=
+  match position_of(word)
+    case Some((path, pos)) =>
+      var text: Str, found: List[Hint]
+      current_text(in path, edits.files, out text)
+      file_hints(in path, text, out found)
+      let hits := List(for h in found for (span, what) in resolution_of(h) if compare(span.start, pos) <= 0 and compare(pos, span.stop) < 0 yield (span.start, Pos(0 - span.stop.line, 0 - span.stop.col), what))
+      match last(sort(hits))
+        case Some((_, _, what)) =>
+          note(in "@resolve " ++ word ++ ": " ++ what, ref edits)
+        case None =>
+          note(in "@resolve " ++ word ++ ": no use or declaration of a name there", ref edits)
+      end
+
+    case None =>
+      raise Refused("@resolve takes a position F:L.C or F L.C, not " ++ word)
+  end
+
+// the span of a hint and what @resolve says of it, a use by its qualified name and a declared variable by its name, each
+// with its type where the checked program has one
+function resolution_of(h: Hint): Option[(Span, Str)] :=
+  let typed := lambda typ: Type => if typ == THole then "" else ": " ++ format_type(typ) in
+  match h
+    case HUse(span, name, typ) =>
+      Some((span, "use of " ++ format_name(name) ++ typed(typ)))
+
+    case HDecl(span, name, typ, _) =>
+      Some((span, "declaration of " ++ format_name(name) ++ typed(typ)))
+
+    case HRaises(_, _, _) =>
       None
   end
