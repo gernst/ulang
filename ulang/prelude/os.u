@@ -45,7 +45,7 @@ builtin
 procedure os_args(out args: List[Str]) raises OsError
 
 // read and write files as text in UTF-8, where invalid UTF-8 raises OsError, and as bytes, where relative paths start
-// from the working directory, and failures raise OsError
+// from the working directory, writing creates the missing directories of the path, and failures raise OsError
 procedure os_read_utf8(in path: Str, out text: Str) raises OsError
 
 procedure os_write_utf8(in path: Str, text: Str) raises OsError
@@ -73,6 +73,10 @@ procedure os_exit(in code: Int)
 procedure os_list(in dir: Str, out entries: List[(Str, Bool)]) raises OsError
 
 procedure os_is_dir(in path: Str, out yes: Bool)
+
+// remove a file, a link, or an empty directory, where failures, such as a missing path or a directory that is not empty,
+// raise OsError
+procedure os_remove(in path: Str) raises OsError
 
 // the working directory, which relative paths start from, and its change
 procedure os_cwd(out dir: Str) raises OsError
