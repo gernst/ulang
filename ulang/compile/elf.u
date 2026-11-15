@@ -39,12 +39,11 @@ data RelaTarget :=
 data Rela :=
   case Rela(offset: Int, target: RelaTarget, kind: Int, addend: Int)
 
-// the object while the lines are encoded: the current section sec with its offset, bytes, and relocations, those of the
-// other sections, which enter swaps, the alignment of each section, the labels at their sections and offsets, and the
-// global symbols, where the bytes of a section are the chunks of its lines, which are flattened only once, into the array
-// of the file, since a copy of each byte took most of the time of encoding
+// the object: the bytes of each section as the chunks of its lines, which are flattened only once, into the array of the
+// file, since a copy of each byte took most of the time of encoding, the relocations of each section, the alignment of
+// each section, the labels at their sections and offsets, and the global symbols
 data Obj :=
-  case Obj(sec: Sec, sec_offset: Int, sec_chunks: Buffer[Array[Byte]], sec_relas: Buffer[Rela], offsets: Map[Sec, Int], bytes: Map[Sec, Buffer[Array[Byte]]], relas: Map[Sec, Buffer[Rela]], aligns: Map[Sec, Int], labels: Map[Str, Sec * Int], globals: Set[Str])
+  case Obj(chunks: Map[Sec, List[Array[Byte]]], relas: Map[Sec, List[Rela]], aligns: Map[Sec, Int], labels: Map[Str, Sec * Int], globals: Set[Str])
 
 // the ELF types of relocations of x86-64: an address of 8 bytes, a distance of 4 bytes, and one to a procedure linkage
 // table entry
@@ -365,20 +364,10 @@ procedure encode_instr(in instr: Instr, out code: Code) raises InternalError :=
       code := Code(List(195), List())
   end
 
-// the object with sec as its current section, after storing the current one
-procedure enter(in sec: Sec, ref obj: Obj) :=
-  obj := obj with sec := sec, sec_offset := value_or(get(sec, obj.offsets), 0), sec_chunks := value_or(get(sec, obj.bytes), empty()), sec_relas := value_or(get(sec, obj.relas), empty()), offsets := put(obj.sec, obj.sec_offset, obj.offsets), bytes := put(obj.sec, obj.sec_chunks, obj.bytes), relas := put(obj.sec, obj.sec_relas, obj.relas)
-
 // the bytes as a chunk of the object, which takes 8 bytes per byte instead of the 48 of a cell of a list, since each Byte
 // exists once
 function chunk_of(bytes: List[Int]): Array[Byte] :=
   Array(for b in bytes yield byte(b))
-
-procedure add_bytes(in chunk: Array[Byte], ref obj: Obj) :=
-  obj := obj with sec_offset := obj.sec_offset + size(chunk), sec_chunks := append(obj.sec_chunks, chunk)
-
-procedure add_rela(in rela: Rela, ref obj: Obj) :=
-  obj := obj with sec_relas := append(obj.sec_relas, rela)
 
 // the chunk with field at offset
 function patch(chunk: Array[Byte], offset: Int, field: List[Int]): Array[Byte] :=
@@ -388,49 +377,6 @@ function patch(chunk: Array[Byte], offset: Int, field: List[Int]): Array[Byte] :
     at(i - offset, bytes)
   else
     at(i, chunk))
-
-// the code at the offset of its section, whose references to the labels of that section are distances, and the others
-// relocations
-procedure add_code(
-  in  chunk: Array[Byte],
-      refs: List[Ref],
-      labels: Map[Str, Sec * Int],
-  ref obj: Obj
-) :=
-  var bytes := chunk
-  let start := obj.sec_offset
-  for r in refs do
-    let field := start + r.at, next := start + r.at + 4 + r.tail
-    match get(r.symbol, labels)
-      case Some((sec, offset)) if sec == obj.sec =>
-        bytes := patch(bytes, r.at, le(offset - next, 4))
-
-      case Some((sec, offset)) =>
-        add_rela(in Rela(field, RelaSection(sec), r_pc32(), offset + field - next), ref obj)
-
-      case None =>
-        add_rela(in Rela(field, RelaSymbol(r.symbol), if r.plt then r_plt32() else r_pc32(), field - next), ref obj)
-    end
-  end
-  add_bytes(in bytes, ref obj)
-
-// the addresses of symbols, of which 0 is none
-procedure add_addrs(
-  in  symbols: List[Str],
-      labels: Map[Str, Sec * Int],
-  ref obj: Obj
-) :=
-  for symbol in symbols do
-    if symbol != "0" then
-      match get(symbol, labels)
-        case Some((sec, offset)) =>
-          add_rela(in Rela(obj.sec_offset, RelaSection(sec), r_64(), offset), ref obj)
-        case None =>
-          add_rela(in Rela(obj.sec_offset, RelaSymbol(symbol), r_64(), 0), ref obj)
-      end
-    end
-    add_bytes(in chunk_of(zeros(8)), ref obj)
-  end
 
 // a line with the code of its instruction, which each instruction is encoded to once, for both passes, as a chunk with the
 // references in it
@@ -497,9 +443,18 @@ function item_size(item: Item, offset: Int): Int :=
       0
   end
 
-// the labels at their sections and offsets, which the sizes of the items place, since they do not depend on the labels
-procedure place(in items: List[Item], out labels: Map[Str, Sec * Int]) :=
-  var sec := SecText, offset := 0, offsets: Map[Sec, Int] := empty()
+// an item at its section and offset
+data Placed :=
+  case Placed(sec: Sec, offset: Int, item: Item)
+
+// the items at their sections and offsets, and the labels, which the sizes of the items place, since they do not depend on
+// the labels
+procedure place(
+  in  items: List[Item],
+  out placed: List[Placed],
+      labels: Map[Str, Sec * Int]
+) :=
+  var sec := SecText, offset := 0, offsets: Map[Sec, Int] := empty(), buf: Buffer[Placed] := empty()
   labels := empty()
   for item in items do
     let next := sec_after(sec, item)
@@ -511,69 +466,101 @@ procedure place(in items: List[Item], out labels: Map[Str, Sec * Int]) :=
       case ItemLine(LLabel(name)) =>
         labels := put(name, (sec, offset), labels)
       case _ =>
-        offset := offset + item_size(item, offset)
+        buf := append(buf, Placed(sec, offset, item)), offset := offset + item_size(item, offset)
     end
   end
+  placed := List(for p in buf)
 
-procedure add_item(in item: Item, ref obj: Obj) raises InternalError :=
-  let sec := sec_after(obj.sec, item)
-  if sec != obj.sec then
-    enter(in sec, ref obj)
-  end
-  match item
+// the offset after the field of the reference r of the placed code p, from which the field counts
+function ref_end(p: Placed, r: Ref): Int :=
+  p.offset + r.at + 4 + r.tail
+
+// the bytes of the placed item, with the distances of its references to the labels of its section
+function item_chunk(p: Placed, labels: Map[Str, Sec * Int]): Option[Array[Byte]] :=
+  match p.item
     case ItemCode(chunk, refs) =>
-      add_code(in chunk, refs, obj.labels, ref obj)
+      Some(foldl(refs, chunk, lambda bytes, r => match get(r.symbol, labels)
+        case Some((sec, offset)) if sec == p.sec =>
+          patch(bytes, r.at, le(offset - ref_end(p, r), 4))
+        case _ =>
+          bytes
+      end))
 
-    // items_of encodes every instruction
-    case ItemLine(LInstr(instr)) =>
-      raise Unexpected("instruction not encoded: " ++ format_instr(instr))
-
-    // place puts the labels, and sec_after takes the sections
-    case ItemLine(LLabel(_)) =>
-      skip
-
-    case ItemLine(LDirective(DText)) =>
-      skip
-
-    case ItemLine(LDirective(DData)) =>
-      skip
-
-    case ItemLine(LDirective(DRodata)) =>
-      skip
-
-    case ItemLine(LDirective(DNoExecStack)) =>
-      skip
-
-    case ItemLine(LDirective(DGlobal(symbol))) =>
-      obj := obj with globals := insert(symbol, obj.globals)
-
-    case ItemLine(LDirective(DAlign(n))) =>
-      let fill := if obj.sec == SecText then 144 else 0
-      add_bytes(in Array(for _ in range(0, item_size(item, obj.sec_offset)) yield byte(fill)), ref obj)
-      obj := obj with aligns := put(obj.sec, max(n, value_or(get(obj.sec, obj.aligns), 1)), obj.aligns)
+    case ItemLine(LDirective(DAlign(_))) =>
+      Some(Array(for _ in range(0, item_size(p.item, p.offset)) yield byte(if p.sec == SecText then 144 else 0)))
 
     case ItemLine(LDirective(DInts(width, nums))) =>
-      add_bytes(in Array(for n in nums for b in le(n, width) yield byte(b)), ref obj)
+      Some(Array(for n in nums for b in le(n, width) yield byte(b)))
 
     case ItemLine(LDirective(DAddrs(symbols))) =>
-      add_addrs(in symbols, obj.labels, ref obj)
+      Some(chunk_of(zeros(8 * size(symbols))))
 
     case ItemLine(LDirective(DZero(n))) =>
-      add_bytes(in chunk_of(zeros(n)), ref obj)
+      Some(chunk_of(zeros(n)))
 
-    case ItemLine(LComment(_)) =>
-      skip
+    case ItemLine(_) =>
+      None
   end
 
-// the object of the lines, whose instructions are encoded once, placed by their sizes, and then added with the labels
+// the relocations of the placed item: of its references to labels of other sections and to symbols of other objects, and of
+// its addresses, of which 0 is none
+function item_relas(p: Placed, labels: Map[Str, Sec * Int]): List[Rela] :=
+  match p.item
+    case ItemCode(_, refs) =>
+      List(for r in refs for rela in ref_rela(p, r, labels) yield rela)
+
+    case ItemLine(LDirective(DAddrs(symbols))) =>
+      List(for (symbol, i) in numbered(symbols) if symbol != "0" yield addr_rela(p.offset + 8 * i, symbol, labels))
+
+    case ItemLine(_) =>
+      List()
+  end
+
+function ref_rela(p: Placed, r: Ref, labels: Map[Str, Sec * Int]): Option[Rela] :=
+  let field := p.offset + r.at in
+  match get(r.symbol, labels)
+    case Some((sec, _)) if sec == p.sec =>
+      None
+
+    case Some((sec, offset)) =>
+      Some(Rela(field, RelaSection(sec), r_pc32(), offset + field - ref_end(p, r)))
+
+    case None =>
+      Some(Rela(field, RelaSymbol(r.symbol), if r.plt then r_plt32() else r_pc32(), field - ref_end(p, r)))
+  end
+
+function addr_rela(at: Int, symbol: Str, labels: Map[Str, Sec * Int]): Rela :=
+  match get(symbol, labels)
+    case Some((sec, offset)) =>
+      Rela(at, RelaSection(sec), r_64(), offset)
+    case None =>
+      Rela(at, RelaSymbol(symbol), r_64(), 0)
+  end
+
+// the alignment of each section, the largest of its .align
+function aligns_of(placed: List[Placed]): Map[Sec, Int] :=
+  foldl(placed, Map(SecText => 16, SecData => 8, SecRodata => 8), lambda aligns, p => match p.item
+    case ItemLine(LDirective(DAlign(n))) =>
+      put(p.sec, max(n, value_or(get(p.sec, aligns), 1)), aligns)
+    case _ =>
+      aligns
+  end)
+
+function global_of(item: Item): Option[Str] :=
+  match item
+    case ItemLine(LDirective(DGlobal(symbol))) =>
+      Some(symbol)
+    case _ =>
+      None
+  end
+
+// the object of the lines, whose instructions are encoded once and placed by their sizes, so that the sections are the
+// placed items with the labels
 procedure encode_lines(in lines: List[Line], out obj: Obj) raises InternalError :=
-  var items: List[Item], labels: Map[Str, Sec * Int]
+  var items: List[Item], placed: List[Placed], labels: Map[Str, Sec * Int]
   items_of(in lines, out items)
-  place(in items, out labels)
-  obj := Obj(SecText, 0, empty(), empty(), empty(), empty(), empty(), Map(SecText => 16, SecData => 8, SecRodata => 8), labels, empty())
-  for item in items do
-    add_item(in item, ref obj)
-  end
+  place(in items, out placed, labels)
+  obj := Obj(Map(for sec in code_secs() yield sec => List(for p in placed if p.sec == sec for chunk in item_chunk(p, labels) yield chunk)), Map(for sec in code_secs() yield sec => List(for p in placed if p.sec == sec for rela in item_relas(p, labels) yield rela)), aligns_of(placed), labels, Set(for p in placed for symbol in global_of(p.item) yield symbol))
 
 // the sections of the object with their headers, in the order of their indices from 1, after the null section
 data Header :=
@@ -636,19 +623,13 @@ function bytes_of(obj: Obj, sec: Sec): List[Int] :=
   List(for chunk in chunks_of(obj, sec) for b in chunk yield int(b))
 
 function chunks_of(obj: Obj, sec: Sec): List[Array[Byte]] :=
-  List(for chunk in if sec == obj.sec then
-    obj.sec_chunks
-  else
-    value_or(get(sec, obj.bytes), empty()))
+  value_or(get(sec, obj.chunks), List())
 
 function chunks_size(chunks: List[Array[Byte]]): Int :=
   foldl(chunks, 0, lambda n, chunk => n + size(chunk))
 
 function relas_of(obj: Obj, sec: Sec): List[Rela] :=
-  List(for r in if sec == obj.sec then
-    obj.sec_relas
-  else
-    value_or(get(sec, obj.relas), empty()))
+  value_or(get(sec, obj.relas), List())
 
 // the names of the symbols of other objects that the relocations refer to
 function undefined_of(obj: Obj): List[Str] :=
