@@ -96,6 +96,9 @@ data Expr :=
   case EMatch(arg: At[Expr], cases: List[At[Branch[At[Expr]]]])
   // a tuple (a, b, …)
   case ETuple(args: List[At[Expr]])
+  // an ascription (e: T), whose type the checker unifies with that of e, and which the backends take as e, at the position
+  // of (
+  case EAnnotated(inner: At[Expr], typ: Type)
   // List(a, b; r), Set(…), Map(k => v; r), and Array(…), which the checker translates to the builders of their modules
   case EForm(form: Form, elems: List[Yield], rest: Option[At[Expr]])
   // List(for p in c if q yield e; r) and the like, which the checker translates to the folds of the modules of the
@@ -1318,6 +1321,9 @@ function strip_node(expr: Expr): Expr :=
     case ETuple(args) =>
       ETuple(List(for a in args yield strip_expr(a)))
 
+    case EAnnotated(inner, typ) =>
+      EAnnotated(strip_expr(inner), typ)
+
     case EForm(form, elems, rest) =>
       EForm(form, List(for y in elems yield strip_yield(y)), map_option(rest, strip_expr))
 
@@ -1705,6 +1711,9 @@ function errors_in_node(expr: Expr): List[Diagnostic] :=
 
     case ETuple(args) =>
       errors_in_exprs(args)
+
+    case EAnnotated(inner, _) =>
+      errors_in_expr(inner)
 
     case EForm(_, elems, rest) =>
       errors_in_exprs(List(for y in elems for e in yielded(y) yield e) ++ List(for e in rest))

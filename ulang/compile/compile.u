@@ -527,6 +527,10 @@ procedure compile_expr(
       var rs: List[CExpr]
       compile_exprs(in defs, env, args, out ss, rs, ref g)
       r := c_call("u_mk_tuple", List(CeNum(size(args))) ++ rs)
+
+    // an ascription is its expression, whose type the checker has unified with the ascribed one
+    case EAnnotated(inner, _) =>
+      compile_expr(in defs, env, inner, out ss, r, ref g)
   end
 
 procedure compile_exprs(
