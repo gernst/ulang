@@ -4,9 +4,9 @@
 // of the main module tells: a name over its span as written, so that the parts that translations make, at the span of
 // what they translate, and the parts of pattern aliases, at the spans of their declarations, are none
 
-import "ulang/syntax"
-import "ulang/format"
-import "ulang/parse"
+import ulang.syntax
+import ulang.format
+import ulang.parse
 
 export
 
@@ -233,7 +233,7 @@ function use_hint(lines: Array[Str], pos: Pos, span: Span, x: Var): Option[Hint]
     None
   else if is_written(lines, span, base) then
     Some(HUse(span, x.name, x.typ))
-  else if x.name.module != None and contains('.', base) then
+  else if x.name.path != List() and contains('.', base) then
     match field_span(lines, pos, base)
       case Some(s) =>
         Some(HUse(s, x.name, x.typ))
@@ -506,7 +506,7 @@ test solved_raises_hints() :=
     "",
     "  f()")) ++ "\n"
   parse_text(in text, out own)
-  check_program(in Source(List(own), List(), "main"), out q)
+  check_program(in Source(List(own), List(), List("main")), out q)
   assert contains("{\"kind\": \"inlay\", \"line\": 8, \"column\": 8, \"label\": \": () raises Oops\"}", List(for h in hints(text, q) for line in format_hint(h) yield line))
 
 // the hover of a use resolved, of a local with its inlay, of a field, of a pattern, of a call, and the inferred raises,
@@ -515,10 +515,10 @@ test sample_hints() :=
   var own: Mod, q: Prog, found: List[Hint]
   let text := join("\n", sample()) ++ "\n"
   parse_text(in text, out own)
-  check_program(in Source(List(own), List(), "main"), out q)
+  check_program(in Source(List(own), List(), List("main")), out q)
   found := hints(text, q)
-  assert contains(HUse(Span(Pos(20, 12), Pos(20, 16)), Name(Some("main"), "pred"), TFun(List(TSort(Name(Some("main"), "Nat"), List())), TSort(Name(Some("main"), "Nat"), List()))), found)
-  assert contains(HRaises(Pos(16, 26), Name(Some("main"), "fail"), List(TSort(Name(Some("main"), "Oops"), List()))), found)
+  assert contains(HUse(Span(Pos(20, 12), Pos(20, 16)), Name(List("main"), "pred"), TFun(List(TSort(Name(List("main"), "Nat"), List())), TSort(Name(List("main"), "Nat"), List()))), found)
+  assert contains(HRaises(Pos(16, 26), Name(List("main"), "fail"), List(TSort(Name(List("main"), "Oops"), List()))), found)
   assert List(for h in found for line in format_hint(h) yield line) == List(
     "{\"kind\": \"hover\", \"line\": 8, \"column\": 15, \"end_line\": 8, \"end_column\": 16, \"text\": \"m: Nat\"}",
     "{\"kind\": \"hover\", \"line\": 9, \"column\": 9, \"end_line\": 9, \"end_column\": 10, \"text\": \"m: Nat\"}",

@@ -1,7 +1,7 @@
 // the lexer of ulang, which splits source code into tokens with their positions, where a symbol is always the longest run
 // of symbol characters, and which tells keywords from names and operators
 
-import "ulang/syntax"
+import ulang.syntax
 
 export
 

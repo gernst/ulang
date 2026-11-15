@@ -197,7 +197,7 @@ The containers share names and the order of their arguments, the element or key 
 A file without sections is a program: its commands are private, and its procedures without formals are entries, `ulang.sh run file.u` calls `main`, `run file.u:go` calls `go`. A module that others use has sections: imports, then `export` with the datatypes, notations, and signatures without bodies that others see, and `implementation` with the definitions, which repeat the exported signatures exactly, and the private declarations and tests. `type T[A]` in `export` is abstract, defined by a `data` in `implementation`, so others see neither its constructors nor its fields.
 
 ```
-import "app/store"
+import app.store
 
 export
 
@@ -214,7 +214,7 @@ procedure load(in path: Str, out inbox: Inbox) raises OsError :=
   …
 ```
 
-The `.u` files of a directory are one package: they see each other's exports without imports, also cyclically, while the private declarations of each stay in its file. `import "app/store"` loads the package of the directory `app/store` by its path from the root of the project, the nearest directory above with a file `project.u`. Imports are not transitive, so a module imports each package whose names it uses, also for the types it names; an import of which nothing is used is an error, and so is a cycle of packages. A type of a module hides one of the same name that it imports.
+The `.u` files of a directory are one package: they see each other's exports without imports, also cyclically, while the private declarations of each stay in its file. `import app.store` loads the package of the directory `app/store` by its path from the root of the project, the nearest directory above with a file `project.u`. A use may write the path of a package or a module before a name, `app.store.load(in path, out inbox)`, also in types, `app.store.Inbox`, and patterns, `case prelude.option.Some(n) =>`, where it means the exports of that package, or of the module of that path, among which the types decide as everywhere; no type hides another, also not one of the module a type of the library, so two visible types of one name make an unqualified use ambiguous, and it writes the path of the one it means; and no local may be named as the first name of a path that the module sees, such as `app` or `prelude`. Imports are not transitive, so a module imports each package whose names it uses, also for the types it names; an import of which nothing is used is an error, and so is a cycle of packages. A type of a module hides one of the same name that it imports.
 
 ## Tests and specifications
 

@@ -1,8 +1,8 @@
 // the handles of ulang/refactor/refactor.u on files below out/test/refactor/ of the root, which run only compiled, since
 // each parse loads the library, too slowly for the interpreter
 
-import "ulang/syntax"
-import "ulang/refactor"
+import ulang.syntax
+import ulang.refactor
 
 procedure no_diagnostics(
   in  file: Str,

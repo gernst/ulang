@@ -1,8 +1,8 @@
 // the runtime errors that are no exceptions of the program: failed assertions, uncaught exceptions, and the errors of the evaluator, each a case, the lines of a source text at a path of this directory, which the procedures of
 // ulang/test/cases/cases.u run through the phases until one raises the error that assert raises expects
 
-import "ulang/syntax"
-import "ulang/test/cases"
+import ulang.syntax
+import ulang.test.cases
 
 test assertion() :=
   assert raises AssertionUnequal("24", "120") do
@@ -49,7 +49,7 @@ test compare_procedures() :=
   end
 
 test initialization() :=
-  assert raises RecursiveInitialization("ulang/test/errors/initialization.loop") do
+  assert raises RecursiveInitialization("ulang.test.errors.initialization.loop") do
     run_text(in "ulang/test/errors/initialization.u", List(
       "function loop(): Int :=",
       "  loop() + 1",

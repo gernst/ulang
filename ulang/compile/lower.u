@@ -1,10 +1,9 @@
 // the part of the compilers that does not depend on their target: the names of the symbols that compiled code and the
 // runtime share, the tables of the runtime, and analyses of checked programs
 
-import "ulang/syntax"
-import "ulang/format"
-import "ulang/check"
-import "ulang/expand"
+import ulang.syntax
+import ulang.check
+import ulang.expand
 
 export
 
@@ -90,7 +89,7 @@ function changed(stmt: At[Stmt]): List[Name]
 function test_name(n: Name): Str
 
 // the name of cmd if it is a test of the module m
-function tested_name(cmd: Cmd, m: Id): Option[Name]
+function tested_name(cmd: Cmd, m: Path): Option[Name]
 
 // the procedures of the builtin section of os
 function native_procs(): Set[Id]
@@ -113,12 +112,18 @@ implementation
 function mangle(n: Name): Str :=
   join("", List(for run in runs(c_text(n), 0, 0) yield if is_plain(at(0, run)) then run else "_" ++ show(int(at(0, run))) ++ "_"))
 
+// the text that C names mangle: a name of the library by the name of its file, as the runtime and the seed refer to them, and
+// the other names by their paths with /, which no base contains, unlike ., e.g. the accessor T.f
 function c_text(n: Name): Str :=
-  match n.module
+  match name_module(n)
     case Some(m) if is_library_module(m) =>
-      format_name(Name(Some(library_file(m)), n.base))
-    case _ =>
-      format_name(n)
+      library_file(m) ++ "." ++ n.base
+
+    case Some(m) =>
+      join("/", m) ++ "." ++ n.base
+
+    case None =>
+      n.base
   end
 
 function is_plain(c: Char): Bool :=
@@ -147,7 +152,7 @@ function proc_name(n: Name): Str :=
   if is_native(n) then "p_" ++ n.base else "p_" ++ mangle(n)
 
 function is_native(n: Name): Bool :=
-  (n.module == Some(library_module("os")) or n.module == Some(library_module("io"))) and contains(n.base, native_procs())
+  (n.path == library_module("os") or n.path == library_module("io")) and contains(n.base, native_procs())
 
 function native_procs(): Set[Id] :=
   Set(
@@ -250,10 +255,10 @@ function positions_of(defs: Defs, n: Name, k: Int): List[Int] :=
   value_or(get((n, k), defs.fields), List())
 
 function table_name(n: Name): Str :=
-  "x_" ++ mangle(Name(n.module, field_of(n)))
+  "x_" ++ mangle(Name(n.path, field_of(n)))
 
 function field_text_name(n: Name): Str :=
-  "lf_" ++ mangle(Name(n.module, field_of(n)))
+  "lf_" ++ mangle(Name(n.path, field_of(n)))
 
 function type_keys(types: List[Type]): Str :=
   join(", ", List(for a in types yield type_key(a)))
@@ -599,10 +604,10 @@ function changed(stmt: At[Stmt]): List[Name] :=
 function test_name(n: Name): Str :=
   "test_" ++ mangle(n)
 
-function tested_name(cmd: Cmd, m: Id): Option[Name] :=
+function tested_name(cmd: Cmd, m: Path): Option[Name] :=
   match cmd
     // a test with formals runs as the test that the tester generates of it
-    case CTest(name, List(), _) if name.module == Some(m) =>
+    case CTest(name, List(), _) if name.path == m =>
       Some(name)
 
     case _ =>

@@ -1,4 +1,4 @@
-import "ulang/test/datatypes/terms"
+import ulang.test.datatypes.terms
 
 data Term :=
   case App(fun: Str, args: List[Term])

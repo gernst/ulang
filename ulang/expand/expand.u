@@ -3,7 +3,7 @@
 // compilers of ulang/compile/, and translate of ulang/prove/translate.u translate, each of which expands the checked
 // program first, or a lambda where it meets one
 
-import "ulang/syntax"
+import ulang.syntax
 
 export
 
@@ -41,7 +41,7 @@ function form_expansion(pos: Pos, span: Span, form: Form, elems: List[Yield], re
 // foldr for lists, so that prepending keeps the order, and else by foldl, so that the steps run in the order of the
 // generators, whose function binds the pattern of g and computes body, where a pattern that is no variable by is_var is
 // matched under a formal that users cannot write, and the fold of a map takes key and value
-function fold_expansion(pos: Pos, span: Span, form: Form, m: Id, targs: List[Type], g: Gen, body: At[Expr], base: At[Expr], is_var: At[Pat] -> Bool): At[Expr]
+function fold_expansion(pos: Pos, span: Span, form: Form, m: Path, targs: List[Type], g: Gen, body: At[Expr], base: At[Expr], is_var: At[Pat] -> Bool): At[Expr]
 
 // base with elem added, which comes first in a list, and whose key counts in a map
 function step_expansion(pos: Pos, span: Span, form: Form, elem: Yield, base: At[Expr]): At[Expr]
@@ -50,7 +50,7 @@ function step_expansion(pos: Pos, span: Span, form: Form, elem: Yield, base: At[
 function base_expansion(pos: Pos, span: Span, form: Form, rest: Option[At[Expr]]): At[Expr]
 
 // a call of the function f of module m, of a type of its arity, by which the compilers call it
-function form_call(pos: Pos, span: Span, m: Id, f: Id, args: List[At[Expr]]): At[Expr]
+function form_call(pos: Pos, span: Span, m: Path, f: Id, args: List[At[Expr]]): At[Expr]
 
 // the accumulator of the folds, which users cannot name
 function form_acc(): Var
@@ -481,7 +481,7 @@ function for_expansion(pos: Pos, span: Span, form: Form, gens: List[Gen], elem: 
     case (_, List(g; more)) =>
       let body := AOk(pos, span, for_expansion(pos, span, form, more, elem, Some(AOk(pos, span, EVar(form_acc()))))) in
       match gen_type(g)
-        case TSort(Name(Some(m), _), targs) =>
+        case TSort(Name(m, _), targs) if m != List() =>
           fold_expansion(pos, span, form, m, targs, g, body, base_expansion(pos, span, form, rest), is_checked_var).that
 
         // a container without a fold, which the checker reported, stands for the form
@@ -515,7 +515,7 @@ function gen_over(g: Gen): At[Expr] :=
       cond
   end
 
-function fold_expansion(pos: Pos, span: Span, form: Form, m: Id, targs: List[Type], g: Gen, body: At[Expr], base: At[Expr], is_var: At[Pat] -> Bool): At[Expr] :=
+function fold_expansion(pos: Pos, span: Span, form: Form, m: Path, targs: List[Type], g: Gen, body: At[Expr], base: At[Expr], is_var: At[Pat] -> Bool): At[Expr] :=
   let fold := fold_name(form), acc := AOk(pos, span, PVar(form_acc())) in
   match g
     case GPair(k, v, c, _) =>
@@ -601,8 +601,8 @@ function is_checked_var(p: At[Pat]): Bool :=
 function form_acc(): Var :=
   Var(unqualified("(acc)"), THole)
 
-function form_call(pos: Pos, span: Span, m: Id, f: Id, args: List[At[Expr]]): At[Expr] :=
-  AOk(pos, span, ECall(pos, span, Name(Some(m), f), TFun(List(for _ in args yield THole), THole), args))
+function form_call(pos: Pos, span: Span, m: Path, f: Id, args: List[At[Expr]]): At[Expr] :=
+  AOk(pos, span, ECall(pos, span, Name(m, f), TFun(List(for _ in args yield THole), THole), args))
 
 function base_expansion(pos: Pos, span: Span, form: Form, rest: Option[At[Expr]]): At[Expr] :=
   match (rest, form)

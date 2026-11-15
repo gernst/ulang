@@ -3,7 +3,7 @@
 //
 //   out/ulang.sh run examples/grep.u -- <regex> <file> …
 
-import "library/regex"
+import library.regex
 
 procedure main() raises OsError :=
   var args: List[Str]

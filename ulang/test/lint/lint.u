@@ -1,10 +1,10 @@
 // the lints of parsed texts, with their positions and the replacements as format writes them, where the texts are not
 // checked, as the command lint checks them first
 
-import "ulang/syntax"
-import "ulang/parse"
-import "ulang/format"
-import "ulang/lint"
+import ulang.syntax
+import ulang.parse
+import ulang.format
+import ulang.lint
 
 // the warnings of the selected lints of the program of the lines, each its position and the text of its replacement, else
 // its message

@@ -3,9 +3,9 @@
 // Checked programs have resolved names, which the terms keep: only the formals and the variables of lambdas, lets, and
 // patterns become indices, by an environment of their names, the innermost first.
 
-import "ulang/syntax"
-import "ulang/check"
-import "ulang/expand"
+import ulang.syntax
+import ulang.check
+import ulang.expand
 
 export
 
@@ -56,7 +56,7 @@ data Translation :=
   case Translation(decls: Decls, lemmas: List[Lemma], contracts: List[Lemma])
 
 // the symbols of the checked program q and the lemmas of its module m in their order
-function translate(q: Prog, m: Id): Translation
+function translate(q: Prog, m: Path): Translation
 
 // the terms of the statement of the lemma and of its proof
 function lemma_terms(l: Lemma): List[Term]
@@ -66,7 +66,7 @@ function raise_name(): Name
 
 implementation
 
-function translate(q: Prog, m: Id): Translation :=
+function translate(q: Prog, m: Path): Translation :=
   let cmds := definitions(expanded(q)) in
   let ranked := zip(range(0, size(cmds)), cmds) in
   let defined := List(for cmd in cmds for d in definition(cmd) yield d) in
@@ -156,7 +156,7 @@ function applies_reflexive(sorts: Set[Name], expr: At[Expr]): Bool :=
     case EApp(fun, args) =>
       let applied := match fun.that
         case EVar(Var(name, typ)) =>
-          name.module == None and mentions(sorts, typ)
+          name.path == List() and mentions(sorts, typ)
 
         case ELam(_, _) =>
           false
@@ -413,7 +413,7 @@ function datas_decls(datas: List[(Int, (Name, List[Constr]))]): Decls :=
 
     case List((rank, (t, constrs)); rest) =>
       let decls := datas_decls(rest) in
-      let constr_decls := Map(for k in constrs yield k.name => ConstrDecl(t, List(for field in k.fields yield Var(Name(None, field.name), field.typ)))) in
+      let constr_decls := Map(for k in constrs yield k.name => ConstrDecl(t, List(for field in k.fields yield Var(Name(List(), field.name), field.typ)))) in
       decls with constrs := decls.constrs ++ constr_decls, datatypes := put(t, List(for k in constrs yield k.name), decls.datatypes), ranks := decls.ranks ++ Map(for k in constrs yield k.name => rank)
   end
 
@@ -455,15 +455,15 @@ function reachable(calls: Map[(Name, Int), Set[(Name, Int)]], arities: Map[Name,
 
 // the lemma of cmd if it belongs to module m, for all formals that satisfy its assumptions, where procs are the
 // procedures with bodies and contracts the keys of those with contracts, by name and arity
-function lemma_of(m: Id, procs: Map[(Name, Int), Cmd], contracts: Set[(Name, Int)], cmd: Cmd): Option[Lemma] :=
+function lemma_of(m: Path, procs: Map[(Name, Int), Cmd], contracts: Set[(Name, Int)], cmd: Cmd): Option[Lemma] :=
   match cmd
-    case CLemma(name, _, formals, outs, ClaimHolds(assms, concl), proof) if name.module == Some(m) =>
+    case CLemma(name, _, formals, outs, ClaimHolds(assms, concl), proof) if name.path == m =>
       let xs := vars(formals), ys := vars(outs) in
       let env := bind(xs, List()), all := bind(xs ++ ys, List()) in
       let atoms := List(for a in assms yield Atom(term_of(env, a))), goal := Atom(term_of(all, concl)) in
       Some(Lemma(name, Seq(xs, atoms, List(Concl(ys, List(goal)))), map_option(proof, lambda p => proof_term(xs, all, p, Pos(0, 0))), false))
 
-    case CLemma(name, _, formals, outs, ClaimCorrect(proc, args, _), proof) if name.module == Some(m) =>
+    case CLemma(name, _, formals, outs, ClaimCorrect(proc, args, _), proof) if name.path == m =>
       Some(claim_of(name, vars(formals), vars(outs), args, get((proc, size(args) + size(outs)), procs), contracts, value_or(proof, Proof(List(), None))))
 
     case _ =>
@@ -485,7 +485,7 @@ function contract_of(cmd: Cmd): Option[((Name, Int), Lemma)] :=
   match cmd
     case CProc(name, _, in_decls, out_decls, ref_decls, _, spec, _) if spec.pre != List() or spec.post != None =>
       let ins := vars(in_decls), outs := vars(out_decls), refs := vars(ref_decls) in
-      let before := List(for r in refs yield Var(Name(None, "(before)" ++ r.name.base), r.typ)) in
+      let before := List(for r in refs yield Var(Name(List(), "(before)" ++ r.name.base), r.typ)) in
       let pre := bind(ins ++ refs, List()), post := bind(ins ++ before ++ outs ++ refs, List()) in
       let atoms := List(for a in spec.pre yield Atom(term_of(pre, a))) in
       let concl := match spec.post
@@ -505,11 +505,11 @@ function contract_of(cmd: Cmd): Option[((Name, Int), Lemma)] :=
 function contract_name(key: (Name, Int)): Name :=
   match key
     case (name, arity) =>
-      Name(name.module, "(contract)" ++ name.base ++ "/" ++ show(arity))
+      Name(name.path, "(contract)" ++ name.base ++ "/" ++ show(arity))
   end
 
 function raise_name(): Name :=
-  Name(None, "(raise)")
+  Name(List(), "(raise)")
 
 function raise_contract(): Lemma :=
   Lemma(raise_name(), Seq(List(), List(), List(Holds(Atom(EBool(false))))), None, false)
@@ -660,7 +660,7 @@ function run_case(exec: Exec, env: List[Name], d: At[Branch[At[Stmt]]], rest: Li
 function run_loop(exec: Exec, env: List[Name], pos: Pos, cond: At[Expr], body: At[Stmt], rest: List[Item], steps: List[StepTerm], start: Pos): ProofTerm :=
   let havoc := List(for x in distinct_vars(assigned_vars(body)) if index_of(x.name, env) != None yield x) in
   let around := bind(havoc, env) in
-  let next := List(for x in havoc yield Var(Name(None, "(next)" ++ x.name.base), x.typ)) in
+  let next := List(for x in havoc yield Var(Name(List(), "(next)" ++ x.name.base), x.typ)) in
   let inner := bind(next, around) in
   let written := get(pos, exec.invariants) in
   let inv := match written
@@ -859,7 +859,7 @@ function term_of(env: List[Name], expr: At[Expr]): Term :=
 
     // procedure values are atoms, told apart by their text
     case EProc(_, _, _, _, _) =>
-      EFun(Name(Some("(procedure)"), show(expr.that)))
+      EFun(Name(List("(procedure)"), show(expr.that)))
 
     // the checker translates accesses, updates, and forms, so checked programs have none
     case EField(_, _) =>
@@ -876,7 +876,7 @@ function term_of(env: List[Name], expr: At[Expr]): Term :=
   end
 
 function unchecked(expr: At[Expr]): Term :=
-  EFun(Name(Some("(unchecked)"), show(expr.that)))
+  EFun(Name(List("(unchecked)"), show(expr.that)))
 
 // a let of variables by substitution, else the match of its patterns, of a tuple if there are several
 function let_term(env: List[Name], bindings: List[(At[Pat], At[Expr])], body: At[Expr]): Term :=

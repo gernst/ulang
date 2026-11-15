@@ -1,0 +1,25 @@
+// a module may declare a type named like a builtin type, which neither hides, so its uses write the path of the one
+// they mean, its own or that of the library, while literals and the arithmetic keep the builtin types of the prelude
+
+data Int :=
+  case Zero
+  case Succ(pred: ulang.test.modules.own_int.Int)
+
+function name_of(n: ulang.test.modules.own_int.Int): Str :=
+  match n
+    case Zero =>
+      "zero"
+    case Succ(_) =>
+      "more"
+  end
+
+function count(n: ulang.test.modules.own_int.Int): prelude.Int :=
+  match n
+    case Zero =>
+      0
+    case Succ(m) =>
+      count(m) + 1
+  end
+
+test own_int() :=
+  assert name_of(Succ(Zero)) == "more" and count(Succ(Succ(Zero))) == 2 and 1 + 1 == 2

@@ -4,7 +4,7 @@
 //
 // the command line of the package library/md
 
-import "library/md"
+import library.md
 
 procedure main() :=
   var ok := true

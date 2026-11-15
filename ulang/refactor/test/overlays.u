@@ -1,10 +1,10 @@
 // the texts that a script checks without their files, those of a dry run, of a new package, and of --overlay, on files
 // below out/test/refactor/overlays/ of the root, which run only compiled, as those of scripts.u
 
-import "ulang/syntax"
-import "ulang/parse"
-import "ulang/check"
-import "ulang/refactor"
+import ulang.syntax
+import ulang.parse
+import ulang.check
+import ulang.refactor
 
 // the errors of checking file with the overlays, as checked_diagnostics of ulang/ulang.u gives them, without the lints
 procedure checked(

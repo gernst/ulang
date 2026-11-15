@@ -3,17 +3,17 @@
 // UnusedImport of ulang/check/check.u compares with the imports of its module; the pattern and type aliases that checking
 // expands leave no name of theirs behind, so check.u records their uses apart
 
-import "ulang/syntax"
+import ulang.syntax
 
 export
 
-function used_modules(cmd: Cmd): Set[Id]
+function used_modules(cmd: Cmd): Set[Path]
 
-function pat_modules(pat: At[Pat]): Set[Id]
+function pat_modules(pat: At[Pat]): Set[Path]
 
 implementation
 
-function used_modules(cmd: Cmd): Set[Id] :=
+function used_modules(cmd: Cmd): Set[Path] :=
   match cmd
     case CSort(_, _, typ) =>
       type_modules(typ)
@@ -49,15 +49,15 @@ function used_modules(cmd: Cmd): Set[Id] :=
       vars_modules(ins ++ outs) ++ claim_modules(claim) ++ value_or(map_option(proof, proof_modules), Set())
   end
 
-function name_modules(name: Name): Set[Id] :=
-  match name.module
+function name_modules(name: Name): Set[Path] :=
+  match name_module(name)
     case Some(m) =>
       Set(m)
     case None =>
       Set()
   end
 
-function type_modules(typ: Type): Set[Id] :=
+function type_modules(typ: Type): Set[Path] :=
   match typ
     case TSort(name, args) =>
       name_modules(name) ++ types_modules(args)
@@ -75,10 +75,10 @@ function type_modules(typ: Type): Set[Id] :=
       Set()
   end
 
-function types_modules(types: List[Type]): Set[Id] :=
+function types_modules(types: List[Type]): Set[Path] :=
   Set(for t in types for m in type_modules(t) yield m)
 
-function raises_modules(raised: Raises): Set[Id] :=
+function raises_modules(raised: Raises): Set[Path] :=
   match raised
     case RWritten(types) =>
       types_modules(types)
@@ -90,19 +90,19 @@ function raises_modules(raised: Raises): Set[Id] :=
       Set()
   end
 
-function var_modules(x: Var): Set[Id] :=
+function var_modules(x: Var): Set[Path] :=
   name_modules(x.name) ++ type_modules(x.typ)
 
-function vars_modules(xs: List[At[Var]]): Set[Id] :=
+function vars_modules(xs: List[At[Var]]): Set[Path] :=
   Set(for x in xs for m in var_modules(x.that) yield m)
 
-function plain_vars_modules(xs: List[Var]): Set[Id] :=
+function plain_vars_modules(xs: List[Var]): Set[Path] :=
   Set(for x in xs for m in var_modules(x) yield m)
 
-function spec_modules(spec: Spec): Set[Id] :=
+function spec_modules(spec: Spec): Set[Path] :=
   exprs_modules(spec.pre) ++ option_modules(spec.post) ++ Set(for x in spec.examples for m in example_modules(x.that) yield m)
 
-function example_modules(x: Example): Set[Id] :=
+function example_modules(x: Example): Set[Path] :=
   match x
     case XHolds(expr) =>
       expr_modules(expr)
@@ -117,7 +117,7 @@ function example_modules(x: Example): Set[Id] :=
       name_modules(proc) ++ exprs_modules(ins ++ befores) ++ pat_modules(pat)
   end
 
-function claim_modules(claim: Claim): Set[Id] :=
+function claim_modules(claim: Claim): Set[Path] :=
   match claim
     case ClaimHolds(assms, concl) =>
       exprs_modules(assms) ++ expr_modules(concl)
@@ -125,10 +125,10 @@ function claim_modules(claim: Claim): Set[Id] :=
       name_modules(proc) ++ exprs_modules(ins) ++ plain_vars_modules(outs)
   end
 
-function proof_modules(proof: Proof): Set[Id] :=
+function proof_modules(proof: Proof): Set[Path] :=
   Set(for step in proof.steps for m in step_modules(step.that) yield m) ++ value_or(map_option(proof.split, lambda split => split_modules(split.that)), Set())
 
-function step_modules(step: Step): Set[Id] :=
+function step_modules(step: Step): Set[Path] :=
   match step
     case StepLocal(variable, value) =>
       var_modules(variable.that) ++ option_modules(value)
@@ -146,7 +146,7 @@ function step_modules(step: Step): Set[Id] :=
       expr_modules(cond)
   end
 
-function split_modules(split: Split): Set[Id] :=
+function split_modules(split: Split): Set[Path] :=
   match split
     case SplitInduction(formal, cases) =>
       var_modules(formal) ++ Set(for c in cases for m in pat_modules(c.that.pat) ++ proof_modules(c.that.body) yield m)
@@ -158,7 +158,7 @@ function split_modules(split: Split): Set[Id] :=
       expr_modules(cond) ++ proof_modules(left) ++ value_or(map_option(right, proof_modules), Set())
   end
 
-function option_modules(expr: Option[At[Expr]]): Set[Id] :=
+function option_modules(expr: Option[At[Expr]]): Set[Path] :=
   match expr
     case Some(e) =>
       expr_modules(e)
@@ -166,10 +166,10 @@ function option_modules(expr: Option[At[Expr]]): Set[Id] :=
       Set()
   end
 
-function exprs_modules(exprs: List[At[Expr]]): Set[Id] :=
+function exprs_modules(exprs: List[At[Expr]]): Set[Path] :=
   Set(for e in exprs for m in expr_modules(e) yield m)
 
-function expr_modules(expr: At[Expr]): Set[Id] :=
+function expr_modules(expr: At[Expr]): Set[Path] :=
   match expr.that
     case ELit(_) =>
       Set()
@@ -215,10 +215,10 @@ function expr_modules(expr: At[Expr]): Set[Id] :=
   end
 
 // the pattern and the guard of a case, whose body has a type of its own
-function branch_modules[A](b: Branch[A]): Set[Id] :=
+function branch_modules[A](b: Branch[A]): Set[Path] :=
   pat_modules(b.pat) ++ option_modules(b.guard)
 
-function yield_modules(y: Yield): Set[Id] :=
+function yield_modules(y: Yield): Set[Path] :=
   match y
     case YVal(value) =>
       expr_modules(value)
@@ -226,10 +226,10 @@ function yield_modules(y: Yield): Set[Id] :=
       expr_modules(key) ++ expr_modules(value)
   end
 
-function gens_modules(gens: List[Gen]): Set[Id] :=
+function gens_modules(gens: List[Gen]): Set[Path] :=
   Set(for g in gens for m in gen_modules(g) yield m)
 
-function gen_modules(g: Gen): Set[Id] :=
+function gen_modules(g: Gen): Set[Path] :=
   match g
     case GVal(pat, over, typ) =>
       pat_modules(pat) ++ expr_modules(over) ++ type_modules(typ)
@@ -241,10 +241,10 @@ function gen_modules(g: Gen): Set[Id] :=
       expr_modules(cond)
   end
 
-function pats_modules(pats: List[At[Pat]]): Set[Id] :=
+function pats_modules(pats: List[At[Pat]]): Set[Path] :=
   Set(for p in pats for m in pat_modules(p) yield m)
 
-function pat_modules(pat: At[Pat]): Set[Id] :=
+function pat_modules(pat: At[Pat]): Set[Path] :=
   match pat.that
     case PWild =>
       Set()
@@ -268,7 +268,7 @@ function pat_modules(pat: At[Pat]): Set[Id] :=
       pats_modules(alts)
   end
 
-function stmt_modules(stmt: At[Stmt]): Set[Id] :=
+function stmt_modules(stmt: At[Stmt]): Set[Path] :=
   match stmt.that
     case SSkip =>
       Set()
@@ -310,5 +310,5 @@ function stmt_modules(stmt: At[Stmt]): Set[Id] :=
       gens_modules(gens) ++ stmt_modules(body)
   end
 
-function catch_modules(c: Catch): Set[Id] :=
+function catch_modules(c: Catch): Set[Path] :=
   type_modules(c.typ) ++ pat_modules(c.pat) ++ option_modules(c.guard) ++ stmt_modules(c.body)

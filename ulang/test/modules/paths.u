@@ -2,8 +2,8 @@
 // distinct modules, and an importer sees the exports of all members of a package; the imports are not sorted, which
 // format keeps, since their order is the order of loading
 
-import "ulang/test/modules/paths/nested"
-import "ulang/test/modules/paths"
+import ulang.test.modules.paths.nested
+import ulang.test.modules.paths
 
 // two datatypes Expr, each of its own module
 test both_syntaxes() :=
@@ -13,3 +13,30 @@ test both_syntaxes() :=
 // two members of an imported package, of which one uses the other
 test all_members() :=
   assert inner_twice(3) == 6 and base_double(4) == 8
+
+// a qualified name names a declaration of the package or the module of its path, in types, patterns, and expressions,
+// which tells apart the two datatypes Expr, whose unqualified name is ambiguous here
+function nested_value(e: ulang.test.modules.paths.nested.Expr): Int :=
+  match e
+    case ulang.test.modules.paths.nested.EConst(n) =>
+      n
+  end
+
+// the option of the library, qualified as a package of its own is, also bare in a pattern
+function or_zero(o: Option[Int]): Int :=
+  match o
+    case prelude.option.None =>
+      0
+    case prelude.option.Some(n) =>
+      n
+  end
+
+// ulang.test.modules.paths is both this module and the package that it imports, whose declarations a qualified name
+// reaches alike, and prelude the package of the library, among whose members the types decide
+test qualified_names() :=
+  assert nested_value(ulang.test.modules.paths.nested.int_expr(4)) == 4
+  assert ulang.test.modules.paths.expr_int(2) == ulang.test.modules.paths.ELit(2)
+  assert ulang.test.modules.paths.syntax.expr_int(5).value == 5
+  assert ulang.test.modules.paths.nested_value(ulang.test.modules.paths.nested.EConst(1)) == 1
+  assert or_zero(prelude.option.Some(3)) == 3 and or_zero(None) == 0
+  assert prelude.list.size(List(1, 2)) == 2 and prelude.size("abc") == 3

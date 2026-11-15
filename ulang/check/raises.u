@@ -6,7 +6,7 @@
 // its raises declare it, and a procedure value raises none that its type omits, which the place of its use gives it, where the
 // raises of the types of values that inference left unknown are the least that their bounds allow
 
-import "ulang/syntax"
+import ulang.syntax
 
 export
 
@@ -19,7 +19,7 @@ data Exceptions :=
 // what a procedure value of the raises sub may raise, a value of the raises sup may raise too, as unify of
 // ulang/check/check.u records it at pos of module where one of them is not a set
 data Bound :=
-  case Bound(module: Id, pos: Pos, sub: Raises, sup: Raises)
+  case Bound(module: Path, pos: Pos, sub: Raises, sup: Raises)
 
 function raises_errors(cmds: List[Cmd], sig: Sig, hidden: Set[Name], bounds: List[Bound]): Exceptions
 
@@ -36,12 +36,12 @@ data Flow :=
 // where an exception entered the solution of an unknown: at the use of the procedure name as a value or a raise in a
 // lambda, or at a bound, which names none
 data Origin :=
-  case Origin(module: Option[Id], pos: Pos, name: Option[Name])
+  case Origin(module: Option[Path], pos: Pos, name: Option[Name])
 
 // the raises of the procedures of the package, written or inferred so far, the types of the locals in scope, the
 // solutions of the unknowns so far, and the module of the command
 data Scope :=
-  case Scope(sig: Sig, procs: Map[Name, Set[Name]], locals: Map[Name, Type], solved: Map[Int, Map[Name, Origin]], module: Option[Id])
+  case Scope(sig: Sig, procs: Map[Name, Set[Name]], locals: Map[Name, Type], solved: Map[Int, Map[Name, Origin]], module: Option[Path])
 
 function raises_errors(cmds: List[Cmd], sig: Sig, hidden: Set[Name], bounds: List[Bound]): Exceptions :=
   let inferred := inferred_procs(cmds, hidden) in
@@ -232,7 +232,7 @@ function proc_raises(scope: Scope, q: Name): Set[Name] :=
 
 // the raises of a call of p, a local of a procedure type or a declared procedure, which the checker resolves
 function call_raises(scope: Scope, p: Name): Set[Name] :=
-  if p.module == None then
+  if p.path == List() then
     match get(p, scope.locals)
       case Some(TProc(_, _, _, raised)) =>
         raised_set(scope.solved, raised)
@@ -467,7 +467,7 @@ function part_expr_flow(scope: Scope, pos: Pos, expr: Expr): Flow :=
 
     case EVar(v) =>
       match v.typ
-        case TProc(_, _, _, allowed) if v.name.module != None and is_proc(scope.sig, v.name) =>
+        case TProc(_, _, _, allowed) if v.name.path != List() and is_proc(scope.sig, v.name) =>
           value_flow(Origin(scope.module, pos, Some(v.name)), Map(for t in proc_raises(scope, v.name) yield t => pos), allowed)
         case _ =>
           none()
@@ -487,7 +487,7 @@ function part_expr_flow(scope: Scope, pos: Pos, expr: Expr): Flow :=
 
     case EProc(ins, outs, refs, raised, stmt) =>
       let flow := stmt_flow(bound(scope, vars(ins ++ outs ++ refs)), stmt) in
-      with_expr(value_flow(Origin(scope.module, pos, Some(Name(None, "lambda"))), flow.raised, raised), flow with raised := empty())
+      with_expr(value_flow(Origin(scope.module, pos, Some(Name(List(), "lambda"))), flow.raised, raised), flow with raised := empty())
 
     case ELet(bindings, body) =>
       with_expr(expr_flow(bound(scope, List(for (p, _) in bindings for v in pattern_variables(p) yield v)), body), exprs_flow(scope, List(for (_, e) in bindings yield e)))
@@ -530,7 +530,7 @@ function yield_flow(scope: Scope, elem: Yield): Flow :=
 function value_flow(origin: Origin, raised: Map[Name, Pos], allowed: Raises): Flow :=
   match allowed
     case RSet(names) =>
-      errors_flow(List(for t => p in raised if not contains(t, names) yield (p, UntypedRaise(value_or(origin.name, Name(None, "lambda")), TSort(t, List())))))
+      errors_flow(List(for t => p in raised if not contains(t, names) yield (p, UntypedRaise(value_or(origin.name, Name(List(), "lambda")), TSort(t, List())))))
 
     case RUnknown(id) =>
       Flow(empty(), List(), Map(id => Map(for t => p in raised yield t => origin with pos := p)))

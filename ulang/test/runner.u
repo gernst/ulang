@@ -2,10 +2,10 @@
 // lemmas by ulang/prove/lemma.u, and the enumeration that the tests of lemmas of ulang/test/generate.u call, which
 // load_tester loads into the program under test
 
-import "ulang/syntax"
-import "ulang/parse"
-import "ulang/run"
-import "ulang/prove"
+import ulang.syntax
+import ulang.parse
+import ulang.run
+import ulang.prove
 
 export
 
@@ -20,7 +20,7 @@ procedure load_tester(ref source: Source) raises ParseError, OsError
 // TimedOut of ulang/syntax/error.u when it runs longer than timeout, its seconds
 procedure test_module(
   in  q: Prog,
-      m: Id,
+      m: Path,
       names: List[Str],
       args: List[Str],
       timeout: Option[Int],
@@ -38,7 +38,7 @@ data Outcome :=
 // the outcomes of the tests of the module m of q, all or the named ones, run as test_module runs them, without printing
 procedure test_outcomes(
   in  q: Prog,
-      m: Id,
+      m: Path,
       names: List[Str],
       args: List[Str],
   out outcomes: List[Outcome]
@@ -54,7 +54,7 @@ function failure_text(o: Outcome, listed: List[(Str, Diagnostic)]): Str
 // termination is not proven, and whether all are proven
 procedure prove_module(
   in  q: Prog,
-      m: Id,
+      m: Path,
       file: Str,
       names: List[Str],
       falsified: Set[Str],
@@ -67,11 +67,11 @@ implementation
 procedure load_tester(ref source: Source) raises ParseError, OsError :=
   var text: Str
   os_library(in "../test/enumerate/enumerate", out text)
-  load_after_library(in module_dir(enumerate_module()), List((enumerate_module(), text)), ref source)
+  load_after_library(in join("/", module_dir(enumerate_module())), List((enumerate_module(), text)), ref source)
 
 procedure test_module(
   in  q: Prog,
-      m: Id,
+      m: Path,
       names: List[Str],
       args: List[Str],
       timeout: Option[Int],
@@ -114,7 +114,7 @@ function reaches(reached: Option[Str], path: Str, d: Diagnostic): Bool :=
   match reached
     case Some(text) =>
       text == deferred_text(List(d with module := None)) or text == deferred_text(List(
-        d with module := Some(value_or(d.module, slice(path, 0, size(path) - 2)))))
+        d with module := Some(value_or(d.module, dir_path(slice(path, 0, size(path) - 2))))))
 
     case None =>
       false
@@ -122,7 +122,7 @@ function reaches(reached: Option[Str], path: Str, d: Diagnostic): Bool :=
 
 procedure test_outcomes(
   in  q: Prog,
-      m: Id,
+      m: Path,
       names: List[Str],
       args: List[Str],
   out outcomes: List[Outcome]
@@ -177,7 +177,7 @@ function lemmas_upto(lemmas: List[Lemma], names: List[Str]): List[Lemma] :=
 
 procedure prove_module(
   in  q: Prog,
-      m: Id,
+      m: Path,
       file: Str,
       names: List[Str],
       falsified: Set[Str],
@@ -220,10 +220,10 @@ function lemma_of_test(test_name: Str): Str :=
 
 // whether cmd is a test of the module m that names selects, all of them for List(), where a test with formals runs as
 // the test that the tester generates of it
-function is_selected_test(cmd: Cmd, m: Id, names: List[Str]): Bool :=
+function is_selected_test(cmd: Cmd, m: Path, names: List[Str]): Bool :=
   match cmd
     case CTest(name, List(), _) =>
-      name.module == Some(m) and (names == List() or contains(name.base, names))
+      name.path == m and (names == List() or contains(name.base, names))
     case _ =>
       false
   end

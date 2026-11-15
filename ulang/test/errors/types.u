@@ -1,10 +1,10 @@
 // the type errors of the language, each a case, the lines of a source text at a path of this directory, which the procedures of
 // ulang/test/cases/cases.u run through the phases until one raises the error that assert raises expects
 
-import "ulang/syntax"
-import "ulang/check"
-import "ulang/parse"
-import "ulang/test/cases"
+import ulang.syntax
+import ulang.check
+import ulang.parse
+import ulang.test.cases
 
 test add_bool() :=
   assert raises Located(None, Pos(2, 7), Mismatch(_, _, "argument 2 of the call")) do
@@ -12,7 +12,7 @@ test add_bool() :=
   end
 
 test alias_arity() :=
-  assert raises Located(None, Pos(4, 12), SortArity(Name(Some("ulang/test/errors/alias-arity"), "P"), 1, 0)) do
+  assert raises Located(None, Pos(4, 12), SortArity(Name(List("ulang", "test", "errors", "alias-arity"), "P"), 1, 0)) do
     check_text(in "ulang/test/errors/alias-arity.u", List("type P[A] :=", "  A -> A", "", "function f(x: P): Int :=", "  0"))
   end
 
@@ -77,22 +77,22 @@ test comprehension_test() :=
   end
 
 test constructor_clash() :=
-  assert raises Located(None, Pos(4, 1), AlreadyDefined(Name(Some("ulang/test/errors/constructor-clash"), "C"))) do
+  assert raises Located(None, Pos(4, 1), AlreadyDefined(Name(List("ulang", "test", "errors", "constructor-clash"), "C"))) do
     check_text(in "ulang/test/errors/constructor-clash.u", List("data T :=", "  case C", "", "function C(): Int :=", "  0"))
   end
 
 test data_arity() :=
-  assert raises Located(None, Pos(2, 3), SortArity(Name(Some("ulang/test/errors/data-arity"), "T"), 1, 0)) do
+  assert raises Located(None, Pos(2, 3), SortArity(Name(List("ulang", "test", "errors", "data-arity"), "T"), 1, 0)) do
     check_text(in "ulang/test/errors/data-arity.u", List("data T[A] :=", "  case C(inner: T)"))
   end
 
 test data_unknown_param() :=
-  assert raises Located(None, Pos(2, 3), UnknownSort(Name(None, "A"))) do
+  assert raises Located(None, Pos(2, 3), UnknownSort(Name(List(), "A"))) do
     check_text(in "ulang/test/errors/data-unknown-param.u", List("data T :=", "  case C(value: A)"))
   end
 
 test duplicate_constructor() :=
-  assert raises Located(None, Pos(3, 3), AlreadyDefined(Name(Some("ulang/test/errors/duplicate-constructor"), "C"))) do
+  assert raises Located(None, Pos(3, 3), AlreadyDefined(Name(List("ulang", "test", "errors", "duplicate-constructor"), "C"))) do
     check_text(in "ulang/test/errors/duplicate-constructor.u", List("data T :=", "  case C", "  case C"))
   end
 
@@ -113,7 +113,7 @@ test duplicate_lambda_formal() :=
   end
 
 test duplicate_lemma() :=
-  assert raises Located(None, Pos(4, 1), AlreadyDefined(Name(Some("ulang/test/errors/duplicate-lemma"), "l"))) do
+  assert raises Located(None, Pos(4, 1), AlreadyDefined(Name(List("ulang", "test", "errors", "duplicate-lemma"), "l"))) do
     check_text(in "ulang/test/errors/duplicate-lemma.u", List(
       "lemma l(in x: Int) :=",
       "  ensures x == x",
@@ -124,7 +124,7 @@ test duplicate_lemma() :=
 
 // the bindings of a let are sequential, so the second x hides the first
 test duplicate_let() :=
-  assert raises Located(None, Pos(2, 15), HiddenLocal(Name(None, "x"))) do
+  assert raises Located(None, Pos(2, 15), HiddenLocal(Name(List(), "x"))) do
     check_text(in "ulang/test/errors/duplicate-let.u", List("function f(): Int :=", "  let x := 1, x := 2 in", "  x"))
   end
 
@@ -139,7 +139,7 @@ test duplicate_type_parameter() :=
   end
 
 test empty_ambiguous() :=
-  assert raises Located(None, Pos(2, 15), Ambiguous(Name(None, "empty"), _)) do
+  assert raises Located(None, Pos(2, 15), Ambiguous(Name(List(), "empty"), _)) do
     check_text(in "ulang/test/errors/empty-ambiguous.u", List("test unknown_type() :=", "  assert size(empty()) == 0"))
   end
 
@@ -206,8 +206,15 @@ test guard_type() :=
       "  end"))
   end
 
+// a local named as the first name of a path that the module sees, prelude of the library, of which prelude.x would be a
+// qualified name
+test qualifier_local() :=
+  assert raises Located(None, Pos(1, 12), QualifierLocal(Name(List(), "prelude"))) do
+    check_text(in "ulang/test/errors/qualifier-local.u", List("function f(prelude: Int): Int :=", "  prelude + 1"))
+  end
+
 test hidden_catch() :=
-  assert raises Located(None, Pos(5, 3), HiddenLocal(Name(None, "m"))) do
+  assert raises Located(None, Pos(5, 3), HiddenLocal(Name(List(), "m"))) do
     check_text(in "ulang/test/errors/hidden-catch.u", List(
       "data E :=",
       "  case E(m: Str)",
@@ -222,7 +229,7 @@ test hidden_catch() :=
   end
 
 test hidden_for() :=
-  assert raises Located(None, Pos(3, 3), HiddenLocal(Name(None, "x"))) do
+  assert raises Located(None, Pos(3, 3), HiddenLocal(Name(List(), "x"))) do
     check_text(in "ulang/test/errors/hidden-for.u", List(
       "procedure p(in x: Int, xs: List[Int]) :=",
       "  var n := 0",
@@ -232,29 +239,29 @@ test hidden_for() :=
   end
 
 test hidden_generator() :=
-  assert raises Located(None, Pos(2, 3), HiddenLocal(Name(None, "x"))) do
+  assert raises Located(None, Pos(2, 3), HiddenLocal(Name(List(), "x"))) do
     check_text(in "ulang/test/errors/hidden-generator.u", List(
       "function f(x: Int, xs: List[Int]): List[Int] :=",
       "  List(for x in xs yield x + 1)"))
   end
 
 test hidden_lambda() :=
-  assert raises Located(None, Pos(2, 4), HiddenLocal(Name(None, "x"))) do
+  assert raises Located(None, Pos(2, 4), HiddenLocal(Name(List(), "x"))) do
     check_text(in "ulang/test/errors/hidden-lambda.u", List("function f(x: Int): Int :=", "  (lambda x => x + 1)(x)"))
   end
 
 test hidden_let() :=
-  assert raises Located(None, Pos(2, 3), HiddenLocal(Name(None, "x"))) do
+  assert raises Located(None, Pos(2, 3), HiddenLocal(Name(List(), "x"))) do
     check_text(in "ulang/test/errors/hidden-let.u", List("function f(x: Int): Int :=", "  let x := 2 in", "  x"))
   end
 
 test hidden_local() :=
-  assert raises Located(None, Pos(2, 3), HiddenLocal(Name(None, "n"))) do
+  assert raises Located(None, Pos(2, 3), HiddenLocal(Name(List(), "n"))) do
     check_text(in "ulang/test/errors/hidden-local.u", List("procedure p(in n: Int) :=", "  let n := 1", "  assert n == 1"))
   end
 
 test hidden_pattern() :=
-  assert raises Located(None, Pos(2, 3), HiddenLocal(Name(None, "x"))) do
+  assert raises Located(None, Pos(2, 3), HiddenLocal(Name(List(), "x"))) do
     check_text(in "ulang/test/errors/hidden-pattern.u", List(
       "function f(x: Int, o: Option[Int]): Int :=",
       "  match o",
@@ -266,7 +273,7 @@ test hidden_pattern() :=
   end
 
 test hidden_procedure_lambda() :=
-  assert raises Located(None, Pos(2, 12), HiddenLocal(Name(None, "y"))) do
+  assert raises Located(None, Pos(2, 12), HiddenLocal(Name(List(), "y"))) do
     check_text(in "ulang/test/errors/hidden-procedure-lambda.u", List(
       "procedure p(in y: Int) :=",
       "  var q := lambda in x: Int, out y: Int =>",
@@ -310,7 +317,7 @@ test lemma_requires_type() :=
   end
 
 test lemma_unknown_variable() :=
-  assert raises Located(None, Pos(2, 16), UnknownVariable(Name(None, "y"))) do
+  assert raises Located(None, Pos(2, 16), UnknownVariable(Name(List(), "y"))) do
     check_text(in "ulang/test/errors/lemma-unknown-variable.u", List("lemma l(in x: Int) :=", "  ensures x == y"))
   end
 
@@ -369,7 +376,7 @@ test list_type() :=
   end
 
 test misshapen_compare() :=
-  assert raises Located(None, Pos(4, 1), MisshapenHook(Name(Some("ulang/test/errors/misshapen-compare"), "compare"), HookCompare)) do
+  assert raises Located(None, Pos(4, 1), MisshapenHook(Name(List("ulang", "test", "errors", "misshapen-compare"), "compare"), HookCompare)) do
     check_text(in "ulang/test/errors/misshapen-compare.u", List(
       "data Pair[A, B] :=",
       "  case Pair(left: A, right: B)",
@@ -379,7 +386,7 @@ test misshapen_compare() :=
   end
 
 test misshapen_hook() :=
-  assert raises Located(None, Pos(4, 1), MisshapenHook(Name(Some("ulang/test/errors/misshapen-hook"), "show"), HookShow)) do
+  assert raises Located(None, Pos(4, 1), MisshapenHook(Name(List("ulang", "test", "errors", "misshapen-hook"), "show"), HookShow)) do
     check_text(in "ulang/test/errors/misshapen-hook.u", List(
       "data Pair[A, B] :=",
       "  case Pair(left: A, right: B)",
@@ -389,13 +396,13 @@ test misshapen_hook() :=
   end
 
 test missing_local_type() :=
-  assert raises Located(None, Pos(2, 7), Hinted(MissingType(Name(None, "x")), _)) do
+  assert raises Located(None, Pos(2, 7), Hinted(MissingType(Name(List(), "x")), _)) do
     check_text(in "ulang/test/errors/missing-local-type.u", List("test missing_local_type() :=", "  var x", "  assert true"))
   end
 
 // a local of a proof without a value has its type, reported at the local
 test missing_proof_local_type() :=
-  assert raises Located(None, Pos(3, 7), Hinted(MissingType(Name(None, "a")), _)) do
+  assert raises Located(None, Pos(3, 7), Hinted(MissingType(Name(List(), "a")), _)) do
     check_text(in "ulang/test/errors/missing-proof-local-type.u", List(
       "lemma l(in n: Int) :=",
       "  ensures n == n",
@@ -404,17 +411,17 @@ test missing_proof_local_type() :=
   end
 
 test missing_output_type() :=
-  assert raises Located(None, Pos(1, 17), MissingType(Name(None, "x"))) do
+  assert raises Located(None, Pos(1, 17), MissingType(Name(List(), "x"))) do
     check_text(in "ulang/test/errors/missing-output-type.u", List("procedure p(out x) :=", "  skip"))
   end
 
 test missing_parameter_type() :=
-  assert raises Located(None, Pos(1, 12), MissingType(Name(None, "x"))) do
+  assert raises Located(None, Pos(1, 12), MissingType(Name(List(), "x"))) do
     check_text(in "ulang/test/errors/missing-parameter-type.u", List("function f(x): Int :=", "  x"))
   end
 
 test overload_arity() :=
-  assert raises Located(None, Pos(8, 12), WrongArity(Name(None, "f"), 3)) do
+  assert raises Located(None, Pos(8, 12), WrongArity(Name(List(), "f"), 3)) do
     check_text(in "ulang/test/errors/overload-arity.u", List(
       "function f(x: Int): Int :=",
       "  x",
@@ -427,7 +434,7 @@ test overload_arity() :=
   end
 
 test overload_same_arity() :=
-  assert raises Located(None, Pos(4, 1), AlreadyDefined(Name(Some("ulang/test/errors/overload-same-arity"), "f"))) do
+  assert raises Located(None, Pos(4, 1), AlreadyDefined(Name(List("ulang", "test", "errors", "overload-same-arity"), "f"))) do
     check_text(in "ulang/test/errors/overload-same-arity.u", List(
       "function f(x: Int): Int :=",
       "  x",
@@ -437,7 +444,7 @@ test overload_same_arity() :=
   end
 
 test overload_unapplied() :=
-  assert raises Located(None, Pos(8, 12), Ambiguous(Name(None, "f"), _)) do
+  assert raises Located(None, Pos(8, 12), Ambiguous(Name(List(), "f"), _)) do
     check_text(in "ulang/test/errors/overload-unapplied.u", List(
       "function f(x: Int): Int :=",
       "  x",
@@ -473,7 +480,7 @@ test pattern_alias_arity() :=
   end
 
 test pattern_alias_clash() :=
-  assert raises Located(None, Pos(4, 1), AlreadyDefined(Name(Some("ulang/test/errors/pattern-alias-clash"), "C"))) do
+  assert raises Located(None, Pos(4, 1), AlreadyDefined(Name(List("ulang", "test", "errors", "pattern-alias-clash"), "C"))) do
     check_text(in "ulang/test/errors/pattern-alias-clash.u", List(
       "data T :=",
       "  case C(n: Int)",
@@ -518,7 +525,7 @@ test pattern_alias_extra_variable() :=
   end
 
 test pattern_alias_only() :=
-  assert raises Located(None, Pos(5, 3), PatternOnly(Name(None, "First"))) do
+  assert raises Located(None, Pos(5, 3), PatternOnly(Name(List(), "First"))) do
     check_text(in "ulang/test/errors/pattern-alias-only.u", List(
       "pattern First(x: Int): (Int, Int) :=",
       "  (x, _)",
@@ -589,7 +596,7 @@ test raise_unknown_type() :=
   end
 
 test raises_binds() :=
-  assert raises Located(None, Pos(2, 3), RaisesVariables(Name(None, "n"))) do
+  assert raises Located(None, Pos(2, 3), RaisesVariables(Name(List(), "n"))) do
     check_text(in "ulang/test/errors/raises-binds.u", List(
       "test binds() :=",
       "  assert raises Some(n) do",
@@ -608,7 +615,7 @@ test rigid_params() :=
   end
 
 test sort_arity() :=
-  assert raises Located(None, Pos(1, 12), SortArity(Name(Some("prelude/prelude"), "Int"), 0, 1)) do
+  assert raises Located(None, Pos(1, 12), SortArity(Name(List("prelude", "prelude"), "Int"), 0, 1)) do
     check_text(in "ulang/test/errors/sort-arity.u", List("function f(x: Int[Int]): Int :=", "  0"))
   end
 
@@ -643,12 +650,12 @@ test too_many_arguments() :=
   end
 
 test unit() :=
-  assert raises Located(None, Pos(1, 12), UnknownSort(Name(None, "Unit"))) do
+  assert raises Located(None, Pos(1, 12), UnknownSort(Name(List(), "Unit"))) do
     check_text(in "ulang/test/errors/unit.u", List("function f(u: Unit): Int :=", "  0"))
   end
 
 test unknown_constructor() :=
-  assert raises Located(None, Pos(3, 10), UnknownConstructor(Name(None, "f"))) do
+  assert raises Located(None, Pos(3, 10), UnknownConstructor(Name(List(), "f"))) do
     check_text(in "ulang/test/errors/unknown-constructor.u", List(
       "function f(): Int :=",
       "  match List()",
@@ -658,7 +665,7 @@ test unknown_constructor() :=
   end
 
 test unknown_field() :=
-  assert raises Located(None, Pos(5, 23), UnknownField(Name(Some("ulang/test/errors/unknown-field"), "Point.z"))) do
+  assert raises Located(None, Pos(5, 23), UnknownField(Name(List("ulang", "test", "errors", "unknown-field"), "Point.z"))) do
     check_text(in "ulang/test/errors/unknown-field.u", List(
       "data Point :=",
       "  case Point(x: Int, y: Int)",
@@ -678,27 +685,27 @@ test unknown_field_update() :=
   end
 
 test unknown_procedure() :=
-  assert raises Located(None, Pos(2, 3), UnknownProcedure(Name(None, "r"))) do
+  assert raises Located(None, Pos(2, 3), UnknownProcedure(Name(List(), "r"))) do
     check_text(in "ulang/test/errors/unknown-procedure.u", List("procedure q(in x: Int) :=", "  r(in x)"))
   end
 
 test unknown_sort() :=
-  assert raises Located(None, Pos(1, 1), UnknownSort(Name(None, "Q"))) do
+  assert raises Located(None, Pos(1, 1), UnknownSort(Name(List(), "Q"))) do
     check_text(in "ulang/test/errors/unknown-sort.u", List("type P :=", "  Q"))
   end
 
 test unknown_sort_generic() :=
-  assert raises Located(None, Pos(1, 1), UnknownSort(Name(None, "Table"))) do
+  assert raises Located(None, Pos(1, 1), UnknownSort(Name(List(), "Table"))) do
     check_text(in "ulang/test/errors/unknown-sort-generic.u", List("type P[A] :=", "  Table[A]"))
   end
 
 test unknown_variable() :=
-  assert raises Located(None, Pos(2, 3), UnknownVariable(Name(None, "x"))) do
+  assert raises Located(None, Pos(2, 3), UnknownVariable(Name(List(), "x"))) do
     check_text(in "ulang/test/errors/unknown-variable.u", List("function f(): Int :=", "  x"))
   end
 
 test raise_undeclared() :=
-  assert raises Located(None, Pos(8, 3), UndeclaredRaise(Name(Some("ulang/test/errors/raise-undeclared"), "p"), _)) do
+  assert raises Located(None, Pos(8, 3), UndeclaredRaise(Name(List("ulang", "test", "errors", "raise-undeclared"), "p"), _)) do
     check_text(in "ulang/test/errors/raise-undeclared.u", List(
       "data Failed :=",
       "  case Failed",
@@ -713,7 +720,7 @@ test raise_undeclared() :=
 // an entry, a procedure without formals, raises only what its raises declare, though the private procedures that it calls
 // infer theirs
 test entry_raise() :=
-  assert raises Located(None, Pos(8, 3), UndeclaredRaise(Name(Some("ulang/test/errors/entry-raise"), "main"), _)) do
+  assert raises Located(None, Pos(8, 3), UndeclaredRaise(Name(List("ulang", "test", "errors", "entry-raise"), "main"), _)) do
     check_text(in "ulang/test/errors/entry-raise.u", List(
       "data Failed :=",
       "  case Failed",
@@ -727,7 +734,7 @@ test entry_raise() :=
 
 // a handler that does not cover its type lets the others of that type through
 test raise_through_handler() :=
-  assert raises Located(None, Pos(9, 5), UndeclaredRaise(Name(Some("ulang/test/errors/raise-through-handler"), "p"), _)) do
+  assert raises Located(None, Pos(9, 5), UndeclaredRaise(Name(List("ulang", "test", "errors", "raise-through-handler"), "p"), _)) do
     check_text(in "ulang/test/errors/raise-through-handler.u", List(
       "data Failed :=",
       "  case Failed(code: Int)",
@@ -745,7 +752,7 @@ test raise_through_handler() :=
   end
 
 test raise_untyped_value() :=
-  assert raises Located(None, Pos(11, 12), UntypedRaise(Name(Some("ulang/test/errors/raise-untyped-value"), "fail"), _)) do
+  assert raises Located(None, Pos(11, 12), UntypedRaise(Name(List("ulang", "test", "errors", "raise-untyped-value"), "fail"), _)) do
     check_text(in "ulang/test/errors/raise-untyped-value.u", List(
       "data Failed :=",
       "  case Failed",
@@ -761,7 +768,7 @@ test raise_untyped_value() :=
   end
 
 test raise_untyped_lambda() :=
-  assert raises Located(None, Pos(9, 5), UntypedRaise(Name(None, "lambda"), _)) do
+  assert raises Located(None, Pos(9, 5), UntypedRaise(Name(List(), "lambda"), _)) do
     check_text(in "ulang/test/errors/raise-untyped-lambda.u", List(
       "data Failed :=",
       "  case Failed",
@@ -1054,8 +1061,8 @@ test hidden_function() :=
     "function count(size: Int, xs: List[Int]): Int :=",
     "  size(xs)"), out _, errors)
   assert List(for e in errors yield located_message(e)) == List(
-    "cannot unify List[Str] and Str -> ?3; the variable lines hides the function prelude/str.lines, so rename the variable to call it at 2.12",
-    "cannot unify Int and List[Int] -> ?2; the variable size hides the function prelude/list.size, so rename the variable to call it at 5.3")
+    "cannot unify List[Str] and Str -> ?3; the variable lines hides the function prelude.str.lines, so rename the variable to call it at 2.12",
+    "cannot unify Int and List[Int] -> ?2; the variable size hides the function prelude.list.size, so rename the variable to call it at 5.3")
 
 function error_hint(e: TypeError): Str :=
   match e
@@ -1080,17 +1087,17 @@ test unknown_sort_once() :=
   assert List(for d in diagnostics(q) yield (d.code, d.pos)) == List(("UnknownSort", Pos(1, 12)))
 
 test proof_unknown_lemma() :=
-  assert raises Located(None, Pos(3, 3), UnknownLemma(Name(None, "b"))) do
+  assert raises Located(None, Pos(3, 3), UnknownLemma(Name(List(), "b"))) do
     check_text(in "ulang/test/errors/proof-unknown-lemma.u", List("lemma a(in n: Int) :=", "  ensures n == n", "  b(in n)"))
   end
 
 test proof_not_inducible() :=
-  assert raises Located(None, Pos(3, 3), NotInducible(Name(None, "b"))) do
+  assert raises Located(None, Pos(3, 3), NotInducible(Name(List(), "b"))) do
     check_text(in "ulang/test/errors/proof-not-inducible.u", List("lemma a(in b: Bool) :=", "  ensures b == b", "  induction b", "  end"))
   end
 
 test claim_order() :=
-  assert raises Located(None, Pos(1, 1), ClaimOrder(Name(None, "p"))) do
+  assert raises Located(None, Pos(1, 1), ClaimOrder(Name(List(), "p"))) do
     check_text(in "ulang/test/errors/claim-order.u", List(
       "lemma p_correct(out y: Int) :=",
       "  correct p(out y)",
@@ -1100,7 +1107,7 @@ test claim_order() :=
   end
 
 test claim_outs() :=
-  assert raises Located(None, Pos(5, 1), ClaimOuts(Name(Some("ulang/test/errors/claim-outs"), "p_correct"))) do
+  assert raises Located(None, Pos(5, 1), ClaimOuts(Name(List("ulang", "test", "errors", "claim-outs"), "p_correct"))) do
     check_text(in "ulang/test/errors/claim-outs.u", List(
       "procedure p(out y: Int, z: Int) :=",
       "  y := 1, z := 2",
@@ -1111,7 +1118,7 @@ test claim_outs() :=
   end
 
 test claim_step() :=
-  assert raises Located(None, Pos(4, 1), ClaimStep(Name(Some("ulang/test/errors/claim-step"), "p_correct"))) do
+  assert raises Located(None, Pos(4, 1), ClaimStep(Name(List("ulang", "test", "errors", "claim-step"), "p_correct"))) do
     check_text(in "ulang/test/errors/claim-step.u", List(
       "procedure p(out y: Int) :=",
       "  y := 1",
@@ -1138,7 +1145,7 @@ test claim_invariants() :=
 
 // an invariant sees the variables at its loop, of the procedure, not those of the lemma
 test invariant_scope() :=
-  assert raises Located(None, Pos(9, 13), UnknownVariable(Name(None, "x"))) do
+  assert raises Located(None, Pos(9, 13), UnknownVariable(Name(List(), "x"))) do
     check_text(in "ulang/test/errors/invariant-scope.u", List(
       "procedure p(out y: Int) :=",
       "  y := 0",
@@ -1172,7 +1179,7 @@ test invariant_outside_claim() :=
 
 // a claim holds only for the runs that end, so no proof calls it
 test claim_called() :=
-  assert raises Located(None, Pos(10, 3), ClaimCalled(Name(None, "p_correct"))) do
+  assert raises Located(None, Pos(10, 3), ClaimCalled(Name(List(), "p_correct"))) do
     check_text(in "ulang/test/errors/claim-called.u", List(
       "procedure p(out y: Int) :=",
       "  ensures y == 1",
@@ -1193,7 +1200,7 @@ test ensures_type() :=
 
 // the requires sees the ins and refs, not the outs, which the procedure assigns
 test requires_out() :=
-  assert raises Located(None, Pos(2, 12), UnknownVariable(Name(None, "y"))) do
+  assert raises Located(None, Pos(2, 12), UnknownVariable(Name(List(), "y"))) do
     check_text(in "ulang/test/errors/requires-out.u", List(
       "procedure p(in x: Int, out y: Int) :=",
       "  requires y > x",
@@ -1206,7 +1213,7 @@ test proof_call_argument() :=
   end
 
 test proof_witness_unbound() :=
-  assert raises Located(None, Pos(4, 10), Unassigned(Name(None, "q"))) do
+  assert raises Located(None, Pos(4, 10), Unassigned(Name(List(), "q"))) do
     check_text(in "ulang/test/errors/proof-witness-unbound.u", List(
       "lemma a(in n: Int) :=",
       "  ensures n == n",
@@ -1215,12 +1222,12 @@ test proof_witness_unbound() :=
   end
 
 test proof_assign_formal() :=
-  assert raises Located(None, Pos(3, 3), NotAssignable(Name(None, "n"))) do
+  assert raises Located(None, Pos(3, 3), NotAssignable(Name(List(), "n"))) do
     check_text(in "ulang/test/errors/proof-assign-formal.u", List("lemma a(in n: Int) :=", "  ensures n == n", "  n := 1"))
   end
 
 test proof_out_unassigned() :=
-  assert raises Located(None, Pos(1, 1), OutputUnassigned(Name(None, "y"), Name(Some("ulang/test/errors/proof-out-unassigned"), "a"))) do
+  assert raises Located(None, Pos(1, 1), OutputUnassigned(Name(List(), "y"), Name(List("ulang", "test", "errors", "proof-out-unassigned"), "a"))) do
     check_text(in "ulang/test/errors/proof-out-unassigned.u", List(
       "lemma a(in x: Int, out y: Int) :=",
       "  ensures y == x",
@@ -1228,7 +1235,7 @@ test proof_out_unassigned() :=
   end
 
 test proof_out_one_branch() :=
-  assert raises Located(None, Pos(1, 1), OutputUnassigned(Name(None, "y"), Name(Some("ulang/test/errors/proof-out-one-branch"), "half"))) do
+  assert raises Located(None, Pos(1, 1), OutputUnassigned(Name(List(), "y"), Name(List("ulang", "test", "errors", "proof-out-one-branch"), "half"))) do
     check_text(in "ulang/test/errors/proof-out-one-branch.u", List(
       "lemma half(in x: Int, out y: Int) :=",
       "  ensures y >= 0",

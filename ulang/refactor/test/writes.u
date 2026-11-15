@@ -1,8 +1,8 @@
 // the writes of @put of new modules and exports, and the refusals of errors of the system, on files below
 // out/test/refactor/writes/ of the root, which run only compiled, as the scripts of scripts.u do
 
-import "ulang/syntax"
-import "ulang/refactor"
+import ulang.syntax
+import ulang.refactor
 
 procedure unseen(
   in  file: Str,

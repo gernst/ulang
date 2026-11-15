@@ -2,9 +2,9 @@
 // tests with formals that fail on enumerated values, each a case, the lines of a source text at a path of this directory, which the procedures of
 // ulang/test/cases/cases.u run through the phases until one raises the error that assert raises expects
 
-import "ulang/syntax"
-import "ulang/prove"
-import "ulang/test/cases"
+import ulang.syntax
+import ulang.prove
+import ulang.test.cases
 
 test append_commutes() :=
   assert raises OpenLemma("append_commutes", "forall xs, ys => (ys ++ xs) == (xs ++ ys)") do
@@ -92,7 +92,7 @@ test abstract_constructors() :=
 // sizes, and list_count and list_values of the enumeration, which load_text loads with the library, count n down to
 // n == 0, so they do not terminate for a negative n, while gcd terminates by the absolute value of its divisor
 test library_terminates() :=
-  var main: Id, q: Prog, open: List[Str] := List()
+  var main: Path, q: Prog, open: List[Str] := List()
   load_text(in "ulang/test/errors/library-terminates.u", List("lemma trivial() :=", "  ensures true"), out main, q)
   match translate(q, main)
     case Translation(decls, _, _) =>
@@ -102,7 +102,7 @@ test library_terminates() :=
 
 // a function that does not terminate is open, one that counts down to a guard terminates by its Int measure
 test terminations_of_program() :=
-  var main: Id, q: Prog, open: List[Str] := List(), proven: List[Str] := List()
+  var main: Path, q: Prog, open: List[Str] := List(), proven: List[Str] := List()
   load_text(in "ulang/test/errors/terminations-of-program.u", List(
     "function loop(x: Int): Int :=",
     "  loop(x) + 1",
@@ -111,7 +111,7 @@ test terminations_of_program() :=
     "  if n <= 0 then 0 else down(n - 1) + 1"), out main, q)
   match translate(q, main)
     case Translation(decls, _, _) =>
-      let ts := terminations(decls, Set((Name(Some(main), "loop"), 1), (Name(Some(main), "down"), 1)))
+      let ts := terminations(decls, Set((Name(main, "loop"), 1), (Name(main, "down"), 1)))
       open := List(for t in ts if not is_terminating(t) for (n, _) in t.names yield n.base), proven := List(for t in ts if is_terminating(t) for (n, _) in t.names yield n.base)
   end
   assert open == List("loop") and proven == List("down")
@@ -119,7 +119,7 @@ test terminations_of_program() :=
 // a component with a function without formals, here first in the order of names, has no common slot of the sizes of
 // formals, where the least number of formals is 0
 test terminations_without_formals() :=
-  var main: Id, q: Prog, open: List[Str] := List()
+  var main: Path, q: Prog, open: List[Str] := List()
   load_text(in "ulang/test/errors/terminations-without-formals.u", List(
     "function base(): Int :=",
     "  count(List(1))",
@@ -133,7 +133,7 @@ test terminations_without_formals() :=
     "  end"), out main, q)
   match translate(q, main)
     case Translation(decls, _, _) =>
-      open := List(for t in terminations(decls, Set((Name(Some(main), "count"), 1))) if not is_terminating(t) for (n, _) in t.names yield n.base)
+      open := List(for t in terminations(decls, Set((Name(main, "count"), 1))) if not is_terminating(t) for (n, _) in t.names yield n.base)
   end
   assert Set(for n in open) == Set("base", "count")
 

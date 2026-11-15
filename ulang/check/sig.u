@@ -1,7 +1,7 @@
 // the signatures of modules, the types of their declarations by name, made of the signatures of the declarations, which the
 // checker fills
 
-import "ulang/syntax"
+import ulang.syntax
 
 export
 
@@ -40,7 +40,7 @@ data Sig :=
 
 function empty(): Sig
 
-function restrict(sig: Sig, ms: List[Id]): Sig
+function restrict(sig: Sig, ms: List[Path]): Sig
 
 function union(a: Sig, b: Sig): Sig
 
@@ -104,16 +104,16 @@ implementation
 function empty(): Sig :=
   Sig(empty(), empty(), empty(), empty(), empty(), empty(), empty(), empty(), empty(), empty())
 
-function restrict(sig: Sig, ms: List[Id]): Sig :=
+function restrict(sig: Sig, ms: List[Path]): Sig :=
   Sig(owned_map(sig.type_aliases, ms), owned_map(sig.funs, ms), owned_map(sig.procs, ms), owned_map(sig.datas, ms), owned_map(sig.members, ms), owned_map(sig.constrs, ms), owned_map(sig.pat_aliases, ms), owned_map(sig.lemmas, ms), Map(for (k, v) in owned_named(List(for k => v in sig.named), ms)), owned_map(sig.fixed, ms))
 
-function owned_map[V](m: Map[Name, V], ms: List[Id]): Map[Name, V] :=
+function owned_map[V](m: Map[Name, V], ms: List[Path]): Map[Name, V] :=
   Map(for (k, v) in owned(List(for k => v in m), ms))
 
-function owned[V](es: List[(Name, V)], ms: List[Id]): List[(Name, V)] :=
+function owned[V](es: List[(Name, V)], ms: List[Path]): List[(Name, V)] :=
   List(for (n, v) in es if is_in_modules(n, ms))
 
-function owned_named(es: List[(Id, List[Name])], ms: List[Id]): List[(Id, List[Name])] :=
+function owned_named(es: List[(Id, List[Name])], ms: List[Path]): List[(Id, List[Name])] :=
   match es
     case List() =>
       List()
@@ -126,8 +126,8 @@ function owned_named(es: List[(Id, List[Name])], ms: List[Id]): List[(Id, List[N
         List((b, ks); owned_named(rest, ms))
   end
 
-function is_in_modules(n: Name, ms: List[Id]): Bool :=
-  match n.module
+function is_in_modules(n: Name, ms: List[Path]): Bool :=
+  match name_module(n)
     case Some(m) =>
       contains(m, ms)
     case None =>

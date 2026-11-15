@@ -1,7 +1,7 @@
 // the nodes of a declaration that handles name: the parts that start their lines in formatted text, statements, cases,
 // constructors, elements spread one per line, and the body of a function, by their spans
 
-import "ulang/syntax"
+import ulang.syntax
 
 export
 
