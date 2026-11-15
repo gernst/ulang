@@ -191,10 +191,10 @@ function catch_nodes(handler: At[Catch]): List[Node] :=
 
 function gen_nodes(gen: Gen): List[Node] :=
   match gen
-    case GVal(_, over) =>
+    case GVal(_, over, _) =>
       expr_nodes(over)
 
-    case GPair(_, _, over) =>
+    case GPair(_, _, over, _) =>
       expr_nodes(over)
 
     case GIf(cond) =>

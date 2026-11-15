@@ -1301,6 +1301,12 @@ void p_os_is_dir(u_value path, u_value *result) {
   *result = u_mk_bool(!memchr(name, 0, n) && !stat(name, &st) && S_ISDIR(st.st_mode));
 }
 
+// removes a file, a link, or an empty directory
+void p_os_remove(u_value path) {
+  const char *name = system_path(path, "cannot remove ");
+  if (remove(name)) os_error("cannot remove ", path);
+}
+
 void p_os_cwd(u_value *result) {
   char *dir = getcwd(NULL, 0);
   if (!dir) os_error("cannot tell the working directory", u_mk_lit(""));
