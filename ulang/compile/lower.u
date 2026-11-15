@@ -2,7 +2,6 @@
 // runtime share, the tables of the runtime, and analyses of checked programs
 
 import "ulang/syntax"
-import "ulang/format"
 import "ulang/check"
 
 export
@@ -118,8 +117,10 @@ function c_text(n: Name): Str :=
   match name_module(n)
     case Some(m) if is_library_module(m) =>
       library_file(m) ++ "." ++ n.base
+
     case Some(m) =>
       join("/", m) ++ "." ++ n.base
+
     case None =>
       n.base
   end
