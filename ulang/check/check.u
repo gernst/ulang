@@ -4208,14 +4208,6 @@ procedure untyped(in xs: List[At[Var]], inits: List[Name], ref s: State) :=
       untyped(in rest, inits, ref s)
   end
 
-function is_local(stmt: At[Stmt]): Bool :=
-  match stmt
-    case AOk(_, _, SLocal(_, _)) =>
-      true
-    case _ =>
-      false
-  end
-
 // the block of locals and stmts with SLocal statements, each of which declares its variables for the statements after it,
 // where those of a var are assignable there, and a local without a value and a type gets it from the statements right
 // after its declaration, by initialized
@@ -4238,8 +4230,8 @@ procedure local_block(
         let before := inner
         var typed_stmt: At[Stmt]
         statement(in names, stmt, out typed_stmt, ref inner, s)
-        match stmt.that
-          case SLocal(mutable, decls) if is_local(stmt) =>
+        match stmt
+          case AOk(_, _, SLocal(mutable, decls)) =>
             let declared := List(for (pat, init) in decls if init == None for x in declared_var(s, pat) yield x)
             untyped(in declared, initialized(after), ref s)
             if mutable then
