@@ -88,6 +88,29 @@ test fixes() :=
   os_read_utf8(in path, out text)
   assert text == "function is_pos(n: Int): Bool :=\n  n > 0 and n < 10\n\nfunction first(o: Option[Int]): Int :=\n  value_or(o, 0)\n\nprocedure classify(in n: Int, out text: Str) :=\n  let count := 1\n  let k := n + 1\n  if is_pos(n) then\n    var label: Str\n    label := \"pos\"\n    text := label ++ show(count) ++ show(first(Some(k)))\n  else\n    var label: Str\n    label := \"neg\"\n    text := label\n  end\n\nprocedure main() :=\n  var t: Str\n  classify(in 3, out t)\n  os_println(in t)\n"
 
+// a check that finds an error at each use of value_or, as if the module declared another
+procedure value_or_flagged(in file: Str, out found: List[(Str, Diagnostic)]) :=
+  var text := ""
+  try
+    os_read_utf8(in file, out text)
+  catch
+    case OsError(_) =>
+      text := ""
+  end
+  found := List(for (line, i) in numbered(split(text, '\n')) for col in index_of("value_or(", line) yield (file, Diagnostic(TypeKind, "Mismatch", None, Pos(i + 1, col + 1), "expected Int but found Bool", List())))
+
+// @fix refuses the edit after which the unit has an error that it did not have, naming it, and applies the others
+test refuses_breaking_fixes() :=
+  var reply: List[Str], status: Int, text: Str
+  let state := "out/test/refactor/refused", path := "out/test/refactor/refused/f.u"
+  os_write_utf8(in path, "function is_pos(n: Int): Bool :=\n  if n > 0 then true else false\n\nfunction first(o: Option[Int]): Int :=\n  match o\n    case Some(x) =>\n      x\n    case None =>\n      0\n  end\n\nprocedure main() :=\n  os_println(in show(is_pos(first(None))))\n")
+  run_script(in "@fix " ++ path, false, state, value_or_flagged, out reply, status, _)
+  os_read_utf8(in path, out text)
+  assert status == 0
+  assert text == "function is_pos(n: Int): Bool :=\n  n > 0\n\nfunction first(o: Option[Int]): Int :=\n  match o\n    case Some(x) =>\n      x\n    case None =>\n      0\n  end\n\nprocedure main() :=\n  os_println(in show(is_pos(first(None))))\n"
+  assert contains(path ++ ": fixed BoolIte at 2.3", reply)
+  assert contains(path ++ ": refused Folded at 5.3, which would cause " ++ path ++ ":5.3: Mismatch: expected Int but found Bool", reply)
+
 // @patch of a declaration patches its signature and its definition together, so that an example on the signature and
 // the body change in one script, an if without else gets no handle on its end, and @fix of nothing says so
 test patches_signatures() :=

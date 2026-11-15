@@ -392,7 +392,14 @@ procedure formatted(
 procedure note(in text: Str, ref edits: Edits) :=
   edits := edits with notes := edits.notes ++ List(text)
 
-procedure perform(in action: Action, ref edits: Edits) raises Refused, OsError :=
+// where check gives the diagnostics of a file on disk, which @fix compares before and after each edit, writing the files
+// of the script so far as a rename does, with the texts before the script kept in written
+procedure perform(
+  in  action: Action,
+      check: (in Str, out List[(Str, Diagnostic)]),
+  ref edits: Edits,
+      written: Map[Str, Str]
+) raises Refused, OsError :=
   match action.words
     case List("show"; address) if is_node_address(address) =>
       show_node(in address, ref edits)
@@ -441,7 +448,7 @@ procedure perform(in action: Action, ref edits: Edits) raises Refused, OsError :
       unexport_target(in word, ref edits)
 
     case List("fix", word; rules) =>
-      fix(in word, rules, ref edits)
+      fix(in word, rules, check, ref edits, written)
 
     case List("undo") =>
       undo(in None, ref edits)
@@ -1813,7 +1820,7 @@ procedure run_actions(
         flush(in edits, ref written)
       end
       try
-        perform(in action with words := normal_words(here, action.words), ref edits)
+        perform(in action with words := normal_words(here, action.words), check, ref edits, written)
         if is_rename(action) then
           commit_rename(in edits, ref written)
           edits := edits with expected := List()
@@ -2510,13 +2517,18 @@ data Splice :=
   case Splice(start: Int, stop: Int, text: Str, fixed: List[Str])
 
 // applies the edits of the warnings of the lints of the file of word, or of the declaration that word names, of the
-// rules if any, together, where those that overlap an edit taken before are skipped, for a second @fix to take
+// rules if any, together, where those that overlap an edit taken before are skipped, for a second @fix to take, and those
+// after which the unit of the file has an error that check did not find before are refused, each named with the first
+// such error: the edits are tried together, and if that adds an error, each in turn on top of those taken so far, where
+// the files of the script so far are written for check, as a rename writes them, with the texts before it kept in written
 procedure fix(
   in  word: Str,
       rules: List[Str],
-  ref edits: Edits
+      check: (in Str, out List[(Str, Diagnostic)]),
+  ref edits: Edits,
+      written: Map[Str, Str]
 ) raises Refused, OsError :=
-  var text: Str, source: Source, result: Str
+  var text: Str, source: Source, result: Str, before: List[(Str, Diagnostic)], added: List[(Str, Diagnostic)]
   let (path, name, arity) := target_of(word)
   current_text(in path, edits.files, out text)
   parsed(in path, text, no_fragment(), out source)
@@ -2527,12 +2539,41 @@ procedure fix(
   let starts := line_starts(lines)
   let splices := edit_splices(source, d, text, lines, starts, List(for (w, edit) in fixable yield (show(w.lint) ++ " at " ++ show(w.pos.line) ++ "." ++ show(w.pos.col), edit)))
   let taken := without_overlaps(sort(List(for sp in splices yield (sp.start, sp.stop, sp.text, sp.fixed))), -1)
-  let fixed := foldl(reverse(taken), text, lambda acc, (start, stop, new, _) => slice(acc, 0, start) ++ new ++ slice(acc, stop, size(acc)))
-  formatted(in path, fixed, no_fragment(), out result, _)
+  if taken == List() then
+    formatted(in path, text, no_fragment(), out result, _)
+    added := List(), before := List()
+  else
+    flush(in edits, ref written)
+    if get(path, written) == None then
+      written := Map(path => text; written)
+    end
+    os_write_utf8(in path, text)
+    check(in path, out before)
+    tried_splices(in path, text, taken, check, before, out result, added)
+  end
+  var accepted := taken, refused: List[(List[Str], (Str, Diagnostic))] := List()
+  if added != List() then
+    accepted := List()
+    formatted(in path, text, no_fragment(), out result, _)
+    for splice in taken do
+      var candidate: Str
+      tried_splices(in path, text, accepted ++ List(splice), check, before, out candidate, added)
+      match added
+        case List() =>
+          accepted := accepted ++ List(splice), result := candidate
+
+        case List(first; _) =>
+          let (_, _, _, fixed_labels) := splice
+          refused := refused ++ List((fixed_labels, first))
+      end
+    end
+    os_write_utf8(in path, result)
+  end
   edits := edits with files := Map(path => result; edits.files)
   let unfixable := size(selected) - size(fixable)
-  let labels := distinct(List(for (_, _, _, fixed_labels) in taken for label in fixed_labels yield label))
-  let skipped := distinct(List(for sp in splices for label in sp.fixed if not contains(label, labels) yield label))
+  let labels := distinct(List(for (_, _, _, fixed_labels) in accepted for label in fixed_labels yield label))
+  let refused_labels := List(for (fixed_labels, _) in refused for label in fixed_labels yield label)
+  let skipped := distinct(List(for sp in splices for label in sp.fixed if not contains(label, labels) and not contains(label, refused_labels) yield label))
   let overlapping := if skipped == List() then
     ""
   else
@@ -2543,6 +2584,63 @@ procedure fix(
     "")
   let fixed_text := if labels == List() then "nothing to fix" else "fixed " ++ join(", ", labels)
   note(in path ++ ": " ++ fixed_text ++ rest, ref edits)
+  for (fixed_labels, (file, error)) in refused do
+    note(in path ++ ": refused " ++ join(", ", fixed_labels) ++ ", which would cause " ++ diagnostic_text(file, error), ref edits)
+  end
+
+// writes text with the splices taken, formatted, into the file at path, and gives the text written and the errors that
+// check finds in it beyond before, where a text that does not parse is its own error
+procedure tried_splices(
+  in  path: Str,
+      text: Str,
+      taken: List[(Int, Int, Str, List[Str])],
+      check: (in Str, out List[(Str, Diagnostic)]),
+      before: List[(Str, Diagnostic)],
+  out result: Str,
+      added: List[(Str, Diagnostic)]
+) raises OsError :=
+  let fixed := foldl(reverse(taken), text, lambda acc, (start, stop, new, _) => slice(acc, 0, start) ++ new ++ slice(acc, stop, size(acc)))
+  try
+    var found: List[(Str, Diagnostic)]
+    formatted(in path, fixed, no_fragment(), out result, _)
+    os_write_utf8(in path, result)
+    check(in path, out found)
+    added := new_errors(before, found)
+  catch
+    case Refused(message) =>
+      result := text, added := List((path, diagnostic(ParseKind, message)))
+  end
+
+// the errors of after, not the warnings, that before has not, each of before matching one of after by is_same
+function new_errors(before: List[(Str, Diagnostic)], after: List[(Str, Diagnostic)]): List[(Str, Diagnostic)] :=
+  match after
+    case List() =>
+      List()
+
+    case List((file, d); rest) =>
+      if is_warning(d) then
+        new_errors(before, rest)
+      else
+        match without_same(before, file, d)
+          case Some(left) =>
+            new_errors(left, rest)
+          case None =>
+            List((file, d); new_errors(before, rest))
+        end
+  end
+
+// diagnostics without the first that is_same as d of file, if one is
+function without_same(diagnostics: List[(Str, Diagnostic)], file: Str, d: Diagnostic): Option[List[(Str, Diagnostic)]] :=
+  match diagnostics
+    case List() =>
+      None
+
+    case List((other, e); rest) =>
+      if is_same(file, d, other, e) then
+        Some(rest)
+      else
+        map_option(without_same(rest, file, d), lambda left => List((other, e); left))
+  end
 
 // the offsets of the starts of the lines, from 1, and of the end
 function line_starts(lines: Array[Str]): Array[Int] :=
