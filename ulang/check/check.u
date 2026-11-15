@@ -285,7 +285,7 @@ function visible_names(s: State, n: Name, declared: Name -> Bool): List[Name] :=
   let ds := List(for d in names_of(s.sig, n.base) if declared(d)) in
   match n
     case Name(List(_; _), _) =>
-      if contains(n, ds) then List(n) else List()
+      List(for d in ds if is_qualified_by(n.path, d) and (is_visible_sort(s, d) or is_unwritable(n.path)))
 
     case Name(List(), base) =>
       if contains(Name(s.module, base), ds) then
@@ -294,12 +294,25 @@ function visible_names(s: State, n: Name, declared: Name -> Bool): List[Name] :=
         List(for d in ds if is_visible_sort(s, d))
   end
 
+// whether d is a declaration of the module of the path, or of a member of the package of the path
+function is_qualified_by(path: Path, d: Name): Bool :=
+  d.path == path or module_dir(d.path) == path
+
+// whether users cannot write the path, of the modules that the checker and the tester make, such as (test).enumerate
+function is_unwritable(path: Path): Bool :=
+  match path
+    case List(first; _) =>
+      starts_with(first, "(")
+    case List() =>
+      false
+  end
+
 // the declarations named n of a kind in all modules that the module sees, its own included, whose types decide
 // among them
 function overloads(s: State, n: Name, declared: Name -> Bool): List[Name] :=
   match n
     case Name(List(_; _), _) =>
-      List(for d in names_of(s.sig, n.base) if declared(d) and d == n)
+      List(for d in names_of(s.sig, n.base) if declared(d) and is_qualified_by(n.path, d) and (is_visible(s, d) or is_unwritable(n.path)))
     case _ =>
       List(for d in names_of(s.sig, n.base) if declared(d) and is_visible(s, d))
   end
