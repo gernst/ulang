@@ -39,8 +39,7 @@ function double(x: Int): Int :=
 
 procedure swap(ref a: Int, b: Int) :=
   example swap(ref 1 => 2, 2 => 1)
-  let t := a
-  a := b, b := t
+  (a, b) := (b, a)
 
 // the body after the examples cannot start with -, which would continue the last example, whose expression goes as far as
 // it can, whatever the layout

@@ -22,8 +22,7 @@ procedure total(in xs: List[Int], out s: Int) :=
   end
 
 procedure swap[A](ref x: A, y: A) :=
-  let t := x
-  x := y, y := t
+  (x, y) := (y, x)
 
 procedure inc(ref x: Int) :=
   x := x + 1
