@@ -1408,7 +1408,8 @@ int u_run_tests(int argc, char **argv, const char *const *files, const struct u_
   }
   if (several) printf("%d of %d files passed\n", passed, s.size + nmissing);
   fflush(stdout);
-  return ok ? 0 : 1;
+  // the status of a test that fails, as of ulang.sh test
+  return ok ? 0 : 3;
 }
 
 void p_os_print(u_value text) {
