@@ -1291,7 +1291,7 @@ function handler_type(c: Catch): Option[Type] :=
 procedure shared_alternatives(
   in  defs: Defs,
       env: Slots,
-      alts: List[Option[Type] * At[Pat]],
+      alts: List[(Option[Type], At[Pat])],
       h: Int,
       s: Int,
       guard: Option[At[Expr]],

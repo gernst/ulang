@@ -1062,7 +1062,7 @@ procedure case_stmts(
   in  defs: Defs,
       env: Vars,
       flag: Str,
-      alts: List[List[CExpr] * At[Pat]],
+      alts: List[(List[CExpr], At[Pat])],
       v: CExpr,
       guard: Option[At[Expr]],
       body: List[CStmt],
