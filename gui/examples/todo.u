@@ -1,0 +1,67 @@
+import gui
+
+data Task :=
+  case Task(title: Str, done: Bool)
+
+data Filter :=
+  case All
+  case Open
+
+data Model :=
+  case Model(tasks: List[Task], draft: Str, filter: Filter)
+
+data Msg :=
+  case Typed(text: Str)
+  case Add
+  case Toggled(index: Int, on: Bool)
+  case Show(filter: Filter)
+  case ClearDone
+
+function update(msg: Msg, model: Model): Model :=
+  match msg
+    case Typed(text) =>
+      model with draft := text
+
+    case Add =>
+      if trim(model.draft) == "" then
+        model
+      else
+        model with tasks := model.tasks ++ List(Task(trim(model.draft), false)), draft := ""
+
+    case Toggled(index, on) =>
+      model with tasks := List(for (i, task) in zip(range(0, size(model.tasks)), model.tasks) yield if i == index then task with done := on else task)
+
+    case Show(filter) =>
+      model with filter := filter
+
+    case ClearDone =>
+      model with tasks := List(for task in model.tasks if not task.done)
+  end
+
+function view(model: Model): Widget[Msg] :=
+  column(List(spacing(6)), List(
+    row(List(spacing(4)), List(
+      text("New task"),
+      entry(List(value(model.draft), on_input(lambda s => Typed(s)), expand(true))),
+      button(List(on_click(Add), disabled(trim(model.draft) == "")), List(text("Add"))))),
+    column(List(spacing(2)), List(for (i, task) in zip(range(0, size(model.tasks)), model.tasks) if model.filter == All or not task.done yield check(List(checked(task.done), on_toggle(lambda on => Toggled(i, on))), List(text(task.title))))),
+    row(List(spacing(4)), List(
+      text(show(size(List(for task in model.tasks if not task.done))) ++ " open"),
+      button(List(on_click(Show(All)), disabled(model.filter == All)), List(text("All"))),
+      button(List(on_click(Show(Open)), disabled(model.filter == Open)), List(text("Open"))),
+      button(List(on_click(ClearDone)), List(text("Clear done")))))))
+
+function todo(): App[Model, Msg] :=
+  App("Tasks", Model(List(), "", All), update, view)
+
+procedure main() raises GuiError, OsError :=
+  gui_run(in todo())
+
+test adds_and_filters() :=
+  let typed := update(Typed("milk"), todo().init)
+  assert input("New task", "milk", view(todo().init)) == Some(Typed("milk"))
+  let added := simulate(todo(), List(Typed("milk"), Add, Typed(" bread "), Add, Toggled(0, true)))
+  assert added.tasks == List(Task("milk", true), Task("bread", false)) and added.draft == ""
+  assert typed.draft == "milk"
+  assert update(ClearDone, added).tasks == List(Task("bread", false))
+  assert misplaced(view(added)) == List()

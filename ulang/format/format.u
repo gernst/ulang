@@ -102,12 +102,12 @@ function format_module_expr(source: Source, name: Path, expr: At[Expr]): Str :=
     case Some(d) =>
       format_expr(with_notation(imported_notation(source.mods, seen_modules(d, source.packages)), commands_of(d.exported ++ d.builtins ++ d.implemented)), List(), "", expr)
     case None =>
-      format_expr(empty_notation(), List(), "", expr)
+      format_expr(builtin_notation(), List(), "", expr)
   end
 
-// the notation that the modules names of mods export, in order
+// the notation that the modules names of mods export, in order, after builtin_notation of ulang/syntax/notation.u
 function imported_notation(mods: List[Mod], names: List[Path]): Notation :=
-  with_notation(empty_notation(), imported_cmds(mods, names))
+  with_notation(builtin_notation(), imported_cmds(mods, names))
 
 function imported_cmds(mods: List[Mod], names: List[Path]): List[Cmd] :=
   List(for d in mods for c in commands_of(d.exported) if contains(d.name, names) yield c)

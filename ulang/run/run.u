@@ -17,6 +17,8 @@ data Val :=
   case VIO(io: IO)
   // a listener of the interpreter itself, which accepts the connections of the program
   case VListener(listener: Listener)
+  // a window of the interpreter itself, which the program patches
+  case VWindow(window: Window)
   case VObj(constr: Name, args: List[Val])
   case VArr(values: Array[Val])
   case VFunClos(env: Map[Name, Val], formals: List[Var], body: At[Expr])
@@ -112,6 +114,9 @@ function format_value(v: Val): Str :=
 
     case VListener(listener) =>
       show(listener)
+
+    case VWindow(window) =>
+      show(window)
 
     case VTuple(args) =>
       "(" ++ format_values(args) ++ ")"
@@ -267,7 +272,13 @@ procedure incomparable(in v: Val) :=
     case VProc(_) | VProcClos(_, _, _, _, _) =>
       raise CompareProcedures
 
-    case VLit(_) | VByte(_) | VIO(_) | VListener(_) | VObj(_, _) | VArr(_) =>
+    case VLit(_)
+       | VByte(_)
+       | VIO(_)
+       | VListener(_)
+       | VWindow(_)
+       | VObj(_, _)
+       | VArr(_) =>
       skip
 
     case VFunClos(_, _, _) | VFun(_, _) | VCon(_) | VPrim(_) =>
@@ -928,6 +939,9 @@ procedure compare_values(
       r := compare(x, y)
 
     case (VListener(x), VListener(y)) =>
+      r := compare(x, y)
+
+    case (VWindow(x), VWindow(y)) =>
       r := compare(x, y)
 
     case (VBool(x), VBool(y)) =>
@@ -1612,6 +1626,28 @@ procedure os_proc(in n: Name, ins: List[Val], out outs: List[Val]) :=
 
       case ("prelude.io.io_close_listener", List(VListener(listener))) =>
         io_close_listener(in listener)
+        outs := List()
+
+      case ("prelude.window.window_open", List(VStr(title), VInt(width), VInt(height))) =>
+        var window: Window
+        window_open(in title, width, height, out window)
+        outs := List(VWindow(window))
+
+      case ("prelude.window.window_apply", List(VWindow(window), VStr(patches))) =>
+        window_apply(in window, patches)
+        outs := List()
+
+      case ("prelude.window.window_next", List(VWindow(window))) =>
+        var event: Str
+        window_next(in window, out event)
+        outs := List(VStr(event))
+
+      case ("prelude.window.window_shot", List(VWindow(window), VStr(path))) =>
+        window_shot(in window, path)
+        outs := List()
+
+      case ("prelude.window.window_close", List(VWindow(window))) =>
+        window_close(in window)
         outs := List()
 
       case _ =>
