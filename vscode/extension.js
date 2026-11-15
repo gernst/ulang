@@ -56,7 +56,7 @@ function projectRoot(file) {
   }
 }
 
-// runs ulang.bin with args in the directory of file, or for test at the root of its project, where tests run, resolving
+// runs ulang.bin with args in the directory of file, or for tests at the root of its project, where tests run, resolving
 // to its exit code, output, and errors, with a stack as large as the system allows, since the interpreter recurses as
 // deeply as the programs it runs
 function ulang(args, file) {
@@ -68,14 +68,14 @@ function ulang(args, file) {
       return;
     }
     const script = 'ulimit -s unlimited 2>/dev/null; exec "$0" "$@"';
-    cp.execFile("sh", ["-c", script, bin, ...args], { cwd: args[0] === "test" ? projectRoot(file) : path.dirname(file) }, (error, stdout, stderr) => {
+    cp.execFile("sh", ["-c", script, bin, ...args], { cwd: args.includes("--test") ? projectRoot(file) : path.dirname(file) }, (error, stdout, stderr) => {
       resolve({ code: error ? error.code || 1 : 0, stdout, stderr });
     });
   });
 }
 
 // the procedures without parameters, the tests, and the lemmas of a document with their names, which ulang run, ulang
-// test, and ulang prove select
+// check --test, and ulang check --prove select
 function blocks(document) {
   const result = [];
   for (let line = 0; line < document.lineCount; line++) {
@@ -173,11 +173,13 @@ function activate(context) {
     for (const line of (stderr + "\n" + (stdout || "")).split("\n")) {
       const d = parseDiagnostic(line);
       if (!d) continue;
-      const message = d.kind + " error: " + d.message;
+      const warning = d.severity === "warning";
+      const message = d.kind + (warning ? " warning: " : " error: ") + d.message;
       const module = d.module;
       const row = d.line, column = d.column;
-      // an error of a proof is a warning, at its step, else at its lemma or at the function whose termination is open
-      const proof = d.kind === "proof";
+      // an error of a proof is a warning, at its step, else at its lemma or at the function whose termination is open, as
+      // is a diagnostic of the severity warning
+      const proof = d.kind === "proof" || warning;
       const named = d.lemma ? "lemma" : d.function ? "function" : undefined;
       const declared = named ? lines.findIndex((l) => new RegExp("^" + named + "\\s+" + (d.lemma || d.function) + "\\b").test(l)) : -1;
       const at = row ? new vscode.Position(row - 1, column - 1) : new vscode.Position(Math.max(declared, 0), 0);
@@ -204,11 +206,14 @@ function activate(context) {
     diagnostics.set(vscode.Uri.file(file), found);
   }
 
-  // ulang command file names..., e.g. ulang run file name, ulang test file name, ulang prove file name, or ulang check file
+  // the words of ulang for the kind of a block or check, ulang run file:name, ulang check --test file:name, ulang check
+  // --prove file:name, or ulang check file
+  const commandWords = { run: ["run"], test: ["check", "--test"], prove: ["check", "--prove"], check: ["check"] };
+
   async function execute(document, command, names, show) {
     if (document.isDirty) await document.save();
     const file = document.uri.fsPath;
-    const result = await ulang([command, ...(names.length ? names.map((name) => file + ":" + name) : [file])], file);
+    const result = await ulang([...commandWords[command], ...(names.length ? names.map((name) => file + ":" + name) : [file])], file);
     if (!result) return;
     diagnose(file, result.stderr, result.stdout);
     if (show) {
@@ -232,10 +237,10 @@ function activate(context) {
     run.end();
   }
 
-  // runs the tests of file with ulang test, reporting the results of tests to run
+  // runs the tests of file and proves its lemmas with ulang check --test --prove, reporting the results of tests to run
   async function test(file, tests, run) {
     tests.forEach((t) => run.started(t));
-    const result = await ulang(["test", file.uri.fsPath], file.uri.fsPath);
+    const result = await ulang(["check", "--test", "--prove", file.uri.fsPath], file.uri.fsPath);
     if (!result) return;
     diagnose(file.uri.fsPath, result.stderr, result.stdout);
     const outcomes = new Map();

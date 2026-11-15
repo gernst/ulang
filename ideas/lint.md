@@ -1,6 +1,6 @@
 # Lint on the e-graph of the prover
 
-A plan: the rules of `ulang.sh lint` that need the e-graph of the prover, `ulang/prove/egraph.u` (`ideas/prove.md`, section 5), so that each rewrite is an equality that the prover establishes. The walks of the syntax are done in `ulang/lint/lint.u`, described in `CLAUDE.md`, and those still open, with the suppression of warnings, are Diagnostics 5; edits are applied by `refactor fix`, Diagnostics 4 and `ideas/refactor.md`, never by lint. When this work is done, what holds goes into `CLAUDE.md`, what stays open into the items of `ideas/`, and this file is deleted. Its background is the sketch `ideas/properties.md`: structural quality as the cost of verifying a unit and a change to it.
+A plan: the rules of `ulang.sh check --lint` that need the e-graph of the prover, `ulang/prove/egraph.u` (`ideas/prove.md`, section 5), so that each rewrite is an equality that the prover establishes. The walks of the syntax are done in `ulang/lint/lint.u`, described in `CLAUDE.md`, and those still open, with the suppression of warnings, are Diagnostics 5; edits are applied by `refactor fix`, Diagnostics 4 and `ideas/refactor.md`, never by lint. When this work is done, what holds goes into `CLAUDE.md`, what stays open into the items of `ideas/`, and this file is deleted. Its background is the sketch `ideas/properties.md`: structural quality as the cost of verifying a unit and a change to it.
 
 ## 1. Why an e-graph
 
@@ -84,7 +84,7 @@ Rules that wait for other items, kept here until those take them:
 6. **Back to checked expressions:** `expr_of(Term)`, and extraction by the cost of evaluation for the optimizations of Compiler 3.
 7. **After their items:** F3, H1, N2, T4, T5, L1, G1, G2.
 
-When done, the items change: Diagnostics 5 keeps only what is open; item 2 gains G1 and G2; Testing 1 names N2 and H1; Compiler 3 takes the extraction by the cost of evaluation; Code 1 and Code 5 are checked by rules rather than listed by hand; `CLAUDE.md` says which rules of Style `lint` checks, and that the lemmas of the library are also what lint suggests.
+When done, the items change: Diagnostics 5 keeps only what is open; item 2 gains G1 and G2; Testing 1 names N2 and H1; Compiler 3 takes the extraction by the cost of evaluation; Code 1 and Code 5 are checked by rules rather than listed by hand; `CLAUDE.md` says which rules of Style `check --lint` checks, and that the lemmas of the library are also what lint suggests.
 
 ## 8. Open questions
 
@@ -92,4 +92,4 @@ When done, the items change: Diagnostics 5 keeps only what is open; item 2 gains
 2. **Which definitions are used in reverse:** the library's first; should a project's own exported functions fold in the modules that import them?
 3. **Where the table of source parts lives:** in lint, over the class ids, or as an analysis per class in the e-graph.
 4. **The cost of saturation per body**, unmeasured: measure on `ulang/ulang.u` against `check`, and set the budget from that.
-5. **Should the default set of `lint` run in `make test`** once the repository is clean, and **should `UnusedPrivate` be an error**, as unused imports will be?
+5. **Should the default set of `check --lint` run in `make test`** once the repository is clean, and **should `UnusedPrivate` be an error**, as unused imports will be?

@@ -102,7 +102,7 @@ bootstrap: bootstrap/ulang.bin
 # testc, testasm, testelf, and testdocs compile tests or checks of their own
 .PHONY: test
 test: out/ulang.bin out/ulang.sh
-	out/ulang.sh test
+	out/ulang.sh check --test --prove
 
 # the tests of the project compiled into one binary by compile --tests, whose main runs those that its arguments select, as
 # test does, at the root, by a copy of the script; at -O1, which cc compiles in half the time of -O2; its C depends on every

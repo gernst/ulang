@@ -64,8 +64,8 @@ test sorting() :=
 - Modules and packages: every `.u` file is a module, and the modules of a directory are a package, whose members see each other's exports without imports, also cyclically, while their private declarations stay private to their file. `import "p"` makes the exports of the package of the directory `p` available, by its path from the root of the project, the nearest directory above with `project.u`, but not transitively; packages do not import each other cyclically. A file without sections exports nothing, and its procedures without parameters can be run, and every module sees the whole library without imports.
 - Named tests `test name() := …`, whose parameters are reserved for later and must be empty, while programs start at a procedure without parameters, like `procedure main() := …`.
 - Examples of functions and procedures, lines after the `:=` of the signature and the contract of a procedure, before the body, such as `example gcd(12, 18) == 6`, `example chr(-1) raises NoCharacter(-1)`, or `example divmod(in 7, 2, out 3, 1)`, which run as tests `gcd.example.1`, … in both backends.
-- Lemmas `lemma l(in x: A, …) := requires a ensures b`, which `ulang.sh prove` proves and `ulang.sh test` first tests, as `l.lemma`, on all the values of the formals up to a small depth, with `Int` for type parameters, reporting a counterexample.
-- Contracts of procedures, `requires a, …` and `ensures b` after the `:=`, and lemmas that claim them, `lemma sum_correct(in n: Int, out s: Int) := correct sum(in n, out s)`, with an `invariant e` per loop of the body as the proof, which `ulang.sh prove` proves for the runs that end, assuming the contracts of the procedures called.
+- Lemmas `lemma l(in x: A, …) := requires a ensures b`, which `ulang.sh check --prove` proves and `ulang.sh check --test` first tests, as `l.lemma`, on all the values of the formals up to a small depth, with `Int` for type parameters, reporting a counterexample.
+- Contracts of procedures, `requires a, …` and `ensures b` after the `:=`, and lemmas that claim them, `lemma sum_correct(in n: Int, out s: Int) := correct sum(in n, out s)`, with an `invariant e` per loop of the body as the proof, which `ulang.sh check --prove` proves for the runs that end, assuming the contracts of the procedures called.
 
 The library in `ulang/prelude/` contains the prelude with natural numbers, options, and lists, as well as maps, sets, and access to files.
 
@@ -78,16 +78,17 @@ make                                      # builds out/ulang.bin and out/ulang.s
                                           # and copies both to the root, so ./ulang.sh works as out/ulang.sh does
 out/ulang.sh run file.u -- args           # checks a program and calls its procedure main
 out/ulang.sh run file.u:go                # calls its procedure go instead
-out/ulang.sh test file.u                  # runs its tests one by one
-out/ulang.sh test file.u:name             # runs one of them
-out/ulang.sh test dir                     # runs the files below dir, which must pass
-out/ulang.sh test                         # runs the whole project, the root above with project.u, but
+out/ulang.sh check file.u                 # checks it: errors of parsing, of types, and of format
+out/ulang.sh check --test file.u          # also runs its tests one by one
+out/ulang.sh check --test file.u:name     # runs one of them
+out/ulang.sh check --prove file.u         # also proves its lemmas, which --test --prove does after the tests
+out/ulang.sh check --lint file.u          # also prints the lints, as warnings, with simpler expressions to write
+out/ulang.sh check --test dir             # the files below dir, which must pass
+out/ulang.sh check --test --prove         # the whole project, the root above with project.u, but
                                           # ulang/test/errors/, which project.u declares to run only compiled
 out/ulang.sh compile --tests -o suite.c   # compiles the tests of the whole project, whose binary runs at the root
-                                          # with the arguments of test; --tests dir those below dir, not a file
-out/ulang.sh check file.u                 # only checks it
-out/ulang.sh lint file.u                  # checks it and prints the lints, as warnings, with simpler expressions to write
-out/ulang.sh format file.u                # rewrites it in the layout that check, lint, and test require
+                                          # with the arguments of check --test; --tests dir those below dir, not a file
+out/ulang.sh format file.u                # rewrites it in the layout that check requires
 out/ulang.sh hints file.u                 # checks it and prints the resolved names and types of its parts and the inferred
                                           # raises, as JSON lines of hover and inlay hints, which the VS Code extension shows
 out/ulang.sh compile file.u -o file.c     # compiles a program to C, whose main calls the procedure main
