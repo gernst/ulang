@@ -2186,11 +2186,15 @@ procedure infer_node(
       fresh_raises(out r, ref s)
       res := EProc(retyped(ins, xs), retyped(outs, ys), retyped(refs, zs), r, y), typ := TProc(List(for x in xs yield x.typ), List(for x in ys yield x.typ), List(for x in zs yield x.typ), r)
 
-    // the bindings of a let are sequential, each in scope of those before it, so the checked program has one binding
-    // per let, a let of the rest for the body of the first, at the pattern of its first binding
+    // the bindings of a let are sequential, each in scope of those before it, so they are checked as a let of the rest
+    // for the body of the first, at the pattern of its first binding, of which the checked program keeps the bindings in
+    // one let
     case ELet(List(binding, (pat, bound); more), body) =>
-      let inner := AOk(pat.pos, Span(pat.span.start, span.stop), ELet(List((pat, bound); more), body))
-      infer_node(in env, pos, span, ELet(List(binding), inner), expected, out res, typ, ref s)
+      let inner := AOk(pat.pos, Span(pat.span.start, span.stop), ELet(List((pat, bound); more), body)), before := size(s.errors), taken := s.taken
+      var nested: Expr
+      infer_node(in env, pos, span, ELet(List(binding), inner), expected, out nested, typ, ref s)
+      res := let_parts(nested)
+      untaken(in before, taken, errors_in_expr(AOk(pos, span, res)), ref s)
 
     // lets do not generalize, only declarations have type parameters
     case ELet(bound, body) =>
@@ -6854,3 +6858,12 @@ function ungenerated_pat(pat: At[Pat]): At[Pat] :=
     case PVar(_) | PWild | PLit(_) =>
       p
   end)
+
+// the checked let of one binding whose body is the checked let of the bindings after it, as one let of them all
+function let_parts(e: Expr): Expr :=
+  match e
+    case ELet(List(binding), AOk(_, _, ELet(more, body)) | AErr(_, _, ELet(more, body), _)) =>
+      ELet(List(binding; more), body)
+    case _ =>
+      e
+  end

@@ -238,7 +238,7 @@ function expanded_node(aliases: Aliases, pos: Pos, span: Span, expr: Expr): Expr
       EProc(ins, outs, refs, raised, expanded_stmt(aliases, stmt))
 
     case ELet(bindings, body) =>
-      ELet(List(for (p, e) in bindings yield (dealiased(aliases, p), expanded_expr(aliases, e))), expanded_expr(aliases, body))
+      let_expansion(span, List(for (p, e) in bindings yield (dealiased(aliases, p), expanded_expr(aliases, e))), expanded_expr(aliases, body))
 
     case EIte(cond, then_expr, else_expr) =>
       EIte(expanded_expr(aliases, cond), expanded_expr(aliases, then_expr), expanded_expr(aliases, else_expr))
@@ -758,3 +758,14 @@ function generated_pattern(pat: At[Pat]): At[Pat] :=
     case PWild | PLit(_) =>
       p
   end)
+
+// the bindings of a let are sequential, each in scope of those before it, so a let of several is a let of the first
+// whose body is a let of the rest, at the pattern of its first binding, to the end of span, while a tuple binds in
+// parallel
+function let_expansion(span: Span, bindings: List[(At[Pat], At[Expr])], body: At[Expr]): Expr :=
+  match bindings
+    case List(binding, (pat, bound); more) =>
+      ELet(List(binding), AOk(pat.pos, Span(pat.span.start, span.stop), let_expansion(span, List((pat, bound); more), body)))
+    case _ =>
+      ELet(bindings, body)
+  end
