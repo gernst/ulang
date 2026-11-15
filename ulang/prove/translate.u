@@ -57,6 +57,9 @@ data Translation :=
 // the symbols of the checked program q and the lemmas of its module m in their order
 function translate(q: Prog, m: Id): Translation
 
+// the terms of the statement of the lemma and of its proof
+function lemma_terms(l: Lemma): List[Term]
+
 // the name of the contract of raise, which ends a run that the claim of a procedure no longer covers
 function raise_name(): Name
 
@@ -73,7 +76,301 @@ function translate(q: Prog, m: Id): Translation :=
   let procs := Map(for cmd in cmds for (k, p) in proc_of(cmd) yield k => p) in
   let contracts := Map(for cmd in cmds for (k, c) in contract_of(cmd) yield k => c) in
   let known := Set(for k => _ in contracts yield k) in
-  Translation(with_defs(decls, defined, ranks), List(for cmd in cmds for l in lemma_of(m, procs, known, cmd) yield l), List(raise_contract(); List(for _ => c in contracts yield c)))
+  let lemmas := List(for cmd in cmds for l in lemma_of(m, procs, known, cmd) yield l) in
+  let claims := List(raise_contract(); List(for _ => c in contracts yield c)) in
+  let sorts := reflexive_sorts(decls) in
+  let (indirect, appliers) := if sorts == empty() then
+    (empty(), empty())
+  else
+    indirect_calls(sorts, cmds, defined, lemmas ++ claims) in
+  Translation(with_defs(decls with indirect := indirect, defined, ranks, appliers), lemmas, claims)
+
+// the datatypes from which a function can reach itself without naming itself, the reflexive ones and those that reach
+// them: a datatype is reflexive if a function type in the fields of a datatype that it reaches, or of its own, names one
+// that reaches it, or a type parameter, if a datatype that reaches it reaches itself and may close the loop by an
+// argument, as h(b: Box, n: Int) := b.f(b, n) + 1 of a Box(f: (Box, Int) -> Int) reaches itself at h(Box(h), n), and
+// the equation of h would give h(Box(h), n) == h(Box(h), n) + 1; only values of a type that names such a datatype can
+// hold such a function, which only applications of a function value of such a type, or of a type parameter, may call
+function reflexive_sorts(decls: Decls): Set[Name] :=
+  let edges := Map(for t => _ in decls.datatypes yield t => Set(for typ in field_types(decls, t) for n in sorts_in(typ) yield n)) in
+  let reversed := Map(for t => _ in decls.datatypes yield t => Set(for u => ns in edges if contains(t, ns) yield u)) in
+  let reflexive := List(for d => _ in decls.datatypes if exists(field_types(decls, d), lambda typ => exists(fun_types(typ), lambda f => closes(edges, reversed, d, f))) yield d) in
+  reach(reversed, reflexive, Set(for d in reflexive))
+
+// the functions that an application of a function value may call, those passed whose signatures name the sorts and
+// those that the lambdas of formals of such types call, and the functions that apply such values
+function indirect_calls(sorts: Set[Name], cmds: List[Cmd], defined: List[((Name, Int), (List[Var], Term))], lemmas: List[Lemma]): (Set[(Name, Int)], Set[(Name, Int)]) :=
+  let terms := List(for (_, (_, body)) in defined yield body) ++ List(for l in lemmas for t in lemma_terms(l) yield t) in
+  let named := foldl(cmds, empty(), lambda acc, cmd => match signature(cmd)
+    case Some((n, types)) =>
+      if exists(types, lambda typ => names_sorts(sorts, typ)) then
+        insert(n, acc)
+      else
+        acc
+
+    case None =>
+      acc
+  end) in
+  let passed := Set(for t in terms for (n, k) in passed_symbols(t) if contains(n, named) yield (n, k)) in
+  let called := Set(for t in terms for lam in lambdas_in(t) if is_reflexive_lambda(sorts, lam) for k in symbols_in(lam) yield k) in
+  (Set(for k in callees(arities_of(defined), passed ++ called)), Set(for cmd in cmds for k in applier(sorts, cmd) yield k))
+
+// whether the function type f in the fields of d leads back to d, by a datatype that it names or by a parameter
+function closes(edges: Map[Name, Set[Name]], reversed: Map[Name, Set[Name]], d: Name, f: Type): Bool :=
+  exists(sorts_in(f), lambda e => e == d or contains(d, reach(edges, List(e), empty()))) or has_params(f) and exists(insert(d, reach(reversed, List(d), empty())), lambda t => contains(t, reach(edges, List(t), empty())))
+
+// whether a value of type typ may be or hold a function that a value of a reflexive datatype holds, where a function
+// value of a type parameter may be one that a caller passes
+function mentions(sorts: Set[Name], typ: Type): Bool :=
+  names_sorts(sorts, typ) or has_params(typ)
+
+// whether typ names one of the sorts, as a function that a value of a reflexive datatype holds does in its signature,
+// since a generic one cannot take such a function out of a value whose type it does not know
+function names_sorts(sorts: Set[Name], typ: Type): Bool :=
+  exists(sorts_in(typ), lambda n => contains(n, sorts))
+
+// the types of the formals and of the result of a function
+function signature(cmd: Cmd): Option[(Name, List[Type])] :=
+  match cmd
+    case CFun(name, _, formals, typ, _, _) =>
+      Some((name, List(typ; List(for x in vars(formals) yield x.typ))))
+    case _ =>
+      None
+  end
+
+// a function that applies a function value whose type mentions the sorts, or is not known, by which it may call a
+// function that a value of a reflexive datatype holds
+function applier(sorts: Set[Name], cmd: Cmd): Option[(Name, Int)] :=
+  match cmd
+    case CFun(name, _, formals, _, _, body) if applies_reflexive(sorts, body) =>
+      Some((name, size(formals)))
+    case _ =>
+      None
+  end
+
+// whether expr applies a function value whose type mentions the sorts or is not known, where a name without a module is
+// a local, as also the builtins are, which are taken as values
+function applies_reflexive(sorts: Set[Name], expr: At[Expr]): Bool :=
+  match expr.that
+    case EApp(fun, args) =>
+      let applied := match fun.that
+        case EVar(Var(name, typ)) =>
+          name.module == None and mentions(sorts, typ)
+
+        case ELam(_, _) =>
+          false
+
+        case _ =>
+          match head_type(fun)
+            case Some(typ) =>
+              mentions(sorts, typ)
+            case None =>
+              true
+          end
+      end in
+      applied or applies_reflexive(sorts, fun) or exists(args, lambda a => applies_reflexive(sorts, a))
+
+    case ELam(_, body) =>
+      applies_reflexive(sorts, body)
+
+    case ELet(bindings, body) =>
+      exists(bindings, lambda (_, value) => applies_reflexive(sorts, value)) or applies_reflexive(sorts, body)
+
+    case EIte(cond, then_expr, else_expr) =>
+      applies_reflexive(sorts, cond) or applies_reflexive(sorts, then_expr) or applies_reflexive(sorts, else_expr)
+
+    case EMatch(arg, cases) =>
+      applies_reflexive(sorts, arg) or exists(cases, lambda c => exists(c.that.guard, lambda g => applies_reflexive(sorts, g)) or applies_reflexive(sorts, c.that.body))
+
+    case ETuple(args) =>
+      exists(args, lambda a => applies_reflexive(sorts, a))
+
+    case ELit(_) | EVar(_) | EProc(_, _, _, _, _) =>
+      false
+
+    // the checker translates accesses, updates, and forms, so checked programs have none
+    case EField(_, _) | EUpdate(_, _, _) | EForm(_, _, _) | EFor(_, _, _, _) =>
+      false
+  end
+
+// the type of a function value, as far as the types of the names in it tell it
+function head_type(expr: At[Expr]): Option[Type] :=
+  match expr.that
+    case EVar(Var(_, typ)) =>
+      Some(typ)
+
+    case EApp(fun, _) =>
+      match head_type(fun)
+        case Some(TFun(_, res)) =>
+          Some(res)
+        case _ =>
+          None
+      end
+
+    case _ =>
+      None
+  end
+
+// whether a lambda takes a value whose type mentions the sorts, so that it may hold the function of a reflexive
+// datatype, and the lambda calls what that value calls
+function is_reflexive_lambda(sorts: Set[Name], lam: Term): Bool :=
+  match lam
+    case ELam(formals, _) =>
+      exists(formals, lambda x => names_sorts(sorts, x.typ))
+    case _ =>
+      false
+  end
+
+// the lambdas in e, also nested
+function lambdas_in(e: Term): List[Term] :=
+  match e
+    case ELam(_, body) =>
+      List(e; lambdas_in(body))
+
+    case EApp(fun, args) =>
+      List(for a in List(fun; args) for lam in lambdas_in(a) yield lam)
+
+    case EIte(cond, then_expr, else_expr) =>
+      List(for a in List(cond, then_expr, else_expr) for lam in lambdas_in(a) yield lam)
+
+    case EMatch(arg, cases) =>
+      lambdas_in(arg) ++ List(for br in cases for a in List(br.body; List(for g in br.guard yield g)) for lam in lambdas_in(a) yield lam)
+
+    case ESum(_, summands) =>
+      List(for summand in summands for lam in lambdas_in(summand.term) yield lam)
+
+    case EBound(_) | ELevel(_) | ELit(_) | EFun(_) =>
+      List()
+  end
+
+// the symbols that e passes as values: those passed without their arguments and those that its lambdas name
+function passed_symbols(e: Term): Set[(Name, Int)] :=
+  match e
+    case EFun(name) =>
+      Set((name, -1))
+
+    case EApp(EFun(_), args) =>
+      Set(for a in args for n in passed_symbols(a) yield n)
+
+    case EApp(fun, args) =>
+      passed_symbols(fun) ++ Set(for a in args for n in passed_symbols(a) yield n)
+
+    case ELam(_, body) =>
+      symbols_in(body)
+
+    case EIte(cond, then_expr, else_expr) =>
+      passed_symbols(cond) ++ passed_symbols(then_expr) ++ passed_symbols(else_expr)
+
+    case EMatch(arg, cases) =>
+      passed_symbols(arg) ++ Set(for br in cases for t in List(br.body; List(for g in br.guard yield g)) for n in passed_symbols(t) yield n)
+
+    case ESum(_, summands) =>
+      Set(for summand in summands for n in passed_symbols(summand.term) yield n)
+
+    case EBound(_) | ELevel(_) | ELit(_) =>
+      empty()
+  end
+
+function field_types(decls: Decls, t: Name): List[Type] :=
+  List(for c in value_or(get(t, decls.datatypes), List()) for k in get(c, decls.constrs) for field in k.fields yield field.typ)
+
+// the datatypes that those of todo reach by the edges, without themselves unless a path returns to them
+function reach(edges: Map[Name, Set[Name]], todo: List[Name], seen: Set[Name]): Set[Name] :=
+  match todo
+    case List() =>
+      seen
+
+    case List(t; rest) =>
+      let next := List(for u in value_or(get(t, edges), empty()) if not contains(u, seen) yield u) in
+      reach(edges, rest ++ next, seen ++ Set(for u in next))
+  end
+
+// the outermost function types in typ, where procedure types are left out, since functions cannot call their values
+function fun_types(typ: Type): List[Type] :=
+  match typ
+    case TSort(_, args) =>
+      List(for a in args for f in fun_types(a) yield f)
+
+    case TFun(_, _) =>
+      List(typ)
+
+    case TTuple(types) =>
+      List(for a in types for f in fun_types(a) yield f)
+
+    case THole | TMeta(_) | TParam(_) | TError | TProc(_, _, _, _) =>
+      List()
+  end
+
+function has_params(typ: Type): Bool :=
+  match typ
+    case TParam(_) =>
+      true
+
+    case TSort(_, args) =>
+      exists(args, has_params)
+
+    case TFun(args, res) =>
+      has_params(res) or exists(args, has_params)
+
+    case TTuple(types) =>
+      exists(types, has_params)
+
+    case THole | TMeta(_) | TError | TProc(_, _, _, _) =>
+      false
+  end
+
+function lemma_terms(l: Lemma): List[Term] :=
+  seq_terms(l.goal) ++ List(for p in l.proof for t in proof_terms(p) yield t)
+
+function proof_terms(p: ProofTerm): List[Term] :=
+  List(for step in p.steps for t in step_terms(step) yield t) ++ List(for split in p.split for t in split_terms(split) yield t)
+
+function step_terms(step: StepTerm): List[Term] :=
+  match step
+    case DefineTerm(_, value, _) =>
+      List(value)
+
+    case WitnessTerm(_, _) =>
+      List()
+
+    case CallTerm(_, args, _, _) =>
+      args
+
+    case AssignTerm(_, value, _) =>
+      List(value)
+
+    case AssertTerm(cond, _) =>
+      List(cond)
+
+    case UnsupportedTerm(_, _) =>
+      List()
+  end
+
+function split_terms(split: SplitTerm): List[Term] :=
+  match split
+    case InductionTerm(_, cases, _) =>
+      cases_terms(cases)
+
+    case MatchTerm(arg, cases, _) =>
+      List(arg; cases_terms(cases))
+
+    case IfTerm(cond, left, right, _) =>
+      List(cond; proof_terms(left)) ++ List(for p in right for t in proof_terms(p) yield t)
+
+    case InvariantTerm(_, _, inv, cond, body, after, _) =>
+      List(inv, cond; proof_terms(body) ++ proof_terms(after))
+  end
+
+function cases_terms(cases: List[CaseTerm]): List[Term] :=
+  List(for c in cases for t in List(for g in c.guard yield g) ++ proof_terms(c.proof) yield t)
+
+function seq_terms(s: Seq): List[Term] :=
+  match s
+    case Atom(term) =>
+      List(term)
+    case Seq(_, assms, concls) =>
+      List(for a in assms for t in seq_terms(a) yield t) ++ List(for c in concls for b in c.body for t in seq_terms(b) yield t)
+  end
 
 function fun_name(cmd: Cmd): Option[Name] :=
   match cmd
@@ -114,10 +411,11 @@ function datas_decls(datas: List[(Int, (Name, List[Constr]))]): Decls :=
   end
 
 // the definitions, each recursive if it reaches itself by the symbols in the bodies, also through other functions, where
-// a name passed without its arguments reaches the definitions of all its arities
-function with_defs(decls: Decls, defined: List[((Name, Int), (List[Var], Term))], ranks: Map[Name, Int]): Decls :=
-  let calls := Map(for ((n, k), (_, body)) in defined yield (n, k) => symbols_in(body)) in
-  let arities := Map(for ((n, _), _) in defined yield n => List(for ((m, k), _) in defined if m == n yield k)) in
+// a name passed without its arguments reaches the definitions of all its arities, and the appliers, which apply function
+// values that may be those of reflexive datatypes, reach all that such values may call, decls.indirect
+function with_defs(decls: Decls, defined: List[((Name, Int), (List[Var], Term))], ranks: Map[Name, Int], appliers: Set[(Name, Int)]): Decls :=
+  let calls := Map(for ((n, k), (_, body)) in defined yield (n, k) => symbols_in(body) ++ (if contains((n, k), appliers) then decls.indirect else empty())) in
+  let arities := arities_of(defined) in
   let reached := Map(for ((n, k), _) in defined yield (n, k) => reachable(calls, arities, callees(arities, value_or(get((n, k), calls), empty())), empty())) in
   let defs := Map(for ((n, k), (formals, body)) in defined yield (n, k) => definition_of((n, k), formals, body, decls, value_or(get((n, k), reached), empty()))) in
   decls with defs := defs, ranks := decls.ranks ++ ranks
@@ -125,7 +423,11 @@ function with_defs(decls: Decls, defined: List[((Name, Int), (List[Var], Term))]
 function definition_of(key: (Name, Int), formals: List[Var], body: Term, decls: Decls, reaches: Set[(Name, Int)]): Def :=
   Def(contains(key, reaches), formals, body, def_equations(decls, formals, body), reaches)
 
+function arities_of(defined: List[((Name, Int), (List[Var], Term))]): Map[Name, List[Int]] :=
+  Map(for ((n, _), _) in defined yield n => List(for ((m, k), _) in defined if m == n yield k))
+
 // the definitions that the symbols name, by the arities of the defined names
+
 function callees(arities: Map[Name, List[Int]], symbols: Set[(Name, Int)]): List[(Name, Int)] :=
   List(for (n, k) in symbols for j in value_or(get(n, arities), List()) if k == j or k == -1 yield (n, j))
 
