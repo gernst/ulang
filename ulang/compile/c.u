@@ -148,25 +148,18 @@ function digits(n: Int, b: Int, k: Int): Str :=
 
 function format_operand(expr: CExpr): Str :=
   match expr
-    case CeVar(_) =>
+    case CeVar(_) | CeStr(_) | CeCall(_, _) | CeIndex(_, _) | CeArrow(_, _) =>
       format_expr(expr)
 
     case CeNum(num) if num >= 0 =>
       format_expr(expr)
 
-    case CeStr(_) =>
-      format_expr(expr)
-
-    case CeCall(_, _) =>
-      format_expr(expr)
-
-    case CeIndex(_, _) =>
-      format_expr(expr)
-
-    case CeArrow(_, _) =>
-      format_expr(expr)
-
-    case _ =>
+    case CeNum(_)
+       | CeUnary(_, _)
+       | CeBinary(_, _, _)
+       | CeCast(_, _)
+       | CeCond(_, _, _)
+       | CeInit(_) =>
       "(" ++ format_expr(expr) ++ ")"
   end
 

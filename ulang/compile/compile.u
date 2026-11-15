@@ -229,6 +229,18 @@ function conjunction(cs: List[CExpr]): CExpr :=
       CeBinary("&&", d, conjunction(rest))
   end
 
+function disjunction(cs: List[CExpr]): CExpr :=
+  match cs
+    case List() =>
+      CeNum(0)
+
+    case List(d) =>
+      d
+
+    case List(d; rest) =>
+      CeBinary("||", d, disjunction(rest))
+  end
+
 function int_value(num: Int): CExpr :=
   if is_small(num) then
     c_call("u_mk_int", List(CeNum(num)))
@@ -1063,9 +1075,10 @@ function handler_tests(c: Catch, h: Str, v: CExpr): List[CExpr] :=
   end
 
 // a case of the alternatives alts, each with its tests that v matches its pattern, while flag is unset, where the body
-// runs once: a case of one alternative tests, binds, and runs the guard and the body, as it always has, and one of
-// several declares the variables of the case, which each alternative that applies assigns, and sets m if the guard
-// holds, so that a guard that fails on one tries the next, before the body runs if m is set
+// runs once: a case of one alternative tests, binds, and runs the guard and the body, as it always has; alternatives
+// that bind nothing, without a guard, are one test of the disjunction of theirs; and others declare the variables of
+// the case, which each alternative that applies assigns, and set m if the guard holds, so that a guard that fails on
+// one tries the next, before the body runs if m is set
 procedure case_stmts(
   in  defs: Defs,
       env: Vars,
@@ -1090,6 +1103,12 @@ procedure case_stmts(
           skip
       end
       ss := List(case_if(flag, tests, pat, v, guarded_body))
+
+    case _ if guard == None and forall(alts, lambda (_, pat) => pattern_names(pat) == List()) =>
+      ss := List(
+        CsIf(conjunction(List(
+          not_flag(flag),
+          disjunction(List(for (tests, _) in alts yield conjunction(tests))))), body, List()))
 
     case _ =>
       var m: Str, tried: Buffer[CStmt] := empty()
