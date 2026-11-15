@@ -28,7 +28,7 @@ data Type :=
   case TFun(args: List[Type], res: Type)
   // procedures as values, (in A, out B, ref C) raises E, …, whose parameters have modes as in declarations
   case TProc(ins: List[Type], outs: List[Type], refs: List[Type], raised: Raises)
-  // a tuple type A * B * …, where a chain is one tuple type, or () for none
+  // a tuple type (A, B, …), or () for none
   case TTuple(types: List[Type])
 
 // what a procedure value may raise

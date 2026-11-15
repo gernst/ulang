@@ -888,29 +888,19 @@ function is_prec(fp: Option[Fixity * Int], prec: Int): Bool :=
       false
   end
 
-// types, whose operands are lists of types, since the arguments of a function are written (A, B),
-// and where a chain A * B * C is one tuple type, while (A * B) * C stays nested
-//
-// the type of an operand, which is a list of other than one type only as the arguments of a function
-procedure as_type(in types: List[Type], pos: Pos, out typ: Type) :=
+// types, whose operands are lists of types, since the arguments of a function are written (A, B), so that a list of
+// other than one type is a tuple type, (A, B) or (), wherever it is not the arguments of a function, and a function of
+// one tuple is ((A, B)) -> C; a chain A * B * C is one tuple type as well, while (A * B) * C stays nested
+function as_type(types: List[Type]): Type :=
   match types
     case List(t) =>
-      typ := t
-
-    case List() =>
-      typ := TTuple(List())
-
+      t
     case _ =>
-      raise ParseError("tuple types are written A * B", pos)
+      TTuple(types)
   end
 
-procedure as_types(in args: List[List[Type]], pos: Pos, out types: List[Type]) :=
-  types := List()
-  for a in args do
-    var typ: Type
-    as_type(in a, pos, out typ)
-    types := types ++ List(typ)
-  end
+function as_types(args: List[List[Type]]): List[Type] :=
+  List(for a in args yield as_type(a))
 
 // a chain of -> or another infix operator applied from the left, where the first operand of -> is the list of
 // arguments of a function
@@ -923,26 +913,17 @@ procedure type_apply(
 ) :=
   match args
     case List(a) =>
-      var typ: Type
-      as_type(in a, pos, out typ)
-      r := List(TSort(unqualified(op), List(typ)))
+      r := List(TSort(unqualified(op), List(as_type(a))))
 
     case _ if op == "*" =>
-      var types: List[Type]
-      as_types(in args, pos, out types)
-      r := List(TTuple(types))
+      r := List(TTuple(as_types(args)))
 
     case List(a; more) if op == "->" =>
-      var types: List[Type]
-      as_types(in more, pos, out types)
-      r := foldl(types, a, lambda lhs, typ => List(TFun(lhs, typ)))
+      r := foldl(as_types(more), a, lambda lhs, typ => List(TFun(lhs, typ)))
 
     case List(a; more) =>
-      var first: Type, types: List[Type]
-      as_type(in a, pos, out first)
-      as_types(in more, pos, out types)
       r := List(
-        foldl(types, first, lambda lhs, typ => TSort(unqualified(op), List(lhs, typ))))
+        foldl(as_types(more), as_type(a), lambda lhs, typ => TSort(unqualified(op), List(lhs, typ))))
 
     case List() =>
       r := List()
@@ -966,10 +947,9 @@ procedure parse_type(
   out typ: Type,
   ref toks: Tokens
 ) :=
-  let start := head_pos(toks)
   var r: List[Type]
   parse_operators(in notation, params, type_ops(), out r, ref toks)
-  as_type(in r, start, out typ)
+  typ := as_type(r)
 
 // a type, a type in parentheses, the arguments (A, B) of a function, or (), where params are the type parameters in scope,
 // which distinguish TParam from TSort
@@ -3727,6 +3707,29 @@ test parsed_raises() :=
   assert found == List(
     (List(TProc(List(int), List(), List(), RWritten(List(e, f))), int), List(f)),
     (List(), List(e, f)))
+
+// a list of other than one type is a tuple, except as the arguments of a function, which a function of one tuple encloses
+test parsed_tuple_types() :=
+  var d: Mod, found: List[Type] := List()
+  let int := TSort(unqualified("Int"), List()), str := TSort(unqualified("Str"), List()), pair := TTuple(List(int, str))
+  parse_text(
+    in test_notation() ++ "infix right 1 ->\nfunction f(p: (Int, Str), q: List[(Int, Str)], g: (Int, Str) -> Int, h: ((Int, Str)) -> Int, u: (), w: Int * Str): Int := 1\n",
+    out d)
+  for c in commands_of(d.implemented) do
+    match c
+      case CFun(_, _, formals, _, _, _) =>
+        found := List(for x in formals yield x.that.typ)
+      case _ =>
+        skip
+    end
+  end
+  assert found == List(
+    pair,
+    TSort(unqualified("List"), List(pair)),
+    TFun(List(int, str), int),
+    TFun(List(pair), int),
+    TTuple(List()),
+    pair)
 
 // the doc of a declaration is the run of comments right above it, without a blank line between
 test parsed_docs() :=

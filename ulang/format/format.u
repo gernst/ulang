@@ -1498,8 +1498,9 @@ function format_type_apart(clashes: Set[Id], t: Type): Str :=
     case TMeta(meta) =>
       "?" ++ show(meta)
 
-    case TFun(List(TTuple(List())), res) =>
-      "(()) -> " ++ format_type_apart(clashes, res)
+    // a function of one tuple, whose parentheses are not those of the arguments
+    case TFun(List(TTuple(types)), res) =>
+      "((" ++ format_list_apart(clashes, types) ++ ")) -> " ++ format_type_apart(clashes, res)
 
     case TFun(List(a), res) =>
       type_operand(clashes, a) ++ " -> " ++ format_type_apart(clashes, res)
@@ -1510,11 +1511,8 @@ function format_type_apart(clashes: Set[Id], t: Type): Str :=
     case TProc(ins, outs, refs, raised) =>
       "(" ++ join(", ", type_section(clashes, "in", ins) ++ type_section(clashes, "out", outs) ++ type_section(clashes, "ref", refs)) ++ ")" ++ raised_text(clashes, raised)
 
-    case TTuple(List()) =>
-      "()"
-
     case TTuple(types) =>
-      join(" * ", List(for a in types yield type_component(clashes, a)))
+      "(" ++ format_list_apart(clashes, types) ++ ")"
 
     case TSort(name, List()) =>
       sort_text(clashes, name)
@@ -1550,19 +1548,6 @@ function type_operand(clashes: Set[Id], t: Type): Str :=
   match t
     case TFun(_, _) =>
       "(" ++ format_type_apart(clashes, t) ++ ")"
-    case _ =>
-      format_type_apart(clashes, t)
-  end
-
-// a component of a tuple, in parentheses if it is a function or a tuple
-function type_component(clashes: Set[Id], t: Type): Str :=
-  match t
-    case TFun(_, _) =>
-      "(" ++ format_type_apart(clashes, t) ++ ")"
-
-    case TTuple(List(_, _; _)) =>
-      "(" ++ format_type_apart(clashes, t) ++ ")"
-
     case _ =>
       format_type_apart(clashes, t)
   end
@@ -1624,7 +1609,7 @@ function format_name(n: Name): Str :=
 
 test printing() :=
   let int_type := TSort(unqualified("Int"), List()), str_type := TSort(unqualified("Str"), List()), list_type := TSort(unqualified("List"), List(TParam("A"))), fun_type := TFun(List(TParam("A")), TParam("B")), pair_type := TTuple(List(int_type, str_type)), var_pat := PName(unqualified("x"), THole)
-  assert format_type(TFun(List(fun_type, pair_type), list_type)) == "(A -> B, Int * Str) -> List[A]"
+  assert format_type(TFun(List(fun_type, pair_type), list_type)) == "(A -> B, (Int, Str)) -> List[A]"
   assert format_type(TProc(List(TParam("A")), List(), List(int_type), RWritten(List()))) == "(in A, ref Int)"
   assert format_type(TProc(List(TParam("A")), List(), List(), RWritten(List(TSort(unqualified("E"), List()), int_type)))) == "(in A) raises E, Int"
   assert format_pat(PCons(nowhere(var_pat), nowhere(PApp(unqualified("Some"), List(nowhere(PWild)))))) == "List(x; Some(_))"
