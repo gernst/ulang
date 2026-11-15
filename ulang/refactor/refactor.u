@@ -73,9 +73,9 @@ data Handles :=
 data Handle :=
   case Handle(number: Int, path: Str, key: Key, index: Int, hash: Int)
 
-// a node that a handle names, in the current text of its file
+// a node that a handle names, in the current text of its file, with the number of the declarations of its module
 data Place :=
-  case Place(path: Str, lines: Array[Str], key: Key, cmd: Cmd, span: Span)
+  case Place(path: Str, lines: Array[Str], key: Key, cmd: Cmd, span: Span, decls: Int)
 
 function actions(script: Str): List[Action] :=
   actions_of(List(for (line, i) in numbered(split(script, '\n')) yield (line, i + 1)))
@@ -119,7 +119,19 @@ function drop_blank(lines: List[Str]): List[Str] :=
 function is_blank(line: Str): Bool :=
   forall(chars(line), is_space)
 
+// the words of line, split at spaces, but for the text from its first quote to its last, which is one word, with its
+// quotes, the text of a node that @put and @drop address
 function words_of(line: Str): List[Str] :=
+  example words_of("put before a.u:f \"case  X(\"a\")\" ") == List("put", "before", "a.u:f", "\"case  X(\"a\")\"")
+  let quotes := List(for (c, i) in numbered(chars(line)) if c == '"' yield i) in
+  match (quotes, last(quotes))
+    case (List(first, _; _), Some(final)) =>
+      plain_words(slice(line, 0, first)) ++ List(slice(line, first, final + 1)) ++ plain_words(slice(line, final + 1, size(line)))
+    case _ =>
+      plain_words(line)
+  end
+
+function plain_words(line: Str): List[Str] :=
   List(for w in split(line, ' ') if w != "" yield w)
 
 // a target file.u, file.u:name, or file.u:name/n, its path, name, and arity
@@ -363,20 +375,25 @@ procedure note(in text: Str, ref edits: Edits) :=
 
 procedure perform(in action: Action, ref edits: Edits) raises Refused, OsError :=
   match action.words
+    case List("show"; address) if is_node_address(address) =>
+      show_node(in address, ref edits)
+
     case List("show", word) =>
       show_target(in word, ref edits)
 
+    case List("put", place; address) if contains(place, List("before", "after", "into")) and is_node_address(address) =>
+      put_at(in place, address, action.fragment, ref edits)
+
+    case List("put"; address) if is_node_address(address) =>
+      put_at(in "replace", address, action.fragment, ref edits)
+
     case List("put", word) =>
-      if starts_with(word, "#") then
-        put_at(in "replace", word, action.fragment, ref edits)
-      else
-        let (path, name, arity) := target_of(word)
-        put(in path, action.fragment, Anchor(if name == None then "end" else "instead", value_or(name, ""), arity), ref edits)
-      end
+      let (path, name, arity) := target_of(word)
+      put(in path, action.fragment, Anchor(if name == None then "end" else "instead", value_or(name, ""), arity), ref edits)
 
     case List("put", place, word) if contains(place, List("before", "after", "into")) =>
-      if starts_with(word, "#") or place == "into" then
-        put_at(in place, word, action.fragment, ref edits)
+      if place == "into" then
+        put_at(in place, List(word), action.fragment, ref edits)
       else
         let (path, name, arity) := target_of(word)
         put(in path, action.fragment, Anchor(place, value_or(name, ""), arity), ref edits)
@@ -389,12 +406,11 @@ procedure perform(in action: Action, ref edits: Edits) raises Refused, OsError :
       end
       put(in path, action.fragment, Anchor(place, value_or(name, ""), arity), ref edits)
 
+    case List("drop"; address) if is_node_address(address) =>
+      put_at(in "drop", address, "", ref edits)
+
     case List("drop", word) =>
-      if starts_with(word, "#") then
-        put_at(in "drop", word, "", ref edits)
-      else
-        drop_target(in word, ref edits)
-      end
+      drop_target(in word, ref edits)
 
     case List("patch", word) =>
       patch(in word, action.fragment, ref edits)
@@ -430,7 +446,7 @@ procedure perform(in action: Action, ref edits: Edits) raises Refused, OsError :
       edits := edits with checked := edits.checked ++ List(path)
 
     case _ =>
-      let actions := "@show T, @put F, @put F:name, @put [before|after|into] #h, @put [before|after] F:name, @drop T, @patch T, @rename T new, @export T, @unexport T, @fix T [Rule ...], @undo [n], @check [test] [F]"
+      let actions := "@show T, @put F, @put F:name, @put [before|after] F:name, @put [before|after|into] N, @drop T, where a node N is #h, F:name #h, F:name \"text\", or F:L.C, @patch T, @rename T new, @export T, @unexport T, @fix T [Rule ...], @undo [n], @check [test] [F]"
       raise Refused("line " ++ show(action.line) ++ ": unknown action @" ++ join(" ", action.words) ++ ", which is one of " ++ actions)
   end
 
@@ -562,18 +578,16 @@ procedure resolved(
       raise Refused("no handle " ++ word ++ ", which @show gives")
 
     case Some(h) =>
-      var text: Str, source: Source
-      current_text(in h.path, edits.files, out text)
-      parsed(in h.path, text, no_fragment(), out source)
-      let lines := Array(for line in split(text, '\n'))
-      match decl_of(main_mod(source), h.key)
+      var lines: Array[Str], d: Mod
+      module_of(in h.path, edits.files, out lines, d)
+      match decl_of(d, h.key)
         case None =>
           raise Refused(word ++ " is gone, with " ++ key_text(h.key) ++ " of " ++ h.path)
 
         case Some((_, cmd)) =>
           match node_of(h, lines, cmd)
             case Some(span) =>
-              place := Place(h.path, lines, h.key, cmd, span)
+              place := Place(h.path, lines, h.key, cmd, span, size(placed_of(d)))
 
             case None =>
               let why := if h.index < 0 then
@@ -584,6 +598,160 @@ procedure resolved(
           end
       end
   end
+
+// the lines of the file at path, as the script has edited it, and its module
+procedure module_of(
+  in  path: Str,
+      files: Map[Str, Str],
+  out lines: Array[Str],
+      d: Mod
+) raises Refused, OsError :=
+  var text: Str, source: Source
+  current_text(in path, files, out text)
+  parsed(in path, text, no_fragment(), out source)
+  lines := Array(for line in split(text, '\n')), d := main_mod(source)
+
+// whether words address a node: a handle #n, also after a declaration F:name[/n] or a file F that must hold it, the text
+// that starts a node of a declaration, F:name[/n] "text", or a position F:L.C
+function is_node_address(words: List[Str]): Bool :=
+  example is_node_address(List("a.u:f", "\"case A\""))
+  example not is_node_address(List("a.u:f"))
+  match words
+    case List(word) =>
+      starts_with(word, "#") or position_of(word) != None
+
+    case List(_, word) =>
+      starts_with(word, "#") or starts_with(word, "\"")
+
+    case _ =>
+      false
+  end
+
+// the path and position of a target F:L.C
+function position_of(word: Str): Option[(Str, Pos)] :=
+  example position_of("a.u:79.3") == Some(("a.u", Pos(79, 3)))
+  example position_of("a.u:f") == None
+  match target_of(word)
+    case (path, Some(name), None) =>
+      match split(name, '.')
+        case List(line, col) =>
+          match (number(line), number(col))
+            case (Some(l), Some(c)) =>
+              Some((path, Pos(l, c)))
+            case _ =>
+              None
+          end
+
+        case _ =>
+          None
+      end
+
+    case _ =>
+      None
+  end
+
+// the declaration of place, as a target F:name[/n]
+function place_text(place: Place): Str :=
+  place.path ++ ":" ++ key_text(place.key)
+
+// the node of the address words, see is_node_address, and the text that names it in a reply, its declaration and the
+// handle, text, or position
+procedure resolved_address(
+  in  address: List[Str],
+      edits: Edits,
+  out place: Place,
+      label: Str
+) raises Refused, OsError :=
+  match address
+    case List(word) =>
+      match position_of(word)
+        case Some((path, pos)) =>
+          node_at_position(in path, pos, edits.files, out place)
+          label := place_text(place) ++ " at " ++ show(pos.line) ++ "." ++ show(pos.col)
+
+        case None =>
+          resolved(in word, edits, out place)
+          label := place_text(place) ++ " " ++ word
+      end
+
+    case List(scope, word) =>
+      if starts_with(word, "#") then
+        let (path, name, arity) := target_of(scope)
+        resolved(in word, edits, out place)
+        if place.path != path or not forall(name, lambda base => is_selected(place.key, base, arity)) then
+          raise Refused(word ++ " is a node of " ++ place_text(place) ++ ", not of " ++ scope ++ ", so @show " ++ scope ++ " for its handles")
+        end
+      else
+        node_by_text(in scope, slice(word, 1, size(word) - 1), edits.files, out place)
+      end
+      label := place_text(place) ++ " " ++ word
+
+    case _ =>
+      raise Refused("no node " ++ join(" ", address) ++ ", which is #n, F:name #n, F:name \"text\", or F:L.C")
+  end
+
+// the node of the declaration scope, F:name[/n], whose text starts with text, which must be the only one
+procedure node_by_text(
+  in  scope: Str,
+      text: Str,
+      files: Map[Str, Str],
+  out place: Place
+) raises Refused, OsError :=
+  var lines: Array[Str], d: Mod
+  let (path, name, arity) := target_of(scope)
+  module_of(in path, files, out lines, d)
+  let keys := distinct(List(for (key, _, _) in keyed(placed_of(d)) if forall(name, lambda base => is_selected(key, base, arity)) yield key))
+  let decls := List(for key in keys for (_, c) in decl_of(d, key) yield (key, c))
+  match (name, decls, text)
+    case (_, _, "") =>
+      raise Refused("a node by its text takes the text that starts it, not \"\"")
+
+    case (Some(_), List((key, cmd)), _) =>
+      let found := List(for span in line_nodes(lines, cmd) if starts_with(node_text(lines, span), text))
+      match found
+        case List(span) =>
+          place := Place(path, lines, key, cmd, span, size(placed_of(d)))
+
+        case List() =>
+          raise Refused("no node of " ++ path ++ ":" ++ key_text(key) ++ " starts with " ++ quote(text))
+
+        case _ =>
+          let at := join(", ", List(for span in found yield show(span.start.line)))
+          raise Refused(show(size(found)) ++ " nodes of " ++ path ++ ":" ++ key_text(key) ++ " start with " ++ quote(text) ++ ", at lines " ++ at ++ ", so give more of the text, or a handle")
+      end
+
+    case _ =>
+      raise Refused("a node by its text takes one declaration F:name[/arity], not " ++ scope)
+  end
+
+// the innermost node around pos in the definition of the file at path that holds it
+procedure node_at_position(
+  in  path: Str,
+      pos: Pos,
+      files: Map[Str, Str],
+  out place: Place
+) raises Refused, OsError :=
+  var lines: Array[Str], d: Mod
+  module_of(in path, files, out lines, d)
+  let around := List(for (key, cmd, _) in keyed(placed_of(d)) if is_within(pos, cmd.span) for (decl, c) in decl_of(d, key) if decl.span == cmd.span yield (key, c))
+  let where := path ++ ":" ++ show(pos.line) ++ "." ++ show(pos.col)
+  match around
+    case List((key, cmd); _) =>
+      match last(List(for span in line_nodes(lines, cmd) if is_within(pos, span)))
+        case Some(span) =>
+          place := Place(path, lines, key, cmd, span, size(placed_of(d)))
+        case None =>
+          raise Refused("no node of " ++ path ++ ":" ++ key_text(key) ++ " holds " ++ where ++ ", which @show " ++ path ++ ":" ++ key_text(key) ++ " shows")
+      end
+
+    case List() =>
+      raise Refused("no definition of " ++ path ++ " holds " ++ where)
+  end
+
+function is_within(pos: Pos, span: Span): Bool :=
+  example is_within(Pos(2, 5), Span(Pos(1, 3), Pos(2, 6)))
+  example not is_within(Pos(2, 6), Span(Pos(1, 3), Pos(2, 6)))
+  span.start <= pos and pos < span.stop
 
 function some_number(n: Int): Option[Int] :=
   Some(n)
@@ -602,11 +770,51 @@ function node_of(h: Handle, lines: Array[Str], cmd: Cmd): Option[Span] :=
       None
   end
 
+// the nodes of spans with the hashes of their texts in lines
+function hashed(lines: Array[Str], spans: List[Span]): List[(Span, Int)] :=
+  List(for span in spans yield (span, hash_of(node_text(lines, span))))
+
+// the numbers of the nodes before and after region in old, the nodes of a declaration with the hashes of their texts,
+// if new, its nodes after an edit of region, has them at the same places from its start and from its end, with the same
+// texts but for the nodes around region, whose texts the edit changes; so a node outside an edit keeps its place in the
+// tree of nodes, while its text may be that of others, as identical statements are
+function aligned(old: List[(Span, Int)], new: List[(Span, Int)], region: Range): Option[(Int, Int)] :=
+  example aligned(List((Span(Pos(1, 1), Pos(2, 1)), 7), (Span(Pos(3, 1), Pos(4, 1)), 8)), List(
+      (Span(Pos(1, 1), Pos(2, 1)), 7),
+      (Span(Pos(3, 1), Pos(4, 1)), 8),
+      (Span(Pos(5, 1), Pos(6, 1)), 8)), Range(3, 2)) == Some((1, 1))
+  let before := size(List(for (span, _) in old if span.start.line < region.first yield span)) in
+  let after := size(List(for (span, _) in old if span.start.line > region.last yield span)) in
+  let kept := zip(take(before, old), take(before, new)) ++ zip(drop(size(old) - after, old), drop(size(new) - after, new)) in
+  if before + after <= size(new) and forall(kept, lambda ((span, hash), (_, new_hash)) => hash == new_hash or is_around(span, region)) then
+    Some((before, after))
+  else
+    None
+
+// whether the node at span holds region, or ends right before it, where an insertion after its last part joins it
+function is_around(span: Span, region: Range): Bool :=
+  example is_around(Span(Pos(1, 1), Pos(4, 9)), Range(5, 4))
+  span.start.line < region.first and span.stop.line + 1 >= region.first
+
+// the index in new of the node at index i of old, which has olds nodes, after an edit that kept before nodes before it
+// and after nodes after it, where the node of the region of a replacement moves to the first node that the edit placed
+function kept_index(i: Int, before: Int, after: Int, olds: Int, news: Int): Option[Int] :=
+  example kept_index(3, 1, 2, 4, 5) == Some(4)
+  if i < before then
+    Some(i)
+  else if i >= olds - after then
+    Some(i - olds + news)
+  else if before < news - after then
+    Some(before)
+  else
+    None
+
 // moves the handles of the declaration key of path from its nodes in old to those in new, after an edit that replaced
-// the lines of region of old, since format may also move the lines around it, e.g. by the blank lines between more than
-// two cases: a node inside region is gone, but the node of region if keep, a node whose text is unchanged moves to the
-// node of the same text, the same among those of its text, and a node around region, whose text the edit changed, to the
-// node at its path in the tree of nodes, which the edit keeps
+// the lines of region of old: a node inside region is gone, but the node of region if keep, which moves to the first
+// node that the edit placed, and the nodes outside region keep their places in the tree of nodes (aligned), whatever
+// their texts; only where format changed the nodes outside region, e.g. by joining the lines of a form that the edit
+// shortened, a node whose text is unchanged moves to the node of the same text, the same among those of its text, and a
+// node around region to the node at its path in the tree of nodes
 procedure rebase(
   in  path: Str,
       key: Key,
@@ -623,6 +831,7 @@ procedure rebase(
   let new_hashes := List(for span in new_nodes yield hash_of(node_text(new, span)))
   let old_paths := paths_of(old_nodes, List(), 0), new_paths := paths_of(new_nodes, List(), 0)
   let new_table := zip(zip(numbered(new_nodes), new_hashes), new_paths)
+  let alignment := aligned(zip(old_nodes, old_hashes), zip(new_nodes, new_hashes), region)
   var entries: List[Handle] := List()
   for h in handles.entries do
     var moved := h
@@ -632,12 +841,19 @@ procedure rebase(
         let rank := size(List(for x in take(i, old_hashes) if x == hash yield x))
         let same_text := List(for (((_, j), x), _) in new_table if x == hash yield j)
         let at_path := List(for (((_, j), _), p) in new_table if Some(p) == get_at(i, old_paths) yield j)
-        let target := if is_removed(span, region, keep) then
-          None
-        else if size(same_text) > rank then
+        let by_text := if size(same_text) > rank then
           get_at(rank, same_text)
         else
           get_at(0, at_path)
+        let target := if is_removed(span, region, keep) then
+          None
+        else
+          match alignment
+            case Some((before, after)) =>
+              kept_index(i, before, after, size(old_nodes), size(new_nodes))
+            case None =>
+              by_text
+          end
         match target
           case Some(j) =>
             moved := h with index := j, hash := value_or(get_at(j, new_hashes), 0)
@@ -690,54 +906,60 @@ function paths_of(spans: List[Span], stack: List[(Span, List[Int], Int)], roots:
       List(List(roots); paths_of(rest, List((span, List(roots), 0)), roots + 1))
   end
 
-procedure show_target(in word: Str, ref edits: Edits) raises Refused, OsError :=
-  var handles := edits.handles, marks: Map[Int, Int] := Map()
-  if starts_with(word, "#") then
-    var place: Place
-    resolved(in word, edits, out place)
-    let region := Range(place.span.start.line, place.span.stop.line)
-    mark(in place.path, place.lines, place.key, place.cmd, region, ref handles, marks)
-    note(in "@show " ++ word ++ "\n" ++ join("\n", rendered(place.lines, region, marks)), ref edits)
-  else
-    var text: Str, source: Source
-    let (path, name, arity) := target_of(word)
-    current_text(in path, edits.files, out text)
-    parsed(in path, text, no_fragment(), out source)
-    let lines := Array(for line in split(text, '\n'))
-    let selected := List(for (key, cmd, c) in keyed(placed_of(main_mod(source))) if forall(name, lambda base => is_selected(key, base, arity)) yield (key, cmd, c))
-    if selected == List() then
-      raise Refused(path ++ " declares no " ++ value_or(name, "declarations"))
-    end
-    var shown: List[Str] := List()
-    for (key, cmd, c) in selected do
-      let region := cmd_range(lines, cmd, 0, true)
-      mark(in path, lines, key, c, region, ref handles, marks)
-      shown := shown ++ List(join("\n", rendered(lines, region, marks)))
-    end
-    let whole := if name == None then
-      join("\n", rendered(lines, Range(1, size(lines) - 1), marks))
-    else
-      join("\n\n", shown)
-    note(in "@show " ++ word ++ "\n" ++ whole, ref edits)
-  end
+// shows the node of the address, see is_node_address, with handles, under its declaration
+procedure show_node(
+  in  address: List[Str],
+  ref edits: Edits
+) raises Refused, OsError :=
+  var place: Place, label: Str, handles := edits.handles, marks: Map[Int, Int] := Map()
+  resolved_address(in address, edits, out place, label)
+  let region := Range(place.span.start.line, place.span.stop.line)
+  mark(in place.path, place.lines, place.key, place.cmd, region, ref handles, marks)
+  note(in "@show " ++ label ++ "\n" ++ join("\n", rendered(place.lines, region, marks)), ref edits)
   edits := edits with handles := handles
 
-// replaces the node of the handle word by the fragment, inserts it before or after it, or into it, as its last statement
-// or case, or drops the node, each at the indentation where it stands, and shows the code that the edit places, with
-// handles
+procedure show_target(in word: Str, ref edits: Edits) raises Refused, OsError :=
+  var handles := edits.handles, marks: Map[Int, Int] := Map()
+  var text: Str, source: Source
+  let (path, name, arity) := target_of(word)
+  current_text(in path, edits.files, out text)
+  parsed(in path, text, no_fragment(), out source)
+  let lines := Array(for line in split(text, '\n'))
+  let selected := List(for (key, cmd, c) in keyed(placed_of(main_mod(source))) if forall(name, lambda base => is_selected(key, base, arity)) yield (key, cmd, c))
+  if selected == List() then
+    raise Refused(path ++ " declares no " ++ value_or(name, "declarations"))
+  end
+  var shown: List[Str] := List()
+  for (key, cmd, c) in selected do
+    let region := cmd_range(lines, cmd, 0, true)
+    mark(in path, lines, key, c, region, ref handles, marks)
+    shown := shown ++ List(join("\n", rendered(lines, region, marks)))
+  end
+  let whole := if name == None then
+    join("\n", rendered(lines, Range(1, size(lines) - 1), marks))
+  else
+    join("\n\n", shown)
+  note(in "@show " ++ word ++ "\n" ++ whole, ref edits)
+  edits := edits with handles := handles
+
+// replaces the node of the address by the fragment, inserts it before or after it, or into it, as its last statement
+// or case, or drops the node, each at the indentation where it stands, and shows each node that the edit places, with
+// handles, where the placed nodes must be of the kind of the node, or for into of the kind of its last part, and stay
+// in its declaration
 procedure put_at(
   in  place_word: Str,
-      word: Str,
+      address: List[Str],
       fragment: Str,
   ref edits: Edits
 ) raises Refused, OsError :=
+  let word := join(" ", address)
   if place_word != "drop" and is_blank(fragment) then
     raise Refused("@put " ++ word ++ " takes a fragment, the lines after it, and @drop removes a node")
   end
-  var place: Place, result: Str, source: Source, handles := edits.handles, marks: Map[Int, Int] := Map()
-  resolved(in word, edits, out place)
+  var place: Place, label: Str, result: Str, source: Source, handles := edits.handles, marks: Map[Int, Int] := Map()
+  resolved_address(in address, edits, out place, label)
   let lines := place.lines, start := place.span.start.line, stop := place.span.stop.line, indent := place.span.start.col - 1
-  let inner := indent + 2, last := str(drop_spaces(chars(line_at(lines, stop))))
+  let inner := indent + 2, last_line := str(drop_spaces(chars(line_at(lines, stop))))
   let (region, depth) := match place_word
     case "before" =>
       (Range(start, start - 1), indent)
@@ -746,7 +968,7 @@ procedure put_at(
       (Range(stop + 1, stop), indent)
 
     case "into" =>
-      if starts_with(str(drop_spaces(chars(line_at(lines, start)))), "case ") or last != "end" then
+      if starts_with(str(drop_spaces(chars(line_at(lines, start)))), "case ") or last_line != "end" then
         (Range(stop + 1, stop), inner)
       else
         (Range(stop, stop - 1), inner)
@@ -760,12 +982,22 @@ procedure put_at(
     indented(dedented(unmarked(split(fragment, '\n'))), depth)
   let text := join("\n", spliced(List(for line in lines), List((region, new))))
   formatted(in place.path, text, List((Range(region.first, region.first + size(new) - 1), 1)), out result, source)
-  edits := edits with files := Map(place.path => result; edits.files)
-  let result_lines := Array(for line in split(result, '\n'))
-  for (_, cmd) in decl_of(main_mod(source), place.key) do
-    rebase(in place.path, place.key, lines, place.cmd, result_lines, cmd, region, place_word == "replace", ref handles)
-  end
+  let d := main_mod(source), result_lines := Array(for line in split(result, '\n'))
   let verb := match place_word
+    case "replace" =>
+      "@put"
+
+    case "drop" =>
+      "@drop"
+
+    case _ =>
+      "@put " ++ place_word
+  end
+  if size(placed_of(d)) != place.decls then
+    raise Refused(verb ++ " " ++ word ++ " writes declarations beyond its node, which @put F writes")
+  end
+  edits := edits with files := Map(place.path => result; edits.files)
+  let done := match place_word
     case "replace" =>
       "replaced "
 
@@ -775,18 +1007,31 @@ procedure put_at(
     case _ =>
       "put " ++ place_word ++ " "
   end
-  note(in place.path ++ ": " ++ verb ++ word, ref edits)
-  let shown_line := if place_word == "after" then stop + 1 else start
-  match decl_of(main_mod(source), place.key)
-    case Some((_, cmd)) =>
-      for span in find(line_nodes(result_lines, cmd), lambda span => span.start.line >= shown_line) if place_word != "drop" do
-        let shown := Range(span.start.line, span.stop.line)
+  note(in done ++ label, ref edits)
+  for (_, cmd) in decl_of(d, place.key) do
+    rebase(in place.path, place.key, lines, place.cmd, result_lines, cmd, region, place_word == "replace", ref handles)
+    let olds := kinded_nodes(lines, place.cmd), news := kinded_nodes(result_lines, cmd)
+    let alignment := aligned(hashed(lines, List(for node in olds yield node.span)), hashed(result_lines, List(for node in news yield node.span)), region)
+    let placed := match alignment
+      case Some((before, after)) =>
+        outermost(take(size(news) - after - before, drop(before, news)))
+      case None =>
+        List(for node in find(news, lambda node => node.span.start.line >= (if place_word == "after" then stop + 1 else start)) if place_word != "drop")
+    end
+    for expected in expected_kind(place_word, place.span, olds) do
+      for node in placed if node.kind != expected and alignment != None do
+        raise Refused(verb ++ " " ++ word ++ " places " ++ kind_text(node.kind) ++ " where " ++ label ++ " takes " ++ kind_text(expected))
+      end
+    end
+    match (placed, last(placed))
+      case (List(first; _), Some(final)) =>
+        let shown := Range(first.span.start.line, final.span.stop.line)
         mark(in place.path, result_lines, place.key, cmd, shown, ref handles, marks)
         note(in join("\n", rendered(result_lines, shown, marks)), ref edits)
-      end
 
-    case None =>
-      skip
+      case _ =>
+        skip
+    end
   end
   edits := edits with handles := handles
 
@@ -795,6 +1040,23 @@ procedure put_at(
 // where the declaration of the fragment of that name and kind replaces it whatever its arity, and the others go after it
 data Anchor :=
   case Anchor(side: Str, name: Str, arity: Option[Int])
+
+// the kind of node that a fragment placed at the node of span among nodes must have: that of the node, or for into that
+// of its last part, if it has one
+function expected_kind(place_word: Str, span: Span, nodes: List[Node]): Option[NodeKind] :=
+  let found := if place_word == "into" then
+    last(outermost(List(for node in nodes if node.span != span and is_inside(node.span, span))))
+  else
+    find(nodes, lambda node => node.span == span) in
+  map_option(found, lambda node => node.kind)
+
+// the nodes that no other of nodes holds
+function outermost(nodes: List[Node]): List[Node] :=
+  List(for node in nodes if not exists(nodes, lambda other => other.span != node.span and is_inside(node.span, other.span)))
+
+function is_inside(inner: Span, outer: Span): Bool :=
+  example is_inside(Span(Pos(2, 3), Pos(3, 1)), Span(Pos(1, 1), Pos(3, 1)))
+  outer.start <= inner.start and inner.stop <= outer.stop
 
 // writes the declarations of the fragment into the file at path: a missing or empty file is the fragment, with its
 // header, imports, and sections; else the import lines of the fragment join those of the file, the declarations after
@@ -1567,7 +1829,16 @@ procedure run_script(
       else
         List(
           "checked " ++ counted(size(paths), "file") ++ ", with lints: " ++ show(size(added)) ++ " new, " ++ show(size(gone)) ++ " gone")
-      let listed := List(for (file, d) in added yield "  + " ++ diagnostic_text(file, d)) ++ List(for (file, d) in gone yield "  - " ++ diagnostic_text(file, d))
+      var labels := edits.handles, listed: List[Str] := List()
+      for (file, d) in added do
+        var label: Str
+        diagnostic_handle(in file, d, edits.files, out label, ref labels)
+        listed := listed ++ List("  + " ++ label ++ diagnostic_text(file, d))
+      end
+      listed := listed ++ List(for (file, d) in gone yield "  - " ++ diagnostic_text(file, d))
+      if size(labels.entries) > size(edits.handles.entries) then
+        os_write_utf8(in os_join(dir, "handles.txt"), join("\n", List(for h in labels.entries yield handle_line(h))) ++ "\n")
+      end
       reply := List(verdict) ++ List(for n in edits.notes) ++ journaled ++ counts ++ listed
       tested := if edits.tests then paths else List()
     end
@@ -2241,6 +2512,31 @@ function without_overlaps(splices: List[(Int, Int, Str, List[Str])], last: Int):
 // whether two diagnostics are the same but for their positions, which edits move
 function is_same(file: Str, d: Diagnostic, other: Str, e: Diagnostic): Bool :=
   file == other and d.code == e.code and d.message == e.message
+
+// the handle of the innermost node around the position of d in file, with a space after it, or nothing if no node of a
+// definition holds it
+procedure diagnostic_handle(
+  in  file: Str,
+      d: Diagnostic,
+      files: Map[Str, Str],
+  out label: Str,
+  ref handles: Handles
+) :=
+  label := ""
+  if d.pos.line > 0 then
+    try
+      var place: Place, number: Int
+      node_at_position(in file, d.pos, files, out place)
+      let index := value_or(index_of(place.span, line_nodes(place.lines, place.cmd)), -1)
+      handle_for(in place.path, place.key, index, hash_of(node_text(place.lines, place.span)), out number, ref handles)
+      label := "#" ++ show(number) ++ " "
+    catch
+      case Refused(_) =>
+        label := ""
+      case OsError(_) =>
+        label := ""
+    end
+  end
 
 function diagnostic_text(file: Str, d: Diagnostic): Str :=
   let at := if d.pos.line > 0 then
