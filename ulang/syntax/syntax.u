@@ -1585,8 +1585,8 @@ function part_errors(cmd: Cmd): List[Diagnostic] :=
 
 function code_free_errors(cmd: At[Cmd]): List[Diagnostic] :=
   match cmd
-    case AUnparsed(_, _, text, error) =>
-      if starts_with(text, "lemma ") or starts_with(text, "test ") then
+    case AUnparsed(_, _, _, error) =>
+      if exists(unparsed_command(error), lambda kw => kw == "lemma" or kw == "test") then
         List(error)
       else
         List()
@@ -1600,6 +1600,11 @@ function code_free_errors(cmd: At[Cmd]): List[Diagnostic] :=
     case AErr(_, _, that, _) =>
       if is_lemma_or_test(that) then cmd_errors(cmd) else code_free_parts(that)
   end
+
+// the keyword that started a command that does not parse, which the parser records in its error (started_by of
+// ulang/parse/parse.u)
+function unparsed_command(error: Diagnostic): Option[Str] :=
+  map_option(find(error.details, lambda (k, _) => k == "command"), second)
 
 function is_lemma_or_test(cmd: Cmd): Bool :=
   match cmd
