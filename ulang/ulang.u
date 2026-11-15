@@ -952,7 +952,7 @@ procedure targets_of(
   for Target(path, name) in if targets == List() then List(Target(root, None)) else targets do
     match name
       case Some(_) =>
-        buffer := append(buffer, Target(path, name))
+        buffer := buffer ++ List(Target(path, name))
 
       case None =>
         var dir: Bool
@@ -965,7 +965,7 @@ procedure targets_of(
           walk_all(in List(path), skipped, out files)
           buffer := buffer ++ List(for f in files if is_source(f) yield Target(f, None))
         else
-          buffer := append(buffer, Target(without_dot(path), None))
+          buffer := buffer ++ List(Target(without_dot(path), None))
         end
     end
   end
@@ -983,10 +983,10 @@ procedure units_of(in targets: List[Target], out units: List[List[Target]]) :=
   for t in targets do
     try
       os_read_utf8(in t.path, out text)
-      keyed := append(keyed, (os_dirname(t.path) ++ "/", t))
+      keyed := keyed ++ List((os_dirname(t.path) ++ "/", t))
     catch
       case OsError(_) =>
-        keyed := append(keyed, (t.path, t))
+        keyed := keyed ++ List((t.path, t))
     end
   end
   units := grouped(List(for k in keyed))
@@ -1040,7 +1040,7 @@ procedure walk_all(
       walk_dir(in path, skipped, here, out below)
       found := found ++ below
     else
-      found := append(found, path)
+      found := found ++ List(path)
     end
   end
   files := List(for file in found yield without_dot(file))
@@ -1068,7 +1068,7 @@ procedure walk_dir(
   os_list(in dir, out entries)
   for (name, is_folder) in entries do
     if not is_folder then
-      found := append(found, os_join(dir, name))
+      found := found ++ List(os_join(dir, name))
     else
       if not starts_with(name, ".") and name != "out" and not contains(absolute_path(here, os_join(dir, name)), skipped) then
         walk_dir(in os_join(dir, name), skipped, here, out below)

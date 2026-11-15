@@ -324,6 +324,7 @@ function foreign_names(): Map[Str, Str] :=
     "count" => "size",
     "print" => "os_println(in text)",
     "println" => "os_println(in text)",
+    "append" => "xs ++ ys",
     "concat" => "xs ++ ys",
     "toString" => "show",
     "to_string" => "show",
@@ -1771,7 +1772,7 @@ procedure map_state[A, B](
   var y: B, found: Buffer[B] := empty()
   for x in xs do
     step(in x, out y, ref s)
-    found := append(found, y)
+    found := found ++ List(y)
   end
   ys := List(for z in found)
 
@@ -4178,7 +4179,7 @@ procedure check_proof(
     let outer := s.at
     s := s with at := step.pos
     proof_step(in outs, step.that, out typed_step, ref env, s)
-    steps := append(steps, AOk(step.pos, step.span, typed_step)), s := s with at := outer
+    steps := steps ++ List(AOk(step.pos, step.span, typed_step)), s := s with at := outer
   end
   match proof.split
     case Some(placed) =>
@@ -4521,7 +4522,7 @@ procedure contract(
   for a in spec.pre do
     var b: At[Expr]
     check(in bind(ins ++ refs), a, TBool(), "the requires", out b, ref s)
-    pre := append(pre, b)
+    pre := pre ++ List(b)
   end
   match spec.post
     case Some(e) =>
@@ -4557,7 +4558,7 @@ procedure claim_proof(
         let outer := s.at
         s := s with at := step.pos
         check(in env, cond, TBool(), "the invariant", out c, ref s)
-        invariants := append(invariants, AOk(step.pos, step.span, StepInvariant(c))), s := s with at := outer
+        invariants := invariants ++ List(AOk(step.pos, step.span, StepInvariant(c))), s := s with at := outer
 
       // written has only invariants
       case _ =>
