@@ -1,8 +1,9 @@
 // the exceptions of procedures, after a package is checked: what each part may raise, where a raise of a value of a
 // datatype raises its type, a call raises the raises of the procedure, as written, or inferred for a private procedure
 // without raises, and a try removes the types that its unguarded handlers cover, while the exceptions of builtins
-// (unchecked_exceptions of ulang/syntax/builtins.u) are not counted; a procedure with raises, or exported, raises none
-// that they omit, and a procedure value raises none that its type omits, which the place of its use gives it, where the
+// (unchecked_exceptions of ulang/syntax/builtins.u) are not counted; a procedure with raises, exported, or without
+// formals, an entry of run and compile, raises none that they omit, so that no checked exception escapes an entry unless
+// its raises declare it, and a procedure value raises none that its type omits, which the place of its use gives it, where the
 // raises of the types of values that inference left unknown are the least that their bounds allow
 
 import "ulang/syntax"
@@ -51,13 +52,13 @@ function raises_errors(cmds: List[Cmd], sig: Sig, hidden: Set[Name], bounds: Lis
 function in_module(scope: Scope, cmd: Cmd): Scope :=
   scope with module := cmd_module(cmd)
 
-// the private procedures without raises, whose raises are inferred
+// the private procedures with formals and without raises, whose raises are inferred
 function inferred_procs(cmds: List[Cmd], hidden: Set[Name]): Set[Name] :=
   Set(for cmd in cmds for name in inferred_name(cmd, hidden) yield name)
 
 function inferred_name(cmd: Cmd, hidden: Set[Name]): Option[Name] :=
   match cmd
-    case CProc(name, _, _, _, _, List(), _, _) if contains(name, hidden) =>
+    case CProc(name, _, ins, outs, refs, List(), _, _) if contains(name, hidden) and ins ++ outs ++ refs != List() =>
       Some(name)
     case _ =>
       None

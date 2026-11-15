@@ -38,7 +38,7 @@ procedure run_proc(
   in  run: Run,
       n: Name,
   ref cache: Map[Name, Val]
-) raises Thrown, RuntimeError, InternalError
+) raises RuntimeError, InternalError
 
 // the value of the function n without parameters, None if there is none
 procedure constant_of(
@@ -51,10 +51,10 @@ procedure run_cmd(
   in  run: Run,
       cmd: Cmd,
   ref cache: Map[Name, Val]
-) raises Thrown, RuntimeError, InternalError
+) raises RuntimeError, InternalError
 
 // runs the tests of a checked program, where failed assertions are errors
-procedure run_program(in q: Prog) raises Thrown, RuntimeError, InternalError
+procedure run_program(in q: Prog) raises RuntimeError, InternalError
 
 implementation
 
@@ -1564,7 +1564,7 @@ procedure run_proc(
   in  run: Run,
       n: Name,
   ref cache: Map[Name, Val]
-) raises Thrown, RuntimeError, InternalError :=
+) raises RuntimeError, InternalError :=
   var env: Bindings := empty()
   try
     var outs: List[Val]
@@ -1578,7 +1578,7 @@ procedure run_cmd(
   in  run: Run,
       cmd: Cmd,
   ref cache: Map[Name, Val]
-) raises Thrown, RuntimeError, InternalError :=
+) raises RuntimeError, InternalError :=
   var env: Bindings := empty()
   try
     match cmd
@@ -1594,10 +1594,16 @@ procedure run_cmd(
       uncaught(in run, value, ref cache)
   end
 
-// an exception of the program that no handler catches, as the error with its text
+// an exception v of the program that no handler catches, as the error with the text of its show, or, if its show fails,
+// of the exception of the show, as compiled code reports it
 procedure uncaught(in run: Run, v: Val, ref cache: Map[Name, Val]) :=
   var s: Str
-  show_in(in run, v, out s, ref cache)
+  try
+    show_in(in run, v, out s, ref cache)
+  catch
+    case Thrown(value, _) =>
+      s := format_value(value)
+  end
   raise Uncaught(s)
 
 procedure run_all(in run: Run, cmds: List[Cmd], ref cache: Map[Name, Val]) :=
@@ -1605,7 +1611,7 @@ procedure run_all(in run: Run, cmds: List[Cmd], ref cache: Map[Name, Val]) :=
     run_cmd(in run, c, ref cache)
   end
 
-procedure run_program(in q: Prog) raises Thrown, RuntimeError, InternalError :=
+procedure run_program(in q: Prog) raises RuntimeError, InternalError :=
   var cache: Map[Name, Val] := empty()
   run_all(in load(q), definitions(q), ref cache)
 

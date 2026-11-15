@@ -255,7 +255,7 @@ test checked() :=
 // prints the references of the documents that are not declared in their files, run at the root of the project, and fails
 // if there is one; the documents are CLAUDE.md, README.md, and those of ideas/ but review.md, whose references are those of
 // the commit that it reviewed
-procedure main() :=
+procedure main() raises OsError :=
   var cache: Map[Str, Option[Decls]] := empty(), found: List[Str] := List(), entries: List[Str * Bool]
   os_list(in "ideas", out entries)
   for doc in List(

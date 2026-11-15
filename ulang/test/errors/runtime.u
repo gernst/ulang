@@ -90,6 +90,20 @@ test example_raises_after() :=
       "  x := x / 0"))
   end
 
+// an uncaught exception whose show fails is reported as the exception of the show, as compiled code reports it
+test uncaught_show_fails() :=
+  assert raises Uncaught("DivisionByZero") do
+    run_text(in "ulang/test/errors/uncaught-show-fails.u", List(
+      "data Fail :=",
+      "  case Fail(code: Int)",
+      "",
+      "function show(f: Fail): Str :=",
+      "  show(1 / f.code)",
+      "",
+      "test uncaught_show_fails() :=",
+      "  raise Fail(0)"))
+  end
+
 test raise_uncaught() :=
   assert raises Uncaught("Fail(2)") do
     run_text(in "ulang/test/errors/raise-uncaught.u", List(
