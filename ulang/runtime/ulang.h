@@ -47,6 +47,7 @@ extern const struct u_type t_prelude_46_DivisionByZero, t_prelude_46_OutOfBounds
 // of datatypes use unless their module declares compare, ==, or show, and the equality of an order
 u_value u_con_compare(u_value a, u_value b);
 u_value u_equals_by_compare(u_value a, u_value b);
+u_value u_con_equals(u_value a, u_value b);
 u_value u_con_show(u_value v);
 
 // the order and equality of abstract types whose modules declare no compare, which raise Unordered(T) or, for a type

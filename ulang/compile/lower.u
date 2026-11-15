@@ -592,8 +592,20 @@ function equals_symbol(t: Name, defs: Defs): Str :=
   match unordered_of(defs, t)
     case Some(e) if e == incomparable_name() =>
       "u_incomparable"
+
     case _ =>
-      declared_or(get(t, defs.equalities), 2, "u_equals_by_compare")
+      match (get(t, defs.equalities), get(t, defs.orders))
+        case (Some(f), _) =>
+          fun_name(f, 2)
+
+        // the equality of a declared order, which the interpreter takes as well
+        case (None, Some(_)) =>
+          "u_equals_by_compare"
+
+        // structurally, by the equalities of the fields, which need no order
+        case (None, None) =>
+          "u_con_equals"
+      end
   end
 
 function symbol_of_show(t: Name, defs: Defs): Str :=

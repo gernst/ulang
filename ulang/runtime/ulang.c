@@ -469,6 +469,19 @@ static u_value compare_by_items(u_value a, u_value b) {
   return ordering(a == b ? 0 : compare_items(a, b));
 }
 
+// the items of a and b are of the same number and equal by the equalities of their types, which need no order
+static int equal_items(u_value a, u_value b) {
+  if (a->size != b->size) return 0;
+  for (int i = 0; i < a->size; i++)
+    if (!u_equals(a->items[i], b->items[i])) return 0;
+  return 1;
+}
+
+// tuples and arrays by their elements
+static u_value equal_by_items(u_value a, u_value b) {
+  return u_mk_bool(a == b || equal_items(a, b));
+}
+
 // constructors are ordered by their position in their declaration and then by their fields, where descriptors of
 // compilers before positions all have position 0, whose constructors still differ by name
 u_value u_con_compare(u_value a, u_value b) {
@@ -478,6 +491,14 @@ u_value u_con_compare(u_value a, u_value b) {
     return ordering(c != 0 ? c : sign(u_strcmp(a->name->base, b->name->base)));
   }
   return ordering(compare_items(a, b));
+}
+
+// constructors are equal by their names and then by their fields, structurally, as datatypes without declared orders are,
+// so that a field of an abstract type that declares == but no compare is equal by its ==
+u_value u_con_equals(u_value a, u_value b) {
+  if (a == b) return u_mk_bool(1);
+  int same = a->name == b->name || (a->name->index == b->name->index && u_strcmp(a->name->base, b->name->base) == 0);
+  return u_mk_bool(same && equal_items(a, b));
 }
 
 static void fail_with(const char *format, u_value a, u_value b);
@@ -971,13 +992,13 @@ const struct u_type u_bool_type = {"Bool", compare_nums, u_equals_by_compare, sh
 const struct u_type u_char_type = {"Char", compare_nums, u_equals_by_compare, show_char};
 const struct u_type u_byte_type = {"Byte", compare_nums, u_equals_by_compare, show_byte};
 const struct u_type u_str_type = {"Str", compare_strs, equal_strs, show_str};
-const struct u_type u_tuple_type = {"*", compare_by_items, u_equals_by_compare, show_tuple};
-const struct u_type u_array_type = {"array.Array", compare_by_items, u_equals_by_compare, show_array};
+const struct u_type u_tuple_type = {"*", compare_by_items, equal_by_items, show_tuple};
+const struct u_type u_array_type = {"array.Array", compare_by_items, equal_by_items, show_array};
 const struct u_type u_closure_type = {"->", compare_callables, compare_callables, show_function};
 const struct u_type u_proc_type = {"proc", compare_callables, compare_callables, show_procedure};
 
 // the error of the builtins on files, whose descriptor the runtime defines, since programs need not import os
-const struct u_type t_os_46_OsError = {"os.OsError", u_con_compare, u_equals_by_compare, u_con_show};
+const struct u_type t_os_46_OsError = {"os.OsError", u_con_compare, u_con_equals, u_con_show};
 
 // the test that runs, whose failure jumps back to u_run_tests with the message, or NULL outside tests
 static jmp_buf *test_env = NULL;

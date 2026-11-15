@@ -48,6 +48,9 @@ test exported_fields() :=
 
 test equality_without_order() :=
   assert tally(List(1, 2)) == tally(List(3)) and tally(List(1)) != tally(List(2)) and contains(tally(List(4)), List(tally(List(1, 3))))
+  // inside lists, tuples, options, and arrays, which equate their elements by their ==, without an order
+  assert List(tally(List(1, 2))) == List(tally(List(3))) and (tally(List(1)), 1) == (tally(List(1)), 1)
+  assert Some(tally(List(2))) != Some(tally(List(5))) and Array(tally(List(1))) == Array(tally(List(1)))
   assert raises Unordered("ulang/test/modules/exported.Tally") do
     let r := compare(tally(List(1)), tally(List(2)))
   end
