@@ -899,51 +899,58 @@ procedure patch(
       fragment: Str,
   ref edits: Edits
 ) raises Refused, OsError :=
-  var path: Str, lines: Array[Str], region: Range, source: Source, result: Str, key: Key, old_cmd: Cmd, handles := edits.handles
+  var path: Str, lines: Array[Str], regions: List[Range], source: Source, result: Str, key: Key, old_cmd: Option[Cmd], handles := edits.handles
   if is_blank(fragment) then
     raise Refused("@patch " ++ word ++ " takes a fragment of lines old => new")
   end
   if starts_with(word, "#") then
     var place: Place
     resolved(in word, edits, out place)
-    path := place.path, lines := place.lines, region := Range(place.span.start.line, place.span.stop.line)
-    key := place.key, old_cmd := place.cmd
+    path := place.path, lines := place.lines, regions := List(Range(place.span.start.line, place.span.stop.line))
+    key := place.key, old_cmd := Some(place.cmd)
   else
     var text: Str
     let (file, name, arity) := target_of(word)
     current_text(in file, edits.files, out text)
     parsed(in file, text, no_fragment(), out source)
     path := file, lines := Array(for line in split(text, '\n'))
-    let selected := List(for (k, cmd, c) in keyed(placed_of(main_mod(source))) if forall(name, lambda base => is_selected(k, base, arity)) and not is_signature(c) yield (k, cmd, c))
-    match selected
-      case List((k, cmd, c)) =>
-        region := cmd_range(lines, cmd, 0, true), key := k, old_cmd := c
+    let selected := List(for (k, cmd, c) in keyed(placed_of(main_mod(source))) if forall(name, lambda base => is_selected(k, base, arity)) yield (k, cmd, c))
+    match distinct(List(for (k, _, _) in selected yield k))
+      case List(k) =>
+        regions := List(for (_, cmd, _) in selected yield cmd_range(lines, cmd, 0, true)), key := k
+        old_cmd := map_option(decl_of(main_mod(source), k), lambda (_, c) => c)
+
       case _ =>
-        raise Refused("@patch takes a handle or one definition file.u:name[/arity], not " ++ word)
+        raise Refused("@patch takes a handle or one declaration file.u:name[/arity], whose signature and definition it patches together, not " ++ word)
     end
   end
-  var patched := join("\n", lines_in(lines, region))
+  var patched := List(for region in regions yield join("\n", lines_in(lines, region)))
   for line in split(fragment, '\n') if not is_blank(line) do
     patch_line(in line, ref patched)
   end
-  formatted(in path, join("\n", spliced(List(for line in lines), List((region, split(patched, '\n'))))), no_fragment(), out result, source)
+  let splices := List(for (region, text) in zip(regions, patched) yield (region, split(text, '\n')))
+  formatted(in path, join("\n", spliced(List(for line in lines), splices)), no_fragment(), out result, source)
   for (_, cmd) in decl_of(main_mod(source), key) do
-    rebase(in path, key, lines, old_cmd, Array(for line in split(result, '\n')), cmd, region, true, ref handles)
+    for region in last(regions) do
+      for c in old_cmd do
+        rebase(in path, key, lines, c, Array(for line in split(result, '\n')), cmd, region, true, ref handles)
+      end
+    end
   end
   edits := edits with files := Map(path => result; edits.files), handles := handles
   note(in path ++ ": patched " ++ word, ref edits)
 
-procedure patch_line(in line: Str, ref text: Str) raises Refused :=
+// substitutes in texts, the regions of one target, the line old => new, where old occurs exactly once in all of them, split
+// at the => after which it does, since => also occurs in code
+procedure patch_line(in line: Str, ref texts: List[Str]) raises Refused :=
   let splits := List(for i in occurrences(line, " => ") yield (slice(line, 0, i), slice(line, i + 4, size(line))))
-  let fitting := List(for (old, new) in splits if size(occurrences(text, old)) == 1 yield (old, new))
+  let fitting := List(for (old, new) in splits if foldl(texts, 0, lambda n, text => n + size(occurrences(text, old))) == 1 yield (old, new))
   match fitting
     case List((old, new)) =>
-      for i in occurrences(text, old) do
-        text := slice(text, 0, i) ++ new ++ slice(text, i + size(old), size(text))
-      end
+      texts := List(for text in texts yield foldl(occurrences(text, old), text, lambda acc, i => slice(acc, 0, i) ++ new ++ slice(acc, i + size(old), size(acc))))
 
     case List() =>
-      raise Refused("@patch: no old text of " ++ quote(line) ++ " occurs exactly once, where a line is old => new")
+      raise Refused("@patch: no old text of " ++ quote(line) ++ " occurs exactly once in the target, its signature and definition alike, where a line is old => new")
 
     case _ =>
       raise Refused("@patch: " ++ quote(line) ++ " splits at several =>")
@@ -1132,7 +1139,7 @@ procedure run_script(
       var done: List[Int], undone: List[Int], undos: List[Int]
       for path in paths do
         check(in path, out found)
-        before := before ++ found
+        before := distinct(before ++ found)
       end
       for c in changes do
         os_write_utf8(in c.path, c.after)
@@ -1164,7 +1171,7 @@ procedure run_script(
       end
       for path in paths do
         check(in path, out found)
-        after := after ++ found
+        after := distinct(after ++ found)
       end
       let added := List(for (file, d) in after if not exists(before, lambda (other, e) => is_same(file, d, other, e)))
       let gone := List(for (file, d) in before if not exists(after, lambda (other, e) => is_same(file, d, other, e)))
@@ -1462,7 +1469,8 @@ procedure fix(
     ", " ++ counted(unfixable, "warning") ++ " without an edit"
   else
     "")
-  note(in path ++ ": fixed " ++ join(", ", labels) ++ rest, ref edits)
+  let fixed_text := if labels == List() then "nothing to fix" else "fixed " ++ join(", ", labels)
+  note(in path ++ ": " ++ fixed_text ++ rest, ref edits)
 
 // the offsets of the starts of the lines, from 1, and of the end
 function line_starts(lines: Array[Str]): Array[Int] :=

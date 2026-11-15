@@ -6,13 +6,14 @@ import "ulang/syntax"
 export
 
 // the spans of the parts of cmd that start their lines in lines, the text of its file, outer before inner, without
-// repeated starts, so that each line has at most one node
+// repeated starts, so that each line has at most one node, and without the parts that the source does not write, such as
+// an else without its keyword, whose spans are empty
 function line_nodes(lines: Array[Str], cmd: Cmd): List[Span]
 
 implementation
 
 function line_nodes(lines: Array[Str], cmd: Cmd): List[Span] :=
-  first_starts(List(for span in cmd_nodes(cmd) if starts_line(lines, span.start) yield span), Set())
+  first_starts(List(for span in cmd_nodes(cmd) if span.start != span.stop and starts_line(lines, span.start) yield span), Set())
 
 function first_starts(spans: List[Span], seen: Set[Pos]): List[Span] :=
   match spans
