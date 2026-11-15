@@ -11,8 +11,9 @@ export
 
 // the first error of the exceptions of each of the checked commands cmds of a package, whose private names are hidden, at
 // its position in the module of the command, and the raises of the private procedures without raises, as inferred
+// and the solutions of the unknowns of raises, the least that their bounds allow, where one without a bound is none
 data Exceptions :=
-  case Exceptions(errors: List[TypeError], inferred: Map[Name, List[Type]])
+  case Exceptions(errors: List[TypeError], inferred: Map[Name, List[Type]], solved: Map[Int, Set[Name]])
 
 // what a procedure value of the raises sub may raise, a value of the raises sup may raise too, as unify of
 // ulang/check/check.u records it at pos of module where one of them is not a set
@@ -45,7 +46,7 @@ function raises_errors(cmds: List[Cmd], sig: Sig, hidden: Set[Name], bounds: Lis
   let inferred := inferred_procs(cmds, hidden) in
   let scope := infer_procs(cmds, bounds, Scope(sig, written_procs(cmds, inferred), empty(), empty(), None), inferred) in
   let errors := List(for cmd in cmds for (pos, e) in take(1, sort(cmd_errors(in_module(scope, cmd), cmd, inferred))) yield Located(cmd_module(cmd), pos, e)) in
-  Exceptions(errors ++ distinct(List(for b in bounds for e in exceeded(scope.solved, b) yield e)), Map(for name in inferred yield name => List(for t in proc_raises(scope, name) yield TSort(t, List()))))
+  Exceptions(errors ++ distinct(List(for b in bounds for e in exceeded(scope.solved, b) yield e)), Map(for name in inferred yield name => List(for t in proc_raises(scope, name) yield TSort(t, List()))), Map(for id => _ in scope.solved yield id => raised_set(scope.solved, RUnknown(id))))
 
 function in_module(scope: Scope, cmd: Cmd): Scope :=
   scope with module := cmd_module(cmd)

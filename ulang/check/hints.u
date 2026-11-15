@@ -477,6 +477,24 @@ function sample(): List[Str] :=
     "  fail()",
     "  r := f(Succ(k).n)")
 
+// a procedure value bound without a type shows the raises that the raises pass solved for it
+test solved_raises_hints() :=
+  var own: Mod, q: Prog
+  let text := join("\n", List(
+    "data Oops :=",
+    "  case Oops",
+    "",
+    "procedure fail() :=",
+    "  raise Oops",
+    "",
+    "procedure retry() :=",
+    "  let f := fail",
+    "",
+    "  f()")) ++ "\n"
+  parse_text(in text, out own)
+  check_program(in Source(List(own), List(), "main"), out q)
+  assert contains("{\"kind\": \"inlay\", \"line\": 8, \"column\": 8, \"label\": \": () raises Oops\"}", List(for h in hints(text, q) for line in format_hint(h) yield line))
+
 // the hover of a use resolved, of a local with its inlay, of a field, of a pattern, of a call, and the inferred raises,
 // which a call of a private procedure inherits
 test sample_hints() :=

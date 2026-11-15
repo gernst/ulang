@@ -195,7 +195,7 @@ data Within :=
 // loop_assigned are of the command being checked, the unknown types reported, each once, and the variables that the body
 // of a while assigns which are not assigned before it, the latter of the procedure or procedure lambda being checked
 data State :=
-  case State(sig: Sig, sub: Subst, count: Int, module: Id, visible: List[Id], table: List[Id * List[Id]], pending: List[Pending], chosen: Map[Name, Name], hidden: Set[Name], hidden_sorts: Set[Name], at: Pos, errors: List[TypeError], unparsed: Set[Id], partial: Bool, within: List[Within], taken: Set[Int], loops: List[Pos * Env], scopes: Map[Name, List[Env]], unknown_sorts: Set[Name], loop_assigned: Set[Name], raises_count: Int, bounds: Buffer[Bound])
+  case State(sig: Sig, sub: Subst, count: Int, module: Id, visible: List[Id], table: List[Id * List[Id]], pending: List[Pending], chosen: Map[Name, Name], hidden: Set[Name], hidden_sorts: Set[Name], at: Pos, errors: List[TypeError], unparsed: Set[Id], partial: Bool, within: List[Within], taken: Set[Int], loops: List[Pos * Env], scopes: Map[Name, List[Env]], unknown_sorts: Set[Name], loop_assigned: Set[Name], raises_count: Int, bounds: Buffer[Bound], solved: Option[Map[Int, Set[Name]]])
 
 // the constructor of a pattern, where literals count as constructors without arguments
 data Head :=
@@ -219,7 +219,7 @@ function sees(m: Id, vs: List[Id * List[Id]]): List[Id] :=
   value_or(get(m, vs), List(m))
 
 function start(main: Id, vs: List[Id * List[Id]]): State :=
-  State(empty(), empty(), 0, main, sees(main, vs), vs, List(), empty(), empty(), empty(), Pos(0, 0), List(), empty(), false, List(), empty(), List(), empty(), empty(), empty(), 0, empty())
+  State(empty(), empty(), 0, main, sees(main, vs), vs, List(), empty(), empty(), empty(), Pos(0, 0), List(), empty(), false, List(), empty(), List(), empty(), empty(), empty(), 0, empty(), None)
 
 function in_module(m: Id, n: Name): Name :=
   Name(Some(m), n.base)
@@ -683,6 +683,37 @@ function case_of[A](b: At[Branch[A]]): At[Pat] * Bool :=
 function zonk_guard(s: State, g: Option[At[Expr]]): Option[At[Expr]] :=
   map_option(g, lambda e => zonk_expr(s, e))
 
+// t of the checked program, with the solutions of the raises pass for its unknowns of raises once they are known
+function zonked(s: State, t: Type): Type :=
+  solved_type(s.solved, zonk_type(s.sub, t))
+
+// t with the solutions of its unknowns of raises once the raises pass has solved them, where one without a bound is none
+function solved_type(solved: Option[Map[Int, Set[Name]]], t: Type): Type :=
+  match t
+    case TSort(name, args) =>
+      TSort(name, List(for a in args yield solved_type(solved, a)))
+
+    case TFun(args, res) =>
+      TFun(List(for a in args yield solved_type(solved, a)), solved_type(solved, res))
+
+    case TProc(ins, outs, refs, raised) =>
+      TProc(List(for a in ins yield solved_type(solved, a)), List(for a in outs yield solved_type(solved, a)), List(for a in refs yield solved_type(solved, a)), solved_raises(solved, raised))
+
+    case TTuple(types) =>
+      TTuple(List(for a in types yield solved_type(solved, a)))
+
+    case _ =>
+      t
+  end
+
+function solved_raises(solved: Option[Map[Int, Set[Name]]], raised: Raises): Raises :=
+  match (raised, solved)
+    case (RUnknown(id), Some(solutions)) =>
+      RSet(value_or(get(id, solutions), empty()))
+    case _ =>
+      raised
+  end
+
 function zonk_type(su: Subst, t: Type): Type :=
   match resolve(su, t)
     case TSort(name, args) =>
@@ -711,7 +742,7 @@ function settled(s: State, n: Name): Name :=
   end
 
 function zonk_var(s: State, x: Var): Var :=
-  Var(settled(s, x.name), zonk_type(s.sub, x.typ))
+  Var(settled(s, x.name), zonked(s, x.typ))
 
 function zonk_vars(s: State, xs: List[Var]): List[Var] :=
   List(for x in xs yield zonk_var(s, x))
@@ -743,7 +774,7 @@ function zonk_node(s: State, expr: Expr): Expr :=
       ELam(List(for p in formals yield zonk_pat(s, p)), zonk_expr(s, body))
 
     case EProc(ins, outs, refs, raised, stmt) =>
-      EProc(zonk_decls(s, ins), zonk_decls(s, outs), zonk_decls(s, refs), raised, zonk_stmt(s, stmt))
+      EProc(zonk_decls(s, ins), zonk_decls(s, outs), zonk_decls(s, refs), solved_raises(s.solved, raised), zonk_stmt(s, stmt))
 
     case ELet(bindings, body) =>
       ELet(List(for (p, e) in bindings yield (zonk_pat(s, p), zonk_expr(s, e))), zonk_expr(s, body))
@@ -825,10 +856,10 @@ function zonk_statement(s: State, stmt: Stmt): Stmt :=
       SAssert(zonk_expr(s, cond))
 
     case SAssertRaises(typ, pat, body) =>
-      SAssertRaises(zonk_type(s.sub, typ), zonk_pat(s, pat), zonk_stmt(s, body))
+      SAssertRaises(zonked(s, typ), zonk_pat(s, pat), zonk_stmt(s, body))
 
     case SRaise(value, typ) =>
-      SRaise(zonk_expr(s, value), zonk_type(s.sub, typ))
+      SRaise(zonk_expr(s, value), zonked(s, typ))
 
     case STry(body, catches) =>
       STry(zonk_stmt(s, body), List(for h in catches yield map_at(h, lambda c => zonk_handler(s, c))))
@@ -885,13 +916,13 @@ function zonk_gen(s: State, g: Gen): Gen :=
 function zonk_handler(s: State, h: Catch): Catch :=
   match h
     case Catch(typ, pat, guard, body) =>
-      Catch(zonk_type(s.sub, typ), zonk_pat(s, pat), zonk_guard(s, guard), zonk_stmt(s, body))
+      Catch(zonked(s, typ), zonk_pat(s, pat), zonk_guard(s, guard), zonk_stmt(s, body))
   end
 
 function zonk_cmd(s: State, cmd: Cmd): Cmd :=
   match cmd
     case CFun(name, params, formals, typ, _, body) =>
-      CFun(name, params, zonk_decls(s, formals), zonk_type(s.sub, typ), no_spec(), zonk_expr(s, body))
+      CFun(name, params, zonk_decls(s, formals), zonked(s, typ), no_spec(), zonk_expr(s, body))
 
     case CProc(name, params, ins, outs, refs, raised, spec, stmt) =>
       CProc(name, params, zonk_decls(s, ins), zonk_decls(s, outs), zonk_decls(s, refs), raised, zonk_contract(s, spec), zonk_stmt(s, stmt))
@@ -5150,7 +5181,7 @@ procedure check_package(
     private_of(in d, out private, private_sorts)
     hidden := hidden ++ private, hidden_sorts := hidden_sorts ++ private_sorts
   end
-  s := State(before, empty(), 0, first_member(members), List(), visibility(imports ++ own, first_member(members)), List(), empty(), hidden, Set(for x in hidden_sorts), Pos(0, 0), List(), unparsed, partial, List(), empty(), List(), empty(), empty(), empty(), 0, empty()), decls := seconds(placed)
+  s := State(before, empty(), 0, first_member(members), List(), visibility(imports ++ own, first_member(members)), List(), empty(), hidden, Set(for x in hidden_sorts), Pos(0, 0), List(), unparsed, partial, List(), empty(), List(), empty(), empty(), empty(), 0, empty(), None), decls := seconds(placed)
   each_placed(in declare_datas, placed, ref s)
   declare_datas(in builtins, ref s)
   each_placed(in declare_sorts, alias_order(List(for p in placed if alias_names(p) != None), List()), ref s)
@@ -5201,7 +5232,8 @@ procedure check_package(
   let written := List(for d in mods for (m, c) in written_of(d.name, d.exported ++ d.implemented) yield (m, if defined == List() and is_checked(m, c) then unchecked(c) else c))
   cmds := with_definitions(written, defined) ++ tested ++ enumerated, shown := exported(restrict(s.sig, members), hidden, Set(for x in hidden_sorts)), errors := s.errors, loose := List(for (i, e) in zip(range(0, size(s.errors)), s.errors) if not contains(i, s.taken) yield e)
   exceptions := raises_errors(List(for (_, c) in defined ++ tested if cmd_errors(c) == List() yield c.that), s.sig, hidden, List(for b in s.bounds))
-  errors := errors ++ exceptions.errors, cmds := List(for (m, c) in cmds yield (m, map_at(c, lambda cmd => with_inferred(cmd, exceptions.inferred))))
+  let solving := s with sub := empty(), chosen := empty(), solved := Some(exceptions.solved)
+  errors := errors ++ exceptions.errors, cmds := List(for (m, c) in cmds yield (m, map_at(c, lambda cmd => with_inferred(if cmd_errors(c) == List() then zonk_cmd(solving, cmd) else cmd, exceptions.inferred))))
   loose := loose ++ drop(size(s.errors), errors)
 
 // cmd with the raises inferred of it if it is a private procedure without raises, which the checked program keeps
