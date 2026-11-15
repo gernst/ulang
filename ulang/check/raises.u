@@ -368,12 +368,25 @@ function gens_flow(scope: Scope, gens: List[Gen], body: Scope -> Flow): Flow :=
 
 // what the body of a try raises that its handlers do not catch, where the unguarded handlers of a type that cover it catch
 // all of it, _ catches all, and the others let the exceptions that they do not match through, and what the handlers raise
+// the types that the handlers cover and the handlers that nothing reaches by their alternatives, of their own types, and
+// the flows of their bodies once per handler
 function handled(scope: Scope, body: Flow, catches: List[Pos * Catch]): Flow :=
-  let caught := List(for (_, c) in catches if c.guard == None yield (c.typ, c.pat.that)) in
+  let split := List(for (p, c) in catches for a in handler_alternatives(p, c) yield a) in
+  let caught := List(for (_, c) in split if c.guard == None yield (c.typ, c.pat.that)) in
   let left := Map(for t => p in body.raised if not catches_all(scope.sig, TSort(t, List()), caught) yield t => p) in
-  let never := List(for (p, c) in catches if c.pat.that != PWild and is_tracked(scope.sig, c.typ) and not contains_key(body.raised, c.typ) yield (p, NeverRaised(c.typ))) in
+  let never := List(for (p, c) in split if c.pat.that != PWild and is_tracked(scope.sig, c.typ) and not contains_key(body.raised, c.typ) yield (p, NeverRaised(c.typ))) in
   let handlers := flows(List(for (_, c) in catches yield branch_flow(scope, c.pat, c.guard, c.body))) in
   Flow(handlers.raised ++ left, body.errors ++ never ++ handlers.errors, joined(body.lower, handlers.lower))
+
+// the handlers of the alternatives of the handler c at p, each at its alternative, with its type, if c has alternatives
+// at the top, see handler_pattern of ulang/check/check.u
+function handler_alternatives(p: Pos, c: Catch): List[Pos * Catch] :=
+  match c.pat.that
+    case POr(_) =>
+      List(for d in expanded_handlers(List(nowhere(c))) yield (d.that.pat.pos, d.that))
+    case _ =>
+      List((p, c))
+  end
 
 function catches_all(sig: Sig, t: Type, caught: List[Type * Pat]): Bool :=
   exists(caught, lambda (_, pat) => pat == PWild) or covers_all(sig, t, List(for (u, pat) in caught if u == t yield pat))

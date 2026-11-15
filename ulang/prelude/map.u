@@ -39,7 +39,7 @@ function compare[K, V](a: Map[K, V], b: Map[K, V]): Int
 
 function ==[K, V](a: Map[K, V], b: Map[K, V]): Bool
 
-// the entries in the order of their keys as the literal {k => v, l => w}, also inside other values
+// the entries in the order of their keys as the form Map(k => v, l => w), also inside other values
 function show[K, V](m: Map[K, V]): Str
 
 implementation

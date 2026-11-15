@@ -792,7 +792,7 @@ u_value u_number(u_value s) {
 
 // the functions of the builtin section of array.u
 
-// the array of n elements, of a literal |a, b|
+// the array of n elements, of a form Array(a, b)
 u_value u_mk_array(int n, ...) {
   va_list args;
   va_start(args, n);

@@ -1,4 +1,4 @@
-// [a, b; xs] is notation for Cons(a, Cons(b, xs)), and [a, b] for Cons(a, Cons(b, Nil))
+// List(a, b; xs) is the form of Cons(a, Cons(b, xs)), and List(a, b) of Cons(a, Cons(b, Nil))
 
 export
 
@@ -93,7 +93,7 @@ function firsts[A, B](ps: List[A * B]): List[A]
 
 function seconds[A, B](ps: List[A * B]): List[B]
 
-// the elements as [a, b], also inside other values
+// the elements as List(a, b), also inside other values
 function show[A](xs: List[A]): Str
 
 implementation

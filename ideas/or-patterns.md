@@ -21,5 +21,4 @@ The `case _` of the traversals become alternatives of the constructors they stan
 
 ## Open
 
-- Handlers whose alternatives have different types of exceptions, `catch case OsError(m) | ParseError(m) =>`, now a `CannotUnify` at the second: a `Catch` has one type, which the interpreter and both compilers compare with the type of the exception before the pattern, and by which the raises cover a `try` (`handled` of `ulang/check/raises.u`). Either `Catch` carries a type per alternative, which every phase that reads `Catch.typ` must then follow, or the backends split such a handler into one `Catch` per type; and a message of its own instead of `CannotUnify`.
 - The backends multiply nested alternatives out into copies of the case, which needs a limit, or a test of the alternatives where they stand that binds the variables of each, only if a program ever makes many.

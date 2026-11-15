@@ -398,6 +398,8 @@ function has_alternatives(pat: At[Pat]): Bool
 // the cases with alternatives as the cases of their alternatives
 function expanded_cases[A](cases: List[At[Branch[A]]]): List[At[Branch[A]]]
 
+// the handlers with alternatives as the handlers of their alternatives, each of the type that the checker annotates
+// its alternative with, which readers of the type of a handler take apart first
 function expanded_handlers(cases: List[At[Catch]]): List[At[Catch]]
 
 // the variables of patterns that are all variables
@@ -966,7 +968,17 @@ function expanded_cases[A](cases: List[At[Branch[A]]]): List[At[Branch[A]]] :=
   List(for d in cases for q in alternatives(d.that.pat) yield d with that := (d.that with pat := q))
 
 function expanded_handlers(cases: List[At[Catch]]): List[At[Catch]] :=
-  List(for d in cases for q in alternatives(d.that.pat) yield d with that := (d.that with pat := q))
+  List(for d in cases for q in alternatives(d.that.pat) yield d with that := alternative_handler(d.that, q))
+
+// the handler c of the alternative q of its pattern, whose annotation at the top is the type of the exception that it
+// matches, as the checker types the alternatives of a handler
+function alternative_handler(c: Catch, q: At[Pat]): Catch :=
+  match q.that
+    case PAnnotated(inner, typ) =>
+      c with typ := typ, pat := inner
+    case _ =>
+      c with pat := q
+  end
 
 function pattern_names(pat: At[Pat]): List[Name] :=
   match pat.that

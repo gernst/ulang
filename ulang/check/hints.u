@@ -283,6 +283,10 @@ function pattern_hints(lines: Array[Str], decls: Decls, outer: Span, pat: At[Pat
     case Some(POr(alts)) =>
       List(for a in alts for h in pattern_hints(lines, decls, here, a) yield h)
 
+    // the type of an alternative of a handler, see handler_pattern of ulang/check/check.u
+    case Some(PAnnotated(inner, _)) =>
+      pattern_hints(lines, decls, outer, inner)
+
     case _ =>
       List()
   end

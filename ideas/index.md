@@ -27,6 +27,7 @@ Plans of work in progress, each deleted when its work is done:
 - `ideas/prove.md`: the prover, its proofs, and contracts
 - `ideas/lint.md`: the rules of lints that need the e-graph of the prover
 - `ideas/review.md`: a review of the sources against the rules of style, as of c319a1d
+- `ideas/design-review.md`: a review of the design for agents, the trip-ups of `unclear.md` sorted, and a judgement of every item
 - `ideas/archives.md`: packages compiled separately into static archives (Build 2)
 - `ideas/assembly.md`: the backend of x86-64 assembly (Compiler 2)
 - `ideas/refactor.md`: the command `refactor`, its edit scripts and operations (Diagnostics 3 and 4)

@@ -162,7 +162,7 @@ test guards() :=
   end
   assert s == "one"
 
-// [a, b] is Cons(a, Cons(b, Nil)) and [a, b; c] is Cons(a, Cons(b, c)), in patterns and expressions
+// List(a, b) is Cons(a, Cons(b, Nil)) and List(a, b; c) is Cons(a, Cons(b, c)), in patterns and expressions
 function sum_pairs(xs: List[Int]): Int :=
   match xs
     case List() =>

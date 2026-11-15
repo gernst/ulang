@@ -1307,6 +1307,11 @@ procedure handle(
     case List() =>
       raise Thrown(v, t)
 
+    // alternatives of types of their own, see handler_pattern of ulang/check/check.u, of which the split leaves none at
+    // the top
+    case List(Catch(THole, AOk(pos, span, POr(alts)), guard, body); rest) =>
+      handle(in run, List(for d in expanded_handlers(List(nowhere(Catch(THole, AOk(pos, span, POr(alts)), guard, body)))) yield d.that) ++ rest, v, t, ref env, cache)
+
     case List(Catch(_, AOk(_, _, PWild), guard, body); rest) =>
       var ok: Bool
       holds(in run, env, guard, out ok, ref cache)

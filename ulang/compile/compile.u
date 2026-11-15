@@ -375,7 +375,7 @@ procedure compile_expr(
           compile_exprs(in defs, env, es, out ss, rs, ref g)
           r := c_call("u_mk_array", List(CeNum(size(rs))) ++ rs)
 
-        // [e for x in c, y in d if q] over lists and arrays, nested folds into which comprehensions translate, are nested
+        // List(for x in c for y in d if q yield e) over lists and arrays, nested folds into which comprehensions translate, are nested
         // loops that build the list in order
         case Some(FusedList((gs, q, e), init)) =>
           compile_list_comprehension(in defs, env, gs, q, e, init, out ss, r, ref g)
@@ -626,7 +626,7 @@ procedure expr_cases(
       expr_cases(in defs, env, more, v, t, out rest, ref g)
       ss := List(case_if(t, pattern_tests(pat.that, v), pat, v, body)) ++ rest
 
-    // the parser and the checker make no error nodes yet
+    // compile_target of the driver refuses or leaves out the code with errors, so no error node reaches here
     case _ =>
       raise Unexpected("error node")
   end
@@ -1063,7 +1063,7 @@ procedure handler_cases(
       handler_cases(in defs, env, more, h, d, out rest, ref g)
       ss := List(case_if(d, tests, pat, v, body)) ++ rest
 
-    // the parser and the checker make no error nodes yet
+    // compile_target of the driver refuses or leaves out the code with errors, so no error node reaches here
     case _ =>
       raise Unexpected("error node")
   end
@@ -1099,7 +1099,7 @@ procedure stmt_cases(
       stmt_cases(in defs, env, more, v, d, out rest, ref g)
       ss := List(case_if(d, pattern_tests(pat.that, v), pat, v, body)) ++ rest
 
-    // the parser and the checker make no error nodes yet
+    // compile_target of the driver refuses or leaves out the code with errors, so no error node reaches here
     case _ =>
       raise Unexpected("error node")
   end
