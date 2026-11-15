@@ -344,9 +344,10 @@ function unqualified(x: Id): Name
 
 function arity(t: Type): Int
 
-// x at the position Pos(0, 0), of code that the parser did not read, e.g. of tests
+// the packages that d imports, in the order of its import lines
 function import_ids(d: Mod): List[Id]
 
+// x at the position Pos(0, 0), of code that the parser did not read, e.g. of tests
 function nowhere[A](x: A): At[A]
 
 // a name of the generated code, which users cannot write
@@ -570,7 +571,6 @@ function arity(t: Type): Int :=
 function no_spec(): Spec :=
   Spec(List(), None, List())
 
-// the packages that d imports, in the order of its import lines
 function import_ids(d: Mod): List[Id] :=
   List(for i in d.imports yield i.that)
 
