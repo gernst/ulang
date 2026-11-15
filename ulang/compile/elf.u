@@ -40,9 +40,10 @@ data Rela :=
   case Rela(offset: Int, target: RelaTarget, kind: Int, addend: Int)
 
 // the object while the lines are encoded: the current section, the bytes, relocations, and alignment of each section, the
-// labels at their sections and offsets, and the global symbols
+// labels at their sections and offsets, and the global symbols, where the bytes of a section are the chunks of its lines,
+// which are flattened only once, into the array of the file, since a copy of each byte took most of the time of encoding
 data Obj :=
-  case Obj(sec: Sec, offsets: Map[Sec, Int], bytes: Map[Sec, Buffer[Int]], relas: Map[Sec, Buffer[Rela]], aligns: Map[Sec, Int], labels: Map[Str, Sec * Int], globals: Set[Str])
+  case Obj(sec: Sec, offsets: Map[Sec, Int], bytes: Map[Sec, Buffer[List[Int]]], relas: Map[Sec, Buffer[Rela]], aligns: Map[Sec, Int], labels: Map[Str, Sec * Int], globals: Set[Str])
 
 // the ELF types of relocations of x86-64: an address of 8 bytes, a distance of 4 bytes, and one to a procedure linkage
 // table entry
@@ -362,7 +363,7 @@ function offset_of(obj: Obj): Int :=
   value_or(get(obj.sec, obj.offsets), 0)
 
 procedure add_bytes(in bytes: List[Int], ref obj: Obj) :=
-  obj := obj with offsets := put(obj.sec, offset_of(obj) + size(bytes), obj.offsets), bytes := put(obj.sec, value_or(get(obj.sec, obj.bytes), empty()) ++ bytes, obj.bytes)
+  obj := obj with offsets := put(obj.sec, offset_of(obj) + size(bytes), obj.offsets), bytes := put(obj.sec, value_or(get(obj.sec, obj.bytes), empty()) ++ List(bytes), obj.bytes)
 
 procedure add_rela(in rela: Rela, ref obj: Obj) :=
   obj := obj with relas := put(obj.sec, value_or(get(obj.sec, obj.relas), empty()) ++ List(rela), obj.relas)
@@ -468,7 +469,7 @@ procedure encode_lines(
 
 // the sections of the object with their headers, in the order of their indices from 1, after the null section
 data Header :=
-  case Header(name: Str, kind: Int, flags: Int, link: Int, info: Int, align: Int, entsize: Int, content: List[Int])
+  case Header(name: Str, kind: Int, flags: Int, link: Int, info: Int, align: Int, entsize: Int, content: List[List[Int]])
 
 // the index of the section header of sec, and of its symbol in the symbol table
 function sec_index(sec: Sec): Int :=
@@ -508,8 +509,8 @@ function string_table(texts: List[Str]): List[Int] * Map[Str, Int] :=
     (bytes ++ code, n + size(code), put(text, n, offsets))) in
   (List(for b in bytes), offsets)
 
-function buffer_of(bytes: List[Int]): Buffer[Int] :=
-  empty() ++ bytes
+function buffer_of[A](xs: List[A]): Buffer[A] :=
+  empty() ++ xs
 
 function rela_bytes(rela: Rela, index: Map[Str, Int]): List[Int] :=
   let sym := match rela.target
@@ -524,7 +525,13 @@ function sym_bytes(sym: Sym, names: Map[Str, Int]): List[Int] :=
   le(value_or(get(sym.name, names), 0), 4) ++ List(sym.info, 0) ++ le(sym.shndx, 2) ++ le(sym.value, 8) ++ zeros(8)
 
 function sec_bytes(obj: Obj, sec: Sec): List[Int] :=
-  List(for b in value_or(get(sec, obj.bytes), empty()))
+  List(for chunk in sec_chunks(obj, sec) for b in chunk yield b)
+
+function sec_chunks(obj: Obj, sec: Sec): List[List[Int]] :=
+  List(for chunk in value_or(get(sec, obj.bytes), empty()))
+
+function chunks_size(chunks: List[List[Int]]): Int :=
+  foldl(chunks, 0, lambda n, chunk => n + size(chunk))
 
 function sec_relas(obj: Obj, sec: Sec): List[Rela] :=
   List(for r in value_or(get(sec, obj.relas), empty()))
@@ -545,12 +552,12 @@ function headers(obj: Obj): List[Header] :=
   let syms := symbols(obj, undefined_of(obj)) in
   let locals := size(List(for s in syms if s.info < 16)), (strtab, names) := string_table(List(for s in syms yield s.name)), index := Map(for (s, i) in numbered(syms) if s.shndx == 0 and s.info == 16 yield s.name => i) in
   List(
-    Header(".text", 1, 6, 0, 0, align_of(obj, SecText), 0, sec_bytes(obj, SecText)),
-    Header(".data", 1, 3, 0, 0, align_of(obj, SecData), 0, sec_bytes(obj, SecData)),
-    Header(".rodata", 1, 2, 0, 0, align_of(obj, SecRodata), 0, sec_bytes(obj, SecRodata)),
-    Header(".note.GNU-stack", 1, 0, 0, 0, 1, 0, List())) ++ List(for sec in code_secs() yield Header(".rela" ++ name_of(sec), 4, 64, 8, sec_index(sec), 8, 24, List(for r in sec_relas(obj, sec) for b in rela_bytes(r, index) yield b))) ++ List(
-    Header(".symtab", 2, 0, 9, locals, 8, 24, List(for s in syms for b in sym_bytes(s, names) yield b)),
-    Header(".strtab", 3, 0, 0, 0, 1, 0, strtab))
+    Header(".text", 1, 6, 0, 0, align_of(obj, SecText), 0, sec_chunks(obj, SecText)),
+    Header(".data", 1, 3, 0, 0, align_of(obj, SecData), 0, sec_chunks(obj, SecData)),
+    Header(".rodata", 1, 2, 0, 0, align_of(obj, SecRodata), 0, sec_chunks(obj, SecRodata)),
+    Header(".note.GNU-stack", 1, 0, 0, 0, 1, 0, List())) ++ List(for sec in code_secs() yield Header(".rela" ++ name_of(sec), 4, 64, 8, sec_index(sec), 8, 24, List(for r in sec_relas(obj, sec) yield rela_bytes(r, index)))) ++ List(
+    Header(".symtab", 2, 0, 9, locals, 8, 24, List(for s in syms yield sym_bytes(s, names))),
+    Header(".strtab", 3, 0, 0, 0, 1, 0, List(strtab)))
 
 function name_of(sec: Sec): Str :=
   match sec
@@ -572,16 +579,17 @@ function align_of(obj: Obj, sec: Sec): Int :=
 
 // the ELF file of the headers, followed by .shstrtab, the contents at offsets aligned as each section wants, and the
 // section headers
-function elf_file(hs: List[Header]): List[Int] :=
+function elf_file(hs: List[Header]): List[List[Int]] :=
   let (shstrtab, names) := string_table(List(for h in hs yield h.name) ++ List(".shstrtab")) in
-  let all := hs ++ List(Header(".shstrtab", 3, 0, 0, 0, 1, 0, shstrtab)) in
-  let (body, next, offsets) := foldl(all, (buffer_of(List()), 64, List()), lambda (bytes, at, offsets), h => let pad := (h.align - at % h.align) % h.align in
-  (bytes ++ zeros(pad) ++ h.content, at + pad + size(h.content), offsets ++ List(at + pad))) in
+  let all := hs ++ List(Header(".shstrtab", 3, 0, 0, 0, 1, 0, List(shstrtab))) in
+  let (body, next, offsets) := foldl(all, (buffer_of(List()), 64, List()), lambda (chunks, at, offsets), h => let pad := (h.align - at % h.align) % h.align in
+  (chunks ++ List(zeros(pad)) ++ h.content, at + pad + chunks_size(h.content), offsets ++ List(at + pad))) in
   let pad := (8 - next % 8) % 8 in
-  List(127, 69, 76, 70, 2, 1, 1, 0) ++ zeros(8) ++ le(1, 2) ++ le(62, 2) ++ le(1, 4) ++ zeros(16) ++ le(next + pad, 8) ++ le(0, 4) ++ le(64, 2) ++ zeros(4) ++ le(64, 2) ++ le(size(all) + 1, 2) ++ le(size(all), 2) ++ List(for b in body) ++ zeros(pad) ++ zeros(64) ++ List(for (h, offset) in zip(all, offsets) for b in header_bytes(h, value_or(get(h.name, names), 0), offset) yield b)
+  List(
+    List(127, 69, 76, 70, 2, 1, 1, 0) ++ zeros(8) ++ le(1, 2) ++ le(62, 2) ++ le(1, 4) ++ zeros(16) ++ le(next + pad, 8) ++ le(0, 4) ++ le(64, 2) ++ zeros(4) ++ le(64, 2) ++ le(size(all) + 1, 2) ++ le(size(all), 2)) ++ List(for chunk in body) ++ List(zeros(pad) ++ zeros(64)) ++ List(for (h, offset) in zip(all, offsets) yield header_bytes(h, value_or(get(h.name, names), 0), offset))
 
 function header_bytes(h: Header, name: Int, offset: Int): List[Int] :=
-  le(name, 4) ++ le(h.kind, 4) ++ le(h.flags, 8) ++ zeros(8) ++ le(offset, 8) ++ le(size(h.content), 8) ++ le(h.link, 4) ++ le(h.info, 4) ++ le(h.align, 8) ++ le(h.entsize, 8)
+  le(name, 4) ++ le(h.kind, 4) ++ le(h.flags, 8) ++ zeros(8) ++ le(offset, 8) ++ le(chunks_size(h.content), 8) ++ le(h.link, 4) ++ le(h.info, 4) ++ le(h.align, 8) ++ le(h.entsize, 8)
 
 procedure encode_object(
   in  f: AsmFile,
@@ -590,7 +598,7 @@ procedure encode_object(
   var placed: Obj, obj: Obj
   encode_lines(in f.lines, empty(), out placed)
   encode_lines(in f.lines, placed.labels, out obj)
-  bytes := Array(for b in elf_file(headers(obj)) yield byte(b))
+  bytes := Array(for chunk in elf_file(headers(obj)) for b in chunk yield byte(b))
 
 // the encodings of the forms of operands that need care, as GNU as encodes them: %rsp and %r12 as bases, which take a SIB
 // byte, %rbp and %r13 with a displacement of 0, which take one byte, the registers %r8 to %r15, and immediates of 1 and 4
