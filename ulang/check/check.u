@@ -210,9 +210,11 @@ data Within :=
 // where hidden and hidden_sorts are the private declarations and sorts of the members of the package being checked, which
 // the other members do not see, while sig has only the exports of the modules checked before, and unknown_sorts and
 // loop_assigned are of the command being checked, the unknown types reported, each once, and the variables that the body
-// of a while assigns which are not assigned before it, the latter of the procedure or procedure lambda being checked
+// of a while assigns which are not assigned before it, the latter of the procedure or procedure lambda being checked, and
+// clashes counts the errors reported, also those that report drops since they reach TError, by which a trial tells that a
+// unification failed
 data State :=
-  case State(sig: Sig, sub: Subst, count: Int, module: Id, visible: List[Id], table: List[(Id, List[Id])], pending: List[Pending], chosen: Map[Name, Name], hidden: Set[Name], hidden_sorts: Set[Name], at: Pos, errors: List[TypeError], unparsed: Set[Id], partial: Bool, within: List[Within], taken: Set[Int], loops: List[(Pos, Env)], scopes: Map[Name, List[Env]], unknown_sorts: Set[Name], loop_assigned: Set[Name], raises_count: Int, bounds: Buffer[Bound], solved: Option[Map[Int, Set[Name]]], aliased: Set[(Id, Id)])
+  case State(sig: Sig, sub: Subst, count: Int, module: Id, visible: List[Id], table: List[(Id, List[Id])], pending: List[Pending], chosen: Map[Name, Name], hidden: Set[Name], hidden_sorts: Set[Name], at: Pos, errors: List[TypeError], unparsed: Set[Id], partial: Bool, within: List[Within], taken: Set[Int], loops: List[(Pos, Env)], scopes: Map[Name, List[Env]], unknown_sorts: Set[Name], loop_assigned: Set[Name], raises_count: Int, bounds: Buffer[Bound], solved: Option[Map[Int, Set[Name]]], aliased: Set[(Id, Id)], clashes: Int)
 
 // the constructor of a pattern, where literals count as constructors without arguments
 data Head :=
@@ -236,7 +238,7 @@ function sees(m: Id, vs: List[(Id, List[Id])]): List[Id] :=
   value_or(get(m, vs), List(m))
 
 function start(main: Id, vs: List[(Id, List[Id])]): State :=
-  State(empty(), empty(), 0, main, sees(main, vs), vs, List(), empty(), empty(), empty(), Pos(0, 0), List(), empty(), false, List(), empty(), List(), empty(), empty(), empty(), 0, empty(), None, empty())
+  State(empty(), empty(), 0, main, sees(main, vs), vs, List(), empty(), empty(), empty(), Pos(0, 0), List(), empty(), false, List(), empty(), List(), empty(), empty(), empty(), 0, empty(), None, empty(), 0)
 
 function in_module(m: Id, n: Name): Name :=
   Name(Some(m), n.base)
@@ -1990,7 +1992,9 @@ procedure choose(
       s := s with count := s.count + 1, pending := s.pending ++ List(Pending(m, n, firsts(ok), w, s.at))
   end
 
-// the candidates that fit w, each with the state after unifying its instance with w
+// the candidates that fit w, each with the state after unifying its instance with w, where a candidate fits if the
+// unification reports nothing, also no clash with a part of type TError, which report drops, so that an argument of an
+// erroneous type, as List[TError], keeps only the candidates of its container
 procedure trials(
   in  cs: List[(Name, Scheme)],
       w: Type,
@@ -2002,7 +2006,7 @@ procedure trials(
   for (m, sc) in cs do
     u := s
     trial(in sc, w, ref u)
-    if size(u.errors) == size(s.errors) then
+    if u.clashes == s.clashes then
       ok := ok ++ List(((m, sc), u))
     end
   end
@@ -2031,7 +2035,9 @@ procedure revisit(in ps: List[Pending], ref changed: Bool, s: State) :=
       trials(in p.cands, p.typ, s, out ok)
       match ok
         case List() =>
-          s := s with errors := s.errors ++ List(at_use(p.pos, NoOverload(p.name, zonk_type(s.sub, p.typ))))
+          if not has_error_type(zonk_type(s.sub, p.typ)) then
+            s := s with errors := s.errors ++ List(at_use(p.pos, NoOverload(p.name, zonk_type(s.sub, p.typ))))
+          end
 
         case List(((m, _), s_)) =>
           s := s_ with chosen := put(p.id, m, s_.chosen)
@@ -2356,6 +2362,7 @@ function component_types(s: State, expected: Option[(Type, Str)], n: Int): Optio
 // the error e of a program at the innermost part around it, s.at, which infer, statement, and binders set, after which the
 // checker continues with a fallback
 procedure report(in e: TypeError, ref s: State) :=
+  s := s with clashes := s.clashes + 1
   if not reaches_error(s, e) then
     s := s with errors := s.errors ++ List(within(s, at_use(s.at, unparsed_use(s.unparsed, e))))
   end
@@ -2926,7 +2933,7 @@ procedure apply(
 procedure fits(in u: Type, t: Type, s: State, out ok: Bool) :=
   var trial := s
   unify(in u, t, ref trial)
-  ok := size(trial.errors) == size(s.errors)
+  ok := trial.clashes == s.clashes
 
 // the arguments checked against the types of the formals ps, the lambdas last, since they take the types of their formals
 // from the other arguments
@@ -5765,7 +5772,7 @@ procedure check_package(
     private_of(in d, out private, private_sorts)
     hidden := hidden ++ private, hidden_sorts := hidden_sorts ++ private_sorts
   end
-  s := State(before, empty(), 0, first_member(members), List(), visibility(imports ++ own, first_member(members)), List(), empty(), hidden, Set(for x in hidden_sorts), Pos(0, 0), List(), unparsed, partial, List(), empty(), List(), empty(), empty(), empty(), 0, empty(), None, empty()), decls := seconds(placed)
+  s := State(before, empty(), 0, first_member(members), List(), visibility(imports ++ own, first_member(members)), List(), empty(), hidden, Set(for x in hidden_sorts), Pos(0, 0), List(), unparsed, partial, List(), empty(), List(), empty(), empty(), empty(), 0, empty(), None, empty(), 0), decls := seconds(placed)
   each_placed(in declare_datas, placed, ref s)
   declare_datas(in builtins, ref s)
   each_placed(in declare_sorts, alias_order(List(for p in placed if alias_names(p) != None), List()), ref s)
