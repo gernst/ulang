@@ -155,17 +155,18 @@ Without the `@put into #1`, the reply would have listed the match that the new c
 | Action | What it does |
 |---|---|
 | `@show T` | prints a file, a declaration `file.u:name[/arity]`, or a handle `#n`, with handles |
-| `@put F` | each declaration of the fragment replaces the one of its name and arity in `F`, in place, or is added; a declaration keeps its doc unless the fragment writes one, and the signature in `export` follows the head of its definition |
+| `@put F` | writes the declarations of the fragment into `F`, each replacing the one of its name and arity in place, or added; a missing or empty `F` is the fragment, header, imports, and sections; into a file, the `import` lines join its imports and the declarations after `export` go into its export section, which is made if missing; a declaration keeps its doc unless the fragment writes one, the signature in `export` follows the head of its definition, and a comment of no declaration is refused |
 | `@put #n`, `@put before #n`, `@put after #n`, `@put into #n` | replaces the node, or inserts code next to it or as its last statement or case, at its indentation; a fragment may keep the margin of `@show` |
 | `@drop T` | removes a declaration, with its doc and signature, or a node |
 | `@patch T` | lines `old => new` within the text of a handle or a definition, each `old` occurring once |
-| `@rename T new` | renames a function, procedure, pattern alias, or constructor at its declarations and at every use that resolves to it, alone in its script |
+| `@rename T new` | renames a function, procedure, pattern alias, or constructor at its declarations and at every use that resolves to it, several per script |
+| `@export T`, `@unexport T` | moves a definition's doc, contract, and examples to a new signature in `export`, with the raises that a procedure infers, or back, refused while another module uses it; a datatype or an alias moves whole |
 | `@fix T [Rule …]` | applies the edits of the lints of a file or a declaration, all or of the rules named |
 | `@undo [n]` | restores the files of a script of the journal, by default the last one |
 | `@check [test] [F]` | checks `F` too, and with `test` runs the tests of the files after the reply |
 
 - A handle stays valid across edits of other declarations, and across the edits of the same script. It becomes stale when its node is changed by something else, and `@show` gives a new one.
-- `@rename` finds the uses by the names that the checker resolved, not by their text, so it never renames another overload or a local. After the writes, it checks every file that contains the name, and undoes the script if any use resolves differently, e.g. to a local of the new name. It lists the mentions in `CLAUDE.md`, `README.md`, and `ideas/` that it leaves to you.
+- `@rename` finds the uses by the names that the checker resolved, not by their text, so it never renames another overload or a local. After its writes, it checks every file of the package and every importer that contains the name, and undoes the script if any use resolves differently, e.g. to a local of the new name. It lists the mentions in `CLAUDE.md`, `README.md`, and `ideas/` that it leaves to you.
 - `@fix` rewrites expressions, drops an unused private declaration, writes `_` for an unused pattern variable, removes an unused local, makes a `var` that nothing assigns a `let`, and moves a local that is declared too high into the branches that use it. A fix that enables another takes a second `@fix`.
 - `--dry` reports and writes nothing, and the journal and the handles are kept in `out/refactor/` of the root.
 

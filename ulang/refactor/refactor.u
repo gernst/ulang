@@ -386,6 +386,12 @@ procedure perform(in action: Action, ref edits: Edits) raises Refused, OsError :
     case List("patch", word) =>
       patch(in word, action.fragment, ref edits)
 
+    case List("export", word) =>
+      export_target(in word, ref edits)
+
+    case List("unexport", word) =>
+      unexport_target(in word, ref edits)
+
     case List("fix", word; rules) =>
       fix(in word, rules, ref edits)
 
@@ -396,9 +402,6 @@ procedure perform(in action: Action, ref edits: Edits) raises Refused, OsError :
       undo(in Some(word), ref edits)
 
     case List("rename", word, new) =>
-      if edits.files != Map() then
-        raise Refused("@rename stands alone in its script, since it compares the resolutions of the files on disk")
-      end
       rename(in word, new, ref edits)
 
     case List("check") =>
@@ -414,7 +417,7 @@ procedure perform(in action: Action, ref edits: Edits) raises Refused, OsError :
       edits := edits with checked := edits.checked ++ List(path)
 
     case _ =>
-      let actions := "@show T, @put F, @put [before|after|into] #h, @drop T, @patch T, @rename T new, @fix T [Rule ...], @undo [n], @check [test] [F]"
+      let actions := "@show T, @put F, @put [before|after|into] #h, @drop T, @patch T, @rename T new, @export T, @unexport T, @fix T [Rule ...], @undo [n], @check [test] [F]"
       raise Refused("line " ++ show(action.line) ++ ": unknown action @" ++ join(" ", action.words) ++ ", which is one of " ++ actions)
   end
 
@@ -856,8 +859,9 @@ function comment_ends_in_blank(rest: List[(Str, Int)]): Bool :=
       true
   end
 
-// a block of lines that the fragment inserts before the line at of the file, with the line of the fragment of its first
-// line and its role, export, implementation, or none for imports and keywords
+// a block of lines that the fragment inserts before the line at of the file, with the line of the fragment that its first
+// line stands for, before the first line of the fragment where the block starts with a keyword or a blank line, and its
+// role, export, implementation, or none for imports
 data Insert :=
   case Insert(at: Int, lines: List[Str], first: Int, role: Str)
 
@@ -884,7 +888,7 @@ procedure put_into(
   let import_at := value_or(map_option(last(List(for i in range(1, size(lines) + 1) if starts_with(line_at(lines, i), "import ") yield i)), lambda i => i + 1), code_at)
   let export_lines := firsts(parts.exported), export_first := value_or(map_option(get_at(0, parts.exported), lambda (_, i) => i), 1)
   let impl_lines := firsts(parts.implemented), impl_first := value_or(map_option(get_at(0, parts.implemented), lambda (_, i) => i), 1)
-  let end_at := last_code_line(lines) + 1
+  let end_at := size(lines) + 1
   let has_exports := not is_blank(join("", export_lines))
   let inserts := List(Insert(import_at, imports, 0, "")) ++ (if not has_exports then
     List()
@@ -892,22 +896,22 @@ procedure put_into(
     match (exported_at, implemented_at)
       case (Some(e), _) =>
         List(
-          Insert(section_end(lines, e, end_at), List(""; export_lines), export_first, "export"))
+          Insert(section_end(lines, e, end_at), List(""; export_lines), export_first - 1, "export"))
 
       case (None, Some(i)) =>
         List(
-          Insert(i, List("export", ""; export_lines) ++ List(""), export_first, "export"))
+          Insert(i, List("export", ""; export_lines) ++ List(""), export_first - 2, "export"))
 
       case (None, None) =>
         List(
-          Insert(code_at, List("export", ""; export_lines) ++ List("", "implementation", ""), export_first, "export"))
+          Insert(code_at, List("export", ""; export_lines) ++ List("", "implementation", ""), export_first - 2, "export"))
     end) ++ (if is_blank(join("", impl_lines)) then
     List()
   else if implemented_at == None and has_sections then
     List(
-      Insert(end_at, List("", "implementation", ""; impl_lines), impl_first, "implementation"))
+      Insert(end_at, List("", "implementation", ""; impl_lines), impl_first - 3, "implementation"))
   else
-    List(Insert(end_at, List(""; impl_lines), impl_first, "implementation")))
+    List(Insert(end_at, List(""; impl_lines), impl_first - 1, "implementation")))
   let (all_lines_list, blocks) := inserted(List(for line in lines), inserts)
   let all_text := join("\n", all_lines_list)
   parsed(in path, all_text, List(for (r, ins) in blocks if ins.role != "" yield (r, ins.first)), out combined)
@@ -970,9 +974,6 @@ function first_code_line(lines: Array[Str]): Int :=
     case None =>
       size(lines) + 1
   end
-
-function last_code_line(lines: Array[Str]): Int :=
-  value_or(last(List(for i in range(1, size(lines) + 1) if not is_blank(line_at(lines, i)) yield i)), 0)
 
 // lines with the blocks of inserts, each before its line, and the range of each block in the result, where the blocks at one
 // line keep their order
@@ -1294,12 +1295,29 @@ procedure run_script(
     var handles: Handles
     let dir := state
     load_handles(in dir, out handles)
-    var edits := Edits(Map(), empty(), List(), handles, List(), state, List(), false)
-    for action in actions(script) do
-      if edits.expected != List() then
-        raise Refused("@rename stands alone in its script, since it compares the resolutions of the files on disk")
+    var edits := Edits(Map(), empty(), List(), handles, List(), state, List(), false), written: Map[Str, Str] := Map(), failure: Option[Str] := None
+    for action in actions(script) if failure == None do
+      if is_rename(action) then
+        flush(in edits, ref written)
       end
-      perform(in action, ref edits)
+      try
+        perform(in action, ref edits)
+        if is_rename(action) then
+          commit_rename(in edits, ref written)
+          edits := edits with expected := List()
+        end
+      catch
+        case Refused(message) =>
+          failure := Some(message)
+        case OsError(message) =>
+          failure := Some(message)
+      end
+    end
+    for message in failure do
+      for path => original in written do
+        os_write_utf8(in path, original)
+      end
+      raise Refused(message)
     end
     if edits.handles.changed then
       os_write_utf8(in os_join(dir, "handles.txt"), join("\n", List(for h in saved_entries(handles, edits.handles, dry) yield handle_line(h))) ++ "\n")
@@ -1307,7 +1325,12 @@ procedure run_script(
     var changes: List[Change] := List(), original: Str, created: List[Str] := List()
     for path => text in edits.files do
       try
-        os_read_utf8(in path, out original)
+        match get(path, written)
+          case Some(kept) =>
+            original := kept
+          case None =>
+            os_read_utf8(in path, out original)
+        end
       catch
         case OsError(_) =>
           original := "", created := created ++ List(path)
@@ -1318,31 +1341,23 @@ procedure run_script(
     end
     let changed := List(for c in changes yield c.path)
     if dry then
+      for path => kept in written do
+        os_write_utf8(in path, kept)
+      end
       reply := List("dry") ++ List(for n in edits.notes) ++ List(for path in changed yield "would write " ++ path)
     else
       let paths := distinct(changed ++ edits.checked)
       var before: List[(Str, Diagnostic)] := List(), after: List[(Str, Diagnostic)] := List(), found: List[(Str, Diagnostic)]
       var done: List[Int], undone: List[Int], undos: List[Int]
+      for path => kept in written do
+        os_write_utf8(in path, kept)
+      end
       for path in paths if not contains(path, created) do
         check(in path, out found)
         before := distinct(before ++ found)
       end
       for c in changes do
         os_write_utf8(in c.path, c.after)
-      end
-      var differences: List[Str] := List(), uses: List[(Span, Name, Int)]
-      for (path, names) in edits.expected do
-        resolutions(in path, out uses)
-        for difference in first_difference(List(for (span, name, _) in uses yield (span.start, name)), names) do
-          differences := differences ++ List(path ++ ":" ++ difference)
-        end
-      end
-      if differences != List() then
-        for c in changes do
-          os_write_utf8(in c.path, c.before)
-        end
-        raise Refused(join("\n", List(
-          "the edit changes the resolution of other names, so nothing is written:") ++ differences))
       end
       journal_numbers(in dir, out done, undone, undos)
       let number := foldl(done, 0, max) + 1
@@ -1385,6 +1400,65 @@ procedure run_script(
       reply := List("rejected", message), status := 1
   end
 
+function is_rename(action: Action): Bool :=
+  match action.words
+    case List("rename"; _) =>
+      true
+    case _ =>
+      false
+  end
+
+// writes the files that the actions so far edited, before a rename, which reads the files from disk, where written keeps
+// the text that each file had before the script
+procedure flush(in edits: Edits, ref written: Map[Str, Str]) raises OsError :=
+  var prior: List[(Str, Str)] := List()
+  flush_into(in edits, ref written, prior)
+
+// writes the files of a rename and compares the resolutions of the files that it scanned with those that it expects, where
+// a difference restores the files as they were before the rename and refuses the script
+procedure commit_rename(
+  in  edits: Edits,
+  ref written: Map[Str, Str]
+) raises Refused, OsError :=
+  var prior: List[(Str, Str)] := List(), differences: List[Str] := List(), uses: List[(Span, Name, Int)]
+  flush_into(in edits, ref written, prior)
+  for (path, names) in edits.expected do
+    resolutions(in path, out uses)
+    for difference in first_difference(List(for (span, name, _) in uses yield (span.start, name)), names) do
+      differences := differences ++ List(path ++ ":" ++ difference)
+    end
+  end
+  if differences != List() then
+    for (path, text) in prior do
+      os_write_utf8(in path, text)
+    end
+    raise Refused(join("\n", List(
+      "the rename changes the resolution of other names, so nothing is written:") ++ differences))
+  end
+
+// flush, which also collects the texts that it overwrote in prior
+procedure flush_into(
+  in  edits: Edits,
+  ref written: Map[Str, Str],
+      prior: List[(Str, Str)]
+) raises OsError :=
+  for path => text in edits.files do
+    var current := ""
+    try
+      os_read_utf8(in path, out current)
+    catch
+      case OsError(_) =>
+        current := ""
+    end
+    if text != current then
+      if get(path, written) == None then
+        written := Map(path => current; written)
+      end
+      prior := prior ++ List((path, current))
+      os_write_utf8(in path, text)
+    end
+  end
+
 // the first use of found whose name is not the one of expected, as a text with its position
 function first_difference(found: List[(Pos, Name)], expected: List[Name]): Option[Str] :=
   example first_difference(List((Pos(3, 7), Name(Some("m"), "f"))), List(Name(Some("m"), "g"))) == Some("3.7: a use of m.g would resolve to m.f")
@@ -1411,8 +1485,19 @@ procedure resolutions(
   in  path: Str,
   out uses: List[(Span, Name, Int)]
 ) raises Refused, OsError :=
-  var q: Prog, text: Str
+  var text: Str, found: List[Hint]
   os_read_utf8(in path, out text)
+  file_hints(in path, text, out found)
+  uses := List(for h in found for use in use_of(h) yield use)
+
+// the hints of the main module of the file at path whose text is text, as ulang.sh hints gives them, of a check that the
+// errors do not stop
+procedure file_hints(
+  in  path: Str,
+      text: Str,
+  out found: List[Hint]
+) raises Refused, OsError :=
+  var q: Prog
   try
     var source: Source
     parse_file_text(in path, text, out source)
@@ -1433,7 +1518,7 @@ procedure resolutions(
     case e =>
       raise Refused(path ++ ": " ++ internal_message(e))
   end
-  uses := List(for h in hints(text, q) for use in use_of(h) yield use)
+  found := hints(text, q)
 
 function use_of(h: Hint): Option[(Span, Name, Int)] :=
   match h
@@ -1617,6 +1702,195 @@ function constr_arity(constr: At[Constr]): Int :=
       size(fields)
     case _ =>
       0
+  end
+
+// the lines of the spec of the definition cmd, its contract and examples after its head, and the line of its head that
+// ends in :=
+function spec_range(lines: Array[Str], cmd: At[Cmd], c: Cmd): Option[Range] :=
+  let head_end := cmd.span.start.line + size(head_lines(lines_in(lines, Range(cmd.span.start.line, cmd.span.stop.line)))) - 1 in
+  let stops := List(for part in spec_parts(c) yield part.stop.line) in
+  map_option(last(sort(stops)), lambda stop => Range(head_end + 1, stop))
+
+function spec_parts(cmd: Cmd): List[Span] :=
+  match cmd
+    case CFun(_, _, _, _, spec, _) =>
+      spec_spans(spec)
+
+    case CProc(_, _, _, _, _, _, spec, _) =>
+      spec_spans(spec)
+
+    case CFunSig(_, _, _, _, spec) =>
+      spec_spans(spec)
+
+    case CProcSig(_, _, _, _, _, _, spec) =>
+      spec_spans(spec)
+
+    case _ =>
+      List()
+  end
+
+function spec_spans(spec: Spec): List[Span] :=
+  List(for e in spec.pre yield e.span) ++ List(for e in spec.post yield e.span) ++ List(for x in spec.examples yield x.span)
+
+function is_definition_of_value(cmd: Cmd): Bool :=
+  match cmd
+    case CFun(_, _, _, _, _, _) =>
+      true
+
+    case CProc(_, _, _, _, _, _, _, _) =>
+      true
+
+    case _ =>
+      false
+  end
+
+// the head lines with raised written before their :=, as an exported procedure must write what it raises
+function with_raises(head: List[Str], raised: Str): List[Str] :=
+  example with_raises(List("procedure p(in x: Int) :="), "OsError") == List("procedure p(in x: Int) raises OsError :=")
+  match reverse(head)
+    case List(last; rest) if raised != "" and ends_with(last, " :=") =>
+      reverse(List(
+        slice(last, 0, size(last) - 3) ++ " raises " ++ raised ++ " :="; rest))
+
+    case _ =>
+      head
+  end
+
+// exports the declaration of the target: a function or procedure gets a signature in export with its doc, contract, and
+// examples, which leave the definition, and a procedure that raises without saying so the inferred raises in both heads,
+// while a datatype, a type alias, or a pattern alias moves into export whole
+procedure export_target(in word: Str, ref edits: Edits) raises Refused, OsError :=
+  var text: Str, source: Source
+  let (path, name, arity) := target_of(word)
+  current_text(in path, edits.files, out text)
+  parsed(in path, text, no_fragment(), out source)
+  let d := main_mod(source), lines := Array(for line in split(text, '\n'))
+  let selected := List(for (key, cmd, c) in keyed(placed_of(d)) if forall(name, lambda base => is_selected(key, base, arity)) yield (key, cmd, c))
+  if exists(selected, lambda (_, cmd, _) => contains(cmd, d.exported)) then
+    raise Refused(word ++ " is exported already")
+  end
+  match selected
+    case List((key, cmd, c)) =>
+      let range := cmd_range(lines, cmd, 0, true)
+      let doc := lines_in(lines, Range(range.first, cmd.span.start.line - 1))
+      if is_definition_of_value(c) then
+        var result: Str, formatted_source: Source
+        var found: List[Hint]
+        let spec := spec_range(lines, cmd, c)
+        let head := head_lines(lines_in(lines, Range(cmd.span.start.line, cmd.span.stop.line)))
+        let head_end := cmd.span.start.line + size(head) - 1
+        let body := lines_in(lines, Range(value_or(map_option(spec, lambda r => r.last), head_end) + 1, range.last))
+        let spec_lines := value_or(map_option(spec, lambda r => lines_in(lines, r)), List())
+        file_hints(in path, text, out found)
+        let raised := join(", ", List(for h in found for (proc, types) in raises_of(h) if proc.base == key.base for t in types yield format_type(t)))
+        let def_head := with_raises(with_assign(head), raised)
+        let sig_head := if spec_lines == List() then strip_assign(def_head) else def_head
+        let base := spliced(List(for line in lines), List((range, def_head ++ body)))
+        formatted(in path, join("\n", base), no_fragment(), out result, formatted_source)
+        put_into(in path, result, List("export"; doc ++ sig_head ++ spec_lines), ref edits)
+      else
+        var result: Str, formatted_source: Source
+        let base := spliced(List(for line in lines), List((range, List())))
+        formatted(in path, join("\n", base), no_fragment(), out result, formatted_source)
+        put_into(in path, result, List("export"; lines_in(lines, range)), ref edits)
+      end
+
+    case List() =>
+      raise Refused(path ++ " declares no " ++ value_or(name, "declaration") ++ " to export")
+
+    case _ =>
+      raise Refused(path ++ " declares " ++ join(", ", List(for (key, _, _) in selected yield key_text(key))) ++ ", so name one by its arity")
+  end
+
+function raises_of(h: Hint): Option[(Name, List[Type])] :=
+  match h
+    case HRaises(_, proc, raised) =>
+      Some((proc, raised))
+    case _ =>
+      None
+  end
+
+// the head without the := of its last line
+function strip_assign(head: List[Str]): List[Str] :=
+  match reverse(head)
+    case List(last; rest) if ends_with(last, " :=") =>
+      reverse(List(slice(last, 0, size(last) - 3); rest))
+    case _ =>
+      head
+  end
+
+// makes the declaration of the target private, unless another module uses it, a member of the package or an importer, by
+// the resolutions of their checks: the doc, contract, and examples of its signature go to its definition, and the
+// signature goes, while a datatype or an alias moves into the implementation whole
+procedure unexport_target(
+  in  word: Str,
+  ref edits: Edits
+) raises Refused, OsError :=
+  var text: Str, source: Source
+  let (path, name, arity) := target_of(word)
+  current_text(in path, edits.files, out text)
+  parsed(in path, text, no_fragment(), out source)
+  let d := main_mod(source), lines := Array(for line in split(text, '\n'))
+  let exported := List(for (key, cmd, c) in keyed(d.exported) if forall(name, lambda base => is_selected(key, base, arity)) yield (key, cmd, c))
+  match exported
+    case List((key, cmd, c)) =>
+      var here: Str, root: Str, files: List[Str], own: List[Str]
+      os_cwd(out here)
+      project_root(in here, out root)
+      source_files(in if root == here then "." else root, out files)
+      source_files(in os_dirname(path), out own)
+      var users: List[Str] := List()
+      for file in distinct(own ++ files) if file != path and file != "./" ++ path do
+        var file_text: Str
+        os_read_utf8(in file, out file_text)
+        if has_word(file_text, key.base) and (contains(file, own) or size(occurrences(file_text, "import \"" ++ os_dirname(d.name) ++ "\"")) > 0) then
+          var uses: List[(Span, Name, Int)]
+          resolutions(in file, out uses)
+          for (span, _, _) in find(uses, lambda (_, n, k) => n == Name(Some(d.name), key.base) and (key.arity < 0 or k == key.arity)) do
+            users := users ++ List(
+              file ++ ":" ++ show(span.start.line) ++ "." ++ show(span.start.col))
+          end
+        end
+      end
+      if users != List() then
+        raise Refused(word ++ " is used by " ++ join(", ", users) ++ ", so it stays exported")
+      end
+      let sig_range := cmd_range(lines, cmd, 0, true)
+      if is_signature(c) then
+        let sig_doc := lines_in(lines, Range(sig_range.first, cmd.span.start.line - 1))
+        let sig_head := head_lines(lines_in(lines, Range(cmd.span.start.line, cmd.span.stop.line)))
+        let spec_lines := if has_spec(c) then
+          lines_in(lines, Range(cmd.span.start.line + size(sig_head), sig_range.last))
+        else
+          List()
+        match find(keyed(d.implemented), lambda (k, _, dc) => k == key and not is_signature(dc))
+          case Some((_, def, _)) =>
+            var result: Str, formatted_source: Source
+            let def_range := cmd_range(lines, def, 0, true)
+            let def_doc := lines_in(lines, Range(def_range.first, def.span.start.line - 1))
+            let def_head := head_lines(lines_in(lines, Range(def.span.start.line, def.span.stop.line)))
+            let rest := lines_in(lines, Range(def.span.start.line + size(def_head), def_range.last))
+            let new_def := (if def_doc == List() then sig_doc else def_doc) ++ with_assign(def_head) ++ spec_lines ++ rest
+            let base := spliced(List(for line in lines), List((sig_range, List()), (def_range, new_def)))
+            formatted(in path, join("\n", base), no_fragment(), out result, formatted_source)
+            edits := edits with files := Map(path => result; edits.files)
+            note(in path ++ ": unexported " ++ key_text(key), ref edits)
+
+          case None =>
+            raise Refused(word ++ " has no definition in " ++ path ++ ", such as a builtin")
+        end
+      else
+        var result: Str, formatted_source: Source
+        let base := spliced(List(for line in lines), List((sig_range, List())))
+        formatted(in path, join("\n", base), no_fragment(), out result, formatted_source)
+        put_into(in path, result, List("implementation"; lines_in(lines, sig_range)), ref edits)
+      end
+
+    case List() =>
+      raise Refused(path ++ " exports no " ++ value_or(name, "declaration"))
+
+    case _ =>
+      raise Refused(path ++ " exports " ++ join(", ", List(for (key, _, _) in exported yield key_text(key))) ++ ", so name one by its arity")
   end
 
 // a splice of a text, the characters from start to stop replaced by text, which fixes the warnings of fixed

@@ -109,3 +109,49 @@ function drop_margin(cs: List[Char]): List[Char] :=
     case _ =>
       cs
   end
+
+// @put writes a new module from its fragment, with its header and sections, adds an import to a program and an export
+// to a file without sections, which then gets both, and refuses a comment that is no doc
+test writes_modules() :=
+  var reply: List[Str], status: Int, tested: List[Str], text: Str
+  let state := "out/test/refactor/modules", dir := "out/test/refactor/modules/m"
+  os_write_utf8(in os_join(dir, "tools.u"), "// tools\n\nfunction twice(n: Int): Int :=\n  2 * n\n")
+  os_write_utf8(in "out/test/refactor/modules/prog.u", "procedure main() :=\n  skip\n")
+  os_write_utf8(in os_join(dir, "wire.u"), "")
+  let wire := "// the codes\n\nexport\n\nfunction code_of(line: Str): Option[Int]\n\nimplementation\n\nfunction code_of(line: Str): Option[Int] :=\n  number(slice(line, 0, 3))\n"
+  run_script(in "@put " ++ dir ++ "/wire.u\n" ++ wire, false, state, nothing_found, out reply, status, tested)
+  os_read_utf8(in os_join(dir, "wire.u"), out text)
+  assert status == 0 and text == wire
+  run_script(in "@put " ++ dir ++ "/tools.u\nexport\nfunction thrice(n: Int): Int\nimplementation\nfunction thrice(n: Int): Int := 3 * n\n", false, state, nothing_found, out reply, status, tested)
+  os_read_utf8(in os_join(dir, "tools.u"), out text)
+  assert text == "// tools\n\nexport\n\nfunction thrice(n: Int): Int\n\nimplementation\n\nfunction twice(n: Int): Int :=\n  2 * n\n\nfunction thrice(n: Int): Int :=\n  3 * n\n"
+  run_script(in "@put out/test/refactor/modules/prog.u\nimport \"out/test/refactor/modules/m\"\nprocedure go() :=\n  skip\n", false, state, nothing_found, out reply, status, tested)
+  os_read_utf8(in "out/test/refactor/modules/prog.u", out text)
+  assert text == "import \"out/test/refactor/modules/m\"\n\nprocedure main() :=\n  skip\n\nprocedure go() :=\n  skip\n"
+  run_script(in "@put " ++ dir ++ "/tools.u\n// a header\n\nfunction four(n: Int): Int := 4 * n\n", false, state, nothing_found, out reply, status, tested)
+  assert status == 1 and take(1, reply) == List("rejected")
+
+// @export gives a definition a signature with its doc and examples and a procedure its inferred raises, @unexport takes
+// them back, and refuses while another member of the package uses the name; two renames run in one script
+test exports_and_renames() :=
+  var reply: List[Str], status: Int, tested: List[Str], text: Str
+  let state := "out/test/refactor/exports", dir := "out/test/refactor/exports/p"
+  os_write_utf8(in os_join(dir, "b.u"), "function use_b(): Int :=\n  0\n")
+  let source := "export\n\nfunction f(x: Int): Int\n\nimplementation\n\nfunction f(x: Int): Int :=\n  g(x) + 1\n\n// g of x\nfunction g(x: Int): Int :=\n  example g(1) == 2\n  2 * x\n\nprocedure p(in x: Int) :=\n  if x < 0 then\n    raise OsError(\"negative\")\n  end\n"
+  os_write_utf8(in os_join(dir, "a.u"), source)
+  run_script(in "@export " ++ dir ++ "/a.u:g\n@export " ++ dir ++ "/a.u:p\n", false, state, nothing_found, out reply, status, tested)
+  os_read_utf8(in os_join(dir, "a.u"), out text)
+  assert status == 0
+  assert text == "export\n\nfunction f(x: Int): Int\n\n// g of x\nfunction g(x: Int): Int :=\n  example g(1) == 2\n\nprocedure p(in x: Int) raises OsError\n\nimplementation\n\nfunction f(x: Int): Int :=\n  g(x) + 1\n\nfunction g(x: Int): Int :=\n  2 * x\n\nprocedure p(in x: Int) raises OsError :=\n  if x < 0 then\n    raise OsError(\"negative\")\n  end\n"
+  run_script(in "@unexport " ++ dir ++ "/a.u:g\n", false, state, nothing_found, out reply, status, tested)
+  os_read_utf8(in os_join(dir, "a.u"), out text)
+  assert status == 0
+  assert text == "export\n\nfunction f(x: Int): Int\n\nprocedure p(in x: Int) raises OsError\n\nimplementation\n\nfunction f(x: Int): Int :=\n  g(x) + 1\n\n// g of x\nfunction g(x: Int): Int :=\n  example g(1) == 2\n  2 * x\n\nprocedure p(in x: Int) raises OsError :=\n  if x < 0 then\n    raise OsError(\"negative\")\n  end\n"
+  os_write_utf8(in os_join(dir, "b.u"), "function use_b(): Int :=\n  f(1)\n")
+  run_script(in "@unexport " ++ dir ++ "/a.u:f\n", false, state, nothing_found, out reply, status, tested)
+  assert status == 1
+  run_script(in "@rename " ++ dir ++ "/a.u:f h\n@rename " ++ dir ++ "/a.u:g k\n", false, state, nothing_found, out reply, status, tested)
+  os_read_utf8(in os_join(dir, "b.u"), out text)
+  assert status == 0 and text == "function use_b(): Int :=\n  h(1)\n"
+  os_read_utf8(in os_join(dir, "a.u"), out text)
+  assert index_of("k(x) + 1", text) != None and index_of("example k(1) == 2", text) != None
