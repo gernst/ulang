@@ -252,6 +252,10 @@ function raised_set(solved: Map[Int, Map[Name, Origin]], raised: Raises): Set[Na
 
     case RUnknown(id) =>
       Set(for t => _ in value_or(get(id, solved), empty()) yield t)
+
+    // the checker numbers every pending unknown of a checked command
+    case RPending =>
+      empty()
   end
 
 function exception_names(types: List[Type]): Set[Name] :=
@@ -491,7 +495,11 @@ function value_flow(origin: Origin, raised: Map[Name, Pos], allowed: Raises): Fl
     case RUnknown(id) =>
       Flow(empty(), List(), Map(id => Map(for t => p in raised yield t => origin with pos := p)))
 
-    // normalize of ulang/check/check.u makes the raises of every type a set or an unknown
+    // normalize of ulang/check/check.u makes the raises of every type a set or an unknown, and the checker numbers every
+    // pending one
     case RWritten(_) =>
+      none()
+
+    case RPending =>
       none()
   end
