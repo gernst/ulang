@@ -185,6 +185,9 @@ function applies_reflexive(sorts: Set[Name], expr: At[Expr]): Bool :=
     case ETuple(args) =>
       exists(args, lambda a => applies_reflexive(sorts, a))
 
+    case EAnnotated(inner, _) =>
+      applies_reflexive(sorts, inner)
+
     case ELit(_) | EVar(_) | EProc(_, _, _, _, _) =>
       false
 
@@ -197,6 +200,9 @@ function applies_reflexive(sorts: Set[Name], expr: At[Expr]): Bool :=
 function head_type(expr: At[Expr]): Option[Type] :=
   match expr.that
     case EVar(Var(_, typ)) =>
+      Some(typ)
+
+    case EAnnotated(_, typ) =>
       Some(typ)
 
     case EApp(fun, _) =>
