@@ -84,7 +84,7 @@ test fused() :=
 function countdown(n: Int): List[Int] :=
   if n == 0 then List() else List(n; countdown(n - 1))
 
-// [...] is notation for the List of the prelude, with the constructors Nil and Cons
+// List(...) is the form of the List of the prelude, with the constructors Nil and Cons
 test list_notation() :=
   assert List(1, 2, 3) == Cons(1, Cons(2, Cons(3, List())))
   assert List() == List()

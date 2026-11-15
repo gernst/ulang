@@ -725,7 +725,7 @@ procedure parse_optional[A](
     x := None
   end
 
-// the items a, b of a display [a, b], and the rest c of [a, b; c], read with brackets
+// the items a, b of a form List(a, b), and the rest c of List(a, b; c), inside its parentheses
 procedure parse_display[A](
   in  notation: Notation,
       params: List[Id],
@@ -737,7 +737,7 @@ procedure parse_display[A](
   parse_separated(in notation, params, item, at_comma, out items, ref toks)
   parse_optional(in notation, params, TKw(";"), item, out rest, ref toks)
 
-// the items in front of rest by cons, as displays build lists
+// the items in front of rest by cons, as the forms build lists
 function cons_all[A](cons: (A, A) -> A, items: List[A], rest: A): A :=
   match items
     case List() =>
