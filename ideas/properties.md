@@ -44,7 +44,7 @@ Each property has a definition, a formal handle, what ulang does, and what is op
 
 **In ulang.** One concept has one name (Style of `CLAUDE.md`), the library shares names and orders of arguments across its containers, and the e-graph of the prover can decide equivalence where syntax cannot: `N1 DuplicateDefinition` and `R4 RepeatedExpr` of `ideas/lint.md` find equivalent bodies modulo names and lemmas.
 
-**Open.** Those rules wait for the e-graph lints; `N2 DivergentDuplicate`, functions of one type and shape that differ on generated values, waits for tests with formals (Testing 1); and the repository's own facts kept in several places are Code 2.
+**Open.** Those rules wait for the e-graph lints; `N2 DivergentDuplicate`, functions of one type and shape that differ on generated values, can use the tests with formals now (`property_stmt` of `ulang/test/generate.u`); and the repository's own facts kept in several places are Code 2.
 
 ### 2.4 Proportionality
 
@@ -52,7 +52,7 @@ Each property has a definition, a formal handle, what ulang does, and what is op
 
 **Formal handle.** Every hunk of a diff is necessary: reverting it alone breaks the new specification or an existing test. That is checkable per hunk.
 
-**In ulang.** The canonical format, which `check` enforces (`require_formatted` of `ulang/format/format.u`), makes reformatting impossible as a side effect; refactorings are operations with declared effects, refused if any use other than those intended resolves differently (Diagnostics 4, `refactor.md`); and `P1 ulang.bin diff` of `ideas/lint.md` would show a change by declarations, where a renamed local is no change.
+**In ulang.** The canonical format, which `check` enforces (`require_formatted` of `ulang/format/format.u`), makes reformatting impossible as a side effect; refactorings are operations with declared effects, refused if any use other than those intended resolves differently (`@rename` of `ulang.sh refactor`, `ideas/refactor.md`); and `P1 ulang.bin diff` of `ideas/lint.md` would show a change by declarations, where a renamed local is no change.
 
 **Open.** The necessity of hunks is not checked; it needs `ulang.bin diff`, the tests that each hunk breaks, and a definition of what a hunk is in a tree, a declaration or a part.
 
@@ -92,7 +92,7 @@ Each property has a definition, a formal handle, what ulang does, and what is op
 
 **Formal handle.** The number of distinct semantic patterns per concern, or, building on 2.3, similar but not identical solutions to one concern as divergent redundancy at the level of idioms. Probably a metric more than a semantic property.
 
-**In ulang.** Principle 3 of `DESIGN.md`, one way to write each thing, with the decisions of `rejected.md`: one loop over containers, no early exit, `if` that always nests, containers by forms, failure by checked exceptions only, and one layout by `format`. Folds that stop early are deferred since each is another way to write a loop (Syntax 1).
+**In ulang.** Principle 3 of `DESIGN.md`, one way to write each thing, with the decisions of `rejected.md`: one loop over containers, no early exit, `if` that always nests, containers by forms, failure by checked exceptions only, and one layout by `format`. Bounded quantifiers are deferred since each is another way to write a loop, while folds that stop early are proposed (Syntax 1).
 
 **Open.** Idioms above the language, such as how a package reports its errors, have no check; the `R2 Folded` rule of `ideas/lint.md`, code that spells out a library function, is the start of one.
 
@@ -113,12 +113,12 @@ The levers that a language or toolchain has for these properties, and where ulan
 | Lever | Properties | ulang |
 |---|---|---|
 | Effects in signatures | locality, explicitness | pure functions, modes, checked raises; `uses os` open (Later 1), no polymorphism over raised sets (`rejected.md`) |
-| Contracts as part of signatures | locality, failing loudly, grounding | contracts and claims of procedures; of functions open (Verification 1, `prove.md`) |
+| Contracts as part of signatures | locality, failing loudly, grounding | contracts and claims of procedures; of functions open (Verification 1, `ideas/prove.md`) |
 | Canonical forms | uniformity, proportionality | one construct each, the format enforced by `check` |
 | Equivalence instead of identity of definitions | non-redundancy | the e-graph lints (`ideas/lint.md`), where Unison identifies definitions by the hash of their syntax |
 | Provenance of code | traceability | reachability by tests, examples, and lemmas only |
 | No implicit fallbacks in the library | failing loudly | builtins raise, lookups give options, defaults are named at the use |
-| Edits as typed transformations | proportionality | refactorings (Diagnostics 4, `refactor.md`) |
+| Edits as typed transformations | proportionality | refactorings (`ulang.sh refactor`, Diagnostics 4, `ideas/refactor.md`) |
 
 ## 4. Research questions
 
