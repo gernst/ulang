@@ -66,6 +66,33 @@ function type_details(e: TypeError): List[(Str, Str)] :=
       List()
   end
 
+// the part in which a definition differs from its signature, as the signature has it and as the definition has it
+function differing_text(part: Differing): Str :=
+  example differing_text(DifferingParams(List("A"), List())) == "which has the type parameters A where the definition has none"
+  match part
+    case DifferingParams(params, params_) =>
+      which_has("the type parameters", params, params_)
+
+    case DifferingFormals(mode, formals, formals_) =>
+      which_has("the " ++ mode, List(for v in formals yield var_text(v)), List(for v in formals_ yield var_text(v)))
+
+    case DifferingResult(typ, typ_) =>
+      which_has("the result", List(format_type(typ)), List(format_type(typ_)))
+
+    case DifferingRaises(raised, raised_) =>
+      which_has("raises", List(for t in raised yield format_type(t)), List(for t in raised_ yield format_type(t)))
+  end
+
+function which_has(what: Str, signed: List[Str], defined: List[Str]): Str :=
+  "which has " ++ items_text(what, signed) ++ " where the definition has " ++ items_text(what, defined)
+
+// the items after what, or none
+function items_text(what: Str, items: List[Str]): Str :=
+  if items == List() then "none" else what ++ " " ++ join(", ", items)
+
+function var_text(v: Var): Str :=
+  v.name.base ++ ": " ++ format_type(v.typ)
+
 // a candidate of an ambiguous name with its type, if known, which tells overloads of one module apart
 function candidate_text(c: (Name, Scheme)): Str :=
   match c
@@ -253,8 +280,8 @@ function plain_message(e: TypeError): Str :=
     case MissingDefinition(name) =>
       name.base ++ " is exported but not defined"
 
-    case SignatureMismatch(name) =>
-      "the definition of " ++ name.base ++ " differs from its signature"
+    case SignatureMismatch(name, part) =>
+      "the definition of " ++ name.base ++ " differs from its signature, " ++ differing_text(part)
 
     case PartlyExported(name) =>
       name.base ++ " is exported, but not with each of its numbers of arguments"
@@ -369,7 +396,11 @@ test messages() :=
   assert located_message(Located(None, Pos(2, 3), UntypedRaise(Name(None, "lambda"), TSort(Name(Some("a"), "Failed"), List())))) == "the procedure value lambda raises Failed, which its type omits at 2.3"
   assert located_message(Located(None, Pos(2, 3), WiderRaise(TSort(Name(Some("a"), "Failed"), List())))) == "this procedure value may raise Failed by its type, but it reaches a place whose type omits Failed; add raises Failed to the procedure type that omits it, or catch Failed in the procedure at 2.3"
   assert located_message(Located(None, Pos(2, 3), NeverRaised(TSort(Name(Some("a"), "Failed"), List())))) == "the handler of Failed is unreachable, since nothing in the body raises Failed at 2.3"
-  assert located_message(SignatureMismatch(Name(Some("ulang/test/errors/abstract-arity"), "T"))) == "the definition of T differs from its signature"
+  assert located_message(SignatureMismatch(Name(Some("ulang/test/errors/abstract-arity"), "T"), DifferingParams(List("A"), List()))) == "the definition of T differs from its signature, which has the type parameters A where the definition has none"
+  assert located_message(SignatureMismatch(Name(Some("m"), "config_of"), DifferingRaises(List(TSort(Name(Some("m"), "ConfigError"), List())), List()))) == "the definition of config_of differs from its signature, which has raises ConfigError where the definition has none"
+  assert located_message(SignatureMismatch(Name(Some("m"), "f"), DifferingFormals("ins", List(
+    Var(Name(None, "n"), TSort(Name(Some("prelude/prelude"), "Int"), List()))), List(
+    Var(Name(None, "x"), TSort(Name(Some("prelude/prelude"), "Int"), List())))))) == "the definition of f differs from its signature, which has the ins n: Int where the definition has the ins x: Int"
   assert located_message(Located(None, Pos(1, 1), SortArity(Name(Some("prelude/prelude"), "Int"), 0, 1))) == "type Int expects 0 arguments, got 1 at 1.1"
   assert located_message(Located(None, Pos(2, 3), ExampleOnDefinition(Name(Some("m"), "f")))) == "the examples of f belong to its signature in export at 2.3"
   assert located_message(Located(None, Pos(2, 3), ContractOnDefinition(Name(Some("m"), "p")))) == "the contract of p belongs to its signature in export at 2.3"

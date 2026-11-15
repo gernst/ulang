@@ -8,7 +8,7 @@ import "ulang/format"
 import "ulang/test/cases"
 
 test abstract_arity() :=
-  assert raises Located(None, Pos(7, 1), SignatureMismatch(Name(Some("ulang/test/errors/abstract-arity"), "T"))) do
+  assert raises Located(None, Pos(7, 1), SignatureMismatch(Name(Some("ulang/test/errors/abstract-arity"), "T"), DifferingParams(List("A"), List()))) do
     check_text(in "ulang/test/errors/abstract-arity.u", List(
       "export",
       "",
@@ -340,7 +340,7 @@ test same_sort_name() :=
   end
 
 test signature_mismatch() :=
-  assert raises Located(None, Pos(7, 1), SignatureMismatch(Name(Some("ulang/test/errors/signature-mismatch"), "f"))) do
+  assert raises Located(None, Pos(7, 1), SignatureMismatch(Name(Some("ulang/test/errors/signature-mismatch"), "f"), DifferingFormals("formals", _, _))) do
     check_text(in "ulang/test/errors/signature-mismatch.u", List(
       "export",
       "",

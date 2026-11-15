@@ -1330,6 +1330,7 @@ procedure put_anchored(
     raise Refused("the fragment declares no " ++ anchor.name ++ ", which @put " ++ path ++ ":" ++ anchor.name ++ " replaces")
   end
   var splices: List[(Range, List[Str])] := List(), done: List[Str] := List(), replaced_keys: List[(Key, Key)] := List()
+  var exported_keys: List[Key] := List()
   for line in imports do
     done := done ++ List("imported " ++ slice(line, 7, size(line)))
   end
@@ -1359,6 +1360,7 @@ procedure put_anchored(
         replaced_keys := replaced_keys ++ List(for k in new_key for o_k in old_key if role != "export" yield (o_k, k))
 
       case None =>
+        exported_keys := exported_keys ++ List(for k in new_key if role == "export" yield k)
         done := done ++ List(
           (if role == "export" then "exported " else "added ") ++ value_or(map_option(new_key, key_text), "a notation") ++ (if role == "implementation" and (has_sections or has_exports) then
             " to implementation"
@@ -1368,6 +1370,7 @@ procedure put_anchored(
   end
   formatted(in path, join("\n", spliced(all_lines_list, splices)), no_fragment(), out result, source)
   with_signatures(in path, replaced_keys, ref result, done)
+  with_exported_raises(in path, text, exported_keys, ref result, done)
   edits := edits with files := Map(path => result; edits.files)
   note(in path ++ ": " ++ join(", ", done), ref edits)
 
@@ -1440,6 +1443,56 @@ procedure with_signatures(
         if written != lines_in(lines, head) then
           splices := splices ++ List((head, written))
           done := done ++ List("with the signature of " ++ key_text(key))
+        end
+
+      case _ =>
+        skip
+    end
+  end
+  if splices != List() then
+    formatted(in path, join("\n", spliced(List(for line in lines), splices)), no_fragment(), out text, source)
+  end
+
+// writes the raises of each procedure of keys that the fragment exported, whose definition writes none, into the head of
+// its definition, and into that of its signature unless it writes raises, those of the signature or else those that the
+// check of the text before the fragment inferred while the procedure was private, as @export does, since an exported
+// procedure raises what its signature says and its definition repeats the signature
+procedure with_exported_raises(
+  in  path: Str,
+      before: Str,
+      keys: List[Key],
+  ref text: Str,
+      done: List[Str]
+) raises Refused, OsError :=
+  var source: Source, splices: List[(Range, List[Str])] := List(), found: List[Hint] := List(), hinted := false
+  parsed(in path, text, no_fragment(), out source)
+  let d := main_mod(source), lines := Array(for line in split(text, '\n'))
+  for key in keys do
+    let definition := find(keyed(d.implemented), lambda (k, _, c) => k == key and not is_signature(c))
+    let signature := find(keyed(d.exported), lambda (k, _, c) => k == key and is_signature(c))
+    match (definition, signature)
+      case (Some((_, def, CProc(_, _, _, _, _, List(), _, _))), Some((_, sig, CProcSig(_, _, _, _, _, signed, spec)))) =>
+        if signed == List() and not hinted then
+          file_hints(in path, before, out found)
+          hinted := true
+        end
+        let raised := if signed == List() then
+          join(", ", List(for h in found for (proc, types) in raises_of(h) if proc.base == key.base for t in types yield format_type(t)))
+        else
+          join(", ", List(for t in signed yield format_type(t)))
+        if raised != "" then
+          let def_range := head_range(lines, def), sig_range := head_range(lines, sig)
+          splices := splices ++ List(
+            (def_range, with_raises(with_assign(head_lines(lines_in(lines, def_range))), raised)))
+          if signed == List() then
+            let sig_head := with_raises(with_assign(head_lines(lines_in(lines, sig_range))), raised)
+            splices := splices ++ List(
+              (sig_range, if spec != Spec(List(), None, List()) then
+                sig_head
+              else
+                strip_assign(sig_head)))
+          end
+          done := done ++ List("with raises " ++ raised ++ " of " ++ key_text(key))
         end
 
       case _ =>
@@ -1889,7 +1942,7 @@ procedure run_actions(
           failure := Some(with_script_lines(message, action.line))
 
         case OsError(message) =>
-          failure := Some(message)
+          failure := Some(action_failure(action, message))
       end
     end
     for message in failure do
@@ -2016,6 +2069,11 @@ function is_query(action: Action): Bool :=
     case _ =>
       false
   end
+
+// the message of an error of the system in an action, with the action and its line in the script
+function action_failure(action: Action, message: Str): Str :=
+  example action_failure(Action(3, List("put", "a/b.u"), ""), "cannot read a/b.u") == "line 3, @put a/b.u: cannot read a/b.u"
+  "line " ++ show(action.line) ++ ", @" ++ join(" ", action.words) ++ ": " ++ message
 
 function is_rename(action: Action): Bool :=
   match action.words

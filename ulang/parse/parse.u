@@ -3086,8 +3086,13 @@ procedure package_files(
   end
   match dir
     case Some(d) =>
-      var entries: List[(Str, Bool)], text: Str
-      os_list(in if d == "" then root else os_join(root, d), out entries)
+      var entries: List[(Str, Bool)] := List(), text: Str, found_dir: Bool
+      let path := if d == "" then root else os_join(root, d)
+      os_is_dir(in path, out found_dir)
+      // the directory of a main text that is no file yet, such as a new module of refactor, has no other members
+      if found_dir or main == None then
+        os_list(in path, out entries)
+      end
       for (file, is_dir) in entries do
         if not is_dir and is_source(file) and file != "project.u" and module_id(d, module_name(file)) != main_id then
           os_read_utf8(in os_join(os_join(root, d), file), out text)

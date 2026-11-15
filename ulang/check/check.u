@@ -48,7 +48,8 @@ data TypeError :=
   case Unassigned(name: Name)
   case OutputUnassigned(output: Name, proc: Name)
   case MissingDefinition(name: Name)
-  case SignatureMismatch(name: Name)
+  // a definition that differs from its signature in part
+  case SignatureMismatch(name: Name, part: Differing)
   case PartlyExported(name: Name)
   case PrivateType(name: Name, sort: Name)
   // a formal, local, pattern variable, or formal of a lambda of the name of a local around it
@@ -97,6 +98,14 @@ data TypeError :=
   case Hinted(error: TypeError, hint: Str)
   // an error of the command at the position of an imported module, or of the main module for None
   case Located(module: Option[Id], pos: Pos, error: TypeError)
+
+// the first part in which a definition differs from its signature, each as the signature has it and, with _, as the
+// definition has it, where mode names the formals, formals, ins, outs, or refs
+data Differing :=
+  case DifferingParams(params: List[Id], params_: List[Id])
+  case DifferingFormals(mode: Str, formals: List[Var], formals_: List[Var])
+  case DifferingResult(typ: Type, typ_: Type)
+  case DifferingRaises(raised: List[Type], raised_: List[Type])
 
 // raises the first error of check_all
 procedure check_program(
@@ -5162,9 +5171,10 @@ procedure check_signatures(in ex: List[(Pos, Cmd)], im: List[(Pos, Cmd)]) :=
       once(in name, List(for (p, e) in rest if signs_fun(e, name, size(formals)) yield p))
       match List(for (p, c) in im if defines_fun(c, name, size(formals)) yield (p, c))
         case List((p, CFun(_, params_, formals_, typ_, _, _))) =>
-          if params_ != params or vars(formals_) != vars(formals) or typ_ != typ then
-            raise Located(None, p, SignatureMismatch(name))
-          end
+          mismatch(in name, p, List(
+            DifferingParams(params, params_),
+            DifferingFormals("formals", vars(formals), vars(formals_)),
+            DifferingResult(typ, typ_)))
 
         case _ =>
           raise Located(None, pos, MissingDefinition(name))
@@ -5175,9 +5185,13 @@ procedure check_signatures(in ex: List[(Pos, Cmd)], im: List[(Pos, Cmd)]) :=
       once(in name, List(for (p, e) in rest if signs(e, name) yield p))
       match List(for (p, c) in im if defines_proc(c, name) yield (p, c))
         case List((p, CProc(_, params_, ins_, outs_, refs_, raised_, _, _))) =>
-          if params_ != params or vars(ins_) != vars(ins) or vars(outs_) != vars(outs) or vars(refs_) != vars(refs) or raised_ != raised then
-            raise Located(None, p, SignatureMismatch(name))
-          end
+          let parts := List(
+            DifferingParams(params, params_),
+            DifferingFormals("ins", vars(ins), vars(ins_)),
+            DifferingFormals("outs", vars(outs), vars(outs_)),
+            DifferingFormals("refs", vars(refs), vars(refs_)),
+            DifferingRaises(raised, raised_))
+          mismatch(in name, p, parts)
 
         case _ =>
           raise Located(None, pos, MissingDefinition(name))
@@ -5187,10 +5201,7 @@ procedure check_signatures(in ex: List[(Pos, Cmd)], im: List[(Pos, Cmd)]) :=
     case List((pos, CAbstract(name, params)); rest) =>
       match List(for (p, c) in im if defines_data(c, name) yield (p, c))
         case List((p, CData(_, params_, _))) =>
-          if params_ != params then
-            raise Located(None, p, SignatureMismatch(name))
-          end
-
+          mismatch(in name, p, List(DifferingParams(params, params_)))
         case _ =>
           raise Located(None, pos, MissingDefinition(name))
       end
@@ -5198,6 +5209,27 @@ procedure check_signatures(in ex: List[(Pos, Cmd)], im: List[(Pos, Cmd)]) :=
 
     case List(_; rest) =>
       check_signatures(in rest, im)
+  end
+
+// the definition of name at pos agrees with its signature in each of parts, else the first part that differs is the error
+procedure mismatch(in name: Name, pos: Pos, parts: List[Differing]) :=
+  for part in find(parts, differs) do
+    raise Located(None, pos, SignatureMismatch(name, part))
+  end
+
+function differs(part: Differing): Bool :=
+  match part
+    case DifferingParams(params, params_) =>
+      params != params_
+
+    case DifferingFormals(_, formals, formals_) =>
+      formals != formals_
+
+    case DifferingResult(typ, typ_) =>
+      typ != typ_
+
+    case DifferingRaises(raised, raised_) =>
+      raised != raised_
   end
 
 // the signature name is not repeated at the positions others
