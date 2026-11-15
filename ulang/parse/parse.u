@@ -963,7 +963,7 @@ procedure parse_type_atom(
   if at_kw(toks, "(") and contains(second_token(toks), List(TKw("in"), TKw("out"), TKw("ref"))) then
     var ins: List[Type], outs: List[Type], refs: List[Type], raised: List[Type]
     advance(ref toks)
-    parse_sections(in notation, params, parse_type, parse_type, out ins, outs, refs, ref toks)
+    parse_sections(in notation, params, parse_type, parse_type, parse_type, out ins, outs, refs, ref toks)
     expect(in TKw(")"), ref toks)
     parse_raises(in notation, params, out raised, ref toks)
     r := List(TProc(ins, outs, refs, RWritten(raised)))
@@ -1201,7 +1201,7 @@ procedure parse_lambda(
   advance(ref toks)
   if at_mode(toks) then
     var ins: List[At[Var]], outs: List[At[Var]], refs: List[At[Var]], body: At[Stmt]
-    parse_sections(in notation, params, parse_formal, parse_formal, out ins, outs, refs, ref toks)
+    parse_sections(in notation, params, parse_formal, parse_formal, parse_formal, out ins, outs, refs, ref toks)
     expect(in TKw("=>"), ref toks)
     parse_body(in notation, params, out body, ref toks)
     expect_end(in "lambda", pos, ref toks)
@@ -1980,7 +1980,7 @@ procedure parse_call_of(
   var p: Id, ins: List[At[Expr]], outs: List[Var], refs: List[Var]
   parse_name(out p, ref toks)
   expect(in TKw("("), ref toks)
-  parse_sections(in notation, params, parse_arg, parse_variable, out ins, outs, refs, ref toks)
+  parse_sections(in notation, params, parse_arg, parse_out, parse_variable, out ins, outs, refs, ref toks)
   if ins == List() and outs == List() and refs == List() and not at_kw(toks, ")") then
     // a call of other languages, p(a), whose arguments have no modes
     raise ParseError(format_token(TKw(")")) ++ " expected but " ++ format_token(head_token(toks)) ++ " found; the arguments of a call follow their modes, as in " ++ p ++ "(in a, out x)", head_pos(toks))
@@ -1994,7 +1994,8 @@ procedure parse_sections[A, B](
   in  notation: Notation,
       params: List[Id],
       item_in: (in Notation, List[Id], out A, ref Tokens) raises ParseError,
-      item: (in Notation, List[Id], out B, ref Tokens) raises ParseError,
+      item_out: (in Notation, List[Id], out B, ref Tokens) raises ParseError,
+      item_ref: (in Notation, List[Id], out B, ref Tokens) raises ParseError,
   out ins: List[A],
       outs: List[B],
       refs: List[B],
@@ -2009,12 +2010,12 @@ procedure parse_sections[A, B](
   end
   if section_starts(toks, "out", first) then
     skip_section_start(in first, ref toks)
-    parse_separated(in notation, params, item, section_continues, out outs, ref toks)
+    parse_separated(in notation, params, item_out, section_continues, out outs, ref toks)
     first := false
   end
   if section_starts(toks, "ref", first) then
     skip_section_start(in first, ref toks)
-    parse_separated(in notation, params, item, section_continues, out refs, ref toks)
+    parse_separated(in notation, params, item_ref, section_continues, out refs, ref toks)
   end
 
 // the comma before a section unless it is the first, and the keyword of the section
@@ -2033,6 +2034,20 @@ procedure parse_variable(
   var name: Id
   parse_plain_name(in notation, params, out name, ref toks)
   x := Var(unqualified(name), THole)
+
+// an out of a call, a variable or _, which drops the value
+procedure parse_out(
+  in  notation: Notation,
+      params: List[Id],
+  out x: Var,
+  ref toks: Tokens
+) :=
+  if at_kw(toks, "_") then
+    advance(ref toks)
+    x := dropped_out()
+  else
+    parse_variable(in notation, params, out x, ref toks)
+  end
 
 // only parameters and locals have type annotations
 procedure parse_formal(
@@ -2342,7 +2357,7 @@ procedure parse_procedure(in notation: Notation, out cmd: Cmd, ref toks: Tokens)
   check_value_name(in name, pos)
   parse_params(in notation, out params, ref toks)
   expect(in TKw("("), ref toks)
-  parse_sections(in notation, params, parse_formal, parse_formal, out ins, outs, refs, ref toks)
+  parse_sections(in notation, params, parse_formal, parse_formal, parse_formal, out ins, outs, refs, ref toks)
   expect(in TKw(")"), ref toks)
   parse_raises(in notation, params, out raised, ref toks)
   if head_token(toks) == TKw(":=") then
@@ -2545,7 +2560,7 @@ procedure parse_proc_example(
   invalid := None
   parse_name(out p, ref toks)
   expect(in TKw("("), ref toks)
-  parse_sections(in notation, params, parse_expr, parse_example_arg, out ins, outs, refs, ref toks)
+  parse_sections(in notation, params, parse_expr, parse_example_arg, parse_example_arg, out ins, outs, refs, ref toks)
   expect(in TKw(")"), ref toks)
   if at_kw(toks, "raises") then
     var pat: At[Pat]
@@ -2646,7 +2661,7 @@ procedure parse_lemma(in notation: Notation, out cmd: Cmd, ref toks: Tokens) :=
   check_value_name(in name, pos)
   parse_params(in notation, out params, ref toks)
   expect(in TKw("("), ref toks)
-  parse_sections(in notation, params, parse_formal, parse_formal, out ins, outs, refs, ref toks)
+  parse_sections(in notation, params, parse_formal, parse_formal, parse_formal, out ins, outs, refs, ref toks)
   expect(in TKw(")"), ref toks)
   if refs != List() then
     raise ParseError("a lemma has no ref formals, since it has no state", pos)
@@ -2674,8 +2689,12 @@ procedure parse_claim(
     advance(ref toks)
     parse_call_of(in notation, params, out stmt, ref toks)
     match stmt
+      case SCall(_, _, outs, _) if exists(outs, is_dropped) =>
+        raise ParseError("a claim correct p(…) has no out _, since its outs are those of the lemma", pos)
+
       case SCall(proc, ins, outs, List()) =>
         claim := ClaimCorrect(proc, ins, outs)
+
       case _ =>
         raise ParseError("a claim correct p(…) has no refs, since a lemma has none", pos)
     end
@@ -2758,6 +2777,9 @@ function initial_value(inits: List[At[Stmt]]): Option[At[Expr]] :=
 // a statement that is a step of a proof, a call without refs, a cut, or an assignment
 procedure step_of(in stmt: At[Stmt], out step: Step) raises ParseError :=
   match stmt.that
+    case SCall(_, _, outs, _) if exists(outs, is_dropped) =>
+      raise ParseError("a call of a lemma has no out _, since its outs are witnesses", stmt.pos)
+
     case SCall(name, ins, outs, List()) =>
       step := StepCall(name, ins, outs)
 
@@ -3680,6 +3702,19 @@ test parsed_spans() :=
       assert proc_span == Span(Pos(1, 1), Pos(6, 6)) and block_span == Span(Pos(2, 3), Pos(6, 6))
       assert stmt.span == Span(Pos(2, 3), Pos(6, 6))
       assert fun_span == Span(Pos(8, 1), Pos(9, 9)) and body.span == Span(Pos(9, 3), Pos(9, 9))
+
+    case _ =>
+      assert false
+  end
+
+// an out _ of a call stays as written, a variable of the name _, which the checker replaces
+test parsed_dropped_outs() :=
+  var d: Mod
+  parse_text(in "procedure p() :=\n  q(in 1, out _, x, ref y)\n", out d)
+  match commands_of(d.implemented)
+    case List(
+      CProc(_, _, _, _, _, _, _, AOk(_, _, SBlock(_, List(AOk(_, _, SCall(_, _, outs, refs))))))) =>
+      assert outs == List(dropped_out(), Var(unqualified("x"), THole)) and refs == List(Var(unqualified("y"), THole))
 
     case _ =>
       assert false

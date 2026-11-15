@@ -46,7 +46,7 @@ test sorting() :=
 ## Language
 
 - Functions are pure expressions, procedures are statements with `in`, `out`, and `ref` parameters.
-- In a body, `let p := e, …` binds names once, where patterns take values apart, `let (q, r) := (n / 2, n % 2)`, and `var x := e, y: T` declares variables, also without a value, both anywhere in the body and each seeing those before it, as the bindings of a `let … in e` do; a call is `p(in a, out b, ref c)` and an assignment `x := e, y := f`, whose right sides are all read before any is assigned.
+- In a body, `let p := e, …` binds names once, where patterns take values apart, `let (q, r) := (n / 2, n % 2)`, and `var x := e, y: T` declares variables, also without a value, both anywhere in the body and each seeing those before it, as the bindings of a `let … in e` do; a call is `p(in a, out b, ref c)`, where `out _` drops a value that nothing needs, and an assignment `x := e, y := f`, whose right sides are all read before any is assigned.
 - Every pattern may carry its type, `lambda p: Point => p.x`, `case Some(n: Int) =>`.
 - Functions and procedures are values: `lambda x => e`, whose formals may be patterns, as in `lambda n, (a, b) => n + a * b`, and `lambda in x, out y => statements end` of a type `(in A, out B)`, which sees the variables around it but assigns only its outs and refs.
 - `if` always nests: an `if` after `else` is an `if` in its body, which has its own `end`.
