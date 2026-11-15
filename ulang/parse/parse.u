@@ -342,6 +342,11 @@ function at_kw(toks: Tokens, w: Str): Bool :=
 function at_case(toks: Tokens): Bool :=
   at_kw(toks, "case")
 
+// a ( that continues the code before it on its line, the arguments of a call or of a constructor in a pattern, since a
+// ( that starts a line starts a statement, a tuple assignment (x, y) := e after one that ends in a name
+function at_args(toks: Tokens): Bool :=
+  at_kw(toks, "(") and head_pos(toks).line == stop_pos(toks).line
+
 function at_comma(toks: Tokens): Bool :=
   at_kw(toks, ",")
 
@@ -1110,8 +1115,8 @@ procedure parse_app(
 ) :=
   var args: List[At[Expr]], f: Id, pos: Pos
   parse_expr_atom(in notation, params, out expr, ref toks)
-  while at_kw(toks, "(") or at_kw(toks, ".") do
-    if at_kw(toks, "(") then
+  while at_args(toks) or at_kw(toks, ".") do
+    if at_args(toks) then
       advance(ref toks)
       parse_enclosed(in notation, params, parse_arg, ")", out args, ref toks)
       expr := AOk(expr.pos, span_from(expr.span.start, toks), EApp(expr, args))
@@ -1530,7 +1535,7 @@ procedure parse_pattern_atom(
     case _ =>
       var name: Id
       parse_plain_name(in notation, params, out name, ref toks)
-      if at_kw(toks, "(") then
+      if at_args(toks) then
         var pats: List[At[Pat]]
         advance(ref toks)
         parse_enclosed(in notation, params, parse_pattern, ")", out pats, ref toks)
@@ -1890,6 +1895,19 @@ procedure parse_stmt(
       var assignments: List[(Var, At[Expr])]
       parse_separated(in notation, params, parse_assignment, at_comma, out assignments, ref toks)
       node := SAssign(assignments)
+
+    // (x, y) := e assigns the components of e at once, where a target may be _
+    case TKw("(") =>
+      var targets: List[Var], expr: At[Expr]
+      advance(ref toks)
+      parse_separated(in notation, params, parse_out, at_comma, out targets, ref toks)
+      expect(in TKw(")"), ref toks)
+      if size(targets) < 2 then
+        raise ParseError("a tuple assignment assigns at least two variables, and one is assigned by x := e", pos)
+      end
+      expect(in TKw(":="), ref toks)
+      parse_expr(in notation, params, out expr, ref toks)
+      node := SAssignTuple(targets, expr)
 
     case TKw("match") =>
       var expr: At[Expr], cases: List[At[Branch[At[Stmt]]]]
@@ -3792,6 +3810,23 @@ test parsed_dropped_outs() :=
     case List(
       CProc(_, _, _, _, _, _, _, AOk(_, _, SBlock(_, List(AOk(_, _, SCall(_, _, outs, refs))))))) =>
       assert outs == List(dropped_out(), Var(unqualified("x"), THole)) and refs == List(Var(unqualified("y"), THole))
+
+    case _ =>
+      assert false
+  end
+
+// a ( that starts a line starts a tuple assignment, and continues neither the call nor the pattern of the name before it
+test parsed_tuple_assignments() :=
+  var d: Mod
+  parse_text(in "procedure p() :=\n  var a\n  (a, _) := (b, c)\n  x := y\n  (x, y) := f(x)\n", out d)
+  match commands_of(d.implemented)
+    case List(
+      CProc(_, _, _, _, _, _, _, AOk(_, _, SBlock(_, List(
+        AOk(_, _, SLocal(true, List((AOk(_, _, PName(_, _)), None)))),
+        AOk(_, _, SAssignTuple(targets, AOk(_, _, ETuple(_)))),
+        AOk(_, _, SAssign(List((_, AOk(_, _, EName(_, _)))))),
+        AOk(_, _, SAssignTuple(_, AOk(_, _, EApp(_, _))))))))) =>
+      assert targets == List(Var(unqualified("a"), THole), dropped_out())
 
     case _ =>
       assert false

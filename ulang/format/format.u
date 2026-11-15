@@ -900,6 +900,9 @@ function format_stmt_node(notation: Notation, notes: List[Comment], indent: Str,
     case SAssign(upd) =>
       assignments_text(notation, notes, indent, upd)
 
+    case SAssignTuple(targets, value) =>
+      "(" ++ join(", ", List(for x in targets yield x.name.base)) ++ ") := " ++ format_expr(notation, notes, indent, value)
+
     case SIf(cond, left, right) =>
       cond_text(notation, List(for c in notes if is_before_else(c, right)), indent, "if", "then", cond, left) ++ else_text(notation, List(for c in notes if not is_before_else(c, right)), indent, right)
 

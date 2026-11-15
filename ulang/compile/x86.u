@@ -1041,22 +1041,16 @@ procedure compile_stmt(in defs: Defs, env: Slots, stmt: At[Stmt], ref e: Emit) :
     case SLocal(_, _) =>
       raise Unexpected("local")
 
-    // simultaneous, so all values are computed before the first is assigned
+    // one after another
     case SAssign(upd) =>
-      match upd
-        case List((x, value)) =>
-          compile_expr(in defs, env, value, ref e)
-          emit(in IMov(OReg(Rax), slot(slot_of(env, x.name))), ref e)
-
-        case _ =>
-          var slots: List[Int]
-          compile_spilled(in defs, env, seconds(upd), out slots, ref e)
-          for (x, s) in zip(var_names(firsts(upd)), slots) do
-            emit_all(in List(
-              IMov(slot(s), OReg(Rax)),
-              IMov(OReg(Rax), slot(slot_of(env, x)))), ref e)
-          end
+      for (x, value) in upd do
+        compile_expr(in defs, env, value, ref e)
+        emit(in IMov(OReg(Rax), slot(slot_of(env, x.name))), ref e)
       end
+
+    // the checker turns each SAssignTuple into a match
+    case SAssignTuple(_, _) =>
+      raise Unexpected("tuple assignment")
 
     case SBlock(locals, stmts) =>
       var binds: Slots := List(), t: Int

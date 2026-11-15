@@ -77,6 +77,27 @@ test sums() :=
   y := x * 2
   assert (x, y) == (6, 12)
 
+// the assignments of one statement are sequential, as the bindings of a let, and a tuple assigns at once
+test sequential_assignments() :=
+  var a := 1, b := 0, c: Int, d: Int
+  a := 2, b := a + 1
+  assert (a, b) == (2, 3)
+  c := 1, d := c + 1
+  assert (c, d) == (1, 2)
+  (a, b) := (b, a)
+  assert (a, b) == (3, 2)
+  let t := a
+  (a, _, b) := (b, a, t)
+  assert (a, b) == (2, 3)
+  let pair := (5, 6)
+  (c, d) := pair
+  assert (c, d) == (5, 6)
+  a := 0
+  while a < 3 do
+    (a, b) := (a + 1, a)
+  end
+  assert (a, b) == (3, 2)
+
 // the bodies of cases may declare variables, like those of if and while
 test locals_in_cases() :=
   var n: Int

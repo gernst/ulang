@@ -880,11 +880,19 @@ procedure compile_stmt(
     case SLocal(_, _) =>
       raise Unexpected("local")
 
+    // one after another
     case SAssign(upd) =>
-      var as: List[CStmt], cs: List[CStmt], rs: List[CExpr]
-      compile_exprs(in defs, env, seconds(upd), out as, rs, ref g)
-      temps(in rs, out cs, ref g)
-      ss := as ++ cs ++ reassign(env, firsts(upd), cs)
+      ss := List()
+      for (x, value) in upd do
+        var as: List[CStmt], cs: List[CStmt], rs: List[CExpr]
+        compile_exprs(in defs, env, List(value), out as, rs, ref g)
+        temps(in rs, out cs, ref g)
+        ss := ss ++ as ++ cs ++ reassign(env, List(x), cs)
+      end
+
+    // the checker turns each SAssignTuple into a match
+    case SAssignTuple(_, _) =>
+      raise Unexpected("tuple assignment")
 
     case SBlock(locals, stmts) =>
       var bs: List[CStmt]

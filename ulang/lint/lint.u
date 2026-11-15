@@ -33,9 +33,6 @@ data Lint :=
   case LocalTooHigh
   // a var with a value that no statement after it assigns, which is a let
   case UnassignedVar
-  // an assignment of one statement that reads or assigns a variable that an earlier one of it assigns, whose meaning
-  // depends on whether the assignments are simultaneous or sequential
-  case ReadsAssigned
 
 // a warning of lint at pos of a module, with the expression to write instead if there is one, and the edit that removes
 // it if there is one, which needs no choice
@@ -209,7 +206,10 @@ function part_stmt_lints(fun: Id, pos: Pos, stmt: Stmt): List[Warning] :=
       List()
 
     case SAssign(upd) =>
-      reads_assigned(pos, upd, Set()) ++ exprs_lints(fun, List(for (_, e) in upd yield e))
+      exprs_lints(fun, List(for (_, e) in upd yield e))
+
+    case SAssignTuple(_, value) =>
+      expr_lints(fun, value)
 
     case SBlock(locals, stmts) =>
       locals_lints(pos, locals, stmts) ++ declared_lints(stmts) ++ collecting_loops(stmts) ++ stmts_lints(fun, stmts)
@@ -282,22 +282,6 @@ function placed_lints(fun: Id, pos: Pos, span: Span, expr: Expr): List[Warning] 
 
     case _ =>
       List()
-  end
-
-// a warning whose edit writes expr instead of the part at span
-// the warnings of the assignments of upd that read or assign one of the variables before, which earlier ones assign
-function reads_assigned(pos: Pos, upd: List[(Var, At[Expr])], before: Set[Id]): List[Warning] :=
-  match upd
-    case List() =>
-      List()
-
-    case List((x, e); rest) =>
-      let read := List(for y in expr_names(e) ++ Set(x.name.base) if contains(y, before) yield y), found := if read == List() then
-        List()
-      else
-        List(
-          Warning(ReadsAssigned, pos, "the assignment of " ++ x.name.base ++ " reads or assigns " ++ join(", ", List(for y in read yield y)) ++ ", which this statement assigns before", None, None)) in
-      found ++ reads_assigned(pos, rest, insert(x.name.base, before))
   end
 
 // a warning whose edit writes expr instead of the part at span
@@ -922,7 +906,7 @@ function child_stmts(stmt: Stmt): List[At[Stmt]] :=
     case SSkip =>
       List()
 
-    case SAssign(_) =>
+    case SAssign(_) | SAssignTuple(_, _) =>
       List()
 
     case SBlock(_, stmts) =>
@@ -991,6 +975,10 @@ function assigned(stmt: At[Stmt]): Set[Id] :=
   let own := match part
     case SAssign(upd) =>
       Set(for (x, _) in upd yield x.name.base)
+
+    case SAssignTuple(targets, _) =>
+      Set(for x in targets if not is_dropped(x) yield x.name.base)
+
     case _ =>
       Set()
   end in
@@ -1165,6 +1153,9 @@ function own_names(stmt: Stmt): Set[Id] :=
 
     case SAssign(upd) =>
       Set(for (_, e) in upd for x in expr_names(e) yield x)
+
+    case SAssignTuple(_, value) =>
+      expr_names(value)
 
     case SBlock(_, _) =>
       Set()

@@ -349,6 +349,10 @@ function free_in_stmt(stmt: At[Stmt], bound: List[Name]): List[Name] :=
     case SAssign(upd) =>
       unbound(var_names(firsts(upd)), bound) ++ free_in_all(seconds(upd), bound)
 
+    // the checker gives no SAssignTuple
+    case SAssignTuple(_, _) =>
+      List()
+
     case SBlock(locals, stmts) =>
       List(for y in stmts for n in free_in_stmt(y, var_names(vars(locals)) ++ bound) yield n)
 
@@ -552,6 +556,10 @@ function changed(stmt: At[Stmt]): List[Name] :=
   match stmt.that
     case SAssign(upd) =>
       var_names(firsts(upd))
+
+    // the checker gives no SAssignTuple
+    case SAssignTuple(_, _) =>
+      List()
 
     case SBlock(_, stmts) =>
       List(for y in stmts for n in changed(y) yield n)
