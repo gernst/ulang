@@ -118,19 +118,19 @@ function format_expr(expr: CExpr): Str :=
       "{" ++ join(", ", List(for item in items yield format_expr(item))) ++ "}"
   end
 
-// the escapes of C strings are those of ulang for code points below 128, and a string of greater code points is "…",
-// u"…", or U"…" by the greatest, as the runtime reads its units, with an octal escape for each code point below 160 and
+// the escapes of C strings are those of ulang for the printable code points below 128, and a string of greater code
+// points is "…", u"…", or U"…" by the greatest, as the runtime reads its units, with an octal escape for each control
+// character without an escape of ulang, such as the 0 that would end the string, and each code point below 160, and
 // otherwise a universal character name, which C does not allow below 160
 function format_str(text: Str): Str :=
+  example format_str("a\n" ++ str(List(chr(0), chr(127)))) == "\"a\\n\\000\\177\""
+  example format_str("ä") == "\"\\344\""
   let greatest := foldl(chars(text), 0, lambda m, c => max(m, int(c))) in
-  if greatest < 128 then
-    quote(text)
-  else
-    (if greatest < 256 then "" else if greatest < 65536 then "u" else "U") ++ "\"" ++ join("", List(for c in chars(text) yield format_unit(greatest, c))) ++ "\""
+  (if greatest < 256 then "" else if greatest < 65536 then "u" else "U") ++ "\"" ++ join("", List(for c in chars(text) yield format_unit(greatest, c))) ++ "\""
 
 function format_unit(greatest: Int, c: Char): Str :=
   let code := int(c), quoted := quote(str(List(c))) in
-  if code < 128 then
+  if code < 127 and (code >= 32 or size(quoted) == 4) then
     slice(quoted, 1, size(quoted) - 1)
   else if code < 160 or greatest < 256 then
     "\\" ++ digits(code, 8, 3)

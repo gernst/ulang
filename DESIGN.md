@@ -51,10 +51,10 @@ And in the implementation:
 
 Where the design is still in tension with its premises, each with the item that would resolve it:
 
-- **New syntax against no training data.** The bet is that explicit, uniform syntax with hints costs agents less than familiar but ambiguous syntax; the trip-ups of `unclear.md` and of agents new to ulang are anecdotes, not a measurement, and the follow-ups that the errors still make are Diagnostics 8.
+- **New syntax against no training data.** The bet is that explicit, uniform syntax with hints costs agents less than familiar but ambiguous syntax; the trip-ups of `unclear.md` and of agents new to ulang are anecdotes, not a measurement, and the follow-ups that the errors still make are Diagnostics 6.
 - **The hooks are the weakest point of locality**, since a declared `compare` must agree with structural equality, which nothing checks (`H1 HookAgreement` of `ideas/lint.md`).
 - **The order of arguments is the remaining hazard of grounding**: named fields protect constructors, types most calls, but not `slice(s, i, j)`; examples on signatures are the answer, with a hint that tries permutations (`G1` of `ideas/lint.md`).
-- **Exceptions cannot become values**, so code that collects errors catches each kind into an out (Checker 1), and there is no polymorphism over raised sets (Checker 4).
+- **Exceptions cannot become values**, so code that collects errors catches each kind into an out (Checker 1), and there is no polymorphism over raised sets (Checker 3).
 - **Termination is proven only for the recursive functions that lemmas reach**, so the split of functions and procedures does not yet guarantee that functions terminate (Checker 2).
 - **The library is ambient**, also `os`, so its procedures of the system show in no signature (Modules 1, Later 1).
 - **Verbosity has a cost in context after all**: `CLAUDE.md` describes the language, the implementation, and the workflow together in some 12,000 words loaded into every session, which a reference of the language for writers of programs would split (Documentation 1).

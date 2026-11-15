@@ -1986,6 +1986,10 @@ procedure parse_call_of(
   parse_name(out p, ref toks)
   expect(in TKw("("), ref toks)
   parse_sections(in notation, params, parse_arg, parse_variable, out ins, outs, refs, ref toks)
+  if ins == List() and outs == List() and refs == List() and not at_kw(toks, ")") then
+    // a call of other languages, p(a), whose arguments have no modes
+    raise ParseError(format_token(TKw(")")) ++ " expected but " ++ format_token(head_token(toks)) ++ " found; the arguments of a call follow their modes, as in " ++ p ++ "(in a, out x)", head_pos(toks))
+  end
   expect(in TKw(")"), ref toks)
   stmt := SCall(unqualified(p), ins, outs, refs)
 

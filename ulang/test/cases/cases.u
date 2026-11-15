@@ -67,6 +67,13 @@ procedure run_texts_despite_errors(
       main: Str * List[Str]
 ) raises ParseError, InternalError, OsError, Thrown, RuntimeError
 
+// the tests of the case despite its errors of parsing and of types, as test runs a unit with errors, where a test that
+// reaches a part that does not parse raises Deferred there
+procedure run_text_partial(
+  in  path: Str,
+      lines: List[Str]
+) raises ParseError, InternalError, OsError, Thrown, RuntimeError
+
 // load_text, then the lemmas of the case
 procedure prove_text(
   in  path: Str,
@@ -185,6 +192,15 @@ procedure run_text_despite_errors(
 ) raises ParseError, InternalError, OsError, Thrown, RuntimeError :=
   var q: Prog, errors: List[TypeError]
   checked_text(in path, lines, out q, errors)
+  run_program(in q)
+
+procedure run_text_partial(
+  in  path: Str,
+      lines: List[Str]
+) raises ParseError, InternalError, OsError, Thrown, RuntimeError :=
+  var source: Source, q: Prog, errors: List[TypeError]
+  parse_case(in path, text_of(lines), out source)
+  check_partial(in without_unparsed(source), unparsed_names(source), enumerated_tests, out q, errors)
   run_program(in q)
 
 procedure run_texts_despite_errors(

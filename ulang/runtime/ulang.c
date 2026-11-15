@@ -1121,6 +1121,14 @@ static u_value system_str(const char *bytes, const char *what) {
   return s;
 }
 
+// the UTF-8 of a path, or else OsError of message and the path if it holds a NUL, which would end it early
+static const char *system_path(u_value path, const char *message) {
+  size_t n;
+  const char *s = u_utf8(path, &n);
+  if (memchr(s, 0, n)) os_error(message, path);
+  return s;
+}
+
 // the contents of a regular file with their number of bytes in n, or else NULL
 static char *read_bytes(const char *path, size_t *n) {
   FILE *f = fopen(path, "rb");
@@ -1166,7 +1174,7 @@ void p_os_args(u_value *result) {
 }
 
 void p_os_read_utf8(u_value path, u_value *result) {
-  u_value t = read_file(u_utf8(path, NULL), path);
+  u_value t = read_file(system_path(path, "cannot read "), path);
   if (!t) os_error("cannot read ", path);
   *result = t;
 }
@@ -1180,9 +1188,9 @@ static int write_utf8(FILE *f, u_value s) {
 
 // the file of path, opened for writing by mode, after creating the missing directories of path, as the interpreter does
 static FILE *open_for(u_value path, const char *mode) {
-  const char *file = u_utf8(path, NULL);
+  const char *file = system_path(path, "cannot write ");
   char *dir = strcpy(text(u_strlen(file)), file);
-  for (char *p = strchr(dir + 1, '/'); p; p = strchr(p + 1, '/')) {
+  for (char *p = *dir ? strchr(dir + 1, '/') : NULL; p; p = strchr(p + 1, '/')) {
     *p = 0;
     mkdir(dir, 0777);
     *p = '/';
@@ -1204,7 +1212,7 @@ void p_os_write_utf8(u_value path, u_value contents) {
 
 void p_os_read_bytes(u_value path, u_value *result) {
   size_t n;
-  const unsigned char *s = (const unsigned char *)read_bytes(u_utf8(path, NULL), &n);
+  const unsigned char *s = (const unsigned char *)read_bytes(system_path(path, "cannot read "), &n);
   if (!s) os_error("cannot read ", path);
   u_value a = u_array_new((int)n);
   for (size_t i = 0; i < n; i++) a->items[i] = &byte_objects[s[i]];
@@ -1243,7 +1251,7 @@ static int compare_names(const void *a, const void *b) {
 // the entries of dir without . and .., sorted by name, each with whether it is a directory, where links are not
 // followed, such that a walk cannot loop, and the order of the bytes of UTF-8 is that of the code points
 void p_os_list(u_value dir, u_value *result) {
-  const char *name = u_utf8(dir, NULL);
+  const char *name = system_path(dir, "cannot list ");
   DIR *d = opendir(name);
   if (!d) os_error("cannot list ", dir);
   size_t n = 0, cap = 16;
@@ -1269,7 +1277,9 @@ void p_os_list(u_value dir, u_value *result) {
 // path is a directory, also through a link
 void p_os_is_dir(u_value path, u_value *result) {
   struct stat st;
-  *result = u_mk_bool(!stat(u_utf8(path, NULL), &st) && S_ISDIR(st.st_mode));
+  size_t n;
+  const char *name = u_utf8(path, &n);
+  *result = u_mk_bool(!memchr(name, 0, n) && !stat(name, &st) && S_ISDIR(st.st_mode));
 }
 
 void p_os_cwd(u_value *result) {
@@ -1282,7 +1292,7 @@ void p_os_cwd(u_value *result) {
 }
 
 void p_os_chdir(u_value dir) {
-  if (chdir(u_utf8(dir, NULL))) os_error("cannot change to ", dir);
+  if (chdir(system_path(dir, "cannot change to "))) os_error("cannot change to ", dir);
 }
 
 // the path of a target without ./ in front and / at the end, "" for the root
@@ -1453,7 +1463,7 @@ void p_os_library_dir(u_value *result) {
 }
 
 void p_os_library(u_value name, u_value *result) {
-  const char *base = u_utf8(name, NULL);
+  const char *base = system_path(name, "unknown module ");
   char *path = text(u_strlen(ULANG_LIB) + u_strlen(base) + 3);
   sprintf(path, "%s/%s.u", ULANG_LIB, base);
   u_value t = read_file(path, name);
@@ -1501,7 +1511,7 @@ static void close_unreachable(void *obj, void *data) {
 void p_io_open(u_value path, u_value mode, u_value *io) {
   FILE *f;
   if (mode->name->index == 0) {
-    f = fopen(u_utf8(path, NULL), "rb");
+    f = fopen(system_path(path, "cannot read "), "rb");
     if (!f) os_error("cannot read ", path);
   } else {
     f = open_for(path, mode->name->index == 1 ? "wb" : "ab");

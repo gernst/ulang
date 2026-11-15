@@ -4437,22 +4437,22 @@ procedure commands(
       typed_cmds := List()
 
     case List((m, cmd); more) =>
-      let taken := s.taken, errors := size(s.errors), bounds := s.bounds
+      let errors := size(s.errors), bounds := s.bounds
       var typed_cmd: Cmd, zonked: Cmd, rest: List[Cmd]
       s := enter(s, m) with loops := List()
       command(in cmd, out typed_cmd, ref s)
       settle(ref s)
       s := with_scopes(s, typed_cmd)
+      zonked := zonk_cmd(s, typed_cmd)
+      // a command with parts that do not parse keeps them as error nodes in its checked body, which a run reaches only on a
+      // path through them, while the types that they reach are TError, so an unknown exception there is a follow-up
       if not s.partial or part_errors(cmd) == List() then
-        zonked := zonk_cmd(s, typed_cmd)
         match unknown_in_cmd(zonked)
           case Some((pos, t)) =>
             s := s with errors := s.errors ++ List(at_use(pos, UnknownException(t)))
           case None =>
             skip
         end
-      else
-        zonked := cmd, s := s with taken := taken
       end
       // the raises pass skips a command with errors, and so its bounds
       if size(s.errors) > errors then

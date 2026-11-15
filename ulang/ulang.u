@@ -848,11 +848,41 @@ function sibling(main: Id, file: Str): Id :=
 // prints the error of loading file, after the lines of the others if there are several files, else alone to stderr
 // the errors of loading file, on the output if there are several files, else on the output of errors
 procedure report(in file: Str, errors: List[Diagnostic], several: Bool) :=
+  var path: Str
   for d in errors do
+    diagnostic_file(in file, d, out path)
     if several then
-      os_println(in format_diagnostic(file, d))
+      os_println(in format_diagnostic(path, d))
     else
-      os_print_error(in format_diagnostic(file, d))
+      os_print_error(in format_diagnostic(path, d))
+    end
+  end
+
+// the file to edit for the diagnostic d of loading file: file for one of its own module, which has none, and else the file
+// of the module of d, of the library or of the project of file, from the working directory if it is below it, else
+// absolute
+procedure diagnostic_file(in file: Str, d: Diagnostic, out path: Str) :=
+  path := file
+  for m in d.module do
+    try
+      var here: Str, target: Str
+      os_cwd(out here)
+      if is_library_module(m) then
+        var lib: Str
+        os_library_dir(out lib)
+        target := os_join(lib, library_file(m) ++ ".u")
+      else
+        var root: Str
+        project_root(in os_dirname(normal_path(if starts_with(file, "/") then file else os_join(here, file))), out root)
+        target := os_join(root, m ++ ".u")
+      end
+      path := if starts_with(target, here ++ "/") then
+        slice(target, size(here) + 1, size(target))
+      else
+        target
+    catch
+      case OsError(_) =>
+        skip
     end
   end
 

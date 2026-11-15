@@ -129,6 +129,18 @@ test uncaught_shown() :=
       "  raise Fine(Money(1))"))
   end
 
+// a part that does not parse stays in the checked body of its definition, so a run of the definition raises Deferred only
+// on the path through it, and here the other path runs, to the failed assertion
+test unparsed_part_path() :=
+  assert raises AssertionUnequal("1", "2") do
+    run_text_partial(in "ulang/test/errors/unparsed-part-path.u", List(
+      "function f(x: Int): Int :=",
+      "  if x > 0 then x else (x *)",
+      "",
+      "test good() :=",
+      "  assert f(1) == 2"))
+  end
+
 // a run of a program with errors runs what they do not touch, here the first test, and raises Deferred where it reaches a
 // part that checking rejected, the call of the second test, or a definition that it rejected
 test deferred_errors() :=

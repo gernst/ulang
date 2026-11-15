@@ -620,18 +620,14 @@ function definitions(q: Prog): List[Cmd] :=
 function definition_in(cmd: At[Cmd]): Option[Cmd] :=
   match cmd
     case AOk(_, _, that) =>
-      if is_signature(that) then
-        None
-      else if has_unparsed(that) then
-        Some(rejected(that, unparsed_errors(that)))
-      else
-        Some(that)
+      if is_signature(that) then None else Some(that)
 
+    // the parts of a definition that do not parse stay in its checked body, which raises where a run reaches them
     case AErr(_, _, that, errors) =>
       if is_signature(that) then
         None
-      else if errors == List() or exists(errors, blocks_run) or has_unparsed(that) then
-        Some(rejected(that, errors ++ unparsed_errors(that)))
+      else if errors == List() or exists(errors, blocks_run) then
+        Some(rejected(that, errors))
       else
         Some(that)
 
@@ -639,14 +635,6 @@ function definition_in(cmd: At[Cmd]): Option[Cmd] :=
     case AUnparsed(_, _, _, _) =>
       None
   end
-
-// whether cmd has parts that do not parse, which checking keeps as written, with its names unresolved, so that no run
-// takes it for checked code
-function has_unparsed(cmd: Cmd): Bool :=
-  unparsed_errors(cmd) != List()
-
-function unparsed_errors(cmd: Cmd): List[Diagnostic] :=
-  List(for d in part_errors(cmd) if d.kind == ParseKind)
 
 // cmd, which checking rejected by errors, or without errors of its own if its package failed, with a body that is an
 // error node of them, which a run reaches if it calls cmd
