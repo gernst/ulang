@@ -4,7 +4,7 @@ procedure sum(in n: Int, out s: Int) :=
   var i: Int
   i := 0, s := 0
   while i < n do
-    i := i + 1, s := s + i
+    s := s + i, i := i + 1
   end
 
 procedure total(in xs: List[Int], out s: Int) :=
@@ -22,7 +22,8 @@ procedure total(in xs: List[Int], out s: Int) :=
   end
 
 procedure swap[A](ref x: A, y: A) :=
-  x := y, y := x
+  let t := x
+  x := y, y := t
 
 procedure inc(ref x: Int) :=
   x := x + 1

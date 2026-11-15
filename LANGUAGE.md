@@ -88,7 +88,8 @@ test procedures() :=
   count_up(in 3, ref total)
   assert total == 16
   var x := 1, y := 2
-  x := y, y := x
+  let t := x
+  x := y, y := t
   assert (x, y) == (2, 1)
 ```
 
