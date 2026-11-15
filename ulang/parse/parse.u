@@ -605,11 +605,11 @@ procedure parse_separated[A](
 ) :=
   var x: A, found: Buffer[A] := empty()
   item(in notation, params, out x, ref toks)
-  found := append(found, x)
+  found := found ++ List(x)
   while more(toks) do
     advance(ref toks)
     item(in notation, params, out x, ref toks)
-    found := append(found, x)
+    found := found ++ List(x)
   end
   xs := List(for y in found)
 
@@ -624,10 +624,10 @@ procedure parse_repeated[A](
 ) :=
   var x: A, found: Buffer[A] := empty()
   item(in notation, params, out x, ref toks)
-  found := append(found, x)
+  found := found ++ List(x)
   while more(toks) do
     item(in notation, params, out x, ref toks)
-    found := append(found, x)
+    found := found ++ List(x)
   end
   xs := List(for y in found)
 
@@ -671,7 +671,7 @@ procedure skip_arg(
         done := true
       else
         nest(in prev, toks, ref blocks, brackets, ites)
-        skipped := append(skipped, format_token(head_token(toks))), prev := head_token(toks)
+        skipped := skipped ++ List(format_token(head_token(toks))), prev := head_token(toks)
         advance(ref toks)
       end
     end
@@ -1211,7 +1211,7 @@ procedure parse_lambda(
     expect(in TKw("=>"), ref toks)
     parse_body(in notation, params, out body, ref toks)
     expect_end(in "lambda", pos, ref toks)
-    expr := AOk(pos, span_from(pos, toks), EProc(ins, outs, refs, RUnknown(0), body))
+    expr := AOk(pos, span_from(pos, toks), EProc(ins, outs, refs, RPending, body))
   else
     if head_token(toks) == TKw("=>") then
       var inner: At[Expr]
@@ -1350,16 +1350,16 @@ procedure parse_gens(
         parse_pattern(in notation, params, out v, ref toks)
         expect(in TKw("in"), ref toks)
         parse_expr(in notation, params, out c, ref toks)
-        found := append(found, GPair(p, v, c))
+        found := found ++ List(GPair(p, v, c))
       else
         expect(in TKw("in"), ref toks)
         parse_expr(in notation, params, out c, ref toks)
-        found := append(found, GVal(p, c))
+        found := found ++ List(GVal(p, c))
       end
     else
       advance(ref toks)
       parse_expr(in notation, params, out c, ref toks)
-      found := append(found, GIf(c))
+      found := found ++ List(GIf(c))
     end
   end
   gens := List(for g in found)
@@ -1382,7 +1382,7 @@ procedure parse_cases[B](
     parse_optional(in notation, params, TKw("if"), parse_expr, out g, ref toks)
     expect(in TKw("=>"), ref toks)
     body(in notation, params, out b, ref toks)
-    found := append(found, AOk(pos, span_from(pos, toks), Branch(pat, g, b)))
+    found := found ++ List(AOk(pos, span_from(pos, toks), Branch(pat, g, b)))
   end
   expect_end(in opener, start, ref toks)
   cases := List(for c in found)
@@ -1549,7 +1549,7 @@ procedure parse_body(
   var found: Buffer[At[Stmt]] := empty(), stmt: At[Stmt]
   while at_stmt(toks) do
     parse_stmt_recovering(in notation, params, out stmt, ref toks)
-    found := append(found, stmt)
+    found := found ++ List(stmt)
   end
   body := AOk(pos, span_from(pos, toks), SBlock(List(), List(for t in found)))
 
@@ -1615,7 +1615,7 @@ procedure skip_stmt(in notation: Notation, out text: Str, ref toks: Tokens) :=
       done := true
     else
       nest(in prev, toks, ref blocks, brackets, ites)
-      skipped := append(skipped, format_token(head_token(toks))), prev := head_token(toks), first := false
+      skipped := skipped ++ List(format_token(head_token(toks))), prev := head_token(toks), first := false
       advance(ref toks)
     end
   end
@@ -2318,7 +2318,7 @@ procedure parse_expr_recovering(
   catch
     case ParseError(message, at) =>
       while not starts_command(toks) do
-        skipped := append(skipped, format_token(head_token(toks)))
+        skipped := skipped ++ List(format_token(head_token(toks)))
         advance(ref toks)
       end
       expr := AUnparsed(pos, span_from(pos, toks), joined(List(for t in skipped)), parse_diagnostic(ParseError(message, at)))
@@ -2407,7 +2407,7 @@ procedure parse_spec(
     let pos: Pos := head_pos(toks)
     advance(ref toks)
     parse_example(in notation, params, of_proc, pos, out x, ref toks)
-    found := append(found, x)
+    found := found ++ List(x)
   end
   spec := Spec(pre, post, List(for x in found))
 
@@ -2440,7 +2440,7 @@ procedure parse_example(
   catch
     case ParseError(message, at) =>
       while not (at_kw(toks, "example") or starts_command(toks) or not next and not head_pos(toks) < at) do
-        skipped := append(skipped, format_token(head_token(toks)))
+        skipped := skipped ++ List(format_token(head_token(toks)))
         advance(ref toks)
       end
       x := AUnparsed(pos, span_from(pos, toks), joined(List(for t in skipped)), parse_diagnostic(ParseError(message, at)))
@@ -2691,12 +2691,12 @@ procedure parse_proof(
       let at := head_pos(toks)
       advance(ref toks)
       parse_expr(in notation, params, out cond, ref toks)
-      steps := append(steps, AOk(at, span_from(at, toks), StepInvariant(cond)))
+      steps := steps ++ List(AOk(at, span_from(at, toks), StepInvariant(cond)))
     else
       var stmt: At[Stmt], step: Step
       parse_stmt(in notation, params, out stmt, ref toks)
       step_of(in stmt, out step)
-      steps := append(steps, AOk(stmt.pos, stmt.span, step))
+      steps := steps ++ List(AOk(stmt.pos, stmt.span, step))
     end
   end
   if exists(List("induction", "match", "if"), lambda kw => at_kw(toks, kw)) then
@@ -2958,7 +2958,7 @@ procedure package_files(
       for (file, is_dir) in entries do
         if not is_dir and is_source(file) and file != "project.u" and module_id(d, module_name(file)) != main_id then
           os_read_utf8(in os_join(os_join(root, d), file), out text)
-          found := append(found, (module_id(d, module_name(file)), text))
+          found := found ++ List((module_id(d, module_name(file)), text))
         end
       end
 
@@ -2969,12 +2969,12 @@ procedure package_files(
       for (file, is_dir) in entries do
         if not is_dir and is_source(file) and library_module(module_name(file)) != main_id then
           library_text(in library_module(module_name(file)), Pos(1, 1), out text)
-          found := append(found, (library_module(module_name(file)), text))
+          found := found ++ List((library_module(module_name(file)), text))
         end
       end
   end
   for m in main do
-    found := append(found, m)
+    found := found ++ List(m)
   end
   files := List(for f in found)
 
@@ -3009,7 +3009,7 @@ procedure load_members(
   lex_members(in files, main, out lexed, notations)
   for (m, toks, comments) in lexed do
     parse_member(in m, toks, comments, others_notation(m, notations), root, dir, is_main(m, main), main != None, List(id; loading), out own, ref source)
-    mods := append(mods, own)
+    mods := mods ++ List(own)
   end
   source := source with mods := source.mods ++ List(for d in mods), packages := source.packages ++ List(Package(id, firsts(files)))
 
@@ -3308,10 +3308,10 @@ function section_named(kw: Str): Option[Section] :=
 // spaces
 procedure skip_command(out text: Str, ref toks: Tokens) :=
   var skipped: Buffer[Str] := empty()
-  skipped := append(skipped, format_token(head_token(toks)))
+  skipped := skipped ++ List(format_token(head_token(toks)))
   advance(ref toks)
   while not starts_command(toks) do
-    skipped := append(skipped, format_token(head_token(toks)))
+    skipped := skipped ++ List(format_token(head_token(toks)))
     advance(ref toks)
   end
   text := joined(List(for t in skipped))
