@@ -18,6 +18,9 @@ function parse_diagnostic(e: ParseError): Diagnostic
 // ImportError, in load order and by position, so those of the imported modules first
 function parse_errors(source: Source): List[ParseError]
 
+// those of parse_errors that stand on the parts that generate no code, code_free_errors of ulang/syntax/syntax.u
+function code_free_parse_errors(source: Source): List[ParseError]
+
 function has_errors(source: Source): Bool
 
 // source without the commands that do not parse, which the checker can check, while their names are unknown to it, and
@@ -125,10 +128,17 @@ function parse_diagnostic(e: ParseError): Diagnostic :=
   end
 
 function parse_errors(source: Source): List[ParseError] :=
-  List(for m in source.mods for d in mod_errors(m) yield if m.name == source.main then
+  List(for m in source.mods for d in mod_errors(m) yield module_error(source, m, d))
+
+function code_free_parse_errors(source: Source): List[ParseError] :=
+  List(for m in source.mods for c in m.exported ++ m.builtins ++ m.implemented for d in code_free_errors(c) if d.kind == ParseKind yield module_error(source, m, d))
+
+// the parse error d of the module m, an ImportError if m is not the main module
+function module_error(source: Source, m: Mod, d: Diagnostic): ParseError :=
+  if m.name == source.main then
     ParseError(d.message, d.pos)
   else
-    ImportError(m.name, d.message, d.pos))
+    ImportError(m.name, d.message, d.pos)
 
 function has_errors(source: Source): Bool :=
   exists(source.mods, lambda m => mod_errors(m) != List())
@@ -3734,3 +3744,9 @@ test parsed_forms() :=
   assert expr == nowhere(EFor(FArray, List(GVal(pat_var("x"), a), GIf(expr_var("x"))), YVal(b), None))
   parsed(in "Map(for k => v in a)", out expr)
   assert expr == nowhere(EFor(FMap, List(GPair(pat_var("k"), pat_var("v"), a)), YPair(expr_var("k"), expr_var("v")), None))
+
+test code_free_parse_errors_of_lemmas() :=
+  var source: Source
+  parse_text_recovering(in "procedure main() :=\n  skip\n\nlemma broken(in n: Int) :=\n  ensures\n\nprocedure go() :=\n  x = 1\n", out source)
+  assert size(parse_errors(source)) == 2
+  assert code_free_parse_errors(source) == take(1, parse_errors(source))

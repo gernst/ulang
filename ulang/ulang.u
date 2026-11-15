@@ -397,9 +397,9 @@ procedure check_unit(
       passed := passed and ran
     end
     for selected in selection(phases.proofs, both, names, lemmas) do
+      // the errors fail the file already, with their status, while no lemma failed
       if blocks_proofs(q) then
         os_println(in label ++ "no lemma proven, since code that the lemmas may reach has errors")
-        passed := false
       else
         prove_module(in without_rejected_lemmas(q), m, file, selected, falsified, label, out proven)
         passed := passed and proven
@@ -454,15 +454,11 @@ function lemma_name(cmd: Cmd, m: Id): Option[Str] :=
 // whether q has errors that make its code unsafe to run outside its lemmas and tests, which the lemmas could reach, so that
 // none is proven, while a lemma with errors of its own is only not proven
 function blocks_proofs(q: Prog): Bool :=
-  exists(q.cmds, lambda c => not is_lemma(c.that) and not is_test_cmd(c.that) and exists(cmd_errors(c), blocks_run))
-
-// the errors of the lemmas and tests of q, whose code a program does not contain
-function code_free_errors(q: Prog): List[Diagnostic] :=
-  List(for c in q.cmds if is_lemma(c.that) or is_test_cmd(c.that) for d in command_diagnostics(q.main, c) yield d)
+  exists(q.cmds, lambda c => not is_lemma_or_test(c.that) and exists(cmd_errors(c), blocks_run))
 
 // q without its lemmas and tests that have errors, which compile_target leaves out of the program
 function without_rejected_proofs(q: Prog): Prog :=
-  q with cmds := List(for c in q.cmds if not (is_lemma(c.that) or is_test_cmd(c.that)) or cmd_errors(c) == List())
+  q with cmds := List(for c in q.cmds if not is_lemma_or_test(c.that) or cmd_errors(c) == List())
 
 // q without its lemmas that have errors, which the prover does not prove
 function without_rejected_lemmas(q: Prog): Prog :=
@@ -471,14 +467,6 @@ function without_rejected_lemmas(q: Prog): Prog :=
 function is_lemma(cmd: Cmd): Bool :=
   match cmd
     case CLemma(_, _, _, _, _, _) =>
-      true
-    case _ =>
-      false
-  end
-
-function is_test_cmd(cmd: Cmd): Bool :=
-  match cmd
-    case CTest(_, _, _) =>
       true
     case _ =>
       false
@@ -555,11 +543,12 @@ function replacement_text(source: Source, m: Id, w: Warning): Str :=
   end
 
 // translates the file of the target to C, whose main calls the procedure of the target, main by default, also with errors
-// that generate no code, those that do not block a run and those of lemmas and tests, which it reports as warnings
+// that generate no code, those that do not block a run and those of lemmas, tests, and contracts, also of parsing, which
+// it reports as warnings
 procedure compile_target(in target: Target, output: Str, out status: Int) :=
-  var q: Prog, errors: List[Diagnostic]
-  check_file(in target.path, false, false, out q, errors)
-  let harmless := code_free_errors(q), blocking := List(for d in errors if blocks_run(d) and not contains(d, harmless))
+  var source: Source, q: Prog, errors: List[Diagnostic], cache := no_cache()
+  load_file(in target.path, false, false, out source, q, errors, ref cache)
+  let harmless := code_free_diagnostics(q) ++ List(for e in code_free_parse_errors(source) yield parse_diagnostic(e)), blocking := List(for d in errors if blocks_run(d) and not contains(d, harmless))
   report(in target.path, blocking, false)
   warn(in target.path, List(for d in errors if not contains(d, blocking)))
   status := if blocking == List() then 0 else load_status(q, blocking)
