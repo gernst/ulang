@@ -5,6 +5,7 @@
 import ulang.syntax
 import ulang.format
 import ulang.check
+import ulang.expand
 
 export
 
@@ -26,9 +27,10 @@ data Val :=
   case VProcClos(env: Map[Name, Val], ins: List[Var], outs: List[Var], refs: List[Var], stmt: At[Stmt])
 
 // main, the module of the loaded file, whose errors a Deferred names without their module, as the diagnostics do, and
-// the deadline of a test, after which its calls and loops raise TimedOut
+// the deadline of a test, after which its calls and loops raise TimedOut, and aliases the pattern aliases of the program,
+// which the expansion of a test takes
 data Run :=
-  case Run(defs: Defs, computing: List[Name], args: List[Str], main: Path, deadline: Option[Deadline])
+  case Run(defs: Defs, computing: List[Name], args: List[Str], main: Path, deadline: Option[Deadline], aliases: Aliases)
 
 // the time of os_clock after which a run stops, and its limit in seconds, which the error names
 data Deadline :=
@@ -205,7 +207,7 @@ procedure unordered(in run: Run, k: Name, equating: Bool) :=
   end
 
 function load(q: Prog): Run :=
-  Run(defs_of(q), List(), List(), q.main, None)
+  Run(defs_of(expanded(q)), List(), List(), q.main, None, aliases_of(q))
 
 // the contents of a string, as printing and declared shows give them, and the source of any other value
 function text_of(v: Val): Str :=
@@ -422,13 +424,10 @@ procedure evaluate(
     case EFor(form, _, _, _) =>
       raise UntranslatedForm(form_name(form))
 
-    // the checker makes the formals variables
     case ELam(formals, body) =>
-      match pattern_vars(formals)
-        case Some(xs) =>
-          v := VFunClos(env, xs, body)
-        case None =>
-          raise Unexpected("lambda of patterns")
+      match expanded_lambda(expr.pos, expr.span, formals, body)
+        case (xs, b) =>
+          v := VFunClos(env, xs, b)
       end
 
     case EProc(ins, outs, refs, _, stmt) =>
@@ -1176,7 +1175,7 @@ procedure exec(
       end
 
     // the checker gives the list of the items, and patterns that match every item
-    case SFor(List(GVal(pat, over)), body) =>
+    case SFor(List(GVal(pat, over, _)), body) =>
       var items: Val, more := true
       evaluate(in run, env, over, out items, ref cache)
       while more do
@@ -1671,7 +1670,7 @@ procedure run_cmd(
 ) raises RuntimeError, InternalError :=
   var env: Bindings := empty()
   try
-    match cmd
+    match expanded_cmd(run.aliases, cmd)
       // a test with formals runs as the test that the tester generates of it
       case CTest(_, List(), stmt) =>
         exec(in run, stmt, ref env, cache)

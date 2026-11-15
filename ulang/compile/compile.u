@@ -5,6 +5,7 @@ import ulang.syntax
 import ulang.format
 import ulang.parse
 import ulang.check
+import ulang.expand
 
 export
 
@@ -475,13 +476,10 @@ procedure compile_expr(
       compile_exprs(in defs, env, args, out bs, rs, ref g)
       ss := as ++ bs, r := c_call("u_apply", List(ra, CeNum(size(args))) ++ rs)
 
-    // the checker makes the formals variables
     case ELam(formals, body) =>
-      match pattern_vars(formals)
-        case Some(xs) =>
-          compile_lambda(in defs, env, xs, body, out ss, r, ref g)
-        case None =>
-          raise Unexpected("lambda of patterns")
+      match expanded_lambda(expr.pos, expr.span, formals, body)
+        case (xs, b) =>
+          compile_lambda(in defs, env, xs, b, out ss, r, ref g)
       end
 
     case EProc(ins, outs, refs, _, stmt) =>
@@ -1020,7 +1018,7 @@ procedure compile_stmt(
 
     // the checker gives the list of the items and patterns that match every item, so that the loop walks the list and binds
     // the pattern to each item, where a pattern with alternatives is a match of the item with a case for each
-    case SFor(List(GVal(pat, over)), body) =>
+    case SFor(List(GVal(pat, over, _)), body) =>
       var cs: List[CStmt], rc: CExpr, bs: List[CStmt], l: Str
       compile_expr(in defs, env, over, out cs, rc, ref g)
       gen_name(in "l", out l, ref g)
@@ -1120,7 +1118,7 @@ procedure handler_cases(
       var bs: List[CStmt], here: List[CStmt], rest: List[CStmt]
       let env_: Vars := in_scope(pattern_names(pat)) ++ env
       compile_stmt(in defs, env_, s, out bs, ref g)
-      case_stmts(in defs, env_, d, List(for c in expanded_handlers(List(AOk(pos, span, Catch(typ, pat, guard, s)))) yield (handler_tests(c.that, h, v), c.that.pat)), v, guard, List(CsAssign(CeVar(d), CeNum(1))) ++ bs, out here, ref g)
+      case_stmts(in defs, env_, d, List(for c in tested_handlers(Catch(typ, pat, guard, s)) yield (handler_tests(c, h, v), c.pat)), v, guard, List(CsAssign(CeVar(d), CeNum(1))) ++ bs, out here, ref g)
       handler_cases(in defs, env, more, h, d, out rest, ref g)
       ss := here ++ rest
 
@@ -1136,7 +1134,7 @@ function handler_tests(c: Catch, h: Str, v: CExpr): List[CExpr] :=
     case PWild =>
       List()
     case _ =>
-      List(c_call("u_has_type", List(CeVar(h), CeStr(type_key(c.typ))))) ++ pattern_tests(c.pat.that, v)
+      List(c_call("u_has_type", List(CeVar(h), CeStr(type_key(c.typ))))) ++ alternative_tests(c.pat, v, false)
   end
 
 // a case of the alternatives alts, each with its tests that v matches its pattern, while flag is unset, where the body
@@ -1198,7 +1196,7 @@ procedure case_stmts(
             skip
         end
         tried := tried ++ List(
-          CsIf(conjunction(List(not_flag(flag), not_flag(m)) ++ tests), assigned(pattern_binds(pat.that, v)) ++ hit, List()))
+          CsIf(conjunction(List(not_flag(flag), not_flag(m)) ++ tests), alternative_binds(pat, v) ++ hit, List()))
       end
       let names := List(for (_, pat) in take(1, alts) for x in pattern_names(pat) yield x)
       ss := List(
@@ -1219,6 +1217,14 @@ function alternative_tests(pat: At[Pat], v: CExpr, matched: Bool): List[CExpr] :
     List()
   else
     pattern_tests(pat.that, v)
+
+// the assignments of the variables of the alternative pat of a case, which its tests make if it has alternatives inside
+// that bind variables, see alternative_tests
+function alternative_binds(pat: At[Pat], v: CExpr): List[CStmt] :=
+  if has_bound_alternatives(pat) then
+    List()
+  else
+    assigned(pattern_binds(pat.that, v))
 
 // the declarations of pattern_binds as assignments of the variables, which case_stmts declares
 function assigned(binds: List[CStmt]): List[CStmt] :=
@@ -1437,21 +1443,22 @@ function prototype(d: CDecl): List[CDecl] :=
 // the C of q of module m, whose main calls the procedure of the entry without parameters, or runs the tests of its files
 procedure compile_program(in q: Prog, m: Path, entry: Entry, out f: CFile) :=
   var g := Gen(0, List())
-  let defs := defs_of(q)
+  let lowered := expanded(q)
+  let defs := defs_of(lowered), cmds := definitions(lowered)
   var ds: List[CDecl], ms: List[CStmt], fs: List[CDecl], hs: List[CDecl], tables: List[CDecl]
   match entry
     case EntryProc(proc) =>
       require_entry(in q, Name(m, proc))
-      compile_cmds(in defs, false, definitions(q), out ds, ms, ref g)
+      compile_cmds(in defs, false, cmds, out ds, ms, ref g)
       ms := List(CsExpr(c_call(proc_name(Name(m, proc)), List()))), tables := List()
 
     case EntryTests(files) =>
-      compile_cmds(in defs, true, definitions(q), out ds, ms, ref g)
+      compile_cmds(in defs, true, cmds, out ds, ms, ref g)
       ms := List(
-        CsReturn(Some(c_call("u_run_tests", List(CeVar("argc"), CeVar("argv"), CeVar("u_files"), CeVar("u_tests")))))), tables := test_tables(files, definitions(q))
+        CsReturn(Some(c_call("u_run_tests", List(CeVar("argc"), CeVar("argv"), CeVar("u_files"), CeVar("u_tests")))))), tables := test_tables(files, cmds)
   end
   fs := wrappers(defs) ++ ds ++ g.lifted
-  hs := List(CdInclude("ulang.h")) ++ prototypes(fs) ++ descriptor_decls(defs, definitions(q)) ++ texts()
+  hs := List(CdInclude("ulang.h")) ++ prototypes(fs) ++ descriptor_decls(defs, cmds) ++ texts()
   f := CFile(hs ++ fs ++ tables ++ List(main_function(ms)))
 
 // the paths of the files and their tests, each with the index of its file, in the order of the files and then of the

@@ -852,6 +852,60 @@ test alternatives_of_types() :=
     refuse(in 3)
   end
 
+data Denied :=
+  case Denied(texts: (Str, Str))
+
+// raises Denied of pairs whose texts the handlers below take apart, or Refused by k
+procedure deny(in k: Int) raises Refused, Denied :=
+  match k
+    case 1 =>
+      raise Denied(("a", "x"))
+
+    case 2 =>
+      raise Denied(("x", "b"))
+
+    case 3 =>
+      raise Refused("c")
+
+    case 4 =>
+      raise Denied(("x", "z"))
+
+    case _ =>
+      raise Denied(("q", "q"))
+  end
+
+// alternatives inside the alternatives of a handler, also those that bind variables, where the first that matches binds,
+// and a guard that fails on the variables of one tries the next
+test nested_alternatives_of_handlers() :=
+  var texts: List[Str] := List()
+  for k in List(1, 2, 3, 4, 5) do
+    try
+      deny(in k)
+    catch
+      case Refused("c" | "d") =>
+        texts := texts ++ List("cd")
+
+      case Denied((text, "x" | "z") | ("x" | "z", text)) | Refused(text) =>
+        texts := texts ++ List(text)
+
+      case Denied(_) =>
+        texts := texts ++ List("none")
+    end
+  end
+  assert texts == List("a", "b", "cd", "x", "none")
+  var picked: List[Str] := List()
+  for k in List(4, 1) do
+    try
+      deny(in k)
+    catch
+      case Denied((text, "x" | "z") | ("x" | "z", text)) if text == "z" =>
+        picked := picked ++ List(text)
+      case Denied(_) | Refused(_) =>
+        picked := picked ++ List("other")
+    end
+  end
+  assert picked == List("z", "other")
+
 data Shape :=
   case Circle(label: Str, radius: Int)
   case Box(label: Str)
