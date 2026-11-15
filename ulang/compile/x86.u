@@ -1649,7 +1649,7 @@ procedure constr_decls(in k: Constr, i: Int, t: Name, global: Bool, ref e: Emit)
   var module := "0", base: Str
   match name_module(k.name)
     case Some(m) =>
-      c_string(in join("/", m), out module, ref e)
+      c_string(in path_text(m), out module, ref e)
     case None =>
       skip
   end

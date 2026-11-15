@@ -80,7 +80,7 @@ function descriptor_fields(n: Name, i: Int, t: Name): List[CExpr] :=
 
     case Name(m, base) =>
       List(
-        CeStr(join("/", m)),
+        CeStr(path_text(m)),
         CeStr(base),
         CeNum(i),
         CeUnary("&", CeVar(type_name(t))))

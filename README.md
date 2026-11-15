@@ -170,7 +170,7 @@ applied
 $ out/ulang.sh refactor @sig lines
 applied
 @sig lines: 1 declaration in 1 module
-prelude/str.lines:
+prelude.str.lines:
   function lines(s: Str): List[Str] :=
     example lines("a\nb\n") == List("a", "b")
     example lines("a\n\nb") == List("a", "", "b")

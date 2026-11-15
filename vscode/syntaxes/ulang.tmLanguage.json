@@ -10,6 +10,9 @@
       "include": "#string"
     },
     {
+      "include": "#qualifier"
+    },
+    {
       "include": "#access"
     },
     {
@@ -89,6 +92,9 @@
               "include": "#keyword"
             },
             {
+              "include": "#qualifier"
+            },
+            {
               "include": "#type"
             },
             {
@@ -118,6 +124,9 @@
             },
             {
               "include": "#keyword"
+            },
+            {
+              "include": "#qualifier"
             },
             {
               "include": "#type"
@@ -163,6 +172,9 @@
                   "name": "entity.name.function.constructor.ulang"
                 }
               }
+            },
+            {
+              "include": "#qualifier"
             },
             {
               "include": "#type"
@@ -388,6 +400,18 @@
           "include": "#operator"
         }
       ]
+    },
+    "qualifier": {
+      "comment": "the path of a qualified name before a type, constructor, or alias, ulang.syntax.Expr or prelude.option.Some, where a call such as ulang.syntax.size(xs) reads as accesses of fields, which the grammar cannot tell from a path without the imports",
+      "match": "\\b([a-z_][A-Za-z0-9_]*(?:\\.[a-z_][A-Za-z0-9_]*)*)(\\.)(?=[A-Z])",
+      "captures": {
+        "1": {
+          "name": "entity.name.namespace.ulang"
+        },
+        "2": {
+          "name": "punctuation.accessor.ulang"
+        }
+      }
     }
   }
 }
