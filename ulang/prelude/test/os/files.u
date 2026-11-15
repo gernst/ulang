@@ -94,6 +94,20 @@ test failures() :=
   assert raises OsError("unknown module missing") do
     os_library(in "missing", out t)
   end
+  assert raises OsError("cannot write ") do
+    os_write_utf8(in "", "text")
+  end
+  // a path ends at no 0, which the system would end it at
+  let nul := str(List(chr(0)))
+  os_write_utf8(in "files/n.txt", "text")
+  assert raises OsError(_) do
+    os_read_utf8(in "files/n.txt" ++ nul ++ "b", out t)
+  end
+  assert raises OsError(_) do
+    os_write_utf8(in "files/n.txt" ++ nul ++ "b", "other")
+  end
+  os_read_utf8(in "files/n.txt", out t)
+  assert t == "text"
   os_chdir(in home)
 
 // a tree of files, which os_list and os_walk see in the order of their names
