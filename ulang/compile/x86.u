@@ -1701,7 +1701,7 @@ procedure test_tables(in files: List[TestFile], cmds: List[Cmd], ref e: Emit) :=
   for (file, i) in numbered(files) do
     for c in cmds do
       for name in tested_name(c, file.module) do
-        c_string(in name.base, out text, ref e)
+        c_string(in owned_text(name), out text, ref e)
         rows := rows ++ List(
           LDirective(DInts(4, List(i, 0))),
           LDirective(DAddrs(List(text, test_name(name)))))

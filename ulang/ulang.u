@@ -504,7 +504,7 @@ function test_names(q: Prog, m: Path): List[Str] :=
 function test_name(cmd: Cmd, m: Path): Option[Str] :=
   match cmd
     case CTest(name, _, _) =>
-      if name.path == m then Some(name.base) else None
+      if name.path == m then Some(owned_text(name)) else None
     case _ =>
       None
   end
@@ -879,7 +879,7 @@ function declared_tests(d: Mod): List[Str] :=
 function test_of(cmd: Cmd): Option[Str] :=
   match cmd
     case CTest(name, _, _) =>
-      Some(name.base)
+      Some(owned_text(name))
     case _ =>
       None
   end

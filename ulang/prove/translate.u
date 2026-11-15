@@ -504,7 +504,7 @@ function contract_of(cmd: Cmd): Option[((Name, Int), Lemma)] :=
 function contract_name(key: (Name, Int)): Name :=
   match key
     case (name, arity) =>
-      Name(name.path, "(contract)" ++ name.base ++ "/" ++ show(arity))
+      Owned(name.path, List("(contract)", name.base), show(arity))
   end
 
 function raise_name(): Name :=

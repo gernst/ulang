@@ -116,13 +116,13 @@ function mangle(n: Name): Str :=
 function c_text(n: Name): Str :=
   match name_module(n)
     case Some(m) if is_library_module(m) =>
-      library_file(m) ++ "." ++ n.base
+      library_file(m) ++ "." ++ owned_text(n)
 
     case Some(m) =>
-      join("/", m) ++ "." ++ n.base
+      join("/", m) ++ "." ++ owned_text(n)
 
     case None =>
-      n.base
+      owned_text(n)
   end
 
 function is_plain(c: Char): Bool :=

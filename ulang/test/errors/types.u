@@ -665,7 +665,7 @@ test unknown_constructor() :=
   end
 
 test unknown_field() :=
-  assert raises Located(None, Pos(5, 23), UnknownField(Name(List("ulang", "test", "errors", "unknown-field"), "Point.z"))) do
+  assert raises Located(None, Pos(5, 23), UnknownField(Owned(List("ulang", "test", "errors", "unknown-field"), List("Point"), "z"))) do
     check_text(in "ulang/test/errors/unknown-field.u", List(
       "data Point :=",
       "  case Point(x: Int, y: Int)",

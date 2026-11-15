@@ -294,13 +294,14 @@ function imports_of(imports: List[(Path, List[Path])], m: Path): List[Path] :=
   value_or(get(m, imports), List())
 
 // the declarations named n of a kind that the module sees, of which none hides another, so that a name of several is
-// ambiguous unless its path tells them apart, and declared tells whether a name is a declaration of that kind
+// ambiguous unless its path tells them apart, and declared tells whether a name is a declaration of that kind; the owner
+// of a name is part of it, so that the accessor T.f is no candidate of f
 function visible_names(s: State, n: Name, declared: Name -> Bool): List[Name] :=
-  let ds := List(for d in names_of(s.sig, n.base) if declared(d)) in
-  match n
-    case Name(List(_; _), _) =>
+  let ds := List(for d in names_of(s.sig, n.base) if declared(d) and d.owner == n.owner) in
+  match n.path
+    case List(_; _) =>
       List(for d in ds if is_qualified_by(n.path, d) and (is_visible_sort(s, d) or is_unwritable(n.path)))
-    case Name(List(), _) =>
+    case List() =>
       List(for d in ds if is_visible_sort(s, d))
   end
 
@@ -318,13 +319,14 @@ function is_unwritable(path: Path): Bool :=
   end
 
 // the declarations named n of a kind in all modules that the module sees, its own included, whose types decide
-// among them
+// among them, with the owner of n
 function overloads(s: State, n: Name, declared: Name -> Bool): List[Name] :=
-  match n
-    case Name(List(_; _), _) =>
-      List(for d in names_of(s.sig, n.base) if declared(d) and is_qualified_by(n.path, d) and (is_visible(s, d) or is_unwritable(n.path)))
-    case _ =>
-      List(for d in names_of(s.sig, n.base) if declared(d) and is_visible(s, d))
+  let ds := List(for d in names_of(s.sig, n.base) if declared(d) and d.owner == n.owner) in
+  match n.path
+    case List(_; _) =>
+      List(for d in ds if is_qualified_by(n.path, d) and (is_visible(s, d) or is_unwritable(n.path)))
+    case List() =>
+      List(for d in ds if is_visible(s, d))
   end
 
 // an unknown name n, with the visible name that it most likely means, of the library for names of other languages,
@@ -335,7 +337,7 @@ function unknown_variable(s: State, n: Name): TypeError :=
       Hinted(UnknownVariable(n), "write " ++ meant)
 
     case None =>
-      match nearest(n.base, List(for base => ds in s.sig.named if exists(ds, lambda d => is_visible(s, d)) yield base))
+      match nearest(n.base, List(for base => ds in s.sig.named if exists(ds, lambda d => d.owner == List() and is_visible(s, d)) yield base))
         case Some(meant) =>
           Hinted(UnknownVariable(n), "did you mean " ++ meant ++ "?")
         case None =>
@@ -2882,15 +2884,7 @@ function is_applicable(typ: Type, k: Int): Bool :=
 // the hint of a call of a variable n that hides the functions funs of its name
 function hiding_hint(n: Name, funs: List[Name]): Str :=
   example hiding_hint(unqualified("lines"), List(Name(List("prelude", "str"), "lines"))) == "the variable lines hides the function prelude.str.lines, so rename the variable to call it"
-  "the variable " ++ n.base ++ " hides the function" ++ (if size(funs) > 1 then "s " else " ") ++ join(" and ", List(for f in funs yield qualified_text(f))) ++ ", so rename the variable to call " ++ (if size(funs) > 1 then "them" else "it")
-
-function qualified_text(n: Name): Str :=
-  match n
-    case Name(List(), base) =>
-      base
-    case Name(m, base) =>
-      path_text(m) ++ "." ++ base
-  end
+  "the variable " ++ n.base ++ " hides the function" ++ (if size(funs) > 1 then "s " else " ") ++ join(" and ", List(for f in funs yield format_name(f))) ++ ", so rename the variable to call " ++ (if size(funs) > 1 then "them" else "it")
 
 // the accessor T.f, or for the suffix .f:= the updater T.f:=, applied to expr and the further arguments, of the type T of
 // expr, of the module of T, where an unknown type of expr is an error, at pos of the access
@@ -2914,7 +2908,7 @@ procedure field_access(
   solve(ref s)
   match zonk_type(s.sub, u)
     case TSort(Name(m, base), _) if m != List() =>
-      let accessor: Name := Name(m, base ++ suffix)
+      let accessor: Name := Owned(m, List(base), slice(suffix, 1, size(suffix)))
       match schemes_of(s.sig, accessor)
         case List(sc) if is_visible(s, accessor) =>
           use(in accessor, w, sc, out x, ref s)
@@ -6025,7 +6019,7 @@ function numbered_examples(m: Path, cmds: List[(Bool, Cmd)], counts: Map[Id, Int
   end
 
 function example_test(m: Path, pos: Pos, owner: Name, exported: Bool, n: Int, x: At[Example]): ExampleTest :=
-  ExampleTest(pos, m, owner, exported, CTest(Name(m, owner.base ++ ".example." ++ show(n)), List(), example_body(pos, x)))
+  ExampleTest(pos, m, owner, exported, CTest(Owned(m, List(owner.base, "example"), show(n)), List(), example_body(pos, x)))
 
 // the body of the test of the example x, which raises the error of a part that does not parse
 function example_body(pos: Pos, x: At[Example]): At[Stmt] :=
@@ -6554,7 +6548,7 @@ test fields() :=
   body_of(in fun_cmd("f", List(), TInt(), nowhere(EApp(lambda_at(List(var_of("p", THole)), nowhere(EField(expr_var("p"), "x"))), List(expr_app("Pt", List(expr_int(3))))))), out b)
   match b
     case EApp(AOk(_, _, ELam(_, AOk(_, _, ECall(_, _, name, _, _)))), _) =>
-      assert name == in_bag("Pt.x")
+      assert name == accessor_name(in_bag("Pt"), "x")
     case _ =>
       assert false
   end

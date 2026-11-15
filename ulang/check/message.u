@@ -215,7 +215,7 @@ function plain_message(e: TypeError): Str :=
       name.base ++ " is ambiguous: " ++ join(", ", List(for c in candidates yield candidate_text(c)))
 
     case UnknownField(name) =>
-      field_message(split(name.base, '.'))
+      field_message(name)
 
     case UnknownFieldType(field, typ) =>
       "the type " ++ format_type(typ) ++ " of the value of " ++ without_update(field) ++ " is not known"
@@ -358,16 +358,12 @@ function hook_message(hook: Hook): Str :=
   hook_name(hook) ++ " must take " ++ values ++ " T[A, …] of a datatype T of its module, with distinct type parameters, and give " ++ format_type(hook_result(hook))
 
 // the accessor T.f, or the updater T.f:=, of an unknown field f
-function field_message(parts: List[Str]): Str :=
-  match parts
-    case List("", f) =>
-      "unknown field " ++ without_update(f)
-
-    case List(t, f) =>
-      "unknown field " ++ without_update(f) ++ " of " ++ t
-
+function field_message(name: Name): Str :=
+  match name.owner
+    case List(t) =>
+      "unknown field " ++ accessor_field(name) ++ " of " ++ t
     case _ =>
-      "unknown field " ++ join(".", parts)
+      "unknown field " ++ owned_text(name)
   end
 
 function without_update(f: Str): Str :=
@@ -425,7 +421,7 @@ test messages() :=
   assert located_message(Located(None, Pos(15, 1), UnexportedOrder(Name(List("ulang", "test", "errors", "unexported-order"), "compare"), Name(List("ulang", "test", "errors", "unexported-order"), "T")))) == "compare of the exported type T is not exported at 15.1"
   assert located_message(Located(None, Pos(1, 1), UnknownConstructor(Name(List(), "f")))) == "unknown constructor f at 1.1"
   assert located_message(Located(None, Pos(1, 1), UnknownException(TMeta(2)))) == "the type ?2 of an exception is not fully known at 1.1"
-  assert located_message(Located(None, Pos(4, 1), UnknownField(Name(List("ulang", "test", "errors", "unknown-field"), "Point.z")))) == "unknown field z of Point at 4.1"
+  assert located_message(Located(None, Pos(4, 1), UnknownField(Owned(List("ulang", "test", "errors", "unknown-field"), List("Point"), "z")))) == "unknown field z of Point at 4.1"
   assert located_message(Located(None, Pos(1, 1), UnknownFieldOwner(".x"))) == "the type of the value of .x is not known there, which an annotation can give; ascribe the type of the value, (e: T).x at 1.1"
   assert located_message(Located(None, Pos(1, 1), UnknownFieldOwner(".x:="))) == "the type of the value of .x is not known there, which an annotation can give; ascribe the type of the value, (e: T) with x := a at 1.1"
   assert located_message(Located(None, Pos(1, 1), UnknownFieldType(".x:=", TInt()))) == "the type Int of the value of .x is not known at 1.1"

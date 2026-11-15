@@ -78,7 +78,8 @@ function descriptor_fields(n: Name, i: Int, t: Name): List[CExpr] :=
         CeNum(i),
         CeUnary("&", CeVar(type_name(t))))
 
-    case Name(m, base) =>
+    // a constructor, which has no owner
+    case Owned(m, _, base) =>
       List(
         CeStr(path_text(m)),
         CeStr(base),
@@ -1453,7 +1454,7 @@ procedure compile_program(in q: Prog, m: Path, entry: Entry, out f: CFile) :=
 // the paths of the files and their tests, each with the index of its file, in the order of the files and then of the
 // commands, both ended by NULL, as u_run_tests of ulang/runtime/ulang.c takes them
 function test_tables(files: List[TestFile], cmds: List[Cmd]): List[CDecl] :=
-  let rows := List(for (file, i) in numbered(files) for c in cmds for name in tested_name(c, file.module) yield CeInit(List(CeNum(i), CeStr(name.base), CeVar(test_name(name))))) in
+  let rows := List(for (file, i) in numbered(files) for c in cmds for name in tested_name(c, file.module) yield CeInit(List(CeNum(i), CeStr(owned_text(name)), CeVar(test_name(name))))) in
   List(
     CdGlobal(LkStatic, CtNamed("const char *const"), "u_files[]", Some(CeInit(List(for file in files yield CeStr(file.path)) ++ List(CeVar("NULL"))))),
     CdGlobal(LkStatic, CtNamed("const struct u_test"), "u_tests[]", Some(CeInit(rows ++ List(CeInit(List(CeNum(0), CeVar("NULL"), CeVar("NULL"))))))))

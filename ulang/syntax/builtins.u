@@ -5,34 +5,34 @@ export
 
 // the patterns of the constructors of lists after checking, which resolves List() and List(p; r) to the module list
 pattern PNil(): Pat :=
-  PApp(Name(List("prelude", "list"), "Nil"), List())
+  PApp(Owned(List("prelude", "list"), List(), "Nil"), List())
 
 pattern PCons(head: At[Pat], tail: At[Pat]): Pat :=
-  PApp(Name(List("prelude", "list"), "Cons"), List(head, tail))
+  PApp(Owned(List("prelude", "list"), List(), "Cons"), List(head, tail))
 
 // the builtin types of the prelude, and lists after checking
 pattern TBool(): Type :=
-  TSort(Name(List("prelude", "prelude"), "Bool"), List())
+  TSort(Owned(List("prelude", "prelude"), List(), "Bool"), List())
 
 pattern TInt(): Type :=
-  TSort(Name(List("prelude", "prelude"), "Int"), List())
+  TSort(Owned(List("prelude", "prelude"), List(), "Int"), List())
 
 pattern TStr(): Type :=
-  TSort(Name(List("prelude", "prelude"), "Str"), List())
+  TSort(Owned(List("prelude", "prelude"), List(), "Str"), List())
 
 pattern TChar(): Type :=
-  TSort(Name(List("prelude", "prelude"), "Char"), List())
+  TSort(Owned(List("prelude", "prelude"), List(), "Char"), List())
 
 pattern TList(elem: Type): Type :=
-  TSort(Name(List("prelude", "list"), "List"), List(elem))
+  TSort(Owned(List("prelude", "list"), List(), "List"), List(elem))
 
 // the expressions of the constructors of lists after checking, and the lists that forms translate to, before it
 pattern ENil(typ: Type): Expr :=
-  EVar(Var(Name(List("prelude", "list"), "Nil"), typ))
+  EVar(Var(Owned(List("prelude", "list"), List(), "Nil"), typ))
 
 // at the position pos of the constructor
 pattern ECons(pos: Pos, span: Span, typ: Type, head: At[Expr], tail: At[Expr]): Expr :=
-  EApp(AOk(pos, span, EVar(Var(Name(List("prelude", "list"), "Cons"), typ))), List(head, tail))
+  EApp(AOk(pos, span, EVar(Var(Owned(List("prelude", "list"), List(), "Cons"), typ))), List(head, tail))
 
 function nil_name(): Name
 

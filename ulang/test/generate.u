@@ -50,7 +50,7 @@ function enumerated_tests(c: Checked): List[(Pos, (Path, Cmd))] :=
 function enumerated_test(c: Checked, pos: Pos, m: Path, cmd: Cmd): List[Enumerated] :=
   match cmd
     case CLemma(name, _, formals, List(), ClaimHolds(assms, concl), _) =>
-      List(for lemma_sig in lemma_of(c.sig, name) for (enums, needed) in enumerations(c, m, lemma_sig.formals) yield Enumerated(pos, m, CTest(Name(m, name.base ++ lemma_suffix()), List(), lemma_stmt(zip(vars(formals), enums), assms, concl)), needed))
+      List(for lemma_sig in lemma_of(c.sig, name) for (enums, needed) in enumerations(c, m, lemma_sig.formals) yield Enumerated(pos, m, CTest(Owned(m, List(name.base), "lemma"), List(), lemma_stmt(zip(vars(formals), enums), assms, concl)), needed))
 
     case CTest(name, List(_; _), body) =>
       let xs := checked_formals(c, m, name), test_name := Name(m, name.base) in
@@ -159,7 +159,7 @@ function enum_expr(c: Checked, m: Path, param: Id -> At[Expr], typ: Type): Optio
   end
 
 function enum_fun_name(m: Path, sort: Name): Name :=
-  Name(m, "(enum)" ++ path_text(sort.path) ++ "." ++ sort.base)
+  Owned(m, List("(enum)") ++ sort.path, sort.base)
 
 // a datatype with constructors that the module sees, which is not abstract
 function is_enumerable_data(c: Checked, m: Path, name: Name): Bool :=

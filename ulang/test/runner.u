@@ -223,7 +223,7 @@ function lemma_of_test(test_name: Str): Str :=
 function is_selected_test(cmd: Cmd, m: Path, names: List[Str]): Bool :=
   match cmd
     case CTest(name, List(), _) =>
-      name.path == m and (names == List() or contains(name.base, names))
+      name.path == m and (names == List() or contains(owned_text(name), names))
     case _ =>
       false
   end
@@ -231,7 +231,7 @@ function is_selected_test(cmd: Cmd, m: Path, names: List[Str]): Bool :=
 function cmd_name(cmd: Cmd): Str :=
   match cmd
     case CTest(name, _, _) =>
-      name.base
+      owned_text(name)
     case _ =>
       ""
   end

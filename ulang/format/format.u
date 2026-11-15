@@ -37,8 +37,6 @@ function format_types_apart(ts: List[Type]): List[Str]
 
 function format_pat(pat: Pat): Str
 
-function format_name(n: Name): Str
-
 // the array of the texts of its elements, which the interpreter shows itself when they have declared shows
 function array_text(texts: List[Str]): Str
 
@@ -1643,15 +1641,6 @@ function source_pattern(pat: Pat): Pat :=
 // whether a name is an operator, which starts with a symbol
 function is_symbolic(n: Id): Bool :=
   n != "" and is_op_char(at(0, n))
-
-// the name with its module, to tell names apart
-function format_name(n: Name): Str :=
-  match n
-    case Name(List(), base) =>
-      base
-    case Name(m, base) =>
-      path_text(m) ++ "." ++ base
-  end
 
 test printing() :=
   let int_type := TSort(unqualified("Int"), List()), str_type := TSort(unqualified("Str"), List()), list_type := TSort(unqualified("List"), List(TParam("A"))), fun_type := TFun(List(TParam("A")), TParam("B")), pair_type := TTuple(List(int_type, str_type)), var_pat := PName(unqualified("x"), THole)

@@ -64,6 +64,10 @@ function ordered_by(cmds: List[Cmd], hook: Hook): List[(Name, Name)]
 // Unordered if it declares ==, which equates them, else Incomparable, which equating them raises too
 function unordered_of(defs: Defs, t: Name): Option[Name]
 
+// the field f of the accessor T.f or the updater T.f:=
+function accessor_field(n: Name): Id :=
+  example accessor_field(updater_name(Name(List("m"), "Point"), "x")) == "x"
+
 implementation
 
 procedure require_entry(in q: Prog, n: Name) raises EntryError :=
@@ -176,14 +180,14 @@ function positions(f: Id, constrs: List[Constr]): List[Int] :=
   List(for k in constrs yield value_or(index_of(f, List(for field in k.fields yield field.name)), -1))
 
 function accessor_name(t: Name, f: Id): Name :=
-  Name(t.path, t.base ++ "." ++ f)
+  Owned(t.path, List(t.base), f)
 
 function updater_name(t: Name, f: Id): Name :=
-  Name(t.path, t.base ++ "." ++ f ++ ":=")
+  Owned(t.path, List(t.base), f ++ ":=")
 
 // the name T.f of the field of the accessor T.f or the updater T.f:=, as MissingField has it
 function field_of(n: Name): Str :=
-  if ends_with(n.base, ":=") then slice(n.base, 0, size(n.base) - 2) else n.base
+  join(".", n.owner ++ List(accessor_field(n)))
 
 function hooks(): List[Hook] :=
   List(HookCompare, HookEquality, HookShow)
@@ -285,3 +289,6 @@ function ordered_by(cmds: List[Cmd], hook: Hook): List[(Name, Name)] :=
           ordered_by(rest, hook)
       end
   end
+
+function accessor_field(n: Name): Id :=
+  if ends_with(n.base, ":=") then slice(n.base, 0, size(n.base) - 2) else n.base

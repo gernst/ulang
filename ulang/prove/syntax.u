@@ -264,9 +264,9 @@ function constr_head(decls: Decls, e: Term): Option[(Name, List[Term])] :=
   end
 
 function field_of_accessor(name: Name): Option[Id] :=
-  match split(name.base, '.')
-    case List(_, f) =>
-      if ends_with(f, ":=") then None else Some(f)
+  match name.owner
+    case List(_) =>
+      if ends_with(name.base, ":=") then None else Some(name.base)
     case _ =>
       None
   end
@@ -877,8 +877,8 @@ function print_in(names: List[Id], bound: List[Id], e: Term): Str :=
     case ENil() =>
       "[]"
 
-    case EFun(Name(_, base)) =>
-      base
+    case EFun(name) =>
+      owned_text(name)
 
     case ECons(a, b) =>
       "[" ++ print_in(names, bound, a) ++ "; " ++ print_in(names, bound, b) ++ "]"
@@ -977,11 +977,11 @@ function print_pat(p: Pat): Str :=
     case PCons(a, b) =>
       "[" ++ print_pat(a.that) ++ "; " ++ print_pat(b.that) ++ "]"
 
-    case PApp(Name(_, base), List()) =>
-      base
+    case PApp(name, List()) =>
+      owned_text(name)
 
-    case PApp(Name(_, base), pats) =>
-      base ++ "(" ++ join(", ", List(for q in pats yield print_pat(q.that))) ++ ")"
+    case PApp(name, pats) =>
+      owned_text(name) ++ "(" ++ join(", ", List(for q in pats yield print_pat(q.that))) ++ ")"
 
     case PTuple(args) =>
       "(" ++ join(", ", List(for q in args yield print_pat(q.that))) ++ ")"

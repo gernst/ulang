@@ -228,8 +228,8 @@ function use_hint(lines: Array[Str], pos: Pos, span: Span, x: Var): Option[Hint]
     None
   else if is_written(lines, span, base) then
     Some(HUse(span, x.name, x.typ))
-  else if x.name.path != List() and contains('.', base) then
-    match field_span(lines, pos, base)
+  else if x.name.owner != List() then
+    match field_span(lines, pos, accessor_field(x.name))
       case Some(s) =>
         Some(HUse(s, x.name, x.typ))
       case None =>
@@ -239,8 +239,7 @@ function use_hint(lines: Array[Str], pos: Pos, span: Span, x: Var): Option[Hint]
     None
 
 // the span of .f, of with, or of f of a continued update, of the accessor T.f or the updater T.f:= at pos
-function field_span(lines: Array[Str], pos: Pos, base: Id): Option[Span] :=
-  let field := field_of(base) in
+function field_span(lines: Array[Str], pos: Pos, field: Id): Option[Span] :=
   if written(lines, pos, size(field) + 1) == "." ++ field then
     Some(name_span(pos, "." ++ field))
   else if written(lines, pos, 4) == "with" then
@@ -249,13 +248,6 @@ function field_span(lines: Array[Str], pos: Pos, base: Id): Option[Span] :=
     Some(name_span(pos, field))
   else
     None
-
-// the field of the accessor T.f or the updater T.f:=
-function field_of(base: Id): Id :=
-  example field_of("Point.x:=") == "x"
-  example field_of("Point.x") == "x"
-  let f := value_or(last(split(base, '.')), base) in
-  if ends_with(f, ":=") then slice(f, 0, size(f) - 2) else f
 
 function pats_hints(lines: Array[Str], decls: Decls, pats: List[At[Pat]]): List[Hint] :=
   List(for p in pats for h in pat_hints(lines, decls, p) yield h)

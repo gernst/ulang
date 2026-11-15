@@ -12,10 +12,11 @@ type Id :=
 type Path :=
   List[Id]
 
-// path is empty for locals, builtins, and names before checking
+// a name: path is the module, empty for locals, builtins, and names before checking, and owner the names inside the
+// module that declare it, of the names that the phases make, e.g. the datatype T of the accessor T.f, the lemma l of its
+// test l.lemma, and the function f and example of its example f.example.1, empty for the names that the source declares
 data Name :=
-  // a name as written, e.g. x, f, or T, which the parser never qualifies
-  case Name(path: Path, base: Id)
+  case Owned(path: Path, owner: List[Id], base: Id)
 
 data Type :=
   // a type that is not written, e.g. of local x := e, which the checker infers
@@ -607,6 +608,21 @@ function hex_text(num: Int): Str :=
   example hex_text(55296) == "0xD800"
   example hex_text(-16) == "-0x10"
   example hex_text(0) == "0x0"
+
+// a name that no other declares, as the source writes it, e.g. x, f, or T, which the parser qualifies only by a path that
+// the source writes
+pattern Name(path: Path, base: Id): Name :=
+  Owned(path, List(), base)
+
+// the name with its module and its owner, to tell names apart, e.g. prelude.list.size and m.Point.x of an accessor
+function format_name(n: Name): Str :=
+  example format_name(Owned(List("m"), List("Point"), "x")) == "m.Point.x"
+  example format_name(unqualified("x")) == "x"
+
+// the name inside its module, its owner and base, as tests show it, e.g. l.lemma of the test of the lemma l
+function owned_text(n: Name): Str :=
+  example owned_text(Owned(List("m"), List("l"), "lemma")) == "l.lemma"
+  example owned_text(Name(List("m"), "f")) == "f"
 
 implementation
 
@@ -1878,3 +1894,14 @@ function errors_in_stmt_node(stmt: Stmt): List[Diagnostic] :=
     case SFor(gens, body) =>
       errors_in_exprs(List(for g in gens for e in generated(g) yield e)) ++ errors_in_stmt(body)
   end
+
+function format_name(n: Name): Str :=
+  match n
+    case Owned(List(), List(), base) =>
+      base
+    case Owned(path, owner, base) =>
+      path_text(path ++ owner) ++ "." ++ base
+  end
+
+function owned_text(n: Name): Str :=
+  join(".", n.owner ++ List(n.base))
