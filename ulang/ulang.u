@@ -983,7 +983,7 @@ test missing_targets() :=
 // the targets grouped by the load that they need, the package of their directory, in the order of their first targets,
 // where a target that cannot be read is a unit of its own, which fails to load
 procedure units_of(in targets: List[Target], out units: List[List[Target]]) :=
-  var text: Str, keyed: Buffer[Str * Target] := empty()
+  var text: Str, keyed: Buffer[(Str, Target)] := empty()
   for t in targets do
     try
       os_read_utf8(in t.path, out text)
@@ -995,7 +995,7 @@ procedure units_of(in targets: List[Target], out units: List[List[Target]]) :=
   end
   units := grouped(List(for k in keyed))
 
-function grouped(keyed: List[Str * Target]): List[List[Target]] :=
+function grouped(keyed: List[(Str, Target)]): List[List[Target]] :=
   match keyed
     case List() =>
       List()
@@ -1068,7 +1068,7 @@ procedure walk_dir(
       here: Str,
   out files: List[Str]
 ) :=
-  var entries: List[Str * Bool], found: Buffer[Str] := empty(), below: List[Str]
+  var entries: List[(Str, Bool)], found: Buffer[Str] := empty(), below: List[Str]
   os_list(in dir, out entries)
   for (name, is_folder) in entries do
     if not is_folder then
@@ -1108,7 +1108,7 @@ test paths_up() :=
 // the directories, absolute and normal, that the project of path runs only compiled, as the function project of its
 // project.u declares
 procedure compiled_only_of(in path: Str, out skipped: List[Str]) :=
-  var here: Str, dir: Bool, root: Str, entries: List[Str * Bool]
+  var here: Str, dir: Bool, root: Str, entries: List[(Str, Bool)]
   skipped := List()
   os_cwd(out here)
   os_is_dir(in path, out dir)

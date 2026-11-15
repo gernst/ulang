@@ -92,7 +92,7 @@ test missing_nil() :=
 test missing_pair_case() :=
   assert raises Located(None, Pos(2, 3), NotExhaustive(PTuple(List(AOk(_, _, PLit(LBool(false))), AOk(_, _, PLit(LBool(true))))))) do
     check_text(in "ulang/test/errors/missing-pair-case.u", List(
-      "function f(p: Bool * Bool): Int :=",
+      "function f(p: (Bool, Bool)): Int :=",
       "  match p",
       "    case (true, _) =>",
       "      0",
@@ -212,7 +212,7 @@ test unreachable_after_wildcard() :=
 test unreachable_covered() :=
   assert raises Located(None, Pos(9, 10), Unreachable(PTuple(List(AOk(_, _, PLit(LBool(true))), AOk(_, _, PLit(LBool(true))))))) do
     check_text(in "ulang/test/errors/unreachable-covered.u", List(
-      "function f(p: Bool * Bool): Int :=",
+      "function f(p: (Bool, Bool)): Int :=",
       "  match p",
       "    case (true, _) =>",
       "      0",

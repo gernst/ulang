@@ -22,7 +22,7 @@ data Token :=
 // tokens with their positions, each with the stop of the token of code before it, which is where a part ends that ends
 // before the token, where comments are no code, and Pos(1, 1) before the first
 type Tokens :=
-  List[Pos * Token * Pos]
+  List[(Pos, Token, Pos)]
 
 data LexError :=
   case LexError(message: Str, pos: Pos)
@@ -315,7 +315,7 @@ function word_of(tok: Token): Str :=
   end
 
 // the comments before a token at pos, which they hold as the next one
-function comments_before(pending: List[Pos * Str * Bool * Bool], pos: Pos, tok: Token): List[Comment] :=
+function comments_before(pending: List[(Pos, Str, Bool, Bool)], pos: Pos, tok: Token): List[Comment] :=
   List(for (p, text, own_line, blank_after) in pending yield Comment(p, text, own_line, blank_after, pos, word_of(tok)))
 
 // the token at offset, where offset ends after it
@@ -359,7 +359,7 @@ procedure lex_all(
   out toks: Tokens,
       comments: List[Comment]
 ) raises LexError :=
-  var offset := 0, found: Buffer[Pos * Token * Pos] := empty(), noted: Buffer[Comment] := empty(), pending: List[Pos * Str * Bool * Bool] := List(), start: Int, tok: Token, last := 0, line := 1, column := 1, comment: Str, stop := Pos(1, 1)
+  var offset := 0, found: Buffer[(Pos, Token, Pos)] := empty(), noted: Buffer[Comment] := empty(), pending: List[(Pos, Str, Bool, Bool)] := List(), start: Int, tok: Token, last := 0, line := 1, column := 1, comment: Str, stop := Pos(1, 1)
   while offset < size(text) do
     start := offset
     if is_space(at(offset, text)) then

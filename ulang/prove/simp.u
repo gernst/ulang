@@ -322,7 +322,7 @@ function simp_sequent(ctx: Ctx, xs: List[Var], assms: List[Seq], concls: List[Co
   end
 
 // the assumptions of the conclusions that are negations, without existential variables, and the other conclusions
-function negated_conclusions(cs: List[Concl]): List[Seq] * List[Concl] :=
+function negated_conclusions(cs: List[Concl]): (List[Seq], List[Concl]) :=
   match cs
     case List() =>
       (List(), List())
@@ -363,7 +363,7 @@ function sequent(xs: List[Var], assms: List[Seq], concls: List[Concl]): Seq :=
 
 // an equation of a variable of the levels from d on with a term without it, by which it is eliminated, unless it is
 // defined by a proof, whose name an open goal keeps
-function one_point(defined: Set[Int], d: Int, ss: List[Seq]): Option[Int * Term * List[Seq]] :=
+function one_point(defined: Set[Int], d: Int, ss: List[Seq]): Option[(Int, Term, List[Seq])] :=
   match ss
     case List() =>
       None
@@ -383,7 +383,7 @@ function one_point(defined: Set[Int], d: Int, ss: List[Seq]): Option[Int * Term 
       end
   end
 
-function equation_of(defined: Set[Int], d: Int, s: Seq): Option[Int * Term] :=
+function equation_of(defined: Set[Int], d: Int, s: Seq): Option[(Int, Term)] :=
   match s
     case Atom(Eq(ELevel(level), t)) if level >= d and not contains(level, defined) and not occurs(ELevel(level), t) =>
       Some((level, t))
@@ -756,7 +756,7 @@ function join(ctx: Ctx, i: Int, j: Int): Ctx :=
     let u := unite(ctx.graph, i, j) in
     resimplify(congruent(ctx with graph := u.graph, merges := ctx.merges - 1, u.pending), u.parents)
 
-function congruent(ctx: Ctx, pairs: List[Int * Int]): Ctx :=
+function congruent(ctx: Ctx, pairs: List[(Int, Int)]): Ctx :=
   match pairs
     case List() =>
       ctx
@@ -769,7 +769,7 @@ function merge_classes(ctx: Ctx, p: Int, q: Int): Ctx :=
   let a := extract(ctx, p), b := extract(ctx, q) in
   merge(join(ctx, p, q), a, b)
 
-function resimplify(ctx: Ctx, parents: List[ENode * Int]): Ctx :=
+function resimplify(ctx: Ctx, parents: List[(ENode, Int)]): Ctx :=
   match parents
     case List() =>
       ctx
@@ -1058,7 +1058,7 @@ function bound_of(r: Rule, a: Term): List[Lin] :=
   end
 
 // the sides of p < q or p <= q, and whether it is strict
-function comparison_of(t: Term): Option[Term * Term * Bool] :=
+function comparison_of(t: Term): Option[(Term, Term, Bool)] :=
   match t
     case Less(p, q) =>
       Some((p, q, true))
@@ -1356,7 +1356,7 @@ function simp_not(ctx: Ctx, a: Term): Term :=
   end
 
 // the sides of an equation, the greater in the term order first
-function oriented(decls: Decls, a: Term, b: Term): Term * Term :=
+function oriented(decls: Decls, a: Term, b: Term): (Term, Term) :=
   if is_greater(decls, b, a) then
     (b, a)
   else if is_greater(decls, a, b) then
@@ -1364,7 +1364,7 @@ function oriented(decls: Decls, a: Term, b: Term): Term * Term :=
   else
     ordered(a, b)
 
-function ordered(a: Term, b: Term): Term * Term :=
+function ordered(a: Term, b: Term): (Term, Term) :=
   if compare(a, b) > 0 then (b, a) else (a, b)
 
 // true if equal in normal form, false if assuming it is inconsistent, as for distinct constructors
@@ -1417,10 +1417,10 @@ function is_saturated_equal(g: EGraph, eqs: List[Equation], i: Int, j: Int, roun
       is_saturated_equal(next, eqs, i, j, rounds - 1)
 
 // the instances of the equations in the e-graph: the class of an instance of the left side and the substitution
-function matches(g: EGraph, eqs: List[Equation]): List[Int * Equation * Map[Int, Int]] :=
+function matches(g: EGraph, eqs: List[Equation]): List[(Int, Equation, Map[Int, Int])] :=
   List(for e in eqs for c in class_ids(g) for sub in ematch(g, e.vars, e.lhs, c, empty()) yield (c, e, sub))
 
-function apply_matches(g: EGraph, ms: List[Int * Equation * Map[Int, Int]]): EGraph :=
+function apply_matches(g: EGraph, ms: List[(Int, Equation, Map[Int, Int])]): EGraph :=
   match ms
     case List() =>
       g
@@ -1524,7 +1524,7 @@ function simp_compare(ctx: Ctx, a: Term, b: Term): Term :=
 // is proven, by the first of its equations that matches modulo the e-graph and whose conditions hold, or where the match
 // or if of its body is decided, which leaves the conditions that the equations do not decide for splits, while a
 // recursive function whose termination is not proven stays uninterpreted, since unfolding it could prove false
-function unfold(ctx: Ctx, key: Name * Int, t: Term, d: Def, args: List[Term]): Term :=
+function unfold(ctx: Ctx, key: (Name, Int), t: Term, d: Def, args: List[Term]): Term :=
   if size(d.formals) != size(args) or ctx.unfolds > limits().unfolds then
     rewrite(ctx, t)
   else
@@ -1554,7 +1554,7 @@ function unfold(ctx: Ctx, key: Name * Int, t: Term, d: Def, args: List[Term]): T
           end
       end
 
-function first_equation(inner: Ctx, key: Name * Int, t: Term, eqs: List[DefEquation]): Option[Term] :=
+function first_equation(inner: Ctx, key: (Name, Int), t: Term, eqs: List[DefEquation]): Option[Term] :=
   match eqs
     case List() =>
       None
@@ -2175,7 +2175,7 @@ function named_definitions(d: Int, s: Seq): Seq :=
       Seq(List(for (x, _) in kept yield x), List(for a in inner yield rebind_seq(op, 0, a)), List(for c in goals yield rebind_concl(op, 0, c)))
   end
 
-function folded_definitions(defined: List[Int], assms: List[Seq], concls: List[Concl]): List[Seq] * List[Concl] :=
+function folded_definitions(defined: List[Int], assms: List[Seq], concls: List[Concl]): (List[Seq], List[Concl]) :=
   match defined
     case List() =>
       (assms, concls)
@@ -2190,7 +2190,7 @@ function folded_definitions(defined: List[Int], assms: List[Seq], concls: List[C
   end
 
 // the value of the level l by an assumption l == value or value == l, and the other assumptions
-function definition_in(l: Int, assms: List[Seq], before: List[Seq]): Option[Term * List[Seq]] :=
+function definition_in(l: Int, assms: List[Seq], before: List[Seq]): Option[(Term, List[Seq])] :=
   match assms
     case List() =>
       None
@@ -2207,7 +2207,7 @@ function definition_in(l: Int, assms: List[Seq], before: List[Seq]): Option[Term
 
 // the body of a function that is not recursive as a pattern, its formals the variables, which folds into the call where
 // the body is larger, and where it is no binder, conditional, or match, which enter e-graphs whole
-function fold_equation(key: Name * Int, d: Def): Option[Equation] :=
+function fold_equation(key: (Name, Int), d: Def): Option[Equation] :=
   let n := second(key) in
   let applied := EApp(EFun(first(key)), List(for i in range(0, n) yield EBound(n - 1 - i))) in
   if d.recursive or n == 0 or not is_plain(d.body) or term_size(d.body) <= term_size(applied) or not is_pattern_of(d.body, applied) then

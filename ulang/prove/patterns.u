@@ -27,7 +27,7 @@ data Leaf :=
 // the leaves of the rows, each a pattern and whether its case has a guard, for the value, whose new variables are the
 // levels from base on, where the value is split on the constructors of the datatype split first, also if no row has a
 // constructor, as induction does
-function leaves(decls: Decls, value: Term, base: Int, rows: List[Pat * Bool], split: Option[Name]): List[Leaf]
+function leaves(decls: Decls, value: Term, base: Int, rows: List[(Pat, Bool)], split: Option[Name]): List[Leaf]
 
 implementation
 
@@ -48,15 +48,15 @@ data Row :=
 
 // a leaf before its terms are made: its holes, the literals that holes are not, and the rows that reach it
 data Raw :=
-  case Raw(holes: Holes, excluded: List[Int * Lit], rows: List[Row])
+  case Raw(holes: Holes, excluded: List[(Int, Lit)], rows: List[Row])
 
-function leaves(decls: Decls, value: Term, base: Int, rows: List[Pat * Bool], split: Option[Name]): List[Leaf] :=
+function leaves(decls: Decls, value: Term, base: Int, rows: List[(Pat, Bool)], split: Option[Name]): List[Leaf] :=
   let start := List(for ((pat, guarded), i) in numbered(rows) yield Row(i, guarded, List(pat), List())) in
   let names := List(for (pat, _) in rows yield pattern_vars(pat)) in
   List(for raw in expand(decls, List(0), start, Holes(empty(), empty(), 1), List(), split) yield leaf_of(raw, names, value, base))
 
 // the branches of the columns cols for the rows, where split names a datatype that the first column is split on
-function expand(decls: Decls, cols: List[Int], rows: List[Row], holes: Holes, excluded: List[Int * Lit], split: Option[Name]): List[Raw] :=
+function expand(decls: Decls, cols: List[Int], rows: List[Row], holes: Holes, excluded: List[(Int, Lit)], split: Option[Name]): List[Raw] :=
   match (cols, split)
     case (List(c; rest), Some(t)) =>
       constr_branches(decls, c, rest, rows, holes, excluded, datatype_constrs(decls, t))
@@ -133,7 +133,7 @@ function dropped(c: Int, row: Row): Row :=
 
 // the constructors of the datatype of the first constructor in the first column, with their fields, all constructors
 // of it in order, or else that constructor alone, as for a tuple
-function column_constrs(decls: Decls, rows: List[Row]): List[Name * List[Var]] :=
+function column_constrs(decls: Decls, rows: List[Row]): List[(Name, List[Var])] :=
   match rows
     case List() =>
       List()
@@ -156,7 +156,7 @@ function column_constrs(decls: Decls, rows: List[Row]): List[Name * List[Var]] :
       end
   end
 
-function datatype_constrs(decls: Decls, t: Name): List[Name * List[Var]] :=
+function datatype_constrs(decls: Decls, t: Name): List[(Name, List[Var])] :=
   List(for c in value_or(get(t, decls.datatypes), List()) for decl in get(c, decls.constrs) yield (c, decl.fields))
 
 // the variable of a component of a tuple, which has no field name
@@ -178,10 +178,10 @@ function column_lit(rows: List[Row]): Option[Lit] :=
   end
 
 // a branch per constructor, whose fields are new holes in place of the hole c
-function constr_branches(decls: Decls, c: Int, rest: List[Int], rows: List[Row], holes: Holes, excluded: List[Int * Lit], constrs: List[Name * List[Var]]): List[Raw] :=
+function constr_branches(decls: Decls, c: Int, rest: List[Int], rows: List[Row], holes: Holes, excluded: List[(Int, Lit)], constrs: List[(Name, List[Var])]): List[Raw] :=
   List(for (constr, fields) in constrs for raw in constr_branch(decls, c, rest, rows, holes, excluded, constr, fields) yield raw)
 
-function constr_branch(decls: Decls, c: Int, rest: List[Int], rows: List[Row], holes: Holes, excluded: List[Int * Lit], constr: Name, fields: List[Var]): List[Raw] :=
+function constr_branch(decls: Decls, c: Int, rest: List[Int], rows: List[Row], holes: Holes, excluded: List[(Int, Lit)], constr: Name, fields: List[Var]): List[Raw] :=
   let ids := range(holes.next, holes.next + size(fields)) in
   let vars := holes.vars ++ Map(for (id, field) in zip(ids, fields) yield id => field) in
   let inner := Holes(put(c, SConstr(constr, ids), holes.shapes), vars, holes.next + size(fields)) in
@@ -217,7 +217,7 @@ function wildcards(n: Int): List[Pat] :=
   List(for _ in range(0, n) yield PWild)
 
 // the branch of the literal, where the hole c is it, and the rest, where it is not, which goes on with the column
-function lit_branches(decls: Decls, c: Int, rest: List[Int], rows: List[Row], holes: Holes, excluded: List[Int * Lit], lit: Lit): List[Raw] :=
+function lit_branches(decls: Decls, c: Int, rest: List[Int], rows: List[Row], holes: Holes, excluded: List[(Int, Lit)], lit: Lit): List[Raw] :=
   let at_lit := List(for row in rows for r in at_literal(c, lit, row) yield r) in
   let others := List(for row in rows if row.pats == List() or at(0, from_list(row.pats)) != PLit(lit) yield row) in
   expand(decls, rest, at_lit, holes with shapes := put(c, SLit(lit), holes.shapes), excluded, None) ++ expand(decls, List(c; rest), others, holes, excluded ++ List((c, lit)), None)

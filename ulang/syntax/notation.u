@@ -4,7 +4,7 @@
 export
 
 data Notation :=
-  case Notation(prefix_ops: Map[Id, Int], postfix_ops: Map[Id, Int], infix_ops: Map[Id, Fixity * Int])
+  case Notation(prefix_ops: Map[Id, Int], postfix_ops: Map[Id, Int], infix_ops: Map[Id, (Fixity, Int)])
 
 function empty_notation(): Notation
 
@@ -12,9 +12,9 @@ function prefix_prec(notation: Notation, op: Id): Option[Int]
 
 function postfix_prec(notation: Notation, op: Id): Option[Int]
 
-function infix_of(notation: Notation, op: Id): Option[Fixity * Int]
+function infix_of(notation: Notation, op: Id): Option[(Fixity, Int)]
 
-function notation_of(notation: Notation, f: Fixity, op: Id): Option[Fixity * Int]
+function notation_of(notation: Notation, f: Fixity, op: Id): Option[(Fixity, Int)]
 
 function is_operator(notation: Notation, op: Id): Bool
 
@@ -35,11 +35,11 @@ function prefix_prec(notation: Notation, op: Id): Option[Int] :=
 function postfix_prec(notation: Notation, op: Id): Option[Int] :=
   get(op, notation.postfix_ops)
 
-function infix_of(notation: Notation, op: Id): Option[Fixity * Int] :=
+function infix_of(notation: Notation, op: Id): Option[(Fixity, Int)] :=
   get(op, notation.infix_ops)
 
 // the notation of op of the kind of f, if any
-function notation_of(notation: Notation, f: Fixity, op: Id): Option[Fixity * Int] :=
+function notation_of(notation: Notation, f: Fixity, op: Id): Option[(Fixity, Int)] :=
   match (f, prefix_prec(notation, op), postfix_prec(notation, op))
     case (FPrefix, Some(prec), _) =>
       Some((FPrefix, prec))

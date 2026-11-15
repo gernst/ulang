@@ -22,7 +22,7 @@ implementation
 
 // the variables in scope with the offsets of their slots from %rbp
 type Slots :=
-  List[Name * Int]
+  List[(Name, Int)]
 
 // the code of the function being translated with its number of slots, the lines of the functions and data translated so
 // far, the number of labels, and the labels of the objects of string literals and of C strings, shared by their texts
@@ -172,7 +172,7 @@ function proc_callee(n: Name): Instr :=
   if is_native(n) then ICallPlt(proc_name(n)) else ICall(proc_name(n))
 
 // the code of a new function, whose slots start again, with the code and slots of the one around it
-procedure begin_function(out outer: Buffer[Line] * Int, ref e: Emit) :=
+procedure begin_function(out outer: (Buffer[Line], Int), ref e: Emit) :=
   outer := (e.code, e.slots), e := e with code := empty(), slots := 0
 
 // the function of the code since begin_function, with its prologue, which allocates the slots, and its epilogue, where
@@ -180,7 +180,7 @@ procedure begin_function(out outer: Buffer[Line] * Int, ref e: Emit) :=
 procedure end_function(
   in  symbol: Str,
       global: Bool,
-      outer: Buffer[Line] * Int,
+      outer: (Buffer[Line], Int),
   ref e: Emit
 ) :=
   let frame := (8 * e.slots + 15) / 16 * 16
@@ -333,7 +333,7 @@ procedure test_pat(in pat: Pat, s: Int, path: List[Int], fail: Str, ref e: Emit)
   end
 
 procedure test_fields(
-  in  ps: List[At[Pat] * Int],
+  in  ps: List[(At[Pat], Int)],
       s: Int,
       path: List[Int],
       fail: Str,
@@ -369,7 +369,7 @@ procedure bind_pat(
   end
 
 procedure bind_fields(
-  in  ps: List[At[Pat] * Int],
+  in  ps: List[(At[Pat], Int)],
       s: Int,
       path: List[Int],
   out binds: Slots,
@@ -684,7 +684,7 @@ procedure add_elem(in add: Adder, ref e: Emit) :=
 procedure comprehension_loops(
   in  defs: Defs,
       env: Slots,
-      gs: List[Name * At[Expr] * Var],
+      gs: List[(Name, At[Expr], Var)],
       cond: Option[At[Expr]],
       elem: At[Expr],
       add: Adder,
@@ -744,7 +744,7 @@ procedure comprehension_loops(
 procedure list_comprehension(
   in  defs: Defs,
       env: Slots,
-      gs: List[Name * At[Expr] * Var],
+      gs: List[(Name, At[Expr], Var)],
       cond: Option[At[Expr]],
       elem: At[Expr],
       init: At[Expr],
@@ -767,7 +767,7 @@ procedure list_comprehension(
 procedure array_comprehension(
   in  defs: Defs,
       env: Slots,
-      gs: List[Name * At[Expr] * Var],
+      gs: List[(Name, At[Expr], Var)],
       cond: Option[At[Expr]],
       elem: At[Expr],
   ref e: Emit
@@ -944,7 +944,7 @@ procedure compile_lambda(
   ref e: Emit
 ) :=
   let names := var_names(xs), caps: List[Name] := captured(env, free_vars(body, names))
-  var f: Str, outer: Buffer[Line] * Int, fs: List[Int], cs: Slots, as: Slots
+  var f: Str, outer: (Buffer[Line], Int), fs: List[Int], cs: Slots, as: Slots
   new_symbol(in "lam", out f, ref e)
   begin_function(out outer, ref e)
   formal_slots(in 2, out fs, ref e)
@@ -1002,7 +1002,7 @@ procedure compile_proc_lambda(
   ref e: Emit
 ) :=
   let in_names := var_names(ins), pointer_names := var_names(outs ++ refs), caps: List[Name] := captured(env, free_in_stmt(stmt, in_names ++ pointer_names))
-  var f: Str, outer: Buffer[Line] * Int, fs: List[Int], cs: Slots, is: Slots, ps: Slots, vs: Slots
+  var f: Str, outer: (Buffer[Line], Int), fs: List[Int], cs: Slots, is: Slots, ps: Slots, vs: Slots
   new_symbol(in "proc", out f, ref e)
   begin_function(out outer, ref e)
   formal_slots(in 3, out fs, ref e)
@@ -1331,7 +1331,7 @@ procedure compile_cmd(in defs: Defs, tests: Bool, cmd: Cmd, ref e: Emit) :=
   match cmd
     case CFun(name, _, formals, _, _, body) =>
       let f := fun_name(name, size(formals))
-      var outer: Buffer[Line] * Int
+      var outer: (Buffer[Line], Int)
       begin_function(out outer, ref e)
       if formals == List() then
         cached_body(in defs, name, f, body, ref e)
@@ -1346,7 +1346,7 @@ procedure compile_cmd(in defs: Defs, tests: Bool, cmd: Cmd, ref e: Emit) :=
     case CProc(name, _, ins, outs, refs, _, _, stmt) =>
       var fs: List[Int], vs: Slots, ps: Slots
       let k := size(ins)
-      var outer: Buffer[Line] * Int
+      var outer: (Buffer[Line], Int)
       begin_function(out outer, ref e)
       formal_slots(in k + size(outs ++ refs), out fs, ref e)
       ps := zip(var_names(vars(outs ++ refs)), drop(k, fs))
@@ -1357,7 +1357,7 @@ procedure compile_cmd(in defs: Defs, tests: Bool, cmd: Cmd, ref e: Emit) :=
 
     // a test with formals runs as the test that the tester generates of it
     case CTest(name, List(), stmt) if tests =>
-      var outer: Buffer[Line] * Int
+      var outer: (Buffer[Line], Int)
       begin_function(out outer, ref e)
       compile_stmt(in defs, List(), stmt, ref e)
       end_function(in test_name(name), false, outer, ref e)
@@ -1368,7 +1368,7 @@ procedure compile_cmd(in defs: Defs, tests: Bool, cmd: Cmd, ref e: Emit) :=
 
 // a wrapper w of the closure code (env, args), which calls the function callee of k arguments with the elements of args
 procedure fun_wrapper(in w: Str, callee: Instr, k: Int, ref e: Emit) :=
-  var outer: Buffer[Line] * Int
+  var outer: (Buffer[Line], Int)
   begin_function(out outer, ref e)
   emit(in IMov(OReg(Rsi), OReg(R11)), ref e)
   emit_call(in callee, List(for i in range(0, k) yield AVal(OMem(R11, 8 * i))), false, ref e)
@@ -1376,7 +1376,7 @@ procedure fun_wrapper(in w: Str, callee: Instr, k: Int, ref e: Emit) :=
 
 // procedures as values call the procedure with the values of the array ins and the pointers of the array outs
 procedure proc_wrapper(in n: Name, k: Int, m: Int, ref e: Emit) :=
-  var outer: Buffer[Line] * Int
+  var outer: (Buffer[Line], Int)
   begin_function(out outer, ref e)
   emit_all(in List(IMov(OReg(Rsi), OReg(R10)), IMov(OReg(Rdx), OReg(R11))), ref e)
   emit_call(in proc_callee(n), List(for i in range(0, k) yield AVal(OMem(R10, 8 * i))) ++ List(for i in range(0, m) yield AVal(OMem(R11, 8 * i))), false, ref e)
@@ -1385,7 +1385,7 @@ procedure proc_wrapper(in n: Name, k: Int, m: Int, ref e: Emit) :=
 // constructors without fields are no functions
 procedure constr_wrapper(in n: Name, k: Int, ref e: Emit) :=
   if k > 0 then
-    var outer: Buffer[Line] * Int
+    var outer: (Buffer[Line], Int)
     begin_function(out outer, ref e)
     emit(in IMov(OReg(Rsi), OReg(R11)), ref e)
     call_runtime(in "u_mk_con_array", List(AAddr(ORip(descriptor_name(n))), AVal(OImm(k)), AVal(OReg(R11))), ref e)
@@ -1508,7 +1508,7 @@ procedure test_tables(in files: List[TestFile], cmds: List[Cmd], ref e: Emit) :=
 
 // main(argc, argv), which gives the arguments to the runtime and calls the procedure of the entry or runs the tests
 procedure main_function(in m: Id, entry: Entry, ref e: Emit) :=
-  var outer: Buffer[Line] * Int, fs: List[Int]
+  var outer: (Buffer[Line], Int), fs: List[Int]
   begin_function(out outer, ref e)
   formal_slots(in 2, out fs, ref e)
   call_runtime(in "u_args", vals(fs), ref e)

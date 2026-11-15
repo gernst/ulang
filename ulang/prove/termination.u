@@ -18,11 +18,11 @@ export
 // each match around it, the equation of its argument with the value of the leaf (ulang/prove/patterns.u), the
 // conditions of the leaf, the guard of the case, and the negated guards of the cases before it
 data Call :=
-  case Call(name: Name * Int, vars: List[Var], args: Option[List[Term]], path: List[Term])
+  case Call(name: (Name, Int), vars: List[Var], args: Option[List[Term]], path: List[Term])
 
 // a call in an equation of the function caller
 data CallSite :=
-  case CallSite(caller: Name * Int, equation: DefEquation, recursion: Call)
+  case CallSite(caller: (Name, Int), equation: DefEquation, recursion: Call)
 
 // a measure per function of a component, each a term over the formals of its function as the body is, and whether they
 // are of type Int
@@ -32,10 +32,10 @@ data Slot :=
 // a component of recursive functions, the slots of its order, and the calls that no order decreases, none if its
 // termination is proven
 data Termination :=
-  case Termination(names: List[Name * Int], order: List[Slot], open: List[CallSite])
+  case Termination(names: List[(Name, Int)], order: List[Slot], open: List[CallSite])
 
 // the components of the recursive functions that the roots reach, also the roots themselves
-function terminations(decls: Decls, roots: Set[Name * Int]): List[Termination]
+function terminations(decls: Decls, roots: Set[(Name, Int)]): List[Termination]
 
 function is_terminating(t: Termination): Bool
 
@@ -44,13 +44,13 @@ implementation
 function is_terminating(t: Termination): Bool :=
   t.open == List()
 
-function terminations(decls: Decls, roots: Set[Name * Int]): List[Termination] :=
+function terminations(decls: Decls, roots: Set[(Name, Int)]): List[Termination] :=
   let reached := roots ++ Set(for r in roots for d in get(r, decls.defs) for k in d.reaches yield k) in
   let components := Set(for k in reached for d in get(k, decls.defs) if d.recursive yield component(decls, k)) in
   List(for c in components yield termination(decls, c))
 
 // the recursive functions that reach k and that k reaches, in order
-function component(decls: Decls, k: Name * Int): List[Name * Int] :=
+function component(decls: Decls, k: (Name, Int)): List[(Name, Int)] :=
   match get(k, decls.defs)
     case Some(d) =>
       List(for j in d.reaches for e in get(j, decls.defs) if contains(k, e.reaches) yield j)
@@ -58,17 +58,17 @@ function component(decls: Decls, k: Name * Int): List[Name * Int] :=
       List()
   end
 
-function termination(decls: Decls, names: List[Name * Int]): Termination :=
+function termination(decls: Decls, names: List[(Name, Int)]): Termination :=
   let sites := List(for k in names for d in get(k, decls.defs) for eq in d.equations for c in equation_calls(decls, names, eq) yield CallSite(k, eq, c)) in
   search(decls, names, measure_slots(decls, names), sites, List())
 
-function equation_calls(decls: Decls, names: List[Name * Int], eq: DefEquation): List[Call] :=
+function equation_calls(decls: Decls, names: List[(Name, Int)], eq: DefEquation): List[Call] :=
   let op := Open(0, size(eq.vars)) in
   let conds := List(for c in eq.conds yield rebind(op, 0, c)) in
   List(for c in conds for k in mentioned(names, c) yield Call(k, eq.vars, None, List())) ++ calls_in(decls, names, rebind(op, 0, eq.rhs), eq.vars, conds)
 
 // the calls of the component in t, over the levels of vars, where the path holds the conditions around them
-function calls_in(decls: Decls, names: List[Name * Int], t: Term, vars: List[Var], path: List[Term]): List[Call] :=
+function calls_in(decls: Decls, names: List[(Name, Int)], t: Term, vars: List[Var], path: List[Term]): List[Call] :=
   match t
     case EApp(EFun(name), args) =>
       let here := if contains((name, size(args)), names) then
@@ -101,7 +101,7 @@ function calls_in(decls: Decls, names: List[Name * Int], t: Term, vars: List[Var
 
 // the container, the position of the lambda among the arguments, and the positions of its formals that are elements of
 // the container, for the folds, exists, and forall of the containers of the library that are datatypes
-function element_lambda(name: Name, args: List[Term]): Option[Term * Int * List[Int]] :=
+function element_lambda(name: Name, args: List[Term]): Option[(Term, Int, List[Int])] :=
   match (name.module, args)
     case (Some(m), List(c; _)) if contains(m, List(
       "prelude/list",
@@ -130,7 +130,7 @@ function element_lambda(name: Name, args: List[Term]): Option[Term * Int * List[
       None
   end
 
-function calls_at(decls: Decls, names: List[Name * Int], container: Term, arg: Term, is_lambda: Bool, positions: List[Int], vars: List[Var], path: List[Term]): List[Call] :=
+function calls_at(decls: Decls, names: List[(Name, Int)], container: Term, arg: Term, is_lambda: Bool, positions: List[Int], vars: List[Var], path: List[Term]): List[Call] :=
   if is_lambda then
     lambda_calls(decls, names, container, arg, positions, vars, path)
   else
@@ -138,7 +138,7 @@ function calls_at(decls: Decls, names: List[Name * Int], container: Term, arg: T
 
 // the calls in the body of a lambda that the container calls with its elements at the positions of its formals, whose
 // formals follow vars, where each element is smaller than the container
-function lambda_calls(decls: Decls, names: List[Name * Int], container: Term, lam: Term, positions: List[Int], vars: List[Var], path: List[Term]): List[Call] :=
+function lambda_calls(decls: Decls, names: List[(Name, Int)], container: Term, lam: Term, positions: List[Int], vars: List[Var], path: List[Term]): List[Call] :=
   match lam
     case ELam(formals, body) =>
       let base := size(vars) in
@@ -152,11 +152,11 @@ function lambda_calls(decls: Decls, names: List[Name * Int], container: Term, la
 
 // the calls of the cases of a match on arg that match the leaf, whose variables follow vars, under the equation of arg
 // with the value of the leaf, its conditions, and the guards of the cases before, negated
-function leaf_calls(decls: Decls, names: List[Name * Int], arg: Term, cases: List[TermBranch], leaf: Leaf, vars: List[Var], path: List[Term]): List[Call] :=
+function leaf_calls(decls: Decls, names: List[(Name, Int)], arg: Term, cases: List[TermBranch], leaf: Leaf, vars: List[Var], path: List[Term]): List[Call] :=
   let here := path ++ (if leaf.value == arg then List() else List(Eq(arg, leaf.value))) ++ leaf.conds in
   hits_calls(decls, names, cases, leaf.hits, vars ++ leaf.vars, here)
 
-function hits_calls(decls: Decls, names: List[Name * Int], cases: List[TermBranch], hits: List[Hit], vars: List[Var], path: List[Term]): List[Call] :=
+function hits_calls(decls: Decls, names: List[(Name, Int)], cases: List[TermBranch], hits: List[Hit], vars: List[Var], path: List[Term]): List[Call] :=
   match hits
     case List() =>
       List()
@@ -175,13 +175,13 @@ function hits_calls(decls: Decls, names: List[Name * Int], cases: List[TermBranc
   end
 
 // the functions of the component that t names, also without their arguments
-function mentioned(names: List[Name * Int], t: Term): List[Name * Int] :=
+function mentioned(names: List[(Name, Int)], t: Term): List[(Name, Int)] :=
   let symbols := symbols_in(t) in
   List(for (n, k) in names if contains((n, k), symbols) or contains((n, -1), symbols) yield (n, k))
 
 // the slots of the measures: for a function alone, the sizes of its formals of datatypes and the measures of its Int
 // formals; for several, the sizes at the positions where all of them have a formal of a datatype
-function measure_slots(decls: Decls, names: List[Name * Int]): List[Slot] :=
+function measure_slots(decls: Decls, names: List[(Name, Int)]): List[Slot] :=
   let formals := List(for k in names for d in get(k, decls.defs) yield d.formals) in
   match formals
     case List(fs) =>
@@ -243,7 +243,7 @@ function comparison_measures(fs: List[Var], cond: Term): List[Term] :=
       end
   end
 
-function comparison_sides(t: Term): Option[Term * Term] :=
+function comparison_sides(t: Term): Option[(Term, Term)] :=
   match t
     case Less(a, b) =>
       Some((a, b))
@@ -292,7 +292,7 @@ function is_datatype(decls: Decls, t: Type): Bool :=
   end
 
 // the order chosen so far, and the calls that it does not decrease strictly yet
-function search(decls: Decls, names: List[Name * Int], slots: List[Slot], sites: List[CallSite], order: List[Slot]): Termination :=
+function search(decls: Decls, names: List[(Name, Int)], slots: List[Slot], sites: List[CallSite], order: List[Slot]): Termination :=
   if sites == List() then
     Termination(names, order, List())
   else
@@ -306,7 +306,7 @@ function search(decls: Decls, names: List[Name * Int], slots: List[Slot], sites:
     end
 
 // the first slot that decreases every site at least weakly and some strictly
-function first_slot(decls: Decls, names: List[Name * Int], slots: List[Slot], sites: List[CallSite]): Option[Slot] :=
+function first_slot(decls: Decls, names: List[(Name, Int)], slots: List[Slot], sites: List[CallSite]): Option[Slot] :=
   match slots
     case List() =>
       None
@@ -319,7 +319,7 @@ function first_slot(decls: Decls, names: List[Name * Int], slots: List[Slot], si
         first_slot(decls, names, rest, sites)
   end
 
-function is_strict(decls: Decls, names: List[Name * Int], slot: Slot, site: CallSite): Bool :=
+function is_strict(decls: Decls, names: List[(Name, Int)], slot: Slot, site: CallSite): Bool :=
   match measures_at(names, slot, site)
     case Some((before, after)) =>
       is_valid(decls, site, List(Less(after, before)) ++ (if slot.int then List(Less(EInt(0), before)) else List()))
@@ -327,7 +327,7 @@ function is_strict(decls: Decls, names: List[Name * Int], slot: Slot, site: Call
       false
   end
 
-function is_weak(decls: Decls, names: List[Name * Int], slot: Slot, site: CallSite): Bool :=
+function is_weak(decls: Decls, names: List[(Name, Int)], slot: Slot, site: CallSite): Bool :=
   match measures_at(names, slot, site)
     case Some((before, after)) =>
       is_valid(decls, site, List(LessEq(after, before)))
@@ -336,7 +336,7 @@ function is_weak(decls: Decls, names: List[Name * Int], slot: Slot, site: CallSi
   end
 
 // the measure of the slot before the call, at the arguments of its equation, and after it, at those of the call
-function measures_at(names: List[Name * Int], slot: Slot, site: CallSite): Option[Term * Term] :=
+function measures_at(names: List[(Name, Int)], slot: Slot, site: CallSite): Option[(Term, Term)] :=
   match (site.recursion.args, measure_of(names, slot, site.caller), measure_of(names, slot, site.recursion.name))
     case (Some(args), Some(m), Some(m_)) =>
       let op := Open(0, size(site.equation.vars)) in
@@ -377,7 +377,7 @@ function accessed(t: Term): List[Term] :=
       List()
   end
 
-function measure_of(names: List[Name * Int], slot: Slot, k: Name * Int): Option[Term] :=
+function measure_of(names: List[(Name, Int)], slot: Slot, k: (Name, Int)): Option[Term] :=
   match List(for (j, m) in zip(names, slot.measures) if j == k yield m)
     case List(m; _) =>
       Some(m)

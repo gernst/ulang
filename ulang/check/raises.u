@@ -31,7 +31,7 @@ implementation
 // the datatypes that a part may raise, each at its first raise or call, the errors of the parts inside it, and the
 // exceptions that its procedure values give the unknowns of their types
 data Flow :=
-  case Flow(raised: Map[Name, Pos], errors: List[Pos * TypeError], lower: Map[Int, Map[Name, Origin]])
+  case Flow(raised: Map[Name, Pos], errors: List[(Pos, TypeError)], lower: Map[Int, Map[Name, Origin]])
 
 // where an exception entered the solution of an unknown: at the use of the procedure name as a value or a raise in a
 // lambda, or at a bound, which names none
@@ -68,7 +68,7 @@ function inferred_name(cmd: Cmd, hidden: Set[Name]): Option[Name] :=
 function written_procs(cmds: List[Cmd], inferred: Set[Name]): Map[Name, Set[Name]] :=
   Map(for cmd in cmds for (name, raised) in proc_raised(cmd) yield name => if contains(name, inferred) then empty() else exception_names(raised))
 
-function proc_raised(cmd: Cmd): Option[Name * List[Type]] :=
+function proc_raised(cmd: Cmd): Option[(Name, List[Type])] :=
   match cmd
     case CProc(name, _, _, _, _, raised, _, _) =>
       Some((name, raised))
@@ -88,7 +88,7 @@ function infer_procs(cmds: List[Cmd], bounds: List[Bound], scope: Scope, inferre
 
 // the raises of each inferred procedure in turn, where each body sees those of the procedures before it in this round,
 // and what the procedure values of all commands give the unknowns of their types, added to lower
-function infer_round(cmds: List[Cmd], scope: Scope, inferred: Set[Name], lower: Map[Int, Map[Name, Origin]]): Scope * Map[Int, Map[Name, Origin]] :=
+function infer_round(cmds: List[Cmd], scope: Scope, inferred: Set[Name], lower: Map[Int, Map[Name, Origin]]): (Scope, Map[Int, Map[Name, Origin]]) :=
   match cmds
     case List() =>
       (scope, lower)
@@ -150,7 +150,7 @@ function keys(raised: Map[Name, Pos]): Set[Name] :=
   Set(for t => _ in raised yield t)
 
 // the errors of cmd, with the raises of a procedure that its raises omit, unless they are inferred
-function cmd_errors(scope: Scope, cmd: Cmd, inferred: Set[Name]): List[Pos * TypeError] :=
+function cmd_errors(scope: Scope, cmd: Cmd, inferred: Set[Name]): List[(Pos, TypeError)] :=
   let flow := cmd_flow(scope, cmd) in
   match cmd
     case CProc(name, _, _, _, _, _, _, _) if not contains(name, inferred) =>
@@ -159,7 +159,7 @@ function cmd_errors(scope: Scope, cmd: Cmd, inferred: Set[Name]): List[Pos * Typ
       flow.errors
   end
 
-function omitted(name: Name, raised: Map[Name, Pos], allowed: Set[Name]): List[Pos * TypeError] :=
+function omitted(name: Name, raised: Map[Name, Pos], allowed: Set[Name]): List[(Pos, TypeError)] :=
   List(for t => pos in raised if not contains(t, allowed) yield (pos, UndeclaredRaise(name, TSort(t, List()))))
 
 function cmd_flow(scope: Scope, cmd: Cmd): Flow :=
@@ -201,7 +201,7 @@ function cmd_flow(scope: Scope, cmd: Cmd): Flow :=
 function none(): Flow :=
   Flow(empty(), List(), empty())
 
-function errors_flow(errors: List[Pos * TypeError]): Flow :=
+function errors_flow(errors: List[(Pos, TypeError)]): Flow :=
   Flow(empty(), errors, empty())
 
 // the flows of parts one after another, where the first raise of a type counts
@@ -370,7 +370,7 @@ function gens_flow(scope: Scope, gens: List[Gen], body: Scope -> Flow): Flow :=
 // all of it, _ catches all, and the others let the exceptions that they do not match through, and what the handlers raise
 // the types that the handlers cover and the handlers that nothing reaches by their alternatives, of their own types, and
 // the flows of their bodies once per handler
-function handled(scope: Scope, body: Flow, catches: List[Pos * Catch]): Flow :=
+function handled(scope: Scope, body: Flow, catches: List[(Pos, Catch)]): Flow :=
   let split := List(for (p, c) in catches for a in handler_alternatives(p, c) yield a) in
   let caught := List(for (_, c) in split if c.guard == None yield (c.typ, c.pat.that)) in
   let left := Map(for t => p in body.raised if not catches_all(scope.sig, TSort(t, List()), caught) yield t => p) in
@@ -380,7 +380,7 @@ function handled(scope: Scope, body: Flow, catches: List[Pos * Catch]): Flow :=
 
 // the handlers of the alternatives of the handler c at p, each at its alternative, with its type, if c has alternatives
 // at the top, see handler_pattern of ulang/check/check.u
-function handler_alternatives(p: Pos, c: Catch): List[Pos * Catch] :=
+function handler_alternatives(p: Pos, c: Catch): List[(Pos, Catch)] :=
   match c.pat.that
     case POr(_) =>
       List(for d in expanded_handlers(List(nowhere(c))) yield (d.that.pat.pos, d.that))
@@ -388,7 +388,7 @@ function handler_alternatives(p: Pos, c: Catch): List[Pos * Catch] :=
       List((p, c))
   end
 
-function catches_all(sig: Sig, t: Type, caught: List[Type * Pat]): Bool :=
+function catches_all(sig: Sig, t: Type, caught: List[(Type, Pat)]): Bool :=
   exists(caught, lambda (_, pat) => pat == PWild) or covers_all(sig, t, List(for (u, pat) in caught if u == t yield pat))
 
 function contains_key(raised: Map[Name, Pos], t: Type): Bool :=

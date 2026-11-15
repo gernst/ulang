@@ -23,7 +23,7 @@ function fraction(n: Int, d: Int): Fraction :=
 function half(n: Int): Fraction :=
   Half(n)
 
-function value(f: Fraction): Int * Int :=
+function value(f: Fraction): (Int, Int) :=
   match f
     case Fraction(num, den) =>
       (num, den)

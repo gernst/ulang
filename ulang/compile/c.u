@@ -40,8 +40,8 @@ data Linkage :=
 
 data CDecl :=
   case CdInclude(header: Str)
-  case CdPrototype(linkage: Linkage, typ: CType, fun: Str, formals: List[CType * Str])
-  case CdFunction(linkage: Linkage, typ: CType, fun: Str, formals: List[CType * Str], body: List[CStmt])
+  case CdPrototype(linkage: Linkage, typ: CType, fun: Str, formals: List[(CType, Str)])
+  case CdFunction(linkage: Linkage, typ: CType, fun: Str, formals: List[(CType, Str)], body: List[CStmt])
   case CdGlobal(linkage: Linkage, typ: CType, name: Str, init: Option[CExpr])
 
 data CFile :=
@@ -209,7 +209,7 @@ function format_stmts(indent: Str, stmts: List[CStmt]): List[Str] :=
   List(for stmt in stmts for line in format_stmt(indent, stmt) yield line)
 
 // the formals of a function, which are void if there are none
-function format_formals(formals: List[CType * Str]): Str :=
+function format_formals(formals: List[(CType, Str)]): Str :=
   match formals
     case List() =>
       "void"
@@ -217,7 +217,7 @@ function format_formals(formals: List[CType * Str]): Str :=
       join(", ", List(for formal in formals yield format_formal(formal)))
   end
 
-function format_formal(formal: CType * Str): Str :=
+function format_formal(formal: (CType, Str)): Str :=
   match formal
     case (typ, name) =>
       format_typed(typ, name)

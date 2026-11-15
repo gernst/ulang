@@ -110,10 +110,10 @@ function restrict(sig: Sig, ms: List[Id]): Sig :=
 function owned_map[V](m: Map[Name, V], ms: List[Id]): Map[Name, V] :=
   Map(for (k, v) in owned(List(for k => v in m), ms))
 
-function owned[V](es: List[Name * V], ms: List[Id]): List[Name * V] :=
+function owned[V](es: List[(Name, V)], ms: List[Id]): List[(Name, V)] :=
   List(for (n, v) in es if is_in_modules(n, ms))
 
-function owned_named(es: List[Id * List[Name]], ms: List[Id]): List[Id * List[Name]] :=
+function owned_named(es: List[(Id, List[Name])], ms: List[Id]): List[(Id, List[Name])] :=
   match es
     case List() =>
       List()
@@ -152,7 +152,7 @@ function without[V](m: Map[Name, V], names: Set[Name]): Map[Name, V] :=
 function declares(sig: Sig, n: Name): Bool :=
   is_type_alias(sig, n) or is_fun(sig, n) or is_proc(sig, n) or is_data(sig, n) or is_constr(sig, n) or is_pat_alias(sig, n)
 
-function union_named(es: List[Id * List[Name]], bs: Map[Id, List[Name]]): Map[Id, List[Name]] :=
+function union_named(es: List[(Id, List[Name])], bs: Map[Id, List[Name]]): Map[Id, List[Name]] :=
   match es
     case List() =>
       bs

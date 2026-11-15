@@ -272,7 +272,7 @@ function is_operator(t: Option[Token]): Bool :=
   end
 
 // alternatives whose variables are in other orders and positions
-function first_of(p: Int * Token): Int :=
+function first_of(p: (Int, Token)): Int :=
   match p
     case (k, TPlus | TEnd) | (_, TNum(k) | TNeg(k)) =>
       k
@@ -281,7 +281,7 @@ function first_of(p: Int * Token): Int :=
   end
 
 // a guard that fails on one alternative tries the next, as the cases of the alternatives do
-function non_zero(p: Int * Int): Int :=
+function non_zero(p: (Int, Int)): Int :=
   match p
     case (x, 0) | (0, x) if x != 0 =>
       x
