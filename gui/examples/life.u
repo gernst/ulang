@@ -1,0 +1,66 @@
+import gui
+
+// the game of life on a torus of cells, which a click on the canvas flips
+data Model :=
+  case Model(alive: Set[(Int, Int)], generation: Int)
+
+data Msg :=
+  case Step
+  case Flip(x: Int, y: Int)
+  case Clear
+
+function cells(): Int :=
+  24
+
+function pixels(): Int :=
+  12
+
+function neighbours(cell: (Int, Int)): List[(Int, Int)] :=
+  let (x, y) := cell in
+  List(for dx in List(-1, 0, 1) for dy in List(-1, 0, 1) if dx != 0 or dy != 0 yield ((x + dx + cells()) % cells(), (y + dy + cells()) % cells()))
+
+function count(alive: Set[(Int, Int)], cell: (Int, Int)): Int :=
+  size(List(for n in neighbours(cell) if contains(n, alive)))
+
+function step(alive: Set[(Int, Int)]): Set[(Int, Int)] :=
+  Set(for cell in Set(for cell in alive for n in List(cell; neighbours(cell)) yield n) if count(alive, cell) == 3 or count(alive, cell) == 2 and contains(cell, alive))
+
+function flipped(cell: (Int, Int), alive: Set[(Int, Int)]): Set[(Int, Int)] :=
+  if contains(cell, alive) then remove(cell, alive) else insert(cell, alive)
+
+function update(msg: Msg, model: Model): Model :=
+  match msg
+    case Step =>
+      Model(step(model.alive), model.generation + 1)
+
+    case Flip(x, y) =>
+      model with alive := flipped((x / pixels(), y / pixels()), model.alive)
+
+    case Clear =>
+      Model(Set(), 0)
+  end
+
+function view(model: Model): Widget[Msg] :=
+  let side := cells() * pixels() in
+  column(List(spacing(6)), List(
+    canvas(List(size(side, side), on_pointer(lambda x, y => Flip(x, y))), List(
+      rect(0, 0, side, side, Rgb(250, 250, 245)); List(for (x, y) in model.alive yield rect(x * pixels() + 1, y * pixels() + 1, pixels() - 2, pixels() - 2, Rgb(40, 90, 160))))),
+    row(List(spacing(4)), List(
+      button(List(on_click(Step)), List(text("Step"))),
+      button(List(on_click(Clear)), List(text("Clear"))),
+      text("generation " ++ show(model.generation) ++ ", " ++ show(size(model.alive)) ++ " alive")))))
+
+function glider(): Set[(Int, Int)] :=
+  Set((1, 0), (2, 1), (0, 2), (1, 2), (2, 2))
+
+function life(): App[Model, Msg] :=
+  App("Life", Model(glider(), 0), update, view)
+
+procedure main() raises GuiError, OsError :=
+  gui_run(in life())
+
+test glider_moves() :=
+  let after := simulate(life(), List(Step, Step, Step, Step))
+  assert after.alive == Set(for (x, y) in glider() yield (x + 1, y + 1)) and after.generation == 4
+  assert update(Flip(13, 1), life().init).alive == insert((1, 0), glider()) -- Set((1, 0))
+  assert misplaced(view(life().init)) == List()
