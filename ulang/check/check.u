@@ -112,6 +112,9 @@ procedure check_all(
 // the errors that checking found in q, which holds them as the errors of its commands, in their order
 function diagnostics(q: Prog): List[Diagnostic]
 
+// the errors of cmd of q, whose main module is main, by position, as diagnostics gives them
+function command_diagnostics(main: Id, cmd: At[Cmd]): List[Diagnostic]
+
 // whether checking found errors in q, without those of proofs, which the prover adds (with_proofs of ulang/prove/lemma.u)
 function has_errors(q: Prog): Bool
 
@@ -5068,8 +5071,7 @@ function with_diagnostics(cmd: At[Cmd], ds: List[Diagnostic]): At[Cmd] :=
 function diagnostics(q: Prog): List[Diagnostic] :=
   distinct(List(for cmd in q.cmds ++ q.builtins for d in command_diagnostics(q.main, cmd) yield d))
 
-// the errors of cmd by position, where an error of a part without a module is of the module of cmd, and one of main has
-// none
+// an error of a part without a module is of the module of cmd, and one of main has none
 function command_diagnostics(main: Id, cmd: At[Cmd]): List[Diagnostic] :=
   let m := if is_parsed(cmd) then cmd_module(cmd.that) else None in
   let ds := List(for d in cmd_errors(cmd) if d.kind != ParseKind yield in_main_module(main, d with module := or_else(d.module, m))) in

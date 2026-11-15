@@ -173,11 +173,13 @@ function activate(context) {
     for (const line of (stderr + "\n" + (stdout || "")).split("\n")) {
       const d = parseDiagnostic(line);
       if (!d) continue;
-      const message = d.kind + " error: " + d.message;
+      const warning = d.severity === "warning";
+      const message = d.kind + (warning ? " warning: " : " error: ") + d.message;
       const module = d.module;
       const row = d.line, column = d.column;
-      // an error of a proof is a warning, at its step, else at its lemma or at the function whose termination is open
-      const proof = d.kind === "proof";
+      // an error of a proof is a warning, at its step, else at its lemma or at the function whose termination is open, as
+      // is a diagnostic of the severity warning
+      const proof = d.kind === "proof" || warning;
       const named = d.lemma ? "lemma" : d.function ? "function" : undefined;
       const declared = named ? lines.findIndex((l) => new RegExp("^" + named + "\\s+" + (d.lemma || d.function) + "\\b").test(l)) : -1;
       const at = row ? new vscode.Position(row - 1, column - 1) : new vscode.Position(Math.max(declared, 0), 0);
