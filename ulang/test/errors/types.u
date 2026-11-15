@@ -164,6 +164,24 @@ test example_type() :=
     check_text(in "ulang/test/errors/example-type.u", List("function f(x: Int): Int :=", "  example f(1)", "  x"))
   end
 
+// the examples of the definitions that check are checked with the errors of the others, so that a change that breaks
+// a definition and makes an example stale shows both at once, while those of a definition with errors are left out
+test example_stale_with_errors() :=
+  var errors: List[TypeError]
+  check_text_partial(in "ulang/test/errors/example-stale-with-errors.u", List(
+    "data Point :=",
+    "  case Point(x: Int, y: Int)",
+    "",
+    "function f(p: Point): Int :=",
+    "  example f(Point(1)) == 1",
+    "  example f(Point(1, 2)) == 1",
+    "  p.x",
+    "",
+    "function g(n: Int): Point :=",
+    "  example g(1) == Point(1, 1)",
+    "  Point(n)"), out _, errors)
+  assert List(for e in errors yield error_pos(e)) == List(Pos(11, 3), Pos(5, 13))
+
 test field_unknown_owner() :=
   assert raises Located(None, Pos(2, 26), UnknownFieldOwner(".x")) do
     check_text(in "ulang/test/errors/field-unknown-owner.u", List(

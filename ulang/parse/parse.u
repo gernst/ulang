@@ -236,6 +236,25 @@ function declaring(d: Diagnostic, names: List[Id]): Diagnostic :=
   else
     d with details := d.details ++ List(("declares", join(",", names)))
 
+// the keyword that starts the command at the head of toks, if any
+function command_keyword(toks: Tokens): Option[Str] :=
+  match head_token(toks)
+    case TKw(kw) if is_command_kw(kw) =>
+      Some(kw)
+    case _ =>
+      None
+  end
+
+// d of a command that does not parse with the keyword that started it as the detail command, by which
+// code_free_errors of ulang/syntax/syntax.u tells a lemma or test
+function started_by(d: Diagnostic, started: Option[Str]): Diagnostic :=
+  match started
+    case Some(kw) =>
+      d with details := d.details ++ List(("command", kw))
+    case None =>
+      d
+  end
+
 function whole(docs: List[At[Cmd]]): List[At[Cmd]] :=
   List(for d in docs if is_parsed(d))
 
@@ -1463,11 +1482,11 @@ procedure parse_gens(
         parse_pattern(in notation, params, out v, ref toks)
         expect(in TKw("in"), ref toks)
         parse_expr(in notation, params, out c, ref toks)
-        found := found ++ List(GPair(p, v, c))
+        found := found ++ List(GPair(p, v, c, THole))
       else
         expect(in TKw("in"), ref toks)
         parse_expr(in notation, params, out c, ref toks)
-        found := found ++ List(GVal(p, c))
+        found := found ++ List(GVal(p, c, THole))
       end
     else
       advance(ref toks)
@@ -3432,7 +3451,7 @@ procedure parse_mod(
   ref source: Source,
       toks: Tokens
 ) :=
-  var imports: List[At[Path]] := List(), notation := empty_notation(), plain: List[At[Cmd]] := List(), exported: List[At[Cmd]] := List(), builtins: List[At[Cmd]] := List(), implemented: List[At[Cmd]] := List(), more: List[Cmd], section := Opening, pos: Pos, placed: List[At[Cmd]], text: Str, names: List[Id] := List()
+  var imports: List[At[Path]] := List(), notation := empty_notation(), plain: List[At[Cmd]] := List(), exported: List[At[Cmd]] := List(), builtins: List[At[Cmd]] := List(), implemented: List[At[Cmd]] := List(), more: List[Cmd], section := Opening, pos: Pos, placed: List[At[Cmd]], text: Str, names: List[Id] := List(), started: Option[Str] := None
   import_all(in implicit, root, loading, ref source)
   import_notations(in implicit, source.mods, ref notation)
   notation := notation ++ package
@@ -3445,14 +3464,14 @@ procedure parse_mod(
         match head_token(toks)
           case TKw(kw) if section_named(kw) != None =>
             advance(ref toks)
-            section := value_or(section_named(kw), section), text := kw, names := List()
+            section := value_or(section_named(kw), section), text := kw, names := List(), started := None
 
           case _ =>
-            names := declared_names(toks)
+            names := declared_names(toks), started := command_keyword(toks)
             skip_command(out text, ref toks)
         end
         placed := List(
-          AUnparsed(pos, span_from(pos, toks), text, declaring(parse_diagnostic(ParseError(message, at)), names)))
+          AUnparsed(pos, span_from(pos, toks), text, started_by(declaring(parse_diagnostic(ParseError(message, at)), names), started)))
     end
     match more
       case List(c; rest) =>
@@ -4114,15 +4133,22 @@ test parsed_forms() :=
   parsed(in "Map(a => b, a => c)", out expr)
   assert expr == nowhere(EForm(FMap, List(YPair(a, b), YPair(a, c)), None))
   parsed(in "Array(for x in a if x yield b)", out expr)
-  assert expr == nowhere(EFor(FArray, List(GVal(pat_var("x"), a), GIf(expr_var("x"))), YVal(b), None))
+  assert expr == nowhere(EFor(FArray, List(GVal(pat_var("x"), a, THole), GIf(expr_var("x"))), YVal(b), None))
   parsed(in "Map(for k => v in a)", out expr)
-  assert expr == nowhere(EFor(FMap, List(GPair(pat_var("k"), pat_var("v"), a)), YPair(expr_var("k"), expr_var("v")), None))
+  assert expr == nowhere(EFor(FMap, List(GPair(pat_var("k"), pat_var("v"), a, THole)), YPair(expr_var("k"), expr_var("v")), None))
 
 test code_free_parse_errors_of_lemmas() :=
   var source: Source
   parse_text_recovering(in "procedure main() :=\n  skip\n\nlemma broken(in n: Int) :=\n  ensures\n\nprocedure go() :=\n  x = 1\n", out source)
   assert size(parse_errors(source)) == 2
   assert code_free_parse_errors(source) == take(1, parse_errors(source))
+
+// a test that stops at its keyword, the end of the input, is known as one by the keyword that the parser records, not by its text
+test code_free_parse_errors_of_bare_test() :=
+  var source: Source
+  parse_text_recovering(in "procedure main() :=\n  skip\n\ntest", out source)
+  assert size(parse_errors(source)) == 1
+  assert code_free_parse_errors(source) == parse_errors(source)
 
 test contracts_recover() :=
   var source: Source

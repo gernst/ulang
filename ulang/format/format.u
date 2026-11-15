@@ -624,10 +624,10 @@ function elem_text(notation: Notation, notes: List[Comment], indent: Str, elem: 
 // for p in c, for k => v in m, or if q
 function gen_text(notation: Notation, notes: List[Comment], indent: Str, g: Gen): Str :=
   match g
-    case GVal(p, c) =>
+    case GVal(p, c, _) =>
       "for " ++ format_pattern(notation, indent, p) ++ in_text(notation, notes, indent, c)
 
-    case GPair(k, v, c) =>
+    case GPair(k, v, c, _) =>
       "for " ++ format_pattern(notation, indent, k) ++ " => " ++ format_pattern(notation, indent, v) ++ in_text(notation, notes, indent, c)
 
     case GIf(q) =>
@@ -964,10 +964,10 @@ function is_before_catch(c: Comment, catches: List[At[Catch]]): Bool :=
 // the stop of the generators, or the start of the body if there are none
 function gens_stop(gens: List[Gen], body: At[Stmt]): Pos :=
   match reverse(gens)
-    case List(GVal(_, c); _) =>
+    case List(GVal(_, c, _); _) =>
       c.span.stop
 
-    case List(GPair(_, _, c); _) =>
+    case List(GPair(_, _, c, _); _) =>
       c.span.stop
 
     case List(GIf(q); _) =>

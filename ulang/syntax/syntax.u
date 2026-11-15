@@ -129,10 +129,11 @@ data Yield :=
   case YPair(key: At[Expr], value: At[Expr])
 
 data Gen :=
-  // for p in c over a list, set, or array, where p is irrefutable
-  case GVal(pat: At[Pat], over: At[Expr])
+  // for p in c over a list, set, or array, where p is irrefutable, and typ is the type of c, which the parser leaves
+  // THole and the checker infers, so that the expansions of ulang/expand/expand.u take the folds of its module
+  case GVal(pat: At[Pat], over: At[Expr], typ: Type)
   // for k => v in m over a map
-  case GPair(key: At[Pat], value: At[Pat], over: At[Expr])
+  case GPair(key: At[Pat], value: At[Pat], over: At[Expr], typ: Type)
   // a guard if q after a generator
   case GIf(cond: At[Expr])
 
@@ -473,6 +474,11 @@ function expanded_cases[A](cases: List[At[Branch[A]]]): List[At[Branch[A]]]
 // its alternative with, which readers of the type of a handler take apart first
 function expanded_handlers(cases: List[At[Catch]]): List[At[Catch]]
 
+// the handlers of the alternatives of the handler c that the compilers test one after another: one per alternative at
+// the top of its pattern, each of a type of its own, see handler_pattern of ulang/check/check.u, split further as the
+// pattern of a case by tested_alternatives, so that the alternatives inside stay where they stand
+function tested_handlers(c: Catch): List[Catch]
+
 // the variables of patterns that are all variables
 function pattern_vars(pats: List[At[Pat]]): Option[List[Var]]
 
@@ -485,8 +491,6 @@ function raised_types(raised: Raises): List[Type]
 function implicit_elem(form: Form, gens: List[Gen]): Option[Yield]
 
 function form_name(form: Form): Id
-
-function lambda_vars(formals: List[At[Pat]]): List[Var]
 
 // a lambda of the variables xs, placed at pos
 function lambda_of(pos: Pos, span: Span, xs: List[Var], body: At[Expr]): Expr
@@ -509,6 +513,9 @@ function part_errors(cmd: Cmd): List[Diagnostic]
 // the errors of the parts of cmd that generate no code, which a program leaves out: all of a lemma or a test, also of one
 // that does not parse, and those of the contract of a function or a procedure
 function code_free_errors(cmd: At[Cmd]): List[Diagnostic]
+
+// the errors of the parts of expr
+function errors_in_expr(expr: At[Expr]): List[Diagnostic]
 
 function is_lemma_or_test(cmd: Cmd): Bool
 
@@ -881,20 +888,16 @@ function seen_modules(d: Mod, packages: List[Package]): List[Path] :=
 function unplaced(cmds: List[Cmd]): List[At[Cmd]] :=
   List(for c in cmds yield nowhere(c))
 
-// the variables of the formals of a checked lambda, which the checker makes variables
-function lambda_vars(formals: List[At[Pat]]): List[Var] :=
-  value_or(pattern_vars(formals), List())
-
 function lambda_of(pos: Pos, span: Span, xs: List[Var], body: At[Expr]): Expr :=
   ELam(List(for x in xs yield AOk(pos, span, PVar(x))), body)
 
 // what a form of a single generator yields without yield, the value its pattern matches, an entry of a map
 function implicit_elem(form: Form, gens: List[Gen]): Option[Yield] :=
   match (List(for g in gens if not is_guard(g)), form)
-    case (List(GPair(k, v, _)), FMap) =>
+    case (List(GPair(k, v, _, _)), FMap) =>
       pair_elem(pattern_expr(k), pattern_expr(v))
 
-    case (List(GPair(k, v, _)), _) =>
+    case (List(GPair(k, v, _, _)), _) =>
       match (pattern_expr(k), pattern_expr(v))
         case (Some(a), Some(b)) =>
           Some(YVal(AOk(k.pos, span_over(k, v), ETuple(List(a, b)))))
@@ -902,13 +905,13 @@ function implicit_elem(form: Form, gens: List[Gen]): Option[Yield] :=
           None
       end
 
-    case (List(GVal(AOk(_, _, PTuple(List(k, v))), _)), FMap) =>
+    case (List(GVal(AOk(_, _, PTuple(List(k, v))), _, _)), FMap) =>
       pair_elem(pattern_expr(k), pattern_expr(v))
 
-    case (List(GVal(_, _)), FMap) =>
+    case (List(GVal(_, _, _)), FMap) =>
       None
 
-    case (List(GVal(p, _)), _) =>
+    case (List(GVal(p, _, _)), _) =>
       map_option(pattern_expr(p), YVal)
 
     case _ =>
@@ -1136,6 +1139,15 @@ function expanded_cases[A](cases: List[At[Branch[A]]]): List[At[Branch[A]]] :=
 
 function expanded_handlers(cases: List[At[Catch]]): List[At[Catch]] :=
   List(for d in cases for q in alternatives(d.that.pat) yield d with that := alternative_handler(d.that, q))
+
+function tested_handlers(c: Catch): List[Catch] :=
+  let tops := match c.pat.that
+    case POr(alts) =>
+      alts
+    case _ =>
+      List(c.pat)
+  end in
+  List(for top in tops for q in tested_alternatives(alternative_handler(c, top).pat, c.guard != None) yield alternative_handler(c, top) with pat := q)
 
 // the handler c of the alternative q of its pattern, whose annotation at the top is the type of the exception that it
 // matches, as the checker types the alternatives of a handler
@@ -1380,11 +1392,11 @@ function strip_yield(y: Yield): Yield :=
 
 function strip_gen(g: Gen): Gen :=
   match g
-    case GVal(pat, over) =>
-      GVal(strip_pat(pat), strip_expr(over))
+    case GVal(pat, over, typ) =>
+      GVal(strip_pat(pat), strip_expr(over), typ)
 
-    case GPair(key, value, over) =>
-      GPair(strip_pat(key), strip_pat(value), strip_expr(over))
+    case GPair(key, value, over, typ) =>
+      GPair(strip_pat(key), strip_pat(value), strip_expr(over), typ)
 
     case GIf(cond) =>
       GIf(strip_expr(cond))
@@ -1587,8 +1599,8 @@ function part_errors(cmd: Cmd): List[Diagnostic] :=
 
 function code_free_errors(cmd: At[Cmd]): List[Diagnostic] :=
   match cmd
-    case AUnparsed(_, _, text, error) =>
-      if starts_with(text, "lemma ") or starts_with(text, "test ") then
+    case AUnparsed(_, _, _, error) =>
+      if exists(unparsed_command(error), lambda kw => kw == "lemma" or kw == "test") then
         List(error)
       else
         List()
@@ -1602,6 +1614,11 @@ function code_free_errors(cmd: At[Cmd]): List[Diagnostic] :=
     case AErr(_, _, that, _) =>
       if is_lemma_or_test(that) then cmd_errors(cmd) else code_free_parts(that)
   end
+
+// the keyword that started a command that does not parse, which the parser records in its error (started_by of
+// ulang/parse/parse.u)
+function unparsed_command(error: Diagnostic): Option[Str] :=
+  map_option(find(error.details, lambda (k, _) => k == "command"), second)
 
 function is_lemma_or_test(cmd: Cmd): Bool :=
   match cmd
@@ -1771,10 +1788,10 @@ function yielded(y: Yield): List[At[Expr]] :=
 
 function generated(g: Gen): List[At[Expr]] :=
   match g
-    case GVal(_, over) =>
+    case GVal(_, over, _) =>
       List(over)
 
-    case GPair(_, _, over) =>
+    case GPair(_, _, over, _) =>
       List(over)
 
     case GIf(cond) =>
