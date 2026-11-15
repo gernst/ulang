@@ -72,6 +72,10 @@ __attribute__((constructor)) static void init(void) {
   GC_INIT();
   // a small heap collects often while it grows, which took half the time of the compiler
   GC_expand_hp(256 << 20);
+  // a collection only after as much as the heap holds, not after a third of it, took make test from 89 s to 63 s and
+  // the compiler of itself from 8.0 s to 6.2 s, with heaps of 560 MB and 1.25 GB instead of 390 MB and 850 MB; the
+  // variable GC_FREE_SPACE_DIVISOR of libgc still decides where it is set
+  if (!getenv("GC_FREE_SPACE_DIVISOR")) GC_set_free_space_divisor(1);
   mp_set_memory_functions(GC_malloc, gc_realloc, gc_free);
   for (int i = 0; i <= SMALL_MAX - SMALL_MIN; i++) {
     small_ints[i].type = &u_int_type;
@@ -1068,11 +1072,15 @@ void u_fail_text(const char *format, u_value text) {
 
 static struct u_handler *handlers = NULL;
 
-struct u_handler *u_push(void) {
-  struct u_handler *h = GC_MALLOC(sizeof(struct u_handler));
+struct u_handler *u_push_saved(int n) {
+  struct u_handler *h = GC_MALLOC(sizeof(struct u_handler) + (size_t)n * sizeof(u_value));
   h->next = handlers;
   handlers = h;
   return h;
+}
+
+struct u_handler *u_push(void) {
+  return u_push_saved(0);
 }
 
 struct u_handler *u_push_cache(u_value *cache) {

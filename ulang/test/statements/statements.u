@@ -495,6 +495,50 @@ test restored_by_raise() :=
   end
   assert (k, n) == (10, 0)
 
+procedure take_head(out x: Int, ref xs: List[Int]) :=
+  match xs
+    case List(y; rest) =>
+      x := y, xs := rest
+    case List() =>
+      x := 0
+  end
+
+procedure require_odd(in x: Int) raises Fail :=
+  if x % 2 == 0 then
+    raise Fail
+  end
+
+procedure drop_two(ref xs: List[Int]) :=
+  match xs
+    case List(_, _; rest) =>
+      xs := rest
+    case _ =>
+      xs := List()
+  end
+
+// the odd numbers of xs, where an even one drops itself and the number after it, from xs as before the try, which
+// take_head moved before require_odd raised, as the recovery of a parser reads its tokens
+procedure skip_evens(out kept: List[Int], ref xs: List[Int]) :=
+  var x := 0
+  kept := List()
+  while xs != List() do
+    try
+      take_head(out x, ref xs)
+      require_odd(in x)
+      kept := kept ++ List(x)
+    catch
+      case Fail =>
+        drop_two(ref xs)
+    end
+  end
+
+// clang -O2 and gcc -O3 dropped copies of the variables in locals of the function of the try and their restore after
+// setjmp, so that the handler saw xs as the body left it
+test restored_after_return() :=
+  var kept: List[Int], xs := List(1, 2, 3, 5, 7)
+  skip_evens(out kept, ref xs)
+  assert kept == List(1, 5, 7)
+
 procedure half(out r: Int) :=
   r := 1
   raise Fail

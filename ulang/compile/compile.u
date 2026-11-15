@@ -752,8 +752,9 @@ function not_flag(d: Str): CExpr :=
 function pop_handler(d: Str): CStmt :=
   call_c("u_pop", List(CeVar(d)))
 
-function push_handler(d: Str): CStmt :=
-  CsDecl(CtPtr(CtNamed("struct u_handler")), d, Some(c_call("u_push", List())))
+// the handler d with n slots for the variables that the body of its try assigns
+function push_handler(d: Str, n: Int): CStmt :=
+  CsDecl(CtPtr(CtNamed("struct u_handler")), d, Some(c_call("u_push_saved", List(CeNum(n)))))
 
 function setjmp_zero(d: Str): CExpr :=
   CeBinary("==", c_call("setjmp", List(CeArrow(CeVar(d), "env"))), CeNum(0))
@@ -761,11 +762,31 @@ function setjmp_zero(d: Str): CExpr :=
 function null_decls(locals: List[Var]): List[CStmt] :=
   List(for x in locals yield declare_null(x.name))
 
-function save_vars(env: Vars, xs: List[Name]): List[CStmt] :=
-  List(for x in xs yield declare(saved_name(x), var_expr(env, x)))
+// the variables xs, from slot i on, in the slots of the handler d, not in locals, since clang -O2 and gcc -O3 drop a copy
+// into a local and its restore after setjmp, while they reload the slots, which setjmp and the calls of the body may
+// change through d
+function save_vars(env: Vars, xs: List[Name], d: Str, i: Int): List[CStmt] :=
+  match xs
+    case List(x; rest) =>
+      List(
+        CsAssign(saved_slot(d, i), var_expr(env, x)); save_vars(env, rest, d, i + 1))
 
-function restore_vars(env: Vars, xs: List[Name]): List[CStmt] :=
-  List(for x in xs yield CsAssign(var_expr(env, x), CeVar(saved_name(x))))
+    case List() =>
+      List()
+  end
+
+function restore_vars(env: Vars, xs: List[Name], d: Str, i: Int): List[CStmt] :=
+  match xs
+    case List(x; rest) =>
+      List(
+        CsAssign(var_expr(env, x), saved_slot(d, i)); restore_vars(env, rest, d, i + 1))
+
+    case List() =>
+      List()
+  end
+
+function saved_slot(d: Str, i: Int): CExpr :=
+  CeIndex(CeArrow(CeVar(d), "saved"), CeNum(i))
 
 function address_args(env: Vars, outs: List[Var], refs: List[Var]): List[CExpr] :=
   List(for x in outs ++ refs yield address(var_expr(env, x.name)))
@@ -944,8 +965,8 @@ procedure compile_stmt(
   end
 
 // the body, compiled to bs, runs after setjmp returns 0, and the handlers after a raise jumps back, which raise again if
-// none applies, where the handlers start from the variables before the try, which their copies, unchanged since setjmp,
-// restore
+// none applies, where the handlers start from the variables before the try, which they restore from the slots of the
+// handler
 procedure compile_try(
   in  defs: Defs,
       env: Vars,
@@ -960,14 +981,11 @@ procedure compile_try(
   gen_name(in "d", out t, ref g)
   handler_cases(in defs, env, catches, d, t, out cs, ref g)
   xs := List(for x in distinct(changed(body)) if get(x, env) != None)
-  as := List(pop_handler(d)) ++ restore_vars(env, xs) ++ List(declare_int(t, 0))
+  as := List(pop_handler(d)) ++ restore_vars(env, xs, d, 0) ++ List(declare_int(t, 0))
   as := as ++ cs ++ List(CsIf(not_flag(t), List(call_c("u_reraise", List(CeVar(d)))), List()))
-  ss := save_vars(env, xs) ++ List(push_handler(d))
+  ss := List(push_handler(d, size(xs))) ++ save_vars(env, xs, d, 0)
   ss := List(
     CsBlock(ss ++ List(CsIf(setjmp_zero(d), bs ++ List(pop_handler(d)), as))))
-
-function saved_name(x: Name): Str :=
-  "was_" ++ var_name(x)
 
 procedure compile_stmts(
   in  defs: Defs,
