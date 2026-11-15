@@ -2192,8 +2192,8 @@ procedure infer_node(
           unhidden(in env, xs, ref s)
           infer_body(in bind(xs) ++ env, body, expected, out b, typ, ref s)
           solve(ref s)
-          for (pat, t) in zip(pats, ts) do
-            coverage(in t, List((pat, true)), ref s)
+          for ((pat, t), written) in zip(zip(pats, ts), firsts(bound)) do
+            coverage(in t, List((pat, true)), List(written), ref s)
           end
           res := ELet(zip(pats, exprs), b)
       end
@@ -2231,7 +2231,7 @@ procedure infer_node(
       infer(in env, arg, out c, u, ref s)
       expr_branches(in env, cases, u, typ, out bs, ref s)
       solve(ref s)
-      coverage(in u, List(for br in bs yield case_of(br)), ref s)
+      coverage(in u, List(for br in bs yield case_of(br)), firsts(List(for br in cases yield case_of(br))), ref s)
       res := EMatch(c, bs)
 
     // forms as the builders of the module of their name, and their generators as the folds of the modules of the
@@ -3111,29 +3111,158 @@ procedure guard(
       typed_guard := None
   end
 
-// guarded cases neither cover values for exhaustiveness nor make later cases unreachable
-procedure coverage(in t: Type, cs: List[(At[Pat], Bool)], ref s: State) :=
+// guarded cases neither cover values for exhaustiveness nor make later cases unreachable, and the patterns as written,
+// one per case, name an unreachable case as its source does, with its pattern aliases
+procedure coverage(
+  in  t: Type,
+      cs: List[(At[Pat], Bool)],
+      written: List[At[Pat]],
+  ref s: State
+) :=
   if zonk_type(s.sub, t) != TError then
-    coverage_known(in t, cs, ref s)
+    coverage_known(in t, cs, written, ref s)
   end
 
-// coverage of a type that no error reaches, which says which values there are
-procedure coverage_known(in t: Type, cs: List[(At[Pat], Bool)], ref s: State) :=
-  reachable(in t, List(), cs, ref s)
+// coverage of a type that no error reaches, which says which values there are, where a missing value is named by the
+// pattern aliases that the module sees
+procedure coverage_known(
+  in  t: Type,
+      cs: List[(At[Pat], Bool)],
+      written: List[At[Pat]],
+  ref s: State
+) :=
+  reachable(in t, List(), List(for ((p, open), w) in zip(cs, written) yield (p, w, open)), ref s)
   match missing(s.sig, s.sub, List(for p in unguarded(cs) yield List(p)), List(t))
     case Some(List(w; _)) =>
-      report(in NotExhaustive(w), ref s)
+      report(in NotExhaustive(with_aliases(visible_aliases(s), w)), ref s)
     case _ =>
       skip
+  end
+
+function visible_aliases(s: State): List[(Name, PatAlias)] :=
+  List(for k => alias in s.sig.pat_aliases if is_visible(s, k) and pattern_size(alias.pat.that) > 0 yield (k, alias))
+
+// the witness with each part that an alias matches written as that alias, the outermost first, preferring the alias whose
+// pattern has the most constructors and literals
+function with_aliases(aliases: List[(Name, PatAlias)], pat: Pat): Pat :=
+  match best_alias(aliases, pat, None)
+    case Some((k, alias, bound, _)) =>
+      PApp(k, List(for x in alias.formals yield nowhere(with_aliases(aliases, value_or(get(x.name, bound), PWild)))))
+    case None =>
+      with_aliases_inside(aliases, pat)
+  end
+
+function with_aliases_inside(aliases: List[(Name, PatAlias)], pat: Pat): Pat :=
+  match pat
+    case PApp(constr, args) =>
+      PApp(constr, List(for a in args yield map_at(a, lambda p => with_aliases(aliases, p))))
+
+    case PTuple(args) =>
+      PTuple(List(for a in args yield map_at(a, lambda p => with_aliases(aliases, p))))
+
+    case POr(alts) =>
+      POr(List(for a in alts yield map_at(a, lambda p => with_aliases(aliases, p))))
+
+    case PAnnotated(inner, typ) =>
+      PAnnotated(map_at(inner, lambda p => with_aliases(aliases, p)), typ)
+
+    case PWild | PLit(_) | PVar(_) =>
+      pat
+  end
+
+function best_alias(aliases: List[(Name, PatAlias)], pat: Pat, best: Option[(Name, PatAlias, List[(Name, Pat)], Int)]): Option[(Name, PatAlias, List[(Name, Pat)], Int)] :=
+  match aliases
+    case List() =>
+      best
+
+    case List((k, alias); rest) =>
+      match alias_match(alias.pat.that, pat)
+        case Some(bound) if pattern_size(alias.pat.that) > value_or(map_option(best, lambda (_, _, _, n) => n), 0) =>
+          best_alias(rest, pat, Some((k, alias, bound, pattern_size(alias.pat.that))))
+        case _ =>
+          best_alias(rest, pat, best)
+      end
+  end
+
+// the parts of pat that the variables of the pattern p of an alias bind, if p matches every value that pat matches
+function alias_match(p: Pat, pat: Pat): Option[List[(Name, Pat)]] :=
+  match (p, pat)
+    case (PVar(x), _) =>
+      Some(List((x.name, pat)))
+
+    case (PWild, _) =>
+      Some(List())
+
+    case (PAnnotated(inner, _), _) =>
+      alias_match(inner.that, pat)
+
+    case (_, PAnnotated(inner, _)) =>
+      alias_match(p, inner.that)
+
+    case (POr(alts), _) =>
+      find_map(alts, lambda a => alias_match(a.that, pat))
+
+    case (PLit(a), PLit(b)) =>
+      if a == b then Some(List()) else None
+
+    case (PApp(k, ps), PApp(k_, qs)) =>
+      if k == k_ then alias_matches(ps, qs) else None
+
+    case (PTuple(ps), PTuple(qs)) =>
+      alias_matches(ps, qs)
+
+    case _ =>
+      None
+  end
+
+function alias_matches(ps: List[At[Pat]], qs: List[At[Pat]]): Option[List[(Name, Pat)]] :=
+  match (ps, qs)
+    case (List(), List()) =>
+      Some(List())
+
+    case (List(p; ps_), List(q; qs_)) =>
+      match (alias_match(p.that, q.that), alias_matches(ps_, qs_))
+        case (Some(bound), Some(more)) =>
+          Some(bound ++ more)
+        case _ =>
+          None
+      end
+
+    case _ =>
+      None
+  end
+
+// the number of constructors and literals of a pattern, by which the alias that says most is chosen
+function pattern_size(pat: Pat): Int :=
+  match pat
+    case PApp(_, args) =>
+      1 + foldl(args, 0, lambda n, a => n + pattern_size(a.that))
+
+    case PTuple(args) =>
+      foldl(args, 0, lambda n, a => n + pattern_size(a.that))
+
+    case POr(alts) =>
+      foldl(alts, 0, lambda n, a => max(n, pattern_size(a.that)))
+
+    case PAnnotated(inner, _) =>
+      pattern_size(inner.that)
+
+    case PLit(_) =>
+      1
+
+    case PWild | PVar(_) =>
+      0
   end
 
 function unguarded(cs: List[(At[Pat], Bool)]): List[Pat] :=
   List(for (p, g) in cs if g yield p.that)
 
+// the typed pattern of each case with the pattern as written, which names it in the error, where an alias whose
+// pattern has alternatives names each of them
 procedure reachable(
   in  t: Type,
       before: List[Pat],
-      cs: List[(At[Pat], Bool)],
+      cs: List[(At[Pat], At[Pat], Bool)],
   ref s: State
 ) :=
   match cs
@@ -3141,18 +3270,33 @@ procedure reachable(
       skip
 
     // each alternative against the cases before and the alternatives before it
-    case List((AOk(_, _, POr(alts)), open); rest) =>
-      reachable(in t, before, List(for a in alts yield (a, open)) ++ rest, ref s)
+    case List((AOk(_, _, POr(alts)), written, open); rest) =>
+      let sources := written_alternatives(written, size(alts))
+      reachable(in t, before, List(for (a, w) in zip(alts, sources) yield (a, w, open)) ++ rest, ref s)
 
-    case List((p, open); rest) =>
+    case List((p, written, open); rest) =>
       if not is_useful(s.sig, s.sub, List(for q in before yield List(q)), List(p.that), List(t)) then
-        report(in at_use(p.pos, Unreachable(p.that)), ref s)
+        report(in at_use(p.pos, Unreachable(written.that)), ref s)
       end
       if open then
         reachable(in t, before ++ List(p.that), rest, ref s)
       else
         reachable(in t, before, rest, ref s)
       end
+  end
+
+// the alternatives of a pattern as written, which match those of its typed pattern unless an alias expanded to them, which
+// then names each
+function written_alternatives(written: At[Pat], n: Int): List[At[Pat]] :=
+  match written.that
+    case POr(alts) if size(alts) == n =>
+      alts
+
+    case PAnnotated(inner, _) =>
+      written_alternatives(inner, n)
+
+    case _ =>
+      replicate(n, written)
   end
 
 procedure typed_pattern(
@@ -3613,7 +3757,7 @@ procedure statement_node(
       infer(in env, arg, out c, t, ref s)
       stmt_branches(in assignable, cases, t, out bs, ref env, s)
       solve(ref s)
-      coverage(in t, List(for br in bs yield case_of(br)), ref s)
+      coverage(in t, List(for br in bs yield case_of(br)), firsts(List(for br in cases yield case_of(br))), ref s)
       y := SMatch(c, bs)
 
     case SAssert(cond) =>
@@ -3656,7 +3800,7 @@ procedure statement_node(
       items(in env, pos, span, loop_container(pos, span, gens), out over, t, ref s)
       typed_pattern(in loop_pattern(pos, span, gens), t, out typed_pat, xs, ref s)
       solve(ref s)
-      coverage(in t, List((typed_pat, true)), ref s)
+      coverage(in t, List((typed_pat, true)), List(loop_pattern(pos, span, gens)), ref s)
       unhidden(in env, xs, ref s)
       inner := bind(xs) ++ env
       statement(in assignable -- List(for x in xs yield x.name), loop_body(gens, body), out typed_body, ref inner, s)
@@ -6042,7 +6186,7 @@ test coverage() :=
     check_program(in with_lists(List(
       CFun(unqualified("f"), List(), unplaced_vars(List(Var(unqualified("xs"), type_plain_list(TInt())))), TInt(), no_spec(), nowhere(EMatch(expr_var("xs"), List(case_at(pat_var("Nil"), expr_int(0)))))))), out _)
   end
-  assert raises Unreachable(PNil()) do
+  assert raises Unreachable(PVar(Var(Name(None, "Nil"), THole))) do
     check_program(in with_lists(List(
       CFun(unqualified("f"), List(), unplaced_vars(List(Var(unqualified("xs"), type_plain_list(TInt())))), TInt(), no_spec(), nowhere(EMatch(expr_var("xs"), List(
         case_at(nowhere(PWild), expr_int(0)),

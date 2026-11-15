@@ -153,11 +153,15 @@ test missing_successor() :=
       "  end"))
   end
 
+// a missing value is named by the alias that matches it
 test pattern_alias_missing() :=
-  assert raises Located(None, Pos(5, 3), NotExhaustive(_)) do
+  assert raises Located(None, Pos(8, 3), NotExhaustive(PApp(Name(Some("ulang/test/errors/pattern-alias-missing"), "No"), List()))) do
     check_text(in "ulang/test/errors/pattern-alias-missing.u", List(
       "pattern Yes(): Option[Bool] :=",
       "  Some(true)",
+      "",
+      "pattern No(): Option[Bool] :=",
+      "  Some(false)",
       "",
       "function f(b: Option[Bool]): Int :=",
       "  match b",
@@ -168,8 +172,9 @@ test pattern_alias_missing() :=
       "  end"))
   end
 
+// an unreachable case is named as written, by its alias
 test pattern_alias_unreachable() :=
-  assert raises Located(None, Pos(9, 10), Unreachable(_)) do
+  assert raises Located(None, Pos(9, 10), Unreachable(PApp(Name(None, "Yes"), List()))) do
     check_text(in "ulang/test/errors/pattern-alias-unreachable.u", List(
       "pattern Yes(): Option[Bool] :=",
       "  Some(true)",
