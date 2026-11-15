@@ -104,7 +104,7 @@ make test                                 # runs all tests
 
 `out/ulang.sh refactor` edits sources by their meaning, as `format` edits their layout. It runs a script, from a file, from stdin, or as one action on the command line, `out/ulang.sh refactor @show shapes.u:area`. Each action is a line that starts with `@`, which ulang never uses. Its fragment is the lines up to the next action, taken verbatim. A script writes all its files or, if one action is refused, none.
 
-`@show` prints code with handles, `#n` in a margin beside each line that starts a node: a statement, a case, a constructor, or the body of a function.
+`@show` prints code with handles, `#n` in a margin beside each line that starts a node: a statement, a case, a constructor, or an expression that starts its line, the body of a function, the body of a `let` after `in`, a branch of an `if` spread over lines, or an element or argument of a form or call spread one per line. A node is the lines from its first to its last, with what follows it on its last line, such as the comma after an element or the `)` after the last one; `@show` of a node and the echo of an edit also print the comments that `format` places above it, which an edit of the node keeps.
 
 ```
 $ out/ulang.sh refactor @show shapes.u:area
@@ -168,7 +168,7 @@ applied
   shapes.u:23.10 in areas/0 #10: assert area(Square(3)) == 9 and not is_big(Circle(2))
 ```
 
-A node N is a handle `#n`, a handle scoped by its declaration `F:name #n`, which is refused if the handle lies elsewhere, the node of a declaration that starts with a text, `F:name "case Listing"`, or the node at a position, `F:L.C`.
+A node N is a handle `#n`, a handle scoped by its declaration `F:name #n`, which is refused if the handle lies elsewhere, the node of a declaration that starts with a text, `F:name "case Listing"`, or the node at a position, `F:L.C`. The text is all between the first and the last quote of the line, read with the escapes of string literals, `F:name "case List(\"fetch\")"`, and else as written, so that `F:name "case List("fetch")"` names the same node.
 
 | Action | What it does |
 |---|---|
@@ -178,7 +178,7 @@ A node N is a handle `#n`, a handle scoped by its declaration `F:name #n`, which
 | `@put F` | writes the declarations of the fragment into `F`, each replacing the one of its name and arity in place, or added, which the reply says with its section, and says `of another type` where a replacement's types differ; a missing or empty `F` is the fragment, header, imports, and sections; into a file, the `import` lines join its imports and the declarations after `export` go into its export section, which is made if missing; a declaration keeps its doc unless the fragment writes one, the signature in `export` follows the head of its definition, and a comment of no declaration is refused |
 | `@put F:name[/n]` | the declaration of that name in the fragment replaces the target at its place, whatever its arity, with its signature, and the others follow it |
 | `@put [F] before T`, `@put [F] after T` | places the new declarations of the fragment next to the declaration `T` in its section |
-| `@put N`, `@put before N`, `@put after N`, `@put into N` | replaces the node, or inserts code next to it or as its last statement or case, at its indentation, refused for a fragment of another kind than the node, a statement, a case, an expression, or a constructor, or one that writes declarations; a fragment may keep the margin of `@show` |
+| `@put N`, `@put before N`, `@put after N`, `@put into N` | replaces the node, or inserts code next to it or as its last statement or case, at its indentation, refused for a fragment of another kind than the node, a statement, a case, an expression, or a constructor, or one that writes declarations; a fragment may keep the margin of `@show`, and replaces the lines of the node whole, so a fragment at an element writes its comma or `)` too, as one before or after an element writes its comma |
 | `@drop T` | removes a declaration, with its doc and signature, saying the sections where it had more than one, or a node N |
 | `@patch T` | lines `old => new` within the text of a declaration or a node N, its signature and definition alike, each `old` occurring once; or a block, the old lines, a line `=>` alone, and the new lines; a patch that changes nothing is refused |
 | `@rename T new` | renames a function, procedure, pattern alias, or constructor at its declarations and at every use that resolves to it, several per script, with a warning where the new name meets declarations of any arity that the uses also see |
@@ -193,6 +193,7 @@ A node N is a handle `#n`, a handle scoped by its declaration `F:name #n`, which
 - An error in a fragment names its line in the fragment and in the script, `fragment 2.6, script 3.6`.
 - Paths in actions are normal, `./a.u` is `a.u`, and the handles are kept by their paths from the root, so that they hold from any directory.
 - `--dry` reports and writes nothing, and the journal and the handles are kept in `out/refactor/` of the root; the queries write nothing but the handles they show.
+- A query that is refused, `@show`, `@outline`, or `@refs`, takes no other action down with it, since it writes nothing: the reply says `@show T: refused, …` in its place, its first line counts it, `applied, clean, 1 query refused`, and the status is 1, while any other action that is refused refuses the script.
 
 ## Layout
 

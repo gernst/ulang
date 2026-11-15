@@ -584,6 +584,25 @@ procedure mark(
     marks := Map(span.start.line => number; marks)
   end
 
+// region with the comments right above it at the indentation of its first line, on lines of their own and over the blank
+// lines between them, which format places before the node that starts region
+function with_comments(lines: Array[Str], region: Range): Range :=
+  example with_comments(Array("f :=", "  // a", "", "  // b", "  x"), Range(5, 5)) == Range(2, 5)
+  example with_comments(Array("  a", "    // tail", "  b"), Range(3, 3)) == Range(3, 3)
+  region with first := comment_start(lines, region.first - 1, region.first, indent_of(line_at(lines, region.first)))
+
+// the first line of the comments at indent from line upward, or first if line is none of them
+function comment_start(lines: Array[Str], line: Int, first: Int, indent: Int): Int :=
+  let text := line_at(lines, line) in
+  if line < 1 then
+    first
+  else if is_comment_line(text) and indent_of(text) == indent then
+    comment_start(lines, line - 1, line, indent)
+  else if is_blank(text) then
+    comment_start(lines, line - 1, first, indent)
+  else
+    first
+
 function rendered(lines: Array[Str], region: Range, marks: Map[Int, Int]): List[Str] :=
   let width := margin_width(foldl(List(for _ => n in marks yield n), 0, max)) in
   List(for i in range(region.first, region.last + 1) yield if line_at(lines, i) == "" then
@@ -732,7 +751,14 @@ procedure node_by_text(
       raise Refused("a node by its text takes the text that starts it, not \"\"")
 
     case (Some(_), List((key, cmd)), _) =>
-      let found := List(for span in line_nodes(lines, cmd) if starts_with(node_text(lines, span), text))
+      let nodes := line_nodes(lines, cmd)
+      // the text with the escapes of string literals read, else as written, so that raw inner quotes and backslashes work
+      let found := match (starting_with(lines, nodes, unescaped(text)), unescaped(text) != text)
+        case (List(), true) =>
+          starting_with(lines, nodes, text)
+        case (spans, _) =>
+          spans
+      end
       match found
         case List(span) =>
           place := Place(path, lines, key, cmd, span, size(placed_of(d)))
@@ -747,6 +773,33 @@ procedure node_by_text(
 
     case _ =>
       raise Refused("a node by its text takes one declaration F:name[/arity], not " ++ scope)
+  end
+
+function starting_with(lines: Array[Str], nodes: List[Span], text: Str): List[Span] :=
+  List(for span in nodes if starts_with(node_text(lines, span), text))
+
+// text with each escape of a string literal, a backslash and a character of escapes of ulang/syntax/syntax.u, read as the
+// character that it stands for, and any other backslash kept
+function unescaped(text: Str): Str :=
+  example unescaped("case List(\\\"a\\\")") == "case List(\"a\")"
+  example unescaped("a\\\\b\\q") == "a\\b\\q"
+  str(unescaped_chars(chars(text)))
+
+function unescaped_chars(cs: List[Char]): List[Char] :=
+  match cs
+    case List('\\', c; rest) =>
+      match find(escapes(), lambda (e, _) => e == c)
+        case Some((_, d)) =>
+          List(d; unescaped_chars(rest))
+        case None =>
+          List('\\'; unescaped_chars(List(c; rest)))
+      end
+
+    case List(c; rest) =>
+      List(c; unescaped_chars(rest))
+
+    case List() =>
+      List()
   end
 
 // the innermost node around pos in the definition of the file at path that holds it
@@ -940,7 +993,7 @@ procedure show_node(
   resolved_address(in address, edits, out place, label)
   let region := Range(place.span.start.line, place.span.stop.line)
   mark(in place.path, place.lines, place.key, place.cmd, region, ref handles, marks)
-  note(in "@show " ++ label ++ "\n" ++ join("\n", rendered(place.lines, region, marks)), ref edits)
+  note(in "@show " ++ label ++ "\n" ++ join("\n", rendered(place.lines, with_comments(place.lines, region), marks)), ref edits)
   edits := edits with handles := handles
 
 procedure show_target(in word: Str, ref edits: Edits) raises Refused, OsError :=
@@ -1052,7 +1105,7 @@ procedure put_at(
       case (List(first; _), Some(final)) =>
         let shown := Range(first.span.start.line, final.span.stop.line)
         mark(in place.path, result_lines, place.key, cmd, shown, ref handles, marks)
-        note(in join("\n", rendered(result_lines, shown, marks)), ref edits)
+        note(in join("\n", rendered(result_lines, with_comments(result_lines, shown), marks)), ref edits)
 
       case _ =>
         skip
@@ -1808,6 +1861,7 @@ procedure run_actions(
     project_root(in here, out root)
     load_handles(in dir, here, root, out handles)
     var edits := Edits(Map(), empty(), List(), handles, List(), state, List(), false), written: Map[Str, Str] := Map(), failure: Option[Str] := None
+    var refused := 0
     for action in actions(script) if failure == None do
       if is_rename(action) then
         flush(in edits, ref written)
@@ -1819,8 +1873,14 @@ procedure run_actions(
           edits := edits with expected := List()
         end
       catch
+        // a query writes nothing, so its refusal is a note, and the script goes on
+        case Refused(message) | OsError(message) if is_query(action) =>
+          note(in "@" ++ join(" ", action.words) ++ ": refused, " ++ with_script_lines(message, action.line), ref edits)
+          refused := refused + 1
+
         case Refused(message) =>
           failure := Some(with_script_lines(message, action.line))
+
         case OsError(message) =>
           failure := Some(message)
       end
@@ -1857,6 +1917,7 @@ procedure run_actions(
         os_write_utf8(in path, kept)
       end
       reply := List("dry") ++ List(for n in edits.notes) ++ List(for path in changed yield "would write " ++ path)
+      status := if refused > 0 then 1 else 0
     else
       let paths := distinct(changed ++ edits.checked)
       var before: List[(Str, Diagnostic)] := List(), after: List[(Str, Diagnostic)] := List(), found: List[(Str, Diagnostic)]
@@ -1918,8 +1979,9 @@ procedure run_actions(
         tester(in tested, listed, out tests)
       end
       let errors := size(List(for (_, d) in after if not is_warning(d) yield d))
-      reply := List(verdict(paths != List(), errors, size(after) - errors, tests)) ++ List(for n in edits.notes) ++ journaled ++ counts ++ lines ++ tests.lines
-      status := if tests.failed > 0 then 3 else if errors > 0 then 1 else 0
+      reply := List(
+        verdict(paths != List(), errors, size(after) - errors, refused, tests)) ++ List(for n in edits.notes) ++ journaled ++ counts ++ lines ++ tests.lines
+      status := if tests.failed > 0 then 3 else if errors > 0 or refused > 0 then 1 else 0
     end
   catch
     case Refused(message) =>
@@ -1938,6 +2000,15 @@ function normal_words(here: Str, words: List[Str]): List[Str] :=
     case _ =>
       word
   end)
+
+// whether action is a query, which writes nothing but the handles it shows
+function is_query(action: Action): Bool :=
+  match action.words
+    case List("show" | "outline" | "refs"; _) =>
+      true
+    case _ =>
+      false
+  end
 
 function is_rename(action: Action): Bool :=
   match action.words
@@ -2674,11 +2745,13 @@ function without_overlaps(splices: List[(Int, Int, Str, List[Str])], last: Int):
       List()
   end
 
-// the first line of a reply that applied, which counts the errors and warnings after it, if it checked files, and the tests
-function verdict(checked: Bool, errors: Int, warnings: Int, tests: Tests): Str :=
-  example verdict(true, 3, 1, Tests(List(), 0, 0, 0)) == "applied, 3 errors, 1 warning"
-  example verdict(true, 0, 0, Tests(List(), 2, 1, 4)) == "applied, clean, 2 tests passed, 1 failed, 4 not run"
-  example verdict(false, 0, 0, Tests(List(), 0, 0, 0)) == "applied"
+// the first line of a reply that applied, which counts the errors and warnings after it, if it checked files, the queries
+// refused, and the tests
+function verdict(checked: Bool, errors: Int, warnings: Int, refused: Int, tests: Tests): Str :=
+  example verdict(true, 3, 1, 0, Tests(List(), 0, 0, 0)) == "applied, 3 errors, 1 warning"
+  example verdict(true, 0, 0, 0, Tests(List(), 2, 1, 4)) == "applied, clean, 2 tests passed, 1 failed, 4 not run"
+  example verdict(false, 0, 0, 0, Tests(List(), 0, 0, 0)) == "applied"
+  example verdict(false, 0, 0, 2, Tests(List(), 0, 0, 0)) == "applied, 2 queries refused"
   let state := if not checked then
     List()
   else if errors == 0 and warnings == 0 then
@@ -2689,7 +2762,13 @@ function verdict(checked: Bool, errors: Int, warnings: Int, tests: Tests): Str :
     List()
   else
     List(counted(tests.passed, "test") ++ " passed") ++ List(for (n, what) in List((tests.failed, " failed"), (tests.skipped, " not run")) if n > 0 yield show(n) ++ what) in
-  join(", ", List("applied") ++ state ++ ran)
+  let queries := if refused == 0 then
+    List()
+  else if refused == 1 then
+    List("1 query refused")
+  else
+    List(show(refused) ++ " queries refused") in
+  join(", ", List("applied") ++ state ++ queries ++ ran)
 
 // whether d is a warning of a lint, which does not fail a check, as checked_diagnostics of ulang/ulang.u writes them
 function is_warning(d: Diagnostic): Bool :=

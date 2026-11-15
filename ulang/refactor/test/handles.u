@@ -124,9 +124,10 @@ test positions() :=
     "applied",
     "@show " ++ path ++ ":p/2 at 3.5\n#2        case 0 =>\n#3          y := 1\n#4          y := y + 1")
   run_script(in "@show " ++ path ++ ":1.1", false, dir, no_diagnostics, out reply, status, _)
+  assert status == 1
   assert reply == List(
-    "rejected",
-    "no node of " ++ path ++ ":p/2 holds " ++ path ++ ":1.1, which @show " ++ path ++ ":p/2 shows")
+    "applied, 1 query refused",
+    "@show " ++ path ++ ":1.1: refused, no node of " ++ path ++ ":p/2 holds " ++ path ++ ":1.1, which @show " ++ path ++ ":p/2 shows")
   run_script(in "@put " ++ path ++ ":5.7\ny := 7\n", false, dir, flagged, out reply, status, _)
   assert status == 1
   assert take(3, reply) == List(
@@ -136,3 +137,34 @@ test positions() :=
   assert drop(4, reply) == List(
     "checked 1 file: 1 new, 0 gone",
     "  + #4 " ++ path ++ ":5.12: Mismatch: expected Str but found Int")
+
+// the text of a node may write the quotes of a string literal escaped, as in a literal, or raw, and a backslash that
+// starts no escape stays
+test quoted_texts() :=
+  var reply: List[Str], status: Int
+  let dir := "out/test/refactor/quoted", path := "out/test/refactor/quoted/q.u"
+  os_write_utf8(in os_join(dir, "handles.txt"), "")
+  os_write_utf8(in path, "function f(xs: List[Str]): Int :=\n  match xs\n    case List(\"a\\\\b\") =>\n      1\n    case List(\"fetch\") =>\n      2\n    case _ =>\n      3\n  end\n")
+  let shown := "#1        case List(\"fetch\") =>\n#2          2"
+  run_script(in "@show " ++ path ++ ":f \"case List(\\\"fetch\\\")\"", false, dir, no_diagnostics, out reply, status, _)
+  assert status == 0 and reply == List(
+    "applied",
+    "@show " ++ path ++ ":f/1 \"case List(\\\"fetch\\\")\"\n" ++ shown)
+  run_script(in "@show " ++ path ++ ":f \"case List(\"fetch\")\"", false, dir, no_diagnostics, out reply, status, _)
+  assert status == 0 and drop(1, split(at(1, reply), '\n')) == split(shown, '\n')
+  run_script(in "@show " ++ path ++ ":f \"case List(\"a\\\\b\")\"", false, dir, no_diagnostics, out reply, status, _)
+  assert status == 0 and drop(1, split(at(1, reply), '\n')) == List("#3        case List(\"a\\\\b\") =>", "#4          1")
+
+// each element of a form spread one per line is a node, an expression, whose lines a fragment replaces whole, with its
+// comma, and next to which it inserts lines
+test element_handles() :=
+  var reply: List[Str], status: Int, text: Str
+  let dir := "out/test/refactor/elements", path := "out/test/refactor/elements/e.u"
+  os_write_utf8(in os_join(dir, "handles.txt"), "")
+  os_write_utf8(in path, "function names(): List[Str] :=\n  List(\n    \"alpha-alpha-alpha-alpha\",\n    \"beta-beta-beta-beta-beta\",\n    \"gamma-gamma-gamma-gamma-gamma\",\n    \"delta\")\n")
+  run_script(in "@show " ++ path ++ ":names", false, dir, no_diagnostics, out reply, status, _)
+  assert status == 0 and contains("#3        \"beta-beta-beta-beta-beta\",", split(at(1, reply), '\n'))
+  run_script(in "@put #3\n\"bravo\",\n@put before #3\n\"aleph\",\n", false, dir, no_diagnostics, out reply, status, _)
+  os_read_utf8(in path, out text)
+  assert status == 0
+  assert text == "function names(): List[Str] :=\n  List(\n    \"alpha-alpha-alpha-alpha\",\n    \"aleph\",\n    \"bravo\",\n    \"gamma-gamma-gamma-gamma-gamma\",\n    \"delta\")\n"
