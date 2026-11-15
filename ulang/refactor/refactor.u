@@ -26,9 +26,10 @@ function actions(script: Str): List[Action] :=
 procedure state_dir(out dir: Str) raises OsError
 
 // performs the actions of script on the files it names, all or none, and then, unless dry, writes the files that changed
-// and reports the diagnostics that check gives of them which are new or gone, where reply is the lines of the reply,
-// status 0 if all applied, else 1, with the reason of the refusal, and tested the files whose tests to run after the
-// reply, those that changed and those of @check, if the script has @check test
+// and reports the diagnostics that check gives of them, those which are new or gone, or all if the script changed no
+// file, where reply is the lines of the reply, whose first line counts the errors and warnings after it, status 0 if all
+// applied and no error remains, else 1, with the reason of a refusal, which the first line rejected tells apart, and
+// tested the files whose tests to run, those that changed and those of @check, if the script has @check test
 procedure run_script(
   in  script: Str,
       dry: Bool,
@@ -37,6 +38,24 @@ procedure run_script(
   out reply: List[Str],
       status: Int,
       tested: List[Str]
+)
+
+// the tests of the files of a script: the lines of the reply, and the numbers of the tests that passed, that failed, and
+// that did not run, since the errors left them out of the program
+data Tests :=
+  case Tests(lines: List[Str], passed: Int, failed: Int, skipped: Int)
+
+// run_script, which runs the tests of the files tested by tester, given the files and the diagnostics that the reply lists,
+// so that a test that only reaches one of them is counted, not repeated, and counts them in the first line, where a test
+// that failed makes the status 3
+procedure run_tested_script(
+  in  script: Str,
+      dry: Bool,
+      state: Str,
+      check: (in Str, out List[(Str, Diagnostic)]),
+      tester: (in List[Str], List[(Str, Diagnostic)], out Tests),
+  out reply: List[Str],
+      status: Int
 )
 
 implementation
@@ -1730,6 +1749,32 @@ procedure run_script(
       status: Int,
       tested: List[Str]
 ) :=
+  run_actions(in script, dry, state, check, lambda in paths, listed, out found =>
+    found := Tests(List(), 0, 0, 0)
+  end, out reply, status, tested)
+
+procedure run_tested_script(
+  in  script: Str,
+      dry: Bool,
+      state: Str,
+      check: (in Str, out List[(Str, Diagnostic)]),
+      tester: (in List[Str], List[(Str, Diagnostic)], out Tests),
+  out reply: List[Str],
+      status: Int
+) :=
+  run_actions(in script, dry, state, check, tester, out reply, status, _)
+
+// run_tested_script, which also gives the files whose tests it ran
+procedure run_actions(
+  in  script: Str,
+      dry: Bool,
+      state: Str,
+      check: (in Str, out List[(Str, Diagnostic)]),
+      tester: (in List[Str], List[(Str, Diagnostic)], out Tests),
+  out reply: List[Str],
+      status: Int,
+      tested: List[Str]
+) :=
   reply := List(), status := 0, tested := List()
   try
     var handles: Handles
@@ -1748,7 +1793,7 @@ procedure run_script(
         end
       catch
         case Refused(message) =>
-          failure := Some(message)
+          failure := Some(with_script_lines(message, action.line))
         case OsError(message) =>
           failure := Some(message)
       end
@@ -1816,31 +1861,38 @@ procedure run_script(
       end
       let added := List(for (file, d) in after if not exists(before, lambda (other, e) => is_same(file, d, other, e)))
       let gone := List(for (file, d) in before if not exists(after, lambda (other, e) => is_same(file, d, other, e)))
-      let verdict := if after == List() then
-        "ok"
-      else
-        "ok, " ++ counted(size(after), "diagnostic")
       let journaled := if changes == List() then
         List()
       else
         List("script " ++ show(number) ++ " of the journal")
+      // a script that changes no file has no change to compare, so it lists the state
+      let listed := if changes == List() then after else added
       let counts := if paths == List() then
         List()
+      else if changes == List() then
+        List("checked " ++ counted(size(paths), "file") ++ ", unchanged")
       else
         List(
-          "checked " ++ counted(size(paths), "file") ++ ", with lints: " ++ show(size(added)) ++ " new, " ++ show(size(gone)) ++ " gone")
-      var labels := edits.handles, listed: List[Str] := List()
-      for (file, d) in added do
+          "checked " ++ counted(size(paths), "file") ++ ": " ++ show(size(added)) ++ " new, " ++ show(size(gone)) ++ " gone")
+      let marker := if changes == List() then "  " else "  + "
+      var labels := edits.handles, lines: List[Str] := List()
+      for (file, d) in listed do
         var label: Str
         diagnostic_handle(in file, d, edits.files, out label, ref labels)
-        listed := listed ++ List("  + " ++ label ++ diagnostic_text(file, d))
+        lines := lines ++ List(marker ++ label ++ diagnostic_text(file, d))
       end
-      listed := listed ++ List(for (file, d) in gone yield "  - " ++ diagnostic_text(file, d))
+      lines := lines ++ List(for (file, d) in gone if changes != List() yield "  - " ++ diagnostic_text(file, d))
       if size(labels.entries) > size(edits.handles.entries) then
         os_write_utf8(in os_join(dir, "handles.txt"), join("\n", List(for h in labels.entries yield handle_line(h))) ++ "\n")
       end
-      reply := List(verdict) ++ List(for n in edits.notes) ++ journaled ++ counts ++ listed
+      var tests := Tests(List(), 0, 0, 0)
       tested := if edits.tests then paths else List()
+      if tested != List() then
+        tester(in tested, listed, out tests)
+      end
+      let errors := size(List(for (_, d) in after if not is_warning(d) yield d))
+      reply := List(verdict(paths != List(), errors, size(after) - errors, tests)) ++ List(for n in edits.notes) ++ journaled ++ counts ++ lines ++ tests.lines
+      status := if tests.failed > 0 then 3 else if errors > 0 then 1 else 0
     end
   catch
     case Refused(message) =>
@@ -2507,6 +2559,61 @@ function without_overlaps(splices: List[(Int, Int, Str, List[Str])], last: Int):
 
     case List() =>
       List()
+  end
+
+// the first line of a reply that applied, which counts the errors and warnings after it, if it checked files, and the tests
+function verdict(checked: Bool, errors: Int, warnings: Int, tests: Tests): Str :=
+  example verdict(true, 3, 1, Tests(List(), 0, 0, 0)) == "applied, 3 errors, 1 warning"
+  example verdict(true, 0, 0, Tests(List(), 2, 1, 4)) == "applied, clean, 2 tests passed, 1 failed, 4 not run"
+  example verdict(false, 0, 0, Tests(List(), 0, 0, 0)) == "applied"
+  let state := if not checked then
+    List()
+  else if errors == 0 and warnings == 0 then
+    List("clean")
+  else
+    List(for (n, noun) in List((errors, "error"), (warnings, "warning")) if n > 0 yield counted(n, noun)) in
+  let ran := if tests.passed + tests.failed + tests.skipped == 0 then
+    List()
+  else
+    List(counted(tests.passed, "test") ++ " passed") ++ List(for (n, what) in List((tests.failed, " failed"), (tests.skipped, " not run")) if n > 0 yield show(n) ++ what) in
+  join(", ", List("applied") ++ state ++ ran)
+
+// whether d is a warning of a lint, which does not fail a check, as checked_diagnostics of ulang/ulang.u writes them
+function is_warning(d: Diagnostic): Bool :=
+  starts_with(d.code, "warning[")
+
+// the message of a refused action at the line line of the script, where each position in its fragment, fragment L.C at the
+// start of a line, also gets its line in the script, since the fragment starts on the line after the action
+function with_script_lines(message: Str, line: Int): Str :=
+  example with_script_lines("fragment 2.6: expression expected\nfragment 3, 4: a comment", 4) == "fragment 2.6, script 6.6: expression expected\nfragment 3, 4, script 7, 8: a comment"
+  example with_script_lines("a.u:2.6: expression expected", 4) == "a.u:2.6: expression expected"
+  join("\n", List(for text in split(message, '\n') yield with_script_line(text, line)))
+
+function with_script_line(text: Str, line: Int): Str :=
+  match occurrences(text, ": ")
+    case List(i; _) if starts_with(text, "fragment ") =>
+      let items := List(for item in split(slice(text, size("fragment "), i), ',') yield script_position(str(drop_spaces(chars(item))), line)) in
+      if forall(items, lambda item => item != None) then
+        slice(text, 0, i) ++ ", script " ++ join(", ", List(for item in items for p in item yield p)) ++ slice(text, i, size(text))
+      else
+        text
+
+    case _ =>
+      text
+  end
+
+// the position L or L.C of a fragment as L + line, or None if it is none
+function script_position(item: Str, line: Int): Option[Str] :=
+  example script_position("2.6", 4) == Some("6.6")
+  match split(item, '.')
+    case List(l) =>
+      map_option(number(l), lambda n => show(n + line))
+
+    case List(l, c) =>
+      map_option(number(l), lambda n => show(n + line) ++ "." ++ c)
+
+    case _ =>
+      None
   end
 
 // whether two diagnostics are the same but for their positions, which edits move
