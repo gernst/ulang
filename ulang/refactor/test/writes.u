@@ -1,0 +1,52 @@
+// the writes of @put of new modules and exports, and the refusals of errors of the system, on files below
+// out/test/refactor/writes/ of the root, which run only compiled, as the scripts of scripts.u do
+
+import "ulang/syntax"
+import "ulang/refactor"
+
+procedure unseen(
+  in  file: Str,
+      overlays: Map[Str, Str],
+  out found: List[(Str, Diagnostic)]
+) :=
+  found := List()
+
+// @put of a new module makes its directory, here one that no run before made, since no procedure removes directories
+test puts_into_new_directory() :=
+  var reply: List[Str], status: Int, text: Str, clock: Int, found: Bool
+  os_clock(out clock)
+  let dir := "out/test/refactor/writes/new" ++ show(clock)
+  os_is_dir(in dir, out found)
+  assert not found
+  let module := "function twice(n: Int): Int :=\n  2 * n\n"
+  run_script(in "@put " ++ dir ++ "/deep/m.u\n" ++ module, false, "out/test/refactor/writes", unseen, out reply, status, _)
+  assert status == 0
+  os_read_utf8(in os_join(dir, "deep/m.u"), out text)
+  assert text == module
+
+// an error of the system in an action that writes is refused with the action and its line in the script, while a query
+// would only be noted
+test names_failed_action() :=
+  var reply: List[Str], status: Int
+  run_script(in "@check\n@drop out/test/refactor/writes/missing.u:f\n", false, "out/test/refactor/writes", unseen, out reply, status, _)
+  assert status == 1
+  assert reply == List(
+    "rejected",
+    "line 2, @drop out/test/refactor/writes/missing.u:f: cannot read out/test/refactor/writes/missing.u")
+
+// @put of the signature of a private procedure into export writes the raises that the check inferred into the
+// signature and the definition, and the raises that the signature writes into the definition
+test exports_inferred_raises() :=
+  var reply: List[Str], status: Int, text: Str
+  let state := "out/test/refactor/writes", path := "out/test/refactor/writes/raises/a.u"
+  let proc := "procedure p(in x: Int, out y: Int) :=\n  if x < 0 then\n    raise OsError(\"negative\")\n  end\n  y := x\n"
+  os_write_utf8(in path, proc)
+  run_script(in "@put " ++ path ++ "\nexport\n\nprocedure p(in x: Int, out y: Int)\n", false, state, unseen, out reply, status, _)
+  os_read_utf8(in path, out text)
+  assert status == 0
+  assert text == "export\n\nprocedure p(in x: Int, out y: Int) raises OsError\n\nimplementation\n\nprocedure p(in x: Int, out y: Int) raises OsError :=\n  if x < 0 then\n    raise OsError(\"negative\")\n  end\n  y := x\n"
+  assert contains(path ++ ": exported p/2, with raises OsError of p/2", reply)
+  os_write_utf8(in path, proc)
+  run_script(in "@put " ++ path ++ "\nexport\n\nprocedure p(in x: Int, out y: Int) raises OsError, Str\n", false, state, unseen, out reply, status, _)
+  os_read_utf8(in path, out text)
+  assert index_of("procedure p(in x: Int, out y: Int) raises OsError, Str :=", text) != None

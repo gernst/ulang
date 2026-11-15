@@ -209,6 +209,9 @@ function node_hints(lines: Array[Str], decls: Decls, pos: Pos, span: Span, expr:
     case ETuple(args) =>
       exprs_hints(lines, decls, args)
 
+    case EAnnotated(inner, _) =>
+      expr_hints(lines, decls, inner)
+
     // of commands that are not checked, whose names are not resolved
     case EForm(_, elems, rest) =>
       List(for y in elems for h in yield_hints(lines, decls, y) yield h) ++ exprs_hints(lines, decls, List(for r in rest yield r))

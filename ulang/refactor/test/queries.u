@@ -1,11 +1,15 @@
-// the queries of ulang/refactor/refactor.u, @outline and @refs, which only report, and the notes of @put and @rename that
-// tell what an edit added and what a new name meets, on files below out/test/refactor/queries/ of the root, which run
-// only compiled, as the scripts of scripts.u do
+// the queries of ulang/refactor/refactor.u, @outline, @refs, @sig, and @resolve, which only report, and the notes of @put
+// and @rename that tell what an edit added and what a new name meets, on files below out/test/refactor/queries/ of the
+// root, which run only compiled, as the scripts of scripts.u do
 
 import "ulang/syntax"
 import "ulang/refactor"
 
-procedure no_diagnostics(in file: Str, out found: List[(Str, Diagnostic)]) :=
+procedure no_diagnostics(
+  in  file: Str,
+      overlays: Map[Str, Str],
+  out found: List[(Str, Diagnostic)]
+) :=
   found := List()
 
 // @outline lists the declarations of a file with their lines, sections, kinds, targets, visibility, and handles, and the
@@ -60,3 +64,32 @@ test renames_beside_overloads() :=
   assert size(warnings) == 1 and exists(warnings, lambda w => index_of("prelude/str.size: Str -> Int", w) != None)
   run_script(in "@rename " ++ dir ++ "/a.u:size lowered", false, state, no_diagnostics, out reply, status, _)
   assert status == 0 and not exists(reply, lambda line => starts_with(line, "warning:"))
+
+// @sig of a name gives its exported declarations in the library and the project, across overloads, a signature with its
+// examples, and of a constructor the head of its datatype; @sig of a file gives its export section as it is written
+test sigs() :=
+  var reply: List[Str], status: Int
+  let state := "out/test/refactor/queries/sig", path := "out/test/refactor/queries/sig/s.u"
+  os_write_utf8(in os_join(state, "handles.txt"), "")
+  os_write_utf8(in path, "// shapes\n\nexport\n\n// the area\nfunction area(r: Int): Int :=\n  example area(1) == 3\n\nimplementation\n\nfunction area(r: Int): Int :=\n  3 * r * r\n")
+  run_script(in "@sig starts_with\n@sig Some\n@sig " ++ path ++ "\n", false, state, no_diagnostics, out reply, status, _)
+  assert status == 0
+  assert drop(1, reply) == List(
+    "@sig starts_with: 1 declaration in 1 module\nprelude/str.starts_with: function starts_with(s: Str, start: Str): Bool",
+    "@sig Some: 1 declaration in 1 module\nprelude/option.Some:\n  data Option[A] :=\n    case Some(value: A)",
+    "@sig " ++ path ++ ": " ++ path ++ "\nexport\n\n// the area\nfunction area(r: Int): Int :=\n  example area(1) == 3")
+  run_script(in "@sig no_such_name\n", false, state, no_diagnostics, out reply, status, _)
+  assert status == 1
+
+// @resolve gives the qualified name and type of the use at a position, or the type of the variable declared there
+test resolves() :=
+  var reply: List[Str], status: Int
+  let state := "out/test/refactor/queries/resolve", path := "out/test/refactor/queries/resolve/r.u"
+  os_write_utf8(in os_join(state, "handles.txt"), "")
+  os_write_utf8(in path, "function f(xs: List[Int]): Int :=\n  let n := size(xs) in\n  n + 1\n")
+  run_script(in "@resolve " ++ path ++ ":2.12\n@resolve " ++ path ++ " 2.7\n@resolve " ++ path ++ ":1.1\n", false, state, no_diagnostics, out reply, status, _)
+  assert status == 0
+  assert drop(1, reply) == List(
+    "@resolve " ++ path ++ ":2.12: use of prelude/list.size: List[Int] -> Int",
+    "@resolve " ++ path ++ ":2.7: declaration of n: Int",
+    "@resolve " ++ path ++ ":1.1: no use or declaration of a name there")

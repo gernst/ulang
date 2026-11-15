@@ -4,7 +4,11 @@
 import "ulang/syntax"
 import "ulang/refactor"
 
-procedure no_diagnostics(in file: Str, out found: List[(Str, Diagnostic)]) :=
+procedure no_diagnostics(
+  in  file: Str,
+      overlays: Map[Str, Str],
+  out found: List[(Str, Diagnostic)]
+) :=
   found := List()
 
 // @drop of a name that both sections declare drops both and says so
