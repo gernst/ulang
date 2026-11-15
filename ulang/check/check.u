@@ -5707,7 +5707,7 @@ procedure check_package(
     end
     example_commands(in List(for d in mods for x in example_tests(d) yield x), out tested, ref s)
     each_placed(in declare_funs, generated, ref s)
-    placed_commands(in generated, lambda in checked: List[Cmd] =>
+    placed_commands(in generated, lambda in _: List[Cmd] =>
       skip
     end, out enumerated, ref s)
   end
