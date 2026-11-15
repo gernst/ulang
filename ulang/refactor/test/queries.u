@@ -5,7 +5,11 @@
 import "ulang/syntax"
 import "ulang/refactor"
 
-procedure no_diagnostics(in file: Str, out found: List[(Str, Diagnostic)]) :=
+procedure no_diagnostics(
+  in  file: Str,
+      overlays: Map[Str, Str],
+  out found: List[(Str, Diagnostic)]
+) :=
   found := List()
 
 // @outline lists the declarations of a file with their lines, sections, kinds, targets, visibility, and handles, and the

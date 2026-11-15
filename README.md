@@ -192,7 +192,9 @@ A node N is a handle `#n`, a handle scoped by its declaration `F:name #n`, which
 - `@fix` rewrites expressions, drops an unused private declaration, writes `_` for an unused pattern variable and at the outs that only feed an unused local, removes an unused local, makes a `var` that nothing assigns a `let`, and moves a local that is declared too high into the branches that use it. A fix that enables another takes a second `@fix`.
 - An error in a fragment names its line in the fragment and in the script, `fragment 2.6, script 3.6`.
 - Paths in actions are normal, `./a.u` is `a.u`, and the handles are kept by their paths from the root, so that they hold from any directory.
-- `--dry` reports and writes nothing, and the journal and the handles are kept in `out/refactor/` of the root; the queries write nothing but the handles they show.
+- `--dry` writes nothing, but checks the texts that it would write, so its reply, `dry, 2 errors`, lists the diagnostics that the script would leave, without handles, since their nodes are in no file, and without tests; the journal and the handles are kept in `out/refactor/` of the root, and the queries write nothing but the handles they show.
+- The actions and the checks of a script see the files that it has written so far, also a module of a new package, which another file of the same script may import.
+- `--overlay F=<path>`, repeated for several files, takes the text of the file at path as that of `F`, as an editor passes its unsaved buffers; the script writes `F` only if it changes it.
 
 ## Layout
 

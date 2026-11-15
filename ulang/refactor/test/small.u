@@ -4,7 +4,11 @@
 import "ulang/syntax"
 import "ulang/refactor"
 
-procedure unchecked(in file: Str, out found: List[(Str, Diagnostic)]) :=
+procedure unchecked(
+  in  file: Str,
+      overlays: Map[Str, Str],
+  out found: List[(Str, Diagnostic)]
+) :=
   found := List()
 
 // a file of a procedure of an if in a directory of its own with a fresh table of handles, and its path

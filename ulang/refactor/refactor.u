@@ -34,7 +34,7 @@ procedure run_script(
   in  script: Str,
       dry: Bool,
       state: Str,
-      check: (in Str, out List[(Str, Diagnostic)]),
+      check: (in Str, Map[Str, Str], out List[(Str, Diagnostic)]),
   out reply: List[Str],
       status: Int,
       tested: List[Str]
@@ -51,8 +51,9 @@ data Tests :=
 procedure run_tested_script(
   in  script: Str,
       dry: Bool,
+      overlays: Map[Str, Str],
       state: Str,
-      check: (in Str, out List[(Str, Diagnostic)]),
+      check: (in Str, Map[Str, Str], out List[(Str, Diagnostic)]),
       tester: (in List[Str], List[(Str, Diagnostic)], out Tests),
   out reply: List[Str],
       status: Int
@@ -344,16 +345,17 @@ procedure current_text(
       os_read_utf8(in path, out text)
   end
 
-// the parse of text as the file path, where the errors in the blocks of fragment are those of a fragment, at their
-// lines in it
+// the parse of text as the file path, with the texts of files, those that the script has edited, instead of their
+// files, where the errors in the blocks of fragment are those of a fragment, at their lines in it
 procedure parsed(
   in  path: Str,
       text: Str,
+      files: Map[Str, Str],
       fragment: List[(Range, Int)],
   out source: Source
 ) raises Refused, OsError :=
   try
-    parse_file_text(in path, text, out source)
+    parse_file_overlaid(in path, Map(path => text; files), out source)
     require_parsed(in source)
   catch
     case ParseErrors(errors) =>
@@ -376,18 +378,19 @@ function parse_message(path: Str, fragment: List[(Range, Int)], d: Diagnostic): 
 function no_fragment(): List[(Range, Int)] :=
   List()
 
-// text as format writes it, which must parse again, with its source
+// text as format writes it, which must parse again, with its source, parsed as parsed parses it
 procedure formatted(
   in  path: Str,
       text: Str,
+      files: Map[Str, Str],
       fragment: List[(Range, Int)],
   out result: Str,
       source: Source
 ) raises Refused, OsError :=
   var written: Source
-  parsed(in path, text, fragment, out written)
+  parsed(in path, text, files, fragment, out written)
   result := format_program(written)
-  parsed(in path, result, no_fragment(), out source)
+  parsed(in path, result, files, no_fragment(), out source)
 
 procedure note(in text: Str, ref edits: Edits) :=
   edits := edits with notes := edits.notes ++ List(text)
@@ -633,7 +636,7 @@ procedure module_of(
 ) raises Refused, OsError :=
   var text: Str, source: Source
   current_text(in path, files, out text)
-  parsed(in path, text, no_fragment(), out source)
+  parsed(in path, text, files, no_fragment(), out source)
   lines := Array(for line in split(text, '\n')), d := main_mod(source)
 
 // whether words address a node: a handle #n, also after a declaration F:name[/n] or a file F that must hold it, the text
@@ -948,7 +951,7 @@ procedure show_target(in word: Str, ref edits: Edits) raises Refused, OsError :=
   var text: Str, source: Source
   let (path, name, arity) := target_of(word)
   current_text(in path, edits.files, out text)
-  parsed(in path, text, no_fragment(), out source)
+  parsed(in path, text, edits.files, no_fragment(), out source)
   let lines := Array(for line in split(text, '\n'))
   let selected := List(for (key, cmd, c) in keyed(placed_of(main_mod(source))) if forall(name, lambda base => is_selected(key, base, arity)) yield (key, cmd, c))
   if selected == List() then
@@ -1006,7 +1009,7 @@ procedure put_at(
   else
     indented(dedented(unmarked(split(fragment, '\n'))), depth)
   let text := join("\n", spliced(List(for line in lines), List((region, new))))
-  formatted(in place.path, text, List((Range(region.first, region.first + size(new) - 1), 1)), out result, source)
+  formatted(in place.path, text, edits.files, List((Range(region.first, region.first + size(new) - 1), 1)), out result, source)
   let d := main_mod(source), result_lines := Array(for line in split(result, '\n'))
   let verb := match place_word
     case "replace" =>
@@ -1109,7 +1112,7 @@ procedure put(
   end
   if is_blank(text) then
     var result: Str
-    formatted(in path, join("\n", code) ++ "\n", List((Range(1, size(code)), 1)), out result, _)
+    formatted(in path, join("\n", code) ++ "\n", edits.files, List((Range(1, size(code)), 1)), out result, _)
     edits := edits with files := Map(path => result; edits.files)
     note(in path ++ ": written from the fragment", ref edits)
   else
@@ -1192,7 +1195,7 @@ procedure put_anchored(
   ref edits: Edits
 ) raises Refused, OsError :=
   var source: Source, combined: Source, result: Str, anchor_key: Option[Key] := None
-  parsed(in path, text, no_fragment(), out source)
+  parsed(in path, text, edits.files, no_fragment(), out source)
   let d := main_mod(source), lines := Array(for line in split(text, '\n'))
   if anchor.side != "end" then
     match distinct(List(for (k, _, _) in keyed(placed_of(d)) if is_selected(k, anchor.name, anchor.arity) yield k))
@@ -1249,7 +1252,7 @@ procedure put_anchored(
       anchored_insert(lines, impl_anchor, anchor.side, end_at, impl_lines, impl_first, "implementation")))
   let (all_lines_list, blocks) := inserted(List(for line in lines), inserts)
   let all_text := join("\n", all_lines_list)
-  parsed(in path, all_text, List(for (r, ins) in blocks if ins.role != "" yield (r, ins.first)), out combined)
+  parsed(in path, all_text, edits.files, List(for (r, ins) in blocks if ins.role != "" yield (r, ins.first)), out combined)
   let all := main_mod(combined), all_lines := Array(for line in split(all_text, '\n'))
   let block_of := lambda cmd: At[Cmd] => find(blocks, lambda (r, ins) => ins.role != "" and r.first <= cmd.span.start.line and cmd.span.start.line <= r.last)
   let added := List(for cmd in placed_of(all) for (r, ins) in block_of(cmd) yield (cmd, r, ins.role))
@@ -1306,8 +1309,8 @@ procedure put_anchored(
             ""))
     end
   end
-  formatted(in path, join("\n", spliced(all_lines_list, splices)), no_fragment(), out result, source)
-  with_signatures(in path, replaced_keys, ref result, done)
+  formatted(in path, join("\n", spliced(all_lines_list, splices)), edits.files, no_fragment(), out result, source)
+  with_signatures(in path, replaced_keys, edits.files, ref result, done)
   edits := edits with files := Map(path => result; edits.files)
   note(in path ++ ": " ++ join(", ", done), ref edits)
 
@@ -1363,11 +1366,12 @@ function ranges_of(inserts: List[Insert], first: Int): List[(Range, Insert)] :=
 procedure with_signatures(
   in  path: Str,
       keys: List[(Key, Key)],
+      files: Map[Str, Str],
   ref text: Str,
       done: List[Str]
 ) raises Refused, OsError :=
   var source: Source, splices: List[(Range, List[Str])] := List()
-  parsed(in path, text, no_fragment(), out source)
+  parsed(in path, text, files, no_fragment(), out source)
   let d := main_mod(source), lines := Array(for line in split(text, '\n'))
   for (old, key) in keys do
     let definition := find(keyed(d.implemented), lambda (k, _, c) => k == key and not is_signature(c))
@@ -1387,7 +1391,7 @@ procedure with_signatures(
     end
   end
   if splices != List() then
-    formatted(in path, join("\n", spliced(List(for line in lines), splices)), no_fragment(), out text, source)
+    formatted(in path, join("\n", spliced(List(for line in lines), splices)), files, no_fragment(), out text, source)
   end
 
 // the block of a section, which the fragment wrote from its line first, inserted before or after the declaration of the
@@ -1452,7 +1456,7 @@ procedure drop_target(in word: Str, ref edits: Edits) raises Refused, OsError :=
     raise Refused("@drop takes a declaration file.u:name or a handle, not " ++ word)
   end
   current_text(in path, edits.files, out text)
-  parsed(in path, text, no_fragment(), out source)
+  parsed(in path, text, edits.files, no_fragment(), out source)
   let lines := Array(for line in split(text, '\n'))
   let dropped := List(for (key, cmd, _) in keyed(placed_of(main_mod(source))) if is_selected(key, base, arity) yield (key, cmd))
   let keys := distinct(firsts(dropped))
@@ -1465,7 +1469,7 @@ procedure drop_target(in word: Str, ref edits: Edits) raises Refused, OsError :=
   let exported := main_mod(source).exported
   let sections := List(for (_, cmd) in dropped yield if contains(cmd, exported) then "export" else "implementation")
   let splices := List(for (_, cmd) in dropped yield (cmd_range(lines, cmd, 0, true), List()))
-  formatted(in path, join("\n", spliced(List(for line in lines), splices)), no_fragment(), out result, source)
+  formatted(in path, join("\n", spliced(List(for line in lines), splices)), edits.files, no_fragment(), out result, source)
   edits := edits with files := Map(path => result; edits.files)
   note(in path ++ ": dropped " ++ join(", ", List(for key in keys yield key_text(key))) ++ sections_text(sections), ref edits)
 
@@ -1511,7 +1515,7 @@ procedure patch(
     end
     let (file, name, arity) := target_of(word)
     current_text(in file, edits.files, out text)
-    parsed(in file, text, no_fragment(), out source)
+    parsed(in file, text, edits.files, no_fragment(), out source)
     path := file, lines := Array(for line in split(text, '\n'))
     let selected := List(for (k, cmd, c) in keyed(placed_of(main_mod(source))) if forall(name, lambda base => is_selected(k, base, arity)) yield (k, cmd, c))
     match distinct(List(for (k, _, _) in selected yield k))
@@ -1538,7 +1542,7 @@ procedure patch(
       end
   end
   let splices := List(for (region, text) in zip(regions, patched) yield (region, split(text, '\n')))
-  formatted(in path, join("\n", spliced(List(for line in lines), splices)), no_fragment(), out result, source)
+  formatted(in path, join("\n", spliced(List(for line in lines), splices)), edits.files, no_fragment(), out result, source)
   if result == join("\n", List(for line in lines)) then
     raise Refused("@patch " ++ word ++ " changes nothing, once formatted")
   end
@@ -1769,32 +1773,34 @@ procedure run_script(
   in  script: Str,
       dry: Bool,
       state: Str,
-      check: (in Str, out List[(Str, Diagnostic)]),
+      check: (in Str, Map[Str, Str], out List[(Str, Diagnostic)]),
   out reply: List[Str],
       status: Int,
       tested: List[Str]
 ) :=
-  run_actions(in script, dry, state, check, lambda in paths, listed, out found =>
+  run_actions(in script, dry, Map(), state, check, lambda in paths, listed, out found =>
     found := Tests(List(), 0, 0, 0)
   end, out reply, status, tested)
 
 procedure run_tested_script(
   in  script: Str,
       dry: Bool,
+      overlays: Map[Str, Str],
       state: Str,
-      check: (in Str, out List[(Str, Diagnostic)]),
+      check: (in Str, Map[Str, Str], out List[(Str, Diagnostic)]),
       tester: (in List[Str], List[(Str, Diagnostic)], out Tests),
   out reply: List[Str],
       status: Int
 ) :=
-  run_actions(in script, dry, state, check, tester, out reply, status, _)
+  run_actions(in script, dry, overlays, state, check, tester, out reply, status, _)
 
 // run_tested_script, which also gives the files whose tests it ran
 procedure run_actions(
   in  script: Str,
       dry: Bool,
+      overlays: Map[Str, Str],
       state: Str,
-      check: (in Str, out List[(Str, Diagnostic)]),
+      check: (in Str, Map[Str, Str], out List[(Str, Diagnostic)]),
       tester: (in List[Str], List[(Str, Diagnostic)], out Tests),
   out reply: List[Str],
       status: Int,
@@ -1807,7 +1813,9 @@ procedure run_actions(
     os_cwd(out here)
     project_root(in here, out root)
     load_handles(in dir, here, root, out handles)
-    var edits := Edits(Map(), empty(), List(), handles, List(), state, List(), false), written: Map[Str, Str] := Map(), failure: Option[Str] := None
+    // the actions read the overlays as the texts of their files, which the script writes only if it changes them
+    let base := Map(for path => text in overlays yield normal_file(here, here, path) => text)
+    var edits := Edits(base, empty(), List(), handles, List(), state, List(), false), written: Map[Str, Str] := Map(), failure: Option[Str] := None
     for action in actions(script) if failure == None do
       if is_rename(action) then
         flush(in edits, ref written)
@@ -1837,10 +1845,14 @@ procedure run_actions(
     var changes: List[Change] := List(), original: Str, created: List[Str] := List()
     for path => text in edits.files do
       try
-        match get(path, written)
-          case Some(kept) =>
+        match (get(path, base), get(path, written))
+          case (Some(overlay), _) =>
+            original := overlay
+
+          case (None, Some(kept)) =>
             original := kept
-          case None =>
+
+          case (None, None) =>
             os_read_utf8(in path, out original)
         end
       catch
@@ -1852,22 +1864,20 @@ procedure run_actions(
       end
     end
     let changed := List(for c in changes yield c.path)
+    let paths := distinct(changed ++ edits.checked)
+    var before: List[(Str, Diagnostic)] := List(), after: List[(Str, Diagnostic)] := List(), found: List[(Str, Diagnostic)]
+    var journaled: List[Str] := List()
+    for path => kept in written do
+      os_write_utf8(in path, kept)
+    end
+    for path in paths if not contains(path, created) do
+      check(in path, base, out found)
+      before := distinct(before ++ found)
+    end
     if dry then
-      for path => kept in written do
-        os_write_utf8(in path, kept)
-      end
-      reply := List("dry") ++ List(for n in edits.notes) ++ List(for path in changed yield "would write " ++ path)
+      journaled := List(for path in changed yield "would write " ++ path)
     else
-      let paths := distinct(changed ++ edits.checked)
-      var before: List[(Str, Diagnostic)] := List(), after: List[(Str, Diagnostic)] := List(), found: List[(Str, Diagnostic)]
       var done: List[Int]
-      for path => kept in written do
-        os_write_utf8(in path, kept)
-      end
-      for path in paths if not contains(path, created) do
-        check(in path, out found)
-        before := distinct(before ++ found)
-      end
       for c in changes do
         os_write_utf8(in c.path, c.after)
       end
@@ -1875,6 +1885,7 @@ procedure run_actions(
       let number := foldl(done, 0, max) + 1
       if changes != List() then
         os_write_utf8(in os_join(dir, "journal/" ++ show(number) ++ ".txt"), journal_text(changes))
+        journaled := List("script " ++ show(number) ++ " of the journal")
       end
       if edits.undone != List() and changes != List() then
         os_write_utf8(in os_join(dir, "journal/" ++ show(number) ++ ".undo"), "")
@@ -1882,45 +1893,47 @@ procedure run_actions(
       for n in edits.undone do
         os_write_utf8(in os_join(dir, "journal/" ++ show(n) ++ ".undone"), "")
       end
-      for path in paths do
-        check(in path, out found)
-        after := distinct(after ++ found)
-      end
-      let added := List(for (file, d) in after if not exists(before, lambda (other, e) => is_same(file, d, other, e)))
-      let gone := List(for (file, d) in before if not exists(after, lambda (other, e) => is_same(file, d, other, e)))
-      let journaled := if changes == List() then
-        List()
-      else
-        List("script " ++ show(number) ++ " of the journal")
-      // a script that changes no file has no change to compare, so it lists the state
-      let listed := if changes == List() then after else added
-      let counts := if paths == List() then
-        List()
-      else if changes == List() then
-        List("checked " ++ counted(size(paths), "file") ++ ", unchanged")
-      else
-        List(
-          "checked " ++ counted(size(paths), "file") ++ ": " ++ show(size(added)) ++ " new, " ++ show(size(gone)) ++ " gone")
-      let marker := if changes == List() then "  " else "  + "
-      var labels := edits.handles, lines: List[Str] := List()
-      for (file, d) in listed do
-        var label: Str
-        diagnostic_handle(in file, d, edits.files, out label, ref labels)
-        lines := lines ++ List(marker ++ label ++ diagnostic_text(file, d))
-      end
-      lines := lines ++ List(for (file, d) in gone if changes != List() yield "  - " ++ diagnostic_text(file, d))
-      if size(labels.entries) > size(edits.handles.entries) then
-        save_handles(in dir, here, root, labels.entries)
-      end
-      var tests := Tests(List(), 0, 0, 0)
-      tested := if edits.tests then paths else List()
-      if tested != List() then
-        tester(in tested, listed, out tests)
-      end
-      let errors := size(List(for (_, d) in after if not is_warning(d) yield d))
-      reply := List(verdict(paths != List(), errors, size(after) - errors, tests)) ++ List(for n in edits.notes) ++ journaled ++ counts ++ lines ++ tests.lines
-      status := if tests.failed > 0 then 3 else if errors > 0 then 1 else 0
     end
+    // the texts after the script, which a dry run checks without writing them
+    let finals := base ++ Map(for c in changes yield c.path => c.after)
+    for path in paths do
+      check(in path, finals, out found)
+      after := distinct(after ++ found)
+    end
+    let added := List(for (file, d) in after if not exists(before, lambda (other, e) => is_same(file, d, other, e)))
+    let gone := List(for (file, d) in before if not exists(after, lambda (other, e) => is_same(file, d, other, e)))
+    // a script that changes no file has no change to compare, so it lists the state
+    let listed := if changes == List() then after else added
+    let counts := if paths == List() then
+      List()
+    else if changes == List() then
+      List("checked " ++ counted(size(paths), "file") ++ ", unchanged")
+    else
+      List(
+        "checked " ++ counted(size(paths), "file") ++ ": " ++ show(size(added)) ++ " new, " ++ show(size(gone)) ++ " gone")
+    let marker := if changes == List() then "  " else "  + "
+    var labels := edits.handles, lines: List[Str] := List()
+    for (file, d) in listed do
+      var label := ""
+      // the nodes of a dry run are not in the files, so its diagnostics have no handles
+      if not dry then
+        diagnostic_handle(in file, d, edits.files, out label, ref labels)
+      end
+      lines := lines ++ List(marker ++ label ++ diagnostic_text(file, d))
+    end
+    lines := lines ++ List(for (file, d) in gone if changes != List() yield "  - " ++ diagnostic_text(file, d))
+    if size(labels.entries) > size(edits.handles.entries) then
+      save_handles(in dir, here, root, labels.entries)
+    end
+    var tests := Tests(List(), 0, 0, 0)
+    // the tests run on the files, which a dry run does not write
+    tested := if edits.tests and not dry then paths else List()
+    if tested != List() then
+      tester(in tested, listed, out tests)
+    end
+    let errors := size(List(for (_, d) in after if not is_warning(d) yield d))
+    reply := List(verdict(dry, paths != List(), errors, size(after) - errors, tests)) ++ List(for n in edits.notes) ++ journaled ++ counts ++ lines ++ tests.lines
+    status := if tests.failed > 0 then 3 else if errors > 0 then 1 else 0
   catch
     case Refused(message) =>
       reply := List("rejected", message), status := 1
@@ -2060,20 +2073,21 @@ procedure resolutions(
 ) raises Refused, OsError :=
   var text: Str, found: List[Hint]
   os_read_utf8(in path, out text)
-  file_hints(in path, text, out found)
+  file_hints(in path, text, Map(), out found)
   uses := List(for h in found for use in use_of(h) yield use)
 
-// the hints of the main module of the file at path whose text is text, as ulang.sh hints gives them, of a check that the
-// errors do not stop
+// the hints of the main module of the file at path whose text is text, with the texts of files instead of their files,
+// as ulang.sh hints gives them, of a check that the errors do not stop
 procedure file_hints(
   in  path: Str,
       text: Str,
+      files: Map[Str, Str],
   out found: List[Hint]
 ) raises Refused, OsError :=
   var q: Prog
   try
     var source: Source
-    parse_file_text(in path, text, out source)
+    parse_file_overlaid(in path, Map(path => text; files), out source)
     if has_errors(source) then
       check_partial(in without_unparsed(source), unparsed_names(source), no_tests, out q, _)
     else
@@ -2220,7 +2234,7 @@ procedure rename(
     raise Refused("@rename takes a declaration file.u:name of a plain name and a plain name, not " ++ word ++ " and " ++ new)
   end
   current_text(in path, edits.files, out text)
-  parsed(in path, text, no_fragment(), out source)
+  parsed(in path, text, edits.files, no_fragment(), out source)
   let d := main_mod(source), lines := Array(for line in split(text, '\n'))
   let decls := List(for (key, cmd, c) in keyed(placed_of(d)) if key.kind == "value" and is_selected(key, base, arity) yield (key, cmd, c))
   let constrs := List(for (_, cmd, c) in keyed(placed_of(d)) for constr in constrs_of(c) if constr_name(constr) == base yield (cmd, constr))
@@ -2262,14 +2276,14 @@ procedure rename(
       var result: Str, seen_source := source
       if file != path then
         try
-          parse_file_text(in file, file_text, out seen_source)
+          parse_file_overlaid(in file, Map(file => file_text; edits.files), out seen_source)
         catch
           case e =>
             raise Refused(file ++ ": " ++ parse_diagnostic(e).message)
         end
       end
       also := distinct(also ++ seen_decls(seen_source, new))
-      formatted(in file, join("\n", edited), no_fragment(), out result, _)
+      formatted(in file, join("\n", edited), edits.files, no_fragment(), out result, _)
       edits := edits with files := Map(file => result; edits.files)
       count := count + size(hits), touched := touched + 1
     end
@@ -2383,7 +2397,7 @@ procedure export_target(in word: Str, ref edits: Edits) raises Refused, OsError 
   var text: Str, source: Source
   let (path, name, arity) := target_of(word)
   current_text(in path, edits.files, out text)
-  parsed(in path, text, no_fragment(), out source)
+  parsed(in path, text, edits.files, no_fragment(), out source)
   let d := main_mod(source), lines := Array(for line in split(text, '\n'))
   let selected := List(for (key, cmd, c) in keyed(placed_of(d)) if forall(name, lambda base => is_selected(key, base, arity)) yield (key, cmd, c))
   if exists(selected, lambda (_, cmd, _) => contains(cmd, d.exported)) then
@@ -2401,17 +2415,17 @@ procedure export_target(in word: Str, ref edits: Edits) raises Refused, OsError 
         let head_end := cmd.span.start.line + size(head) - 1
         let body := lines_in(lines, Range(value_or(map_option(spec, lambda r => r.last), head_end) + 1, range.last))
         let spec_lines := value_or(map_option(spec, lambda r => lines_in(lines, r)), List())
-        file_hints(in path, text, out found)
+        file_hints(in path, text, edits.files, out found)
         let raised := join(", ", List(for h in found for (proc, types) in raises_of(h) if proc.base == key.base for t in types yield format_type(t)))
         let def_head := with_raises(with_assign(head), raised)
         let sig_head := if spec_lines == List() then strip_assign(def_head) else def_head
         let base := spliced(List(for line in lines), List((range, def_head ++ body)))
-        formatted(in path, join("\n", base), no_fragment(), out result, _)
+        formatted(in path, join("\n", base), edits.files, no_fragment(), out result, _)
         put_into(in path, result, List("export"; doc ++ sig_head ++ spec_lines), ref edits)
       else
         var result: Str
         let base := spliced(List(for line in lines), List((range, List())))
-        formatted(in path, join("\n", base), no_fragment(), out result, _)
+        formatted(in path, join("\n", base), edits.files, no_fragment(), out result, _)
         put_into(in path, result, List("export"; lines_in(lines, range)), ref edits)
       end
 
@@ -2449,7 +2463,7 @@ procedure unexport_target(
   var text: Str, source: Source
   let (path, name, arity) := target_of(word)
   current_text(in path, edits.files, out text)
-  parsed(in path, text, no_fragment(), out source)
+  parsed(in path, text, edits.files, no_fragment(), out source)
   let d := main_mod(source), lines := Array(for line in split(text, '\n'))
   let exported := List(for (key, cmd, c) in keyed(d.exported) if forall(name, lambda base => is_selected(key, base, arity)) yield (key, cmd, c))
   match exported
@@ -2484,7 +2498,7 @@ procedure unexport_target(
             let rest := lines_in(lines, Range(def.span.start.line + size(def_head), def_range.last))
             let new_def := (if def_doc == List() then sig_doc else def_doc) ++ with_assign(def_head) ++ spec_lines ++ rest
             let base := spliced(List(for line in lines), List((sig_range, List()), (def_range, new_def)))
-            formatted(in path, join("\n", base), no_fragment(), out result, _)
+            formatted(in path, join("\n", base), edits.files, no_fragment(), out result, _)
             edits := edits with files := Map(path => result; edits.files)
             note(in path ++ ": unexported " ++ key_text(key), ref edits)
 
@@ -2494,7 +2508,7 @@ procedure unexport_target(
       else
         var result: Str
         let base := spliced(List(for line in lines), List((sig_range, List())))
-        formatted(in path, join("\n", base), no_fragment(), out result, _)
+        formatted(in path, join("\n", base), edits.files, no_fragment(), out result, _)
         put_into(in path, result, List("implementation"; lines_in(lines, sig_range)), ref edits)
       end
 
@@ -2519,7 +2533,7 @@ procedure fix(
   var text: Str, source: Source, result: Str
   let (path, name, arity) := target_of(word)
   current_text(in path, edits.files, out text)
-  parsed(in path, text, no_fragment(), out source)
+  parsed(in path, text, edits.files, no_fragment(), out source)
   let d := main_mod(source), lines := Array(for line in split(text, '\n'))
   let regions := List(for (key, cmd, _) in keyed(placed_of(d)) if forall(name, lambda base => is_selected(key, base, arity)) yield cmd_range(lines, cmd, 0, true))
   let selected := List(for w in lints(d) if rules == List() or contains(show(w.lint), rules) if name == None or exists(regions, lambda r => r.first <= w.pos.line and w.pos.line <= r.last) yield w)
@@ -2528,7 +2542,7 @@ procedure fix(
   let splices := edit_splices(source, d, text, lines, starts, List(for (w, edit) in fixable yield (show(w.lint) ++ " at " ++ show(w.pos.line) ++ "." ++ show(w.pos.col), edit)))
   let taken := without_overlaps(sort(List(for sp in splices yield (sp.start, sp.stop, sp.text, sp.fixed))), -1)
   let fixed := foldl(reverse(taken), text, lambda acc, (start, stop, new, _) => slice(acc, 0, start) ++ new ++ slice(acc, stop, size(acc)))
-  formatted(in path, fixed, no_fragment(), out result, _)
+  formatted(in path, fixed, edits.files, no_fragment(), out result, _)
   edits := edits with files := Map(path => result; edits.files)
   let unfixable := size(selected) - size(fixable)
   let labels := distinct(List(for (_, _, _, fixed_labels) in taken for label in fixed_labels yield label))
@@ -2675,10 +2689,11 @@ function without_overlaps(splices: List[(Int, Int, Str, List[Str])], last: Int):
   end
 
 // the first line of a reply that applied, which counts the errors and warnings after it, if it checked files, and the tests
-function verdict(checked: Bool, errors: Int, warnings: Int, tests: Tests): Str :=
-  example verdict(true, 3, 1, Tests(List(), 0, 0, 0)) == "applied, 3 errors, 1 warning"
-  example verdict(true, 0, 0, Tests(List(), 2, 1, 4)) == "applied, clean, 2 tests passed, 1 failed, 4 not run"
-  example verdict(false, 0, 0, Tests(List(), 0, 0, 0)) == "applied"
+function verdict(dry: Bool, checked: Bool, errors: Int, warnings: Int, tests: Tests): Str :=
+  example verdict(false, true, 3, 1, Tests(List(), 0, 0, 0)) == "applied, 3 errors, 1 warning"
+  example verdict(false, true, 0, 0, Tests(List(), 2, 1, 4)) == "applied, clean, 2 tests passed, 1 failed, 4 not run"
+  example verdict(false, false, 0, 0, Tests(List(), 0, 0, 0)) == "applied"
+  example verdict(true, true, 1, 0, Tests(List(), 0, 0, 0)) == "dry, 1 error"
   let state := if not checked then
     List()
   else if errors == 0 and warnings == 0 then
@@ -2689,7 +2704,7 @@ function verdict(checked: Bool, errors: Int, warnings: Int, tests: Tests): Str :
     List()
   else
     List(counted(tests.passed, "test") ++ " passed") ++ List(for (n, what) in List((tests.failed, " failed"), (tests.skipped, " not run")) if n > 0 yield show(n) ++ what) in
-  join(", ", List("applied") ++ state ++ ran)
+  join(", ", List(if dry then "dry" else "applied") ++ state ++ ran)
 
 // whether d is a warning of a lint, which does not fail a check, as checked_diagnostics of ulang/ulang.u writes them
 function is_warning(d: Diagnostic): Bool :=
@@ -2812,7 +2827,7 @@ function has_word(text: Str, name: Str): Bool :=
 procedure outline(in path: Str, ref edits: Edits) raises Refused, OsError :=
   var text: Str, source: Source
   current_text(in path, edits.files, out text)
-  parsed(in path, text, no_fragment(), out source)
+  parsed(in path, text, edits.files, no_fragment(), out source)
   let d := main_mod(source), lines := Array(for line in split(text, '\n'))
   let has_sections := keyword_line(lines, "export") != None or keyword_line(lines, "implementation") != None or keyword_line(lines, "builtin") != None
   let visible := List(for (key, _, _) in keyed(d.exported ++ d.builtins) yield key)
@@ -2932,7 +2947,7 @@ procedure refs(in word: Str, ref edits: Edits) raises Refused, OsError :=
   let (path, chosen, arity) := target_of(word)
   let base := value_or(chosen, "")
   current_text(in path, edits.files, out text)
-  parsed(in path, text, no_fragment(), out source)
+  parsed(in path, text, edits.files, no_fragment(), out source)
   let d := main_mod(source)
   let arities := distinct(List(for (key, _, _) in keyed(placed_of(d)) if key.kind == "value" and is_selected(key, base, arity) yield key.arity) ++ List(for (_, _, c) in keyed(placed_of(d)) for constr in constrs_of(c) if constr_name(constr) == base and forall(arity, lambda k => k == constr_arity(constr)) yield constr_arity(constr)))
   match arities
@@ -2950,12 +2965,12 @@ procedure refs(in word: Str, ref edits: Edits) raises Refused, OsError :=
   var handles := edits.handles, found: List[Str] := List(), touched := 0
   for (file, file_text) in files do
     var hints_found: List[Hint]
-    file_hints(in file, file_text, out hints_found)
+    file_hints(in file, file_text, edits.files, out hints_found)
     let hits := List(for h in hints_found for (span, name, k) in use_of(h) if name == target and k == n yield span)
     if hits != List() then
       var file_source: Source
       try
-        parse_file_text(in file, file_text, out file_source)
+        parse_file_overlaid(in file, Map(file => file_text; edits.files), out file_source)
       catch
         case e =>
           raise Refused(file ++ ": " ++ parse_diagnostic(e).message)
