@@ -15,6 +15,10 @@ function exists[A](a: Array[A], p: A -> Bool): Bool
 
 function forall[A](a: Array[A], p: A -> Bool): Bool
 
+// the first element that satisfies p
+function find[A](a: Array[A], p: A -> Bool): Option[A] :=
+  example find(Array(3, 1, 2), lambda x => x < 3) == Some(1)
+
 builtin
 
 type Array[A]
@@ -37,17 +41,30 @@ function foldl[A, R](a: Array[A], acc: R, f: (R, A) -> R): R
 
 implementation
 
+// exists, forall, find, and contains stop at the first element that decides
 function exists[A](a: Array[A], p: A -> Bool): Bool :=
-  foldl(a, false, lambda found, x => found or p(x))
+  exists_from(a, p, 0)
 
 function forall[A](a: Array[A], p: A -> Bool): Bool :=
-  foldl(a, true, lambda all, x => all and p(x))
+  not exists_from(a, lambda x => not p(x), 0)
+
+function find[A](a: Array[A], p: A -> Bool): Option[A] :=
+  find_from(a, p, 0)
+
+function exists_from[A](a: Array[A], p: A -> Bool, i: Int): Bool :=
+  i < size(a) and (p(at(i, a)) or exists_from(a, p, i + 1))
+
+function find_from[A](a: Array[A], p: A -> Bool, i: Int): Option[A] :=
+  if i < size(a) then
+    if p(at(i, a)) then Some(at(i, a)) else find_from(a, p, i + 1)
+  else
+    None
 
 function get[A](i: Int, a: Array[A]): Option[A] :=
   if 0 <= i and i < size(a) then Some(at(i, a)) else None
 
 function contains[A](x: A, a: Array[A]): Bool :=
-  foldl(a, false, lambda found, y => found or x == y)
+  exists_from(a, lambda y => x == y, 0)
 
 test arrays() :=
   let a := Array(1, 2, 3)

@@ -25,6 +25,10 @@ function exists[A](s: Set[A], p: A -> Bool): Bool
 
 function forall[A](s: Set[A], p: A -> Bool): Bool
 
+// the least element that satisfies p
+function find[A](s: Set[A], p: A -> Bool): Option[A] :=
+  example find(Set(3, 1, 2), lambda x => x > 1) == Some(2)
+
 function size[A](s: Set[A]): Int
 
 // f(x1, f(x2, ... f(xn, acc))) and f(... f(f(acc, x1), x2) ..., xn) of the elements in ascending order
@@ -147,11 +151,36 @@ function --[A](a: Set[A], b: Set[A]): Set[A] :=
 function intersect[A](a: Set[A], b: Set[A]): Set[A] :=
   foldl(a, empty(), lambda s, x => if contains(x, b) then insert(x, s) else s)
 
+// exists, forall, and find stop at the first element that decides, in ascending order
 function exists[A](s: Set[A], p: A -> Bool): Bool :=
-  foldl(s, false, lambda found, x => found or p(x))
+  match s
+    case Leaf =>
+      false
+    case Node(left, elem, right, _) =>
+      exists(left, p) or p(elem) or exists(right, p)
+  end
 
 function forall[A](s: Set[A], p: A -> Bool): Bool :=
-  foldl(s, true, lambda all, x => all and p(x))
+  match s
+    case Leaf =>
+      true
+    case Node(left, elem, right, _) =>
+      forall(left, p) and p(elem) and forall(right, p)
+  end
+
+function find[A](s: Set[A], p: A -> Bool): Option[A] :=
+  match s
+    case Leaf =>
+      None
+
+    case Node(left, elem, right, _) =>
+      match find(left, p)
+        case None =>
+          if p(elem) then Some(elem) else find(right, p)
+        case found =>
+          found
+      end
+  end
 
 function compare[A](a: Set[A], b: Set[A]): Int :=
   compare(List(for x in a), List(for x in b))

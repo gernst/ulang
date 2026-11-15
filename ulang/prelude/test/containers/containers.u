@@ -18,6 +18,13 @@ test predicates() :=
   assert exists(Map(1 => "a"), lambda k, v => v == "a") and forall(Map(1 => "a", 2 => "b"), lambda k, v => k > 0)
   assert exists(Array(1, 2), lambda x => x == 2) and forall(Array(1, 2), lambda x => x > 0) and not exists(Array(), lambda x => x == 1)
 
+// exists, forall, and find stop at the first element that decides, so p never reaches the 0 that it divides by
+test predicates_stop() :=
+  assert exists(Set(1, 2, 0), lambda x => x == 0 or 1 / x > 0) and not forall(Set(0, 1, 2), lambda x => x > 0 and 1 / x > 0)
+  assert exists(Map(1 => 1, 0 => 0), lambda k, v => k == 0 or 1 / k > 0) and find(Map(0 => "a", 1 => "b"), lambda k, v => k == 0 or 1 / k > 0) == Some((0, "a"))
+  assert exists(Array(1, 0), lambda x => 1 / x > 0) and not forall(Array(0, 1), lambda x => x > 0 and 1 / x > 0) and contains(1, Array(1, 0))
+  assert find(Set(0, 1, 2), lambda x => x == 0 or 1 / x > 0) == Some(0) and find(Array(2, 0), lambda x => 2 / x > 0) == Some(2) and find(Array(1), lambda x => x > 1) == None
+
 test notation() :=
   let s := Set(2), m := Map(1 => "a")
   assert Set(1; s) == Set(1, 2) and Set(3, 1; s) == Set(1, 2, 3) and Set(2; s) == s
