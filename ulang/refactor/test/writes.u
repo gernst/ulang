@@ -20,14 +20,15 @@ test puts_into_new_directory() :=
   os_read_utf8(in os_join(dir, "deep/m.u"), out text)
   assert text == module
 
-// an error of the system in an action is refused with the action and its line in the script
+// an error of the system in an action that writes is refused with the action and its line in the script, while a query
+// would only be noted
 test names_failed_action() :=
   var reply: List[Str], status: Int
-  run_script(in "@check\n@show out/test/refactor/writes/missing.u\n", false, "out/test/refactor/writes", unseen, out reply, status, _)
+  run_script(in "@check\n@drop out/test/refactor/writes/missing.u:f\n", false, "out/test/refactor/writes", unseen, out reply, status, _)
   assert status == 1
   assert reply == List(
     "rejected",
-    "line 2, @show out/test/refactor/writes/missing.u: cannot read out/test/refactor/writes/missing.u")
+    "line 2, @drop out/test/refactor/writes/missing.u:f: cannot read out/test/refactor/writes/missing.u")
 
 // @put of the signature of a private procedure into export writes the raises that the check inferred into the
 // signature and the definition, and the raises that the signature writes into the definition
