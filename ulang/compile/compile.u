@@ -414,6 +414,10 @@ procedure compile_expr(
     case EProc(ins, outs, refs, _, stmt) =>
       compile_proc_lambda(in defs, env, vars(ins), vars(outs), vars(refs), stmt, out ss, r, ref g)
 
+    // a let of a pattern with alternatives is a match of its value with a case for each
+    case ELet(List((pat, value)), body) if has_alternatives(pat) =>
+      compile_expr(in defs, env, expr with that := EMatch(value, List(nowhere(Branch(pat, None, body)))), out ss, r, ref g)
+
     case ELet(bindings, body) =>
       var as: List[CStmt], bs: List[CStmt], cs: List[CStmt], rb: CExpr, rs: List[CExpr], t: Str
       let names := bound_by(firsts(bindings))
@@ -442,7 +446,7 @@ procedure compile_expr(
       compile_expr(in defs, env, arg, out as, ra, ref g)
       gen_name(in "s", out d, ref g)
       gen_name(in "t", out t, ref g)
-      expr_cases(in defs, env, cases, CeVar(d), t, out bs, ref g)
+      expr_cases(in defs, env, expanded_cases(cases), CeVar(d), t, out bs, ref g)
       ss := as ++ List(
         CsDecl(value_type(), d, Some(ra)),
         CsDecl(value_type(), t, Some(CeVar("NULL")))) ++ bs
@@ -910,7 +914,7 @@ procedure compile_stmt(
       compile_expr(in defs, env, arg, out as, ra, ref g)
       gen_name(in "stmt", out d, ref g)
       gen_name(in "d", out t, ref g)
-      stmt_cases(in defs, env, cases, CeVar(d), t, out bs, ref g)
+      stmt_cases(in defs, env, expanded_cases(cases), CeVar(d), t, out bs, ref g)
       ss := as ++ List(CsDecl(value_type(), d, Some(ra)), CsDecl(CtInt, t, Some(CeNum(0)))) ++ bs
       ss := ss ++ List(
         CsIf(CeUnary("!", CeVar(t)), List(CsExpr(c_call("u_no_case", List(CeVar(d))))), List()))
@@ -939,16 +943,25 @@ procedure compile_stmt(
       compile_try(in defs, env, body, bs, catches, out ss, ref g)
 
     // the checker gives the list of the items and patterns that match every item, so that the loop walks the list and binds
-    // the pattern to each item
+    // the pattern to each item, where a pattern with alternatives is a match of the item with a case for each
     case SFor(List(GVal(pat, over)), body) =>
       var cs: List[CStmt], rc: CExpr, bs: List[CStmt], l: Str
       compile_expr(in defs, env, over, out cs, rc, ref g)
-      compile_stmt(in defs, in_scope(pattern_names(pat)) ++ env, body, out bs, ref g)
       gen_name(in "l", out l, ref g)
+      if has_alternatives(pat) then
+        var d: Str, ms: List[CStmt]
+        gen_name(in "d", out d, ref g)
+        stmt_cases(in defs, env, expanded_cases(List(nowhere(Branch(pat, None, body)))), field(CeVar(l), 0), d, out ms, ref g)
+        bs := List(declare_int(d, 0)) ++ ms
+      else
+        var ms: List[CStmt]
+        compile_stmt(in defs, in_scope(pattern_names(pat)) ++ env, body, out ms, ref g)
+        bs := pattern_binds(pat.that, field(CeVar(l), 0)) ++ ms
+      end
       ss := cs ++ List(
         CsBlock(List(
           declare(l, rc),
-          CsWhile(is_cell(l), pattern_binds(pat.that, field(CeVar(l), 0)) ++ bs ++ List(set_var(l, field(CeVar(l), 1)))))))
+          CsWhile(is_cell(l), bs ++ List(set_var(l, field(CeVar(l), 1)))))))
 
     // the checker gives one generator over a list
     case SFor(_, _) =>
@@ -979,7 +992,7 @@ procedure compile_try(
   var as: List[CStmt], cs: List[CStmt], t: Str, d: Str, xs: List[Name]
   gen_name(in "h", out d, ref g)
   gen_name(in "d", out t, ref g)
-  handler_cases(in defs, env, catches, d, t, out cs, ref g)
+  handler_cases(in defs, env, expanded_handlers(catches), d, t, out cs, ref g)
   xs := List(for x in distinct(changed(body)) if get(x, env) != None)
   as := List(pop_handler(d)) ++ restore_vars(env, xs, d, 0) ++ List(declare_int(t, 0))
   as := as ++ cs ++ List(CsIf(not_flag(t), List(call_c("u_reraise", List(CeVar(d)))), List()))

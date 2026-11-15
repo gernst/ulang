@@ -50,7 +50,7 @@ test sorting() :=
 - Every pattern may carry its type, `lambda p: Point => p.x`, `case Some(n: Int) =>`.
 - Functions and procedures are values: `lambda x => e`, whose formals may be patterns, as in `lambda n, (a, b) => n + a * b`, and `lambda in x, out y => statements end` of a type `(in A, out B)`, which sees the variables around it but assigns only its outs and refs.
 - `if` always nests: an `if` after `else` is an `if` in its body, which has its own `end`.
-- Datatypes with pattern matching, guards, and checks that matches are exhaustive and cases reachable.
+- Datatypes with pattern matching, guards, and checks that matches are exhaustive and cases reachable, where alternatives share a case, `case TPlus | TMinus =>`, also nested, `Some(1 | 2)`, each binding the same variables.
 - Named fields of constructors, read as `e.field` and updated as `e with field := a, other := b`, which are resolved by the type of `e`, and raise `MissingField` for a constructor without that field.
 - Hindley-Milner type inference, where only declarations are polymorphic, with type parameters, and `let` does not generalize.
 - Exceptions, values of datatypes without type parameters, raised by the statement `raise e`, and caught by `try`, which leave the variables as they were: outs and refs reach the caller only when a procedure returns, and handlers see the variables as they were before the `try`.

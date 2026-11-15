@@ -106,6 +106,9 @@ function hint_of(e: TypeError): Str :=
     case Ambiguous(_, candidates) if are_apart(candidates) =>
       "; a type of the local, the formal, or the result that holds the value decides, as in let s: Set[Int] := empty()"
 
+    case OrVariables(name, _) =>
+      "; bind " ++ name.base ++ " in every alternative, or write _ for it in each"
+
     case WiderRaise(typ) =>
       "; add raises " ++ format_type(typ) ++ " to the procedure type that omits it, or catch " ++ format_type(typ) ++ " in the procedure"
 
@@ -274,6 +277,12 @@ function plain_message(e: TypeError): Str :=
     case AliasVariables(name) =>
       "the variables of the pattern alias " ++ name.base ++ " are not its formals, each once"
 
+    case OrVariables(name, binds) =>
+      if binds then
+        "the alternative binds " ++ name.base ++ ", which the first alternative does not bind"
+      else
+        "the alternative does not bind " ++ name.base ++ ", which the first alternative binds"
+
     case RaisesVariables(name) =>
       "the pattern of assert raises binds " ++ name.base ++ ", which only _ may stand for"
 
@@ -296,7 +305,7 @@ function plain_message(e: TypeError): Str :=
       "the declaration of " ++ name.base ++ " does not parse"
 
     case PatternOnly(name) =>
-      "the pattern alias " ++ name.base ++ " has _ and builds no value"
+      "the pattern alias " ++ name.base ++ " has _ or alternatives and builds no value"
 
     case PrivateConstructor(name, constr) =>
       "the exported pattern alias " ++ name.base ++ " matches the private constructor " ++ constr.base
@@ -346,7 +355,8 @@ test messages() :=
   assert located_message(Located(None, Pos(1, 1), NotExhaustive(PWild))) == "match is not exhaustive, missing _; add case _ => at 1.1"
   assert located_message(Located(None, Pos(1, 1), OutputUnassigned(Name(None, "y"), Name(None, "lambda")))) == "output y of lambda is not assigned on every path at 1.1"
   assert located_message(PartlyExported(Name(Some("ulang/test/errors/partly-exported"), "f"))) == "f is exported, but not with each of its numbers of arguments"
-  assert located_message(Located(None, Pos(4, 1), PatternOnly(Name(None, "First")))) == "the pattern alias First has _ and builds no value at 4.1"
+  assert located_message(Located(None, Pos(3, 20), OrVariables(Name(None, "n"), false))) == "the alternative does not bind n, which the first alternative binds; bind n in every alternative, or write _ for it in each at 3.20"
+  assert located_message(Located(None, Pos(4, 1), PatternOnly(Name(None, "First")))) == "the pattern alias First has _ or alternatives and builds no value at 4.1"
   assert located_message(Located(None, Pos(7, 1), PrivateConstructor(Name(Some("ulang/test/errors/pattern-alias-abstract"), "Small"), Name(Some("ulang/test/errors/pattern-alias-abstract"), "Box")))) == "the exported pattern alias Small matches the private constructor Box at 7.1"
   assert located_message(PrivateType(Name(Some("ulang/test/errors/private-type"), "f"), Name(Some("ulang/test/errors/private-type"), "Hidden"))) == "the signature of f names the private type Hidden"
   assert located_message(Located(None, Pos(1, 1), RaisesVariables(Name(None, "n")))) == "the pattern of assert raises binds n, which only _ may stand for at 1.1"

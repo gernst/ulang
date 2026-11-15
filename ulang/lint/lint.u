@@ -816,6 +816,10 @@ function placed_pat_vars(pos: Pos, pat: Pat): List[Pos * Id] :=
     case PAnnotated(inner, _) =>
       pat_vars(inner)
 
+    // those of the first alternative, which all bind, so that an unread one is reported once
+    case POr(alts) =>
+      List(for p in take(1, alts) for x in pat_vars(p) yield x)
+
     case _ =>
       List()
   end
@@ -1009,6 +1013,9 @@ function part_pat_names(pat: Pat): Set[Id] :=
 
     case PAnnotated(inner, _) =>
       pat_names(inner)
+
+    case POr(alts) =>
+      Set(for p in alts for x in pat_names(p) yield x)
 
     case _ =>
       Set()

@@ -747,12 +747,21 @@ function head_stop[A](b: At[Branch[A]]): Pos :=
       b.that.pat.span.stop
   end
 
+// a head wider than the line puts each alternative of its pattern after the first on a line of its own, after | and
+// under the first, so that they stand apart from the body
 function case_head(notation: Notation, notes: List[Comment], indent: Str, pat: At[Pat], guard: Option[At[Expr]]): Str :=
-  match guard
+  let guard_text := match guard
     case Some(g) =>
-      "case " ++ format_pattern(notation, indent, pat) ++ " if " ++ format_expr(notation, notes, indent, g) ++ " =>"
+      " if " ++ format_expr(notation, notes, indent, g)
     case None =>
-      "case " ++ format_pattern(notation, indent, pat) ++ " =>"
+      ""
+  end in
+  let flat := "case " ++ format_pattern(notation, indent, pat) ++ guard_text ++ " =>" in
+  match pat.that
+    case POr(alts) if size(indent) + size(flat) > 80 =>
+      "case " ++ join("\n" ++ indent ++ "   | ", List(for a in alts yield alternative_text(notation, indent ++ "     ", a))) ++ guard_text ++ " =>"
+    case _ =>
+      flat
   end
 
 function deeper(indent: Str): Str :=
@@ -793,8 +802,13 @@ function pattern_out(notation: Notation, indent: Str, pat: Pat): Out :=
     case PTuple(args) =>
       Out("(" ++ format_patterns(notation, indent, args) ++ ")", Atom)
 
+    // alternatives take parentheses, which they do not need, so that the type reads as that of all of them
     case PAnnotated(inner, typ) =>
-      Out(format_pattern(notation, indent, inner) ++ ": " ++ format_type(typ), Open)
+      let d := pattern_out(notation, indent, inner.that) in
+      Out(parenthesized(d, is_alternatives(inner)) ++ ": " ++ format_type(typ), Open)
+
+    case POr(alts) =>
+      Out(join(" | ", List(for a in alts yield alternative_text(notation, indent, a))), Open)
 
     case PApp(Name(None, "Nil"), List()) =>
       Out("List()", Atom)
@@ -814,6 +828,19 @@ function pattern_app_out(notation: Notation, indent: Str, constr: Name, pats: Li
     case None =>
       Out(constr.base ++ "(" ++ texts(parts) ++ ")", Atom)
   end
+
+function is_alternatives(pat: At[Pat]): Bool :=
+  match pat.that
+    case POr(_) =>
+      true
+    case _ =>
+      false
+  end
+
+// an alternative that is open, an annotation or alternatives, takes parentheses, since | binds tighter than : T
+function alternative_text(notation: Notation, indent: Str, alt: At[Pat]): Str :=
+  let d := pattern_out(notation, indent, alt.that) in
+  parenthesized(d, d.shape == Open)
 
 // a list wider than the line puts one element on each line, as the forms of expressions do
 function list_pattern_text(notation: Notation, indent: Str, pat: Pat): Str :=
@@ -1563,6 +1590,9 @@ function source_pattern(pat: Pat): Pat :=
 
     case PAnnotated(inner, typ) =>
       PAnnotated(map_at(inner, source_pattern), typ)
+
+    case POr(alts) =>
+      POr(List(for p in alts yield map_at(p, source_pattern)))
 
     case PCons(x, xs) =>
       PApp(Name(None, "Cons"), List(map_at(x, source_pattern), map_at(xs, source_pattern)))

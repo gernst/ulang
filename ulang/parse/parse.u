@@ -441,6 +441,9 @@ function hint_at(what: Str, toks: Tokens): Str :=
     case (TKw(","), tok) if contains(tok, List(TKw("in"), TKw("out"), TKw("ref"))) =>
       "; modes come in the order in, out, ref, each once before its group, as in ref a, b"
 
+    case (TKw("|"), _) if what != "pattern" =>
+      "; | separates the alternatives of a pattern, and the operators of Bool are and, or, and not"
+
     case (TKw("["), _) =>
       "; containers are forms, List(1, 2), Set(…), Map(k => v), and Array(…), and [ ] holds only type arguments"
 
@@ -1454,6 +1457,15 @@ procedure parse_pattern(
 ) :=
   let pos := head_pos(toks)
   parse_operators(in notation, params, pat_ops(), out pat, ref toks)
+  if at_kw(toks, "|") then
+    var alts: Buffer[At[Pat]] := append(empty(), pat), alt: At[Pat]
+    while at_kw(toks, "|") do
+      advance(ref toks)
+      parse_operators(in notation, params, pat_ops(), out alt, ref toks)
+      alts := append(alts, alt)
+    end
+    pat := AOk(pos, span_from(pos, toks), POr(List(for a in alts)))
+  end
   if at_kw(toks, ":") then
     var typ: Type
     advance(ref toks)

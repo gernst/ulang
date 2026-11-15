@@ -59,6 +59,8 @@ data TypeError :=
   case UnexportedOrder(fun: Name, sort: Name)
   // a pattern alias whose variables are not exactly its formals
   case AliasVariables(name: Name)
+  // an alternative of a pattern that binds name where the first does not, or the other way if not binds
+  case OrVariables(name: Name, binds: Bool)
   // a pattern alias with _, which matches but builds no value
   case PatternOnly(name: Name)
   // a pattern of assert raises that binds the variable name
@@ -814,6 +816,9 @@ function zonk_pattern(s: State, pat: Pat): Pat :=
     case PTuple(args) =>
       PTuple(List(for q in args yield zonk_pat(s, q)))
 
+    case POr(alts) =>
+      POr(List(for q in alts yield zonk_pat(s, q)))
+
     case _ =>
       pat
   end
@@ -1119,6 +1124,9 @@ function heads(rows: List[List[Pat]]): List[Head] :=
     case List() =>
       List()
 
+    case List(List(POr(alts); ps); rest) =>
+      heads(or_rows(alts, ps) ++ rest)
+
     case List(List(p; _); rest) =>
       match head_of(p)
         case Some((h, _)) =>
@@ -1178,6 +1186,9 @@ function defaults(rows: List[List[Pat]]): List[List[Pat]] :=
     case List() =>
       List()
 
+    case List(List(POr(alts); ps); rest) =>
+      defaults(or_rows(alts, ps) ++ rest)
+
     case List(List(p; ps); rest) =>
       match head_of(p)
         case Some(_) =>
@@ -1190,10 +1201,18 @@ function defaults(rows: List[List[Pat]]): List[List[Pat]] :=
       defaults(rest)
   end
 
+// the rows of the alternatives alts before the patterns ps, which the matrices take in place of the row of the
+// alternatives, as Maranget's do
+function or_rows(alts: List[At[Pat]], ps: List[Pat]): List[List[Pat]] :=
+  List(for a in alts yield List(a.that; ps))
+
 function specialize(rows: List[List[Pat]], h: Head, n: Int): List[List[Pat]] :=
   match rows
     case List() =>
       List()
+
+    case List(List(POr(alts); ps); rest) =>
+      specialize(or_rows(alts, ps) ++ rest, h, n)
 
     case List(List(p; ps); rest) =>
       match head_of(p)
@@ -1216,6 +1235,9 @@ function is_useful(sig: Sig, su: Subst, rows: List[List[Pat]], q: List[Pat], ts:
   match (q, ts)
     case (List(), _) =>
       rows == List()
+
+    case (List(POr(alts); ps), _) =>
+      exists(or_rows(alts, ps), lambda row => is_useful(sig, su, rows, row, ts))
 
     case (List(p; ps), List(t; rest)) =>
       match head_of(p)
@@ -3083,6 +3105,10 @@ procedure reachable(
     case List() =>
       skip
 
+    // each alternative against the cases before and the alternatives before it
+    case List((AOk(_, _, POr(alts)), open); rest) =>
+      reachable(in t, before, List(for a in alts yield (a, open)) ++ rest, ref s)
+
     case List((p, open); rest) =>
       if not is_useful(s.sig, s.sub, List(for q in before yield List(q)), List(p.that), List(t)) then
         report(in at_use(p.pos, Unreachable(p.that)), ref s)
@@ -3206,7 +3232,45 @@ procedure pattern_binders(
       normalize(in typ, out u, ref s)
       unify(in u, t, ref s)
       binders(in inner, u, out typed_pat, xs, ref s)
+
+    // each alternative matches t and binds the variables of the first, with their types, which the case sees
+    case POr(alts) =>
+      var typed_alts: Buffer[At[Pat]] := empty(), first: Option[List[Var]] := None
+      for alt in alts do
+        var typed_alt: At[Pat], ys: List[Var]
+        binders(in alt, t, out typed_alt, ys, ref s)
+        typed_alts := append(typed_alts, typed_alt)
+        match first
+          case None =>
+            first := Some(ys)
+          case Some(zs) =>
+            same_variables(in alt.pos, zs, ys, ref s)
+        end
+      end
+      typed_pat := AOk(pos, span, POr(List(for a in typed_alts))), xs := value_or(first, List())
   end
+
+// the variables ys of an alternative at pos against those of the first, xs, with the same types
+procedure same_variables(
+  in  pos: Pos,
+      xs: List[Var],
+      ys: List[Var],
+  ref s: State
+) :=
+  let outer := s.at
+  s := s with at := pos
+  for x in xs do
+    match find(ys, lambda y => y.name == x.name)
+      case Some(y) =>
+        unify(in y.typ, x.typ, ref s)
+      case None =>
+        report(in OrVariables(x.name, false), ref s)
+    end
+  end
+  for y in ys if not exists(xs, lambda x => x.name == y.name) do
+    report(in OrVariables(y.name, true), ref s)
+  end
+  s := s with at := outer
 
 // the constructor or pattern alias k with its head applied to the patterns args, matching t
 procedure constructor_binders(
@@ -3244,7 +3308,17 @@ function subst_pat(pat: At[Pat], sub: List[Name * At[Pat]]): At[Pat] :=
     case PTuple(args) =>
       pat with that := PTuple(List(for a in args yield subst_pat(a, sub)))
 
-    case _ =>
+    case POr(alts) =>
+      pat with that := POr(List(for a in alts yield subst_pat(a, sub)))
+
+    // a pattern alias is typed with its annotations dropped
+    case PAnnotated(_, _) =>
+      pat
+
+    case PWild =>
+      pat
+
+    case PLit(_) =>
       pat
   end
 
@@ -3767,6 +3841,10 @@ function placed_pattern_vars(s: State, pat: At[Pat]): List[At[Var]] :=
     case PAnnotated(inner, _) =>
       placed_pattern_vars(s, inner)
 
+    // those of the first alternative, which declares them
+    case POr(alts) =>
+      List(for p in take(1, alts) for x in placed_pattern_vars(s, p) yield x)
+
     case PWild =>
       List()
 
@@ -3791,6 +3869,9 @@ function generated_pat(s: State, pat: At[Pat]): At[Pat] :=
 
     case PAnnotated(inner, typ) =>
       pat with that := PAnnotated(generated_pat(s, inner), typ)
+
+    case POr(alts) =>
+      pat with that := POr(List(for p in alts yield generated_pat(s, p)))
 
     case PWild =>
       pat
@@ -4918,6 +4999,9 @@ function pattern_constrs(pat: Pat): List[Name] :=
 
     case PTuple(args) =>
       List(for a in args for k in pattern_constrs(a.that) yield k)
+
+    case POr(alts) =>
+      List(for a in alts for k in pattern_constrs(a.that) yield k)
 
     case _ =>
       List()

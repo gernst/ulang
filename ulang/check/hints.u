@@ -280,6 +280,9 @@ function pattern_hints(lines: Array[Str], decls: Decls, outer: Span, pat: At[Pat
     case Some(PTuple(args)) =>
       List(for a in args for h in pattern_hints(lines, decls, here, a) yield h)
 
+    case Some(POr(alts)) =>
+      List(for a in alts for h in pattern_hints(lines, decls, here, a) yield h)
+
     case _ =>
       List()
   end

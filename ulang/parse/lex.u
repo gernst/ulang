@@ -96,8 +96,9 @@ function is_keyword(w: Str): Bool :=
 function fixed_symbols(): Set[Str] :=
   Set("=>", ":=", ":")
 
+// where | separates the alternatives of a pattern
 function is_punct(c: Char): Bool :=
-  contains(c, "()[],;.")
+  contains(c, "()[],;.|")
 
 function is_name_char(c: Char): Bool :=
   is_letter(c) or is_digit(c) or c == '_'
@@ -202,6 +203,12 @@ function hex_digit(c: Char): Option[Int] :=
 function hex_value(digits: Str): Int :=
   example hex_value("D800") == 55296
   foldl(chars(digits), 0, lambda n, c => 16 * n + value_or(hex_digit(c), 0))
+
+// a | at offset that is part of an operator of another language, such as || or <|>, which no pattern has, with the
+// hints of character_hint, where a - after it starts a negative literal
+function is_glued_bar(text: Str, offset: Int): Bool :=
+  let next := peek(text, offset + 1) in
+  next == '|' or offset > 0 and is_op_char(at(offset - 1, text)) or is_op_char(next) and next != '-'
 
 // the hint for an unexpected character c before next, after "; ", or ""
 function character_hint(c: Char, next: Char): Str :=
@@ -326,6 +333,9 @@ procedure lex_token(in text: Str, out tok: Token, ref offset: Int) :=
 
     case '\'' =>
       lex_char(in text, out tok, ref offset)
+
+    case '|' if is_glued_bar(text, offset) =>
+      raise LexError("unexpected character" ++ character_hint(c, peek(text, offset + 1)), position_of(text, offset))
 
     case _ if is_punct(c) =>
       tok := TKw(str(List(c))), offset := offset + 1

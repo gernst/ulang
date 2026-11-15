@@ -187,6 +187,16 @@ test pattern_alias_unreachable() :=
       "  end"))
   end
 
+test unreachable_alternative() :=
+  assert raises Located(None, Pos(3, 25), Unreachable(PLit(LBool(true)))) do
+    check_text(in "ulang/test/errors/unreachable-alternative.u", List(
+      "function f(b: Bool): Int :=",
+      "  match b",
+      "    case true | false | true =>",
+      "      0",
+      "  end"))
+  end
+
 test unreachable_after_wildcard() :=
   assert raises Located(None, Pos(5, 10), Unreachable(PLit(LBool(true)))) do
     check_text(in "ulang/test/errors/unreachable-after-wildcard.u", List(
