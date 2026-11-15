@@ -10,9 +10,6 @@ function empty[A](): Buffer[A]
 // b with the elements of xs added after those of b
 function ++[A](b: Buffer[A], xs: List[A]): Buffer[A]
 
-// b with x added after its elements, without the list of one element that b ++ List(x) makes
-function append[A](b: Buffer[A], x: A): Buffer[A]
-
 function size[A](b: Buffer[A]): Int
 
 // f(x1, f(x2, ... f(xn, acc))) and f(... f(f(acc, x1), x2) ..., xn) of the elements in the order they were added
@@ -32,12 +29,6 @@ function ++[A](b: Buffer[A], xs: List[A]): Buffer[A] :=
   match b
     case Reversed(items) =>
       Reversed(reverse_onto(xs, items))
-  end
-
-function append[A](b: Buffer[A], x: A): Buffer[A] :=
-  match b
-    case Reversed(items) =>
-      Reversed(List(x; items))
   end
 
 function size[A](b: Buffer[A]): Int :=
@@ -67,4 +58,3 @@ test buffers() :=
   assert foldr(b, List(), Cons) == List(1, 2, 3) and foldl(b, List(), lambda xs, x => List(x; xs)) == List(3, 2, 1)
   assert foldr(b, 0, lambda x, n => 10 * n + x) == 321 and foldl(b, 0, lambda n, x => 10 * n + x) == 123
   assert List(for x in b ++ List(4) if x > 2) == List(3, 4) and List(for x in b) == List(1, 2, 3)
-  assert List(for x in append(append(b, 4), 5)) == List(1, 2, 3, 4, 5)

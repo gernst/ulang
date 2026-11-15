@@ -85,13 +85,13 @@ function variadics(): Set[Str] :=
     "u_mk_array")
 
 procedure emit(in instr: Instr, ref e: Emit) :=
-  e := e with code := append(e.code, LInstr(instr))
+  e := e with code := e.code ++ List(LInstr(instr))
 
 procedure emit_all(in instrs: List[Instr], ref e: Emit) :=
   e := e with code := e.code ++ List(for i in instrs yield LInstr(i))
 
 procedure place(in label: Str, ref e: Emit) :=
-  e := e with code := append(e.code, LLabel(label))
+  e := e with code := e.code ++ List(LLabel(label))
 
 procedure new_label(out label: Str, ref e: Emit) :=
   label := ".L" ++ show(e.labels), e := e with labels := e.labels + 1
@@ -203,7 +203,7 @@ procedure formal_slots(in n: Int, out slots: List[Int], ref e: Emit) :=
   var s: Int, found: Buffer[Int] := empty()
   for r in take(n, arg_regs()) do
     spill_reg(in r, out s, ref e)
-    found := append(found, s)
+    found := found ++ List(s)
   end
   slots := List(for x in found) ++ List(for i in range(0, n - 6) yield 16 + 8 * i)
 
@@ -424,7 +424,7 @@ procedure compile_spilled(
   for x in exprs do
     compile_expr(in defs, env, x, ref e)
     spill(out s, ref e)
-    found := append(found, s)
+    found := found ++ List(s)
   end
   slots := List(for x in found)
 
@@ -444,16 +444,16 @@ procedure compile_args(
     operand_of(in defs, env, x, out operand, ref e)
     match operand
       case Some(arg) =>
-        found := append(found, arg)
+        found := found ++ List(arg)
 
       case None =>
         compile_expr(in defs, env, x, ref e)
         if i == last then
-          found := append(found, AVal(OReg(Rax)))
+          found := found ++ List(AVal(OReg(Rax)))
         else
           var s: Int
           spill(out s, ref e)
-          found := append(found, AVal(slot(s)))
+          found := found ++ List(AVal(slot(s)))
         end
     end
   end
@@ -1471,7 +1471,7 @@ procedure test_tables(in files: List[TestFile], cmds: List[Cmd], ref e: Emit) :=
   var paths: Buffer[Str] := empty(), rows: Buffer[Line] := empty(), text: Str
   for file in files do
     c_string(in file.path, out text, ref e)
-    paths := append(paths, text)
+    paths := paths ++ List(text)
   end
   for (file, i) in numbered(files) do
     for c in cmds do
