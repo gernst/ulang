@@ -39,7 +39,7 @@ function walk(decls: Decls, p: Partial): List[DefEquation] :=
           List(closed(p, true))
       end
 
-    case _ =>
+    case ELeaf | EApp(_, _) | ELam(_, _) | ESum(_, _) =>
       List(closed(p, false))
   end
 

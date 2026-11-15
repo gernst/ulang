@@ -61,7 +61,7 @@ Each of these was a commit of many mechanical edits, several with regular expres
 - moves of declarations between modules and of tests between files (`26c9c42`, `64a4092`), and the split of `ulang/` into a package per phase (`ff02be2`);
 - functions turned into procedures when they had to raise (`8084d78`: `as_type`, `type_apply`), and `raises` written into the exported signatures (`9335b69`);
 - 211 failing files turned into cases of `ulang/test/errors/` (`15b55d4`);
-- the expansion of `case _` into named constructors, mostly done, the rest Code 1, by the alternatives of `ideas/or-patterns.md`;
+- the expansion of `case _` into named constructors, done, by alternatives (Code 1);
 - exports added because another member needed a private helper (`covers_all` and `strip_yield`, both exported since).
 
 ## How an agent edits
@@ -136,7 +136,7 @@ The most frequent refactoring, and the one where text tools fail by overloading,
 
 ### 2. Expand `case _` and fill in missing cases
 
-- `expand-wildcard file.u:L.C`: replace the `case _` of a match over a datatype by one case of the remaining constructors as alternatives, with the body of the wildcard, as `ideas/or-patterns.md` plans; the style rule asks for exactly this, and Code 1 lists the places left.
+- `expand-wildcard file.u:L.C`: replace the `case _` of a match over a datatype by one case of the remaining constructors as alternatives, with the body of the wildcard, and a group alias of `CLAUDE.md`, Style, where one fits; the style rule asks for exactly this.
 - `fill-cases file.u:L.C --body <expr>`: the missing cases that `NotExhaustive` reports, with a body given by the agent (for procedures commonly `raise Unexpected("…")`), as the fix that Diagnostics 2 wants offered with the error.
 - With `add-constructor` (below), the listing of every match that the new constructor makes non-exhaustive, as one report rather than an error per run.
 
@@ -200,7 +200,7 @@ The tests that sort a change:
 - **Is it determined by the code, meaning-preserving, and better by a cost that every reader shares?** Then it is a canonicalization, for lint. To be applied without review it must also be terminating (the cost strictly decreases), confluent (the order of applying rules does not matter), and idempotent, as `format` is; the e-graph of `lint.md` gives the first two by construction, since extraction picks one cheapest representative per class.
 - **Is it only faster, and less clear to read?** Then it is an optimization and never edits the sources: fusion of comprehensions, which `ulang/compile/compile.u` already does by nested loops, unrolling, constant folding, a fold that `size(List(for …))` counts instead of building the list, sharing of repeated pure subexpressions, and the extraction by the cost of evaluation (`lint.md`, step 6 of its order). Rewriting the source for speed would undo the canonical form that lint establishes.
 
-So of the operations above, two are no operations of their own, but edits that `@fix` applies: moving locals into the innermost body that uses them is `LocalTooHigh` of `ulang/lint/lint.u`, built, since the style rule fixes the place, so no choice is left, and `write-raises` is a fix of errors, planned. `expand-wildcard` stays a refactoring, which a lint of a `case _` (Diagnostics 5) offers as its fix where the match names two or more constructors besides it (`ideas/or-patterns.md`).
+So of the operations above, two are no operations of their own, but edits that `@fix` applies: moving locals into the innermost body that uses them is `LocalTooHigh` of `ulang/lint/lint.u`, built, since the style rule fixes the place, so no choice is left, and `write-raises` is a fix of errors, planned. `expand-wildcard` stays a refactoring, which a lint of a `case _` (Diagnostics 5) offers as its fix where the match names two or more constructors besides it.
 
 ### Canonical forms missing from `lint.u` and `lint.md`
 
