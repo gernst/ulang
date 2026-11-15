@@ -630,7 +630,7 @@ procedure compile_tests(in dir: Option[Str], output: Str, out status: Int) :=
   end
   if status == 0 then
     try
-      compile_prog(in Prog(List(for m => cs in others if not contains(m, members) for c in cs yield c) ++ List(for c in own), List(), ""), EntryTests(List(for f in files)), output)
+      compile_prog(in Prog(List(for m => cs in others if not contains(m, members) for c in cs yield c) ++ List(for c in own), List(), List(), ""), EntryTests(List(for f in files)), output)
     catch
       // which only the entry of a procedure raises
       case UnknownEntry(name) =>
@@ -1073,7 +1073,7 @@ procedure load_file(
       errors: List[Diagnostic],
   ref cache: Cache
 ) :=
-  source := Source(List(), List(), ""), q := Prog(List(), List(), ""), errors := List()
+  source := Source(List(), List(), ""), q := Prog(List(), List(), List(), ""), errors := List()
   try
     var loaded := cache.loaded, checks := cache.checks
     parse_file_loaded(in file, out source, ref loaded)

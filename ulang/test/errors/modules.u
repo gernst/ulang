@@ -192,6 +192,18 @@ test unused_import() :=
       "  assert 1 + 1 == 2"))
   end
 
+// the error of an import stands on the import, so that the command after it, a test or a lemma that would be left out of
+// a program or a proof as rejected, has none
+test unused_import_place() :=
+  var q: Prog
+  checked_text(in "ulang/test/errors/unused-import-place.u", List(
+    "import \"ulang/test/modules/left\"",
+    "",
+    "test r() :=",
+    "  assert 1 + 1 == 2"), out q, _)
+  assert List(for c in q.cmds if cmd_errors(c) != List() yield c) == List()
+  assert List(for d in diagnostics(q) yield (d.code, d.pos)) == List(("UnusedImport", Pos(1, 1)))
+
 // an import of a module without commands, on which no command takes the error
 test unused_import_alone() :=
   assert raises Located(None, Pos(1, 1), UnusedImport("ulang/test/modules/left")) do

@@ -5397,7 +5397,7 @@ procedure check_source(
       errors: List[TypeError],
   ref checks: Checks
 ) raises InternalError :=
-  var sig: Sig := empty(), imports: List[(Id, List[Id])] := List(), cmds: List[(Id, At[Cmd])] := List(), checked: List[(Id, At[Cmd])], shown: Sig, found: List[TypeError], loose: List[TypeError] := List(), found_loose: List[TypeError], placed: List[At[Cmd]], raised := false
+  var sig: Sig := empty(), imports: List[(Id, List[Id])] := List(), cmds: List[(Id, At[Cmd])] := List(), checked: List[(Id, At[Cmd])], shown: Sig, found: List[TypeError], loose: List[TypeError] := List(), found_loose: List[TypeError], placed: List[At[Cmd]], lines: List[(Id, At[Id])], raised := false
   errors := List()
   let own := module_dir(source.main)
   // a package after one with errors is checked against its signature, whose definitions with errors are error nodes, and
@@ -5422,8 +5422,8 @@ procedure check_source(
     end
   end
   errors := distinct(List(for e in errors yield in_main(source.main, e)))
-  with_errors(in source.main, cmds ++ builtins_of(source), distinct(List(for e in loose yield in_main(source.main, e))), out placed)
-  q := Prog(take(size(cmds), placed), drop(size(cmds), placed), source.main)
+  with_errors(in source.main, cmds ++ builtins_of(source), List(for d in source.mods for i in d.imports yield (d.name, i)), distinct(List(for e in loose yield in_main(source.main, e))), out placed, lines)
+  q := Prog(take(size(cmds), placed), drop(size(cmds), placed), lines, source.main)
 
 // the package of the modules mods of one package, by the directory of the first
 function package_of(mods: List[Mod]): Id :=
@@ -5448,38 +5448,53 @@ function unchecked(cmd: At[Cmd]): At[Cmd] :=
 function builtins_of(source: Source): List[(Id, At[Cmd])] :=
   List(for d in source.mods for c in written_of(d.name, d.builtins) yield c)
 
-// cmds, each with the errors whose position it contains, as the last command of their module that starts at or before it
+// cmds, each with the errors whose position it contains, as the last command of their module that starts at or before it,
+// and imports, the imports of each module, each with the errors at its line, which no command contains
 procedure with_errors(
   in  main: Id,
       cmds: List[(Id, At[Cmd])],
+      imports: List[(Id, At[Id])],
       errors: List[TypeError],
-  out placed: List[At[Cmd]]
+  out placed: List[At[Cmd]],
+      lines: List[(Id, At[Id])]
 ) raises InternalError :=
-  var on: Map[Int, List[Diagnostic]] := empty()
-  let indexed := zip(range(0, size(cmds)), cmds)
+  var on: Map[Int, List[Diagnostic]] := empty(), at_import: Map[Int, List[Diagnostic]] := empty()
+  let indexed := zip(range(0, size(cmds)), cmds), numbered_imports := zip(range(0, size(imports)), imports)
   for e in errors do
-    match container(indexed, error_module(main, e), error_pos(e), None)
-      case Some(i) =>
-        on := put(i, value_or(get(i, on), List()) ++ List(type_diagnostic(e)), on)
+    let m := error_module(main, e), pos := error_pos(e)
+    // before the commands of its module, which a generated command at Pos(0, 0) would take
+    match find(numbered_imports, lambda (_, (n, i)) => n == m and i.pos == pos and pos != Pos(0, 0))
+      case Some((i, _)) =>
+        at_import := put(i, value_or(get(i, at_import), List()) ++ List(type_diagnostic(e) with module := Some(m)), at_import)
 
-      // before the first command of its module, as an import
       case None =>
-        match first_of(indexed, error_module(main, e))
+        match container(indexed, m, pos, None)
           case Some(i) =>
             on := put(i, value_or(get(i, on), List()) ++ List(type_diagnostic(e)), on)
-
-          // of a module without commands, as one whose commands all fail to parse, on the last command, a builtin of the
-          // library unless there is none, with its module
-          case None if indexed != List() =>
-            let last := size(indexed) - 1
-            on := put(last, value_or(get(last, on), List()) ++ List(type_diagnostic(e) with module := Some(error_module(main, e))), on)
-
           case None =>
-            raise Unexpected("an error outside the commands of its module, " ++ show(e))
+            raise Unexpected("an error outside the commands and imports of its module, " ++ show(e))
         end
     end
   end
   placed := List(for (i, (_, cmd)) in indexed yield with_diagnostics(cmd, value_or(get(i, on), List())))
+  lines := List(for (i, (m, line)) in numbered_imports yield (m, with_import_errors(line, value_or(get(i, at_import), List()))))
+
+// the import line with the errors ds, if any
+function with_import_errors(line: At[Id], ds: List[Diagnostic]): At[Id] :=
+  match (line, ds)
+    case (_, List()) =>
+      line
+
+    case (AOk(pos, span, that), _) =>
+      AErr(pos, span, that, ds)
+
+    case (AErr(pos, span, that, errors), _) =>
+      AErr(pos, span, that, errors ++ ds)
+
+    // the parser places every import that it reads
+    case (AUnparsed(_, _, _, _), _) =>
+      line
+  end
 
 // the module of the error e, main for one without a module, and for one without a position, of code that the parser did
 // not read, at Pos(0, 0) as its commands
@@ -5497,15 +5512,6 @@ function error_pos(e: TypeError): Pos :=
       pos
     case _ =>
       Pos(0, 0)
-  end
-
-// the first of the commands cmds of the module m
-function first_of(cmds: List[(Int, (Id, At[Cmd]))], m: Id): Option[Int] :=
-  match List(for (i, (n, _)) in cmds if n == m yield i)
-    case List(i; _) =>
-      Some(i)
-    case List() =>
-      None
   end
 
 // the index of the last command of module m in cmds that starts at or before pos, after found
@@ -5538,10 +5544,18 @@ function with_diagnostics(cmd: At[Cmd], ds: List[Diagnostic]): At[Cmd] :=
       cmd
   end
 
-// the errors that checking found in q, of its commands and their parts, by position within each command, without those of
-// parsing, which are the source's
+// the errors that checking found in q, of its imports, then of its commands and their parts, by position within each
+// command, without those of parsing, which are the source's
 function diagnostics(q: Prog): List[Diagnostic] :=
-  distinct(List(for cmd in q.cmds ++ q.builtins for d in command_diagnostics(q.main, cmd) yield d))
+  distinct(List(for (_, line) in q.imports for d in import_errors(line) yield in_main_module(q.main, d)) ++ List(for cmd in q.cmds ++ q.builtins for d in command_diagnostics(q.main, cmd) yield d))
+
+function import_errors(line: At[Id]): List[Diagnostic] :=
+  match line
+    case AErr(_, _, _, errors) =>
+      errors
+    case _ =>
+      List()
+  end
 
 function code_free_diagnostics(q: Prog): List[Diagnostic] :=
   List(for cmd in q.cmds for d in placed_diagnostics(q.main, cmd, code_free_errors(cmd)) yield d)

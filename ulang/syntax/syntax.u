@@ -294,9 +294,10 @@ data Example :=
 
 // the checked program: the commands of the export and implementation sections of its modules with resolved names, each at
 // its declaration, the definitions checked and the signatures as written, then the tests of examples and lemmas, those of
-// the builtin sections apart, and the module of the file that is loaded, whose procedures run and compile call
+// the builtin sections apart, the imports of each module at their lines, which hold the errors of imports, and the module
+// of the file that is loaded, whose procedures run and compile call
 data Prog :=
-  case Prog(cmds: List[At[Cmd]], builtins: List[At[Cmd]], main: Id)
+  case Prog(cmds: List[At[Cmd]], builtins: List[At[Cmd]], imports: List[(Id, At[Id])], main: Id)
 
 data Pos :=
   // line and column, both from 1
