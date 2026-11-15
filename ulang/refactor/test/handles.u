@@ -33,13 +33,13 @@ test identical_statements() :=
   let dir := "out/test/refactor/identical"
   sample(in dir, out path, reply)
   assert reply == List(
-    "ok",
+    "applied",
     "@show " ++ path ++ ":p\n      procedure p(in x: Int, out y: Int) :=\n#1      match x\n#2        case 0 =>\n#3          y := 1\n#4          y := y + 1\n#5        case _ =>\n#6          y := 2\n        end",
     "@show " ++ path ++ ":T\n      data T :=\n#7      case A\n#8      case B")
   run_script(in "@put before #2\ncase 1 =>\n  y := 1\n  y := y + 1\n@put #3\ny := 5\n", false, dir, no_diagnostics, out reply, status, _)
   assert status == 0
   assert take(5, reply) == List(
-    "ok",
+    "applied, clean",
     "put before " ++ path ++ ":p/2 #2",
     "#9        case 1 =>\n#10         y := 1\n#11         y := y + 1",
     "replaced " ++ path ++ ":p/2 #3",
@@ -49,7 +49,7 @@ test identical_statements() :=
   assert status == 0
   assert text == "procedure p(in x: Int, out y: Int) :=\n  match x\n    case 1 =>\n      y := 1\n      y := y + 1\n\n    case 0 =>\n      y := 5\n      y := y + 2\n\n    case _ =>\n      y := 2\n      y := 3\n  end\n\ndata T :=\n  case A\n  case B\n"
   assert take(5, reply) == List(
-    "ok",
+    "applied, clean",
     "replaced " ++ path ++ ":p/2 #4",
     "#4          y := y + 2",
     "replaced " ++ path ++ ":p/2 #6",
@@ -81,7 +81,7 @@ test scoped_handles() :=
   run_script(in "@put after " ++ path ++ ":T #8\ncase C\n@put " ++ path ++ ":p/2 #6\ny := 3\n", false, dir, no_diagnostics, out reply, status, _)
   assert status == 0
   assert take(5, reply) == List(
-    "ok",
+    "applied, clean",
     "put after " ++ path ++ ":T #8",
     "#9      case C",
     "replaced " ++ path ++ ":p/2 #6",
@@ -97,7 +97,7 @@ test nodes_by_text() :=
   assert status == 0
   assert text == "procedure p(in x: Int, out y: Int) :=\n  match x\n    case 0 =>\n      y := 1\n      y := y + 1\n\n    case 1 =>\n      y := 1\n\n    case _ =>\n      y := 2\n  end\n\ndata T :=\n  case A\n  case B\n"
   assert take(3, reply) == List(
-    "ok",
+    "applied, clean",
     "put before " ++ path ++ ":p/2 \"case _\"",
     "#9        case 1 =>\n#10         y := 1")
   run_script(in "@put " ++ path ++ ":p \"y := 1\"\ny := 0\n", false, dir, no_diagnostics, out reply, status, _)
@@ -108,7 +108,7 @@ test nodes_by_text() :=
   assert reply == List("rejected", "no node of " ++ path ++ ":p/2 starts with \"y := 3\"")
   run_script(in "@drop " ++ path ++ ":p \"y := y\"\n", false, dir, no_diagnostics, out reply, status, _)
   os_read_utf8(in path, out text)
-  assert status == 0 and take(2, reply) == List("ok", "dropped " ++ path ++ ":p/2 \"y := y\"")
+  assert status == 0 and take(2, reply) == List("applied, clean", "dropped " ++ path ++ ":p/2 \"y := y\"")
   assert index_of("y + 1", text) == None
 
 // a position is a target, the innermost node around it, and each new diagnostic of a reply has the handle of the
@@ -118,21 +118,21 @@ test positions() :=
   let dir := "out/test/refactor/positions"
   sample(in dir, out path, _)
   run_script(in "@show " ++ path ++ ":4.8", false, dir, no_diagnostics, out reply, status, _)
-  assert reply == List("ok", "@show " ++ path ++ ":p/2 at 4.8\n#3          y := 1")
+  assert reply == List("applied", "@show " ++ path ++ ":p/2 at 4.8\n#3          y := 1")
   run_script(in "@show " ++ path ++ ":3.5", false, dir, no_diagnostics, out reply, status, _)
   assert reply == List(
-    "ok",
+    "applied",
     "@show " ++ path ++ ":p/2 at 3.5\n#2        case 0 =>\n#3          y := 1\n#4          y := y + 1")
   run_script(in "@show " ++ path ++ ":1.1", false, dir, no_diagnostics, out reply, status, _)
   assert reply == List(
     "rejected",
     "no node of " ++ path ++ ":p/2 holds " ++ path ++ ":1.1, which @show " ++ path ++ ":p/2 shows")
   run_script(in "@put " ++ path ++ ":5.7\ny := 7\n", false, dir, flagged, out reply, status, _)
-  assert status == 0
+  assert status == 1
   assert take(3, reply) == List(
-    "ok, 1 diagnostic",
+    "applied, 1 error",
     "replaced " ++ path ++ ":p/2 at 5.7",
     "#4          y := 7")
   assert drop(4, reply) == List(
-    "checked 1 file, with lints: 1 new, 0 gone",
+    "checked 1 file: 1 new, 0 gone",
     "  + #4 " ++ path ++ ":5.12: Mismatch: expected Str but found Int")

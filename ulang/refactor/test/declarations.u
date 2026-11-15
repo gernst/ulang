@@ -16,7 +16,7 @@ test drops_both_sections() :=
   os_read_utf8(in path, out text)
   assert status == 0 and text == "function g(): Int :=\n  0\n"
   assert take(3, reply) == List(
-    "ok",
+    "applied, clean",
     path ++ ": dropped W (export and implementation)",
     path ++ ": dropped f/1 (export and implementation)")
 
@@ -27,7 +27,9 @@ test replaces_other_type() :=
   os_write_utf8(in path, "function lower(c: Char): Char :=\n  c\n\nfunction id(n: Int): Int :=\n  n\n")
   run_script(in "@put " ++ path ++ "\nfunction lower(s: Str): Str := s\nfunction id(m: Int): Int := m\n", false, state, no_diagnostics, out reply, status, _)
   assert status == 0
-  assert take(2, reply) == List("ok", path ++ ": replaced lower/1, of another type, replaced id/1")
+  assert take(2, reply) == List(
+    "applied, clean",
+    path ++ ": replaced lower/1, of another type, replaced id/1")
 
 // @put after and before a declaration place the new declarations next to it, in its section
 test puts_next_to() :=
@@ -54,8 +56,8 @@ test replaces_arity() :=
   assert status == 0
   assert text == "export\n\n// sends\nfunction f(x: Int, y: Int): Int\n\nfunction g(): Int\n\nimplementation\n\nfunction f(x: Int, y: Int): Int :=\n  x + y\n\nfunction k(): Int :=\n  0\n\nfunction g(): Int :=\n  f(1)\n\nfunction h(x: Int, y: Int): Int :=\n  x\n\nfunction h(x: Int): Int :=\n  x\n"
   assert take(2, reply) == List(
-    "ok",
-    path ++ ": replaced f/1 by f/2, added k/0, with the signature of f/2")
+    "applied, clean",
+    path ++ ": replaced f/1 by f/2, added k/0 to implementation, with the signature of f/2")
   run_script(in "@put " ++ path ++ ":g\nfunction h(): Int := 1\n", false, state, no_diagnostics, out reply, status, _)
   assert status == 1
   run_script(in "@put " ++ path ++ ":h/2\nfunction h(n: Int): Int := n\n", false, state, no_diagnostics, out reply, status, _)

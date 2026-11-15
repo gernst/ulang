@@ -37,12 +37,13 @@ test first_lines() :=
   run_script(in "@put " ++ path ++ "\nfunction f(x: Int): Int := x +\n", false, state, no_diagnostics, out reply, status, _)
   assert status == 1 and take(1, reply) == List("rejected")
 
-// a script that changes no file lists the diagnostics of the state, unmarked, since it has no change to compare, while one
-// that changes a file lists those that are new or gone
+// a script that changes no file lists the diagnostics of the state, unmarked but for their handles, since it has no change
+// to compare, while one that changes a file lists those that are new or gone
 test state_without_changes() :=
   var reply: List[Str], status: Int
   let state := "out/test/refactor/replies/state", path := "out/test/refactor/replies/state.u"
   os_write_utf8(in path, "function f(x: Int): Int :=\n  x\n")
+  os_write_utf8(in os_join(state, "handles.txt"), "")
   run_script(in "@check " ++ path, false, state, lambda in file, out found =>
     found := List((file, type_error(2)))
   end, out reply, status, _)
@@ -50,7 +51,7 @@ test state_without_changes() :=
   assert reply == List(
     "applied, 1 error",
     "checked 1 file, unchanged",
-    "  " ++ path ++ ":2.3: Mismatch: expected Int but found Bool")
+    "  #1 " ++ path ++ ":2.3: Mismatch: expected Int but found Bool")
 
 // the error of a fragment gives its line in the script too, which differs for each action
 test fragment_lines() :=
