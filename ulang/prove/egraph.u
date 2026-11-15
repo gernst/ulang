@@ -255,7 +255,7 @@ function rehash(g: EGraph, todo: List[(ENode, Int)], pending: List[(Int, Int)], 
   end
 
 test classes() :=
-  let x := ELevel(0), y := ELevel(1), f := Name(None, "f"), fx := EApp(EFun(f), List(x)), fy := EApp(EFun(f), List(y))
+  let x := ELevel(0), y := ELevel(1), f := Name(List(), "f"), fx := EApp(EFun(f), List(x)), fy := EApp(EFun(f), List(y))
   var g := empty_graph(), i := 0, j := 0, u := Union(empty_graph(), List(), List())
   match add_term(g, fx)
     case (h, k) =>
@@ -356,7 +356,7 @@ function close_pending(g: EGraph, pairs: List[(Int, Int)]): EGraph :=
   end
 
 test matching() :=
-  let x := ELevel(0), y := ELevel(1), f := Name(None, "f")
+  let x := ELevel(0), y := ELevel(1), f := Name(List(), "f")
   var g := empty_graph(), c := 0
   let pat := EApp(EFun(f), List(EBound(0), EBound(0)))
   match add_term(g, EApp(EFun(f), List(x, y)))

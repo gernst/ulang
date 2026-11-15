@@ -3,14 +3,19 @@
 
 export
 
-// identifiers that never refer to declarations of modules: type parameters, modules, notation, runs, and tests
+// identifiers that never refer to declarations of modules: type parameters, notation, runs, and tests
 type Id :=
   Str
 
-// module is None for locals, builtins, and names before checking
+// a module or a package by the names of its directories from the root of its project and, of a module, of its file,
+// e.g. ulang syntax syntax of ulang/syntax/syntax.u, the empty path for the root
+type Path :=
+  List[Id]
+
+// path is empty for locals, builtins, and names before checking
 data Name :=
   // a name as written, e.g. x, f, or T, which the parser never qualifies
-  case Name(module: Option[Id], base: Id)
+  case Name(path: Path, base: Id)
 
 data Type :=
   // a type that is not written, e.g. of local x := e, which the checker infers
@@ -296,7 +301,7 @@ data Example :=
 // its declaration, the definitions checked and the signatures as written, then the tests of examples and lemmas, those of
 // the builtin sections apart, and the module of the file that is loaded, whose procedures run and compile call
 data Prog :=
-  case Prog(cmds: List[At[Cmd]], builtins: List[At[Cmd]], main: Id)
+  case Prog(cmds: List[At[Cmd]], builtins: List[At[Cmd]], main: Path)
 
 data Pos :=
   // line and column, both from 1
@@ -309,7 +314,7 @@ data Span :=
 // a module without sections has all its commands implemented and exports nothing
 data Mod :=
   // a file of import "p" lines of packages, then export, builtin, and implementation, each followed by its commands
-  case Mod(name: Id, imports: List[At[Id]], exported: List[At[Cmd]], builtins: List[At[Cmd]], implemented: List[At[Cmd]], comments: List[Comment])
+  case Mod(name: Path, imports: List[At[Path]], exported: List[At[Cmd]], builtins: List[At[Cmd]], implemented: List[At[Cmd]], comments: List[Comment])
 
 // an edit of a module that a lint proposes and refactor fix applies (ulang/refactor/refactor.u), at the spans and
 // positions of the parsed module
@@ -340,13 +345,13 @@ data Comment :=
 // known by the directory from the root, "" for the root, and prelude for the library, so that the id of a package is the
 // directory of each of its members, module_dir, as the loaders name them
 data Package :=
-  case Package(id: Id, members: List[Id])
+  case Package(id: Path, members: List[Path])
 
 // the modules in load order, each after the modules it imports, where the members of a package follow each other, after
 // the packages and programs that they import, and with main last
 data Source :=
   // the file that is run, tested, checked, or compiled, with its imports and their packages
-  case Source(mods: List[Mod], packages: List[Package], main: Id)
+  case Source(mods: List[Mod], packages: List[Package], main: Path)
 
 // a variable and an application of a variable as expressions, and a variable as a pattern, with THole for no type
 pattern EName(name: Name, typ: Type): Expr :=
@@ -395,7 +400,7 @@ function is_dropped(x: Var): Bool
 function arity(t: Type): Int
 
 // the packages that d imports, in the order of its import lines
-function import_ids(d: Mod): List[Id]
+function import_ids(d: Mod): List[Path]
 
 // x at the position Pos(0, 0), of code that the parser did not read, e.g. of tests
 function nowhere[A](x: A): At[A]
@@ -503,7 +508,7 @@ function loop_positions(stmt: At[Stmt]): List[Pos]
 function cmd_errors(cmd: At[Cmd]): List[Diagnostic]
 
 // the module of cmd, None for a notation, which has no name
-function cmd_module(cmd: Cmd): Option[Id]
+function cmd_module(cmd: Cmd): Option[Path]
 
 // whether x parsed, though it may have parts that do not
 function is_parsed[A](x: At[A]): Bool
@@ -524,27 +529,39 @@ function unplaced_vars(xs: List[Var]): List[At[Var]]
 
 // the modules that module name imports without saying so, of packages: for a module of a project the members of the
 // library, the package prelude, and none for a module of the library, which sees the others as the members of its package
-function implicit_imports(name: Id, packages: List[Package]): List[Id]
+function implicit_imports(name: Path, packages: List[Package]): List[Path]
 
 // whether id is a module of the library, whose members are the .u files of the directory of the library
-function is_library_module(id: Id): Bool :=
-  example is_library_module("prelude/list")
-  example not is_library_module("ulang/syntax/syntax")
+function is_library_module(id: Path): Bool :=
+  example is_library_module(List("prelude", "list"))
+  example not is_library_module(List("ulang", "syntax", "syntax"))
 
-// the module of the library of the file name.u of the library, known as prelude/name, since the library is the package prelude
-function library_module(name: Str): Id
+// the module of the library of the file name.u of the library, known as prelude name, since the library is the package prelude
+function library_module(name: Str): Path
 
 // the name of the file of a module of the library without .u, as os_library reads it
-function library_file(id: Id): Str
+function library_file(id: Path): Str
 
 function library_name(module: Str, base: Id): Name
 
-// the directory of a module from the root of its project, "" for the root, and prelude for the library
-function module_dir(id: Id): Str
+// the package of a module, the path of its directory from the root of its project, empty for the root, and prelude for the
+// library
+function module_dir(id: Path): Path
+
+// the text of a path, as messages show it
+function path_text(id: Path): Str
+
+// the path of the file or directory text from the root, of its names between /
+function dir_path(text: Str): Path :=
+  example dir_path("ulang/syntax") == List("ulang", "syntax")
+  example dir_path("") == List()
+
+// the module of a resolved name, None for a name without one, of a local, a builtin, or a name before checking
+function name_module(n: Name): Option[Path]
 
 // the modules that d sees besides itself: the implicit imports, the members of the packages it imports, and the members
 // of the package of its directory, whose member it is
-function seen_modules(d: Mod, packages: List[Package]): List[Id]
+function seen_modules(d: Mod, packages: List[Package]): List[Path]
 
 function unplaced(cmds: List[Cmd]): List[At[Cmd]]
 
@@ -607,7 +624,7 @@ function escape(c: Char, delimiter: Char): Str :=
 
 // a name without a module, of a local or a builtin, or before checking
 function unqualified(x: Id): Name :=
-  Name(None, x)
+  Name(List(), x)
 
 function dropped_out(): Var :=
   Var(unqualified("_"), THole)
@@ -627,7 +644,7 @@ function arity(t: Type): Int :=
 function no_spec(): Spec :=
   Spec(List(), None, List())
 
-function import_ids(d: Mod): List[Id] :=
+function import_ids(d: Mod): List[Path] :=
   List(for i in d.imports yield i.that)
 
 function nowhere[A](x: A): At[A] :=
@@ -796,33 +813,37 @@ function is_parsed[A](x: At[A]): Bool :=
       true
   end
 
-function module_dir(id: Id): Str :=
-  match reverse(split(id, '/'))
-    case List(_; dirs) =>
-      join("/", reverse(dirs))
-    case List() =>
-      ""
-  end
+function module_dir(id: Path): Path :=
+  take(size(id) - 1, id)
 
-function implicit_imports(name: Id, packages: List[Package]): List[Id] :=
+function path_text(id: Path): Str :=
+  join("/", id)
+
+function dir_path(text: Str): Path :=
+  List(for name in split(text, '/') if name != "")
+
+function name_module(n: Name): Option[Path] :=
+  if n.path == List() then None else Some(n.path)
+
+function implicit_imports(name: Path, packages: List[Package]): List[Path] :=
   if is_library_module(name) then
     List()
   else
-    List(for p in packages if p.id == "prelude" for m in p.members yield m)
+    List(for p in packages if p.id == List("prelude") for m in p.members yield m)
 
-function is_library_module(id: Id): Bool :=
-  starts_with(id, "prelude/")
+function is_library_module(id: Path): Bool :=
+  take(1, id) == List("prelude")
 
-function library_module(name: Str): Id :=
-  "prelude/" ++ name
+function library_module(name: Str): Path :=
+  List("prelude", name)
 
-function library_file(id: Id): Str :=
-  slice(id, size("prelude/"), size(id))
+function library_file(id: Path): Str :=
+  join("/", drop(1, id))
 
 function library_name(module: Str, base: Id): Name :=
-  Name(Some(library_module(module)), base)
+  Name(library_module(module), base)
 
-function seen_modules(d: Mod, packages: List[Package]): List[Id] :=
+function seen_modules(d: Mod, packages: List[Package]): List[Path] :=
   implicit_imports(d.name, packages) ++ List(for p in packages if contains(p.id, import_ids(d)) or p.id == module_dir(d.name) for m in p.members if m != d.name yield m)
 
 // commands without positions, as programs that are not parsed have them
@@ -1387,40 +1408,40 @@ function strip_pattern(pat: Pat): Pat :=
       pat
   end
 
-function cmd_module(cmd: Cmd): Option[Id] :=
+function cmd_module(cmd: Cmd): Option[Path] :=
   match cmd
     case CSort(name, _, _) =>
-      name.module
+      name_module(name)
 
     case CData(name, _, _) =>
-      name.module
+      name_module(name)
 
     case CFun(name, _, _, _, _, _) =>
-      name.module
+      name_module(name)
 
     case CProc(name, _, _, _, _, _, _, _) =>
-      name.module
+      name_module(name)
 
     case CNotation(_, _, _) =>
       None
 
     case CTest(name, _, _) =>
-      name.module
+      name_module(name)
 
     case CFunSig(name, _, _, _, _) =>
-      name.module
+      name_module(name)
 
     case CProcSig(name, _, _, _, _, _, _) =>
-      name.module
+      name_module(name)
 
     case CAbstract(name, _) =>
-      name.module
+      name_module(name)
 
     case CPatAlias(name, _, _, _, _) =>
-      name.module
+      name_module(name)
 
     case CLemma(name, _, _, _, _, _) =>
-      name.module
+      name_module(name)
   end
 
 function cmd_errors(cmd: At[Cmd]): List[Diagnostic] :=

@@ -18,7 +18,7 @@ procedure load_tester(ref source: Source) raises ParseError, OsError
 // which prove_module neither proves nor takes as facts
 procedure test_module(
   in  q: Prog,
-      m: Id,
+      m: Path,
       names: List[Str],
       args: List[Str],
       label: Str,
@@ -34,7 +34,7 @@ data Outcome :=
 // the outcomes of the tests of the module m of q, all or the named ones, run as test_module runs them, without printing
 procedure test_outcomes(
   in  q: Prog,
-      m: Id,
+      m: Path,
       names: List[Str],
       args: List[Str],
   out outcomes: List[Outcome]
@@ -46,7 +46,7 @@ procedure test_outcomes(
 // termination is not proven, and whether all are proven
 procedure prove_module(
   in  q: Prog,
-      m: Id,
+      m: Path,
       file: Str,
       names: List[Str],
       falsified: Set[Str],
@@ -59,11 +59,11 @@ implementation
 procedure load_tester(ref source: Source) raises ParseError, OsError :=
   var text: Str
   os_library(in "../test/enumerate/enumerate", out text)
-  load_after_library(in module_dir(enumerate_module()), List((enumerate_module(), text)), ref source)
+  load_after_library(in join("/", module_dir(enumerate_module())), List((enumerate_module(), text)), ref source)
 
 procedure test_module(
   in  q: Prog,
-      m: Id,
+      m: Path,
       names: List[Str],
       args: List[Str],
       label: Str,
@@ -90,7 +90,7 @@ procedure test_module(
 
 procedure test_outcomes(
   in  q: Prog,
-      m: Id,
+      m: Path,
       names: List[Str],
       args: List[Str],
   out outcomes: List[Outcome]
@@ -145,7 +145,7 @@ function lemmas_upto(lemmas: List[Lemma], names: List[Str]): List[Lemma] :=
 
 procedure prove_module(
   in  q: Prog,
-      m: Id,
+      m: Path,
       file: Str,
       names: List[Str],
       falsified: Set[Str],
@@ -188,10 +188,10 @@ function lemma_of_test(test_name: Str): Str :=
 
 // whether cmd is a test of the module m that names selects, all of them for List(), where a test with formals runs as
 // the test that the tester generates of it
-function is_selected_test(cmd: Cmd, m: Id, names: List[Str]): Bool :=
+function is_selected_test(cmd: Cmd, m: Path, names: List[Str]): Bool :=
   match cmd
     case CTest(name, List(), _) =>
-      name.module == Some(m) and (names == List() or contains(name.base, names))
+      name.path == m and (names == List() or contains(name.base, names))
     case _ =>
       false
   end

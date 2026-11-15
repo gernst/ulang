@@ -27,7 +27,7 @@ data Val :=
 
 // main, the module of the loaded file, whose errors a Deferred names without their module, as the diagnostics do
 data Run :=
-  case Run(defs: Defs, computing: List[Name], args: List[Str], main: Id)
+  case Run(defs: Defs, computing: List[Name], args: List[Str], main: Path)
 
 data Thrown :=
   case Thrown(value: Val, typ: Type)
@@ -74,22 +74,22 @@ pattern VBool(bool: Bool): Val :=
 
 // the values of the constructors of the library that the interpreter makes and takes apart
 pattern VNil(): Val :=
-  VObj(Name(Some("prelude/list"), "Nil"), List())
+  VObj(Name(List("prelude", "list"), "Nil"), List())
 
 pattern VCons(head: Val, tail: Val): Val :=
-  VObj(Name(Some("prelude/list"), "Cons"), List(head, tail))
+  VObj(Name(List("prelude", "list"), "Cons"), List(head, tail))
 
 pattern VTuple(args: List[Val]): Val :=
-  VObj(Name(None, ","), args)
+  VObj(Name(List(), ","), args)
 
 pattern VSome(value: Val): Val :=
-  VObj(Name(Some("prelude/option"), "Some"), List(value))
+  VObj(Name(List("prelude", "option"), "Some"), List(value))
 
 pattern VNone(): Val :=
-  VObj(Name(Some("prelude/option"), "None"), List())
+  VObj(Name(List("prelude", "option"), "None"), List())
 
 pattern VOsError(message: Str): Val :=
-  VObj(Name(Some("prelude/os"), "OsError"), List(VStr(message)))
+  VObj(Name(List("prelude", "os"), "OsError"), List(VStr(message)))
 
 // values by their structure, for messages, while show of the program uses the shows that datatypes declare, see show_in
 function format_value(v: Val): Str :=
@@ -492,7 +492,7 @@ procedure variable_value(
       t: Type,
   out v: Val
 ) :=
-  match (get(n, env), n.module)
+  match (get(n, env), name_module(n))
     case (Some(w), _) =>
       v := w
 
@@ -538,7 +538,7 @@ procedure apply_expr(
   ref cache: Map[Name, Val]
 ) :=
   match (f.that, args)
-    case (EName(Name(None, "and"), _), List(l, r)) =>
+    case (EName(Name(List(), "and"), _), List(l, r)) =>
       var a: Val
       evaluate(in run, env, l, out a, ref cache)
       if is_true(a) then
@@ -547,7 +547,7 @@ procedure apply_expr(
         v := a
       end
 
-    case (EName(Name(None, "or"), _), List(l, r)) =>
+    case (EName(Name(List(), "or"), _), List(l, r)) =>
       var a: Val
       evaluate(in run, env, l, out a, ref cache)
       if is_true(a) then
@@ -1115,7 +1115,7 @@ procedure exec(
       end
 
     // assertions of equations show both sides when they fail
-    case SAssert(AOk(_, _, ECall(_, _, Name(None, "=="), _, List(lhs, rhs)))) =>
+    case SAssert(AOk(_, _, ECall(_, _, Name(List(), "=="), _, List(lhs, rhs)))) =>
       var v: Val, w: Val, r: Bool
       evaluate(in run, env, lhs, out v, ref cache)
       evaluate(in run, env, rhs, out w, ref cache)

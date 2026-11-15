@@ -92,7 +92,7 @@ test abstract_constructors() :=
 // sizes, and list_count and list_values of the enumeration, which load_text loads with the library, count n down to
 // n == 0, so they do not terminate for a negative n, while gcd terminates by the absolute value of its divisor
 test library_terminates() :=
-  var main: Id, q: Prog, open: List[Str] := List()
+  var main: Path, q: Prog, open: List[Str] := List()
   load_text(in "ulang/test/errors/library-terminates.u", List("lemma trivial() :=", "  ensures true"), out main, q)
   match translate(q, main)
     case Translation(decls, _, _) =>
@@ -102,7 +102,7 @@ test library_terminates() :=
 
 // a function that does not terminate is open, one that counts down to a guard terminates by its Int measure
 test terminations_of_program() :=
-  var main: Id, q: Prog, open: List[Str] := List(), proven: List[Str] := List()
+  var main: Path, q: Prog, open: List[Str] := List(), proven: List[Str] := List()
   load_text(in "ulang/test/errors/terminations-of-program.u", List(
     "function loop(x: Int): Int :=",
     "  loop(x) + 1",
@@ -111,7 +111,7 @@ test terminations_of_program() :=
     "  if n <= 0 then 0 else down(n - 1) + 1"), out main, q)
   match translate(q, main)
     case Translation(decls, _, _) =>
-      let ts := terminations(decls, Set((Name(Some(main), "loop"), 1), (Name(Some(main), "down"), 1)))
+      let ts := terminations(decls, Set((Name(main, "loop"), 1), (Name(main, "down"), 1)))
       open := List(for t in ts if not is_terminating(t) for (n, _) in t.names yield n.base), proven := List(for t in ts if is_terminating(t) for (n, _) in t.names yield n.base)
   end
   assert open == List("loop") and proven == List("down")

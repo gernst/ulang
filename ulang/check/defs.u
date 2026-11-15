@@ -176,10 +176,10 @@ function positions(f: Id, constrs: List[Constr]): List[Int] :=
   List(for k in constrs yield value_or(index_of(f, List(for field in k.fields yield field.name)), -1))
 
 function accessor_name(t: Name, f: Id): Name :=
-  Name(t.module, t.base ++ "." ++ f)
+  Name(t.path, t.base ++ "." ++ f)
 
 function updater_name(t: Name, f: Id): Name :=
-  Name(t.module, t.base ++ "." ++ f ++ ":=")
+  Name(t.path, t.base ++ "." ++ f ++ ":=")
 
 // the name T.f of the field of the accessor T.f or the updater T.f:=, as MissingField has it
 function field_of(n: Name): Str :=
@@ -238,12 +238,12 @@ function hook_of(f: Id, k: Int): Option[Hook] :=
 // values of T, also in generic code, where the builtins compare structurally and show the structure
 function order_of(cmd: Cmd): Option[(Hook, Name)] :=
   match cmd
-    case CFun(Name(Some(m), f), _, List(AOk(_, _, Var(_, TSort(Name(Some(k), b), args))); more), r, _, _) =>
-      let typ := TSort(Name(Some(k), b), args) in
+    case CFun(Name(m, f), _, List(AOk(_, _, Var(_, TSort(Name(k, b), args))); more), r, _, _) if m != List() and k != List() =>
+      let typ := TSort(Name(k, b), args) in
       match hook_of(f, 1 + size(more))
         case Some(hook) =>
           if k == m and forall(more, lambda x => x.that.typ == typ) and is_distinct_params(args) and r == hook_result(hook) then
-            Some((hook, Name(Some(k), b)))
+            Some((hook, Name(k, b)))
           else
             None
 

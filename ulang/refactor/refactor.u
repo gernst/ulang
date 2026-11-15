@@ -2006,11 +2006,11 @@ procedure flush_into(
 // names, where a use that is new or that would resolve to nothing, which shifts the uses after it, is told by the uses
 // after it
 function first_difference(found: List[(Pos, Str, Name)], expected: List[Name]): Option[Str] :=
-  example first_difference(List((Pos(3, 7), "g", Name(None, "g"))), List(Name(Some("m"), "g"))) == Some("3.7: the use g would resolve to the local g instead of m.g")
-  example first_difference(List((Pos(3, 7), "x", Name(None, "x"))), List(Name(Some("m"), "g"), Name(None, "x"))) == Some("3.7: the use of m.g just before x here would resolve to nothing, as an ambiguous or unknown name")
+  example first_difference(List((Pos(3, 7), "g", Name(List(), "g"))), List(Name(List("m"), "g"))) == Some("3.7: the use g would resolve to the local g instead of m.g")
+  example first_difference(List((Pos(3, 7), "x", Name(List(), "x"))), List(Name(List("m"), "g"), Name(List(), "x"))) == Some("3.7: the use of m.g just before x here would resolve to nothing, as an ambiguous or unknown name")
   example first_difference(List(
-      (Pos(2, 1), "h", Name(Some("m"), "h")),
-      (Pos(3, 7), "x", Name(None, "x"))), List(Name(None, "x"))) == Some("2.1: the use h would be new, resolving to m.h")
+      (Pos(2, 1), "h", Name(List("m"), "h")),
+      (Pos(3, 7), "x", Name(List(), "x"))), List(Name(List(), "x"))) == Some("2.1: the use h would be new, resolving to m.h")
   match (found, expected)
     case (List((pos, text, n); rest), List(e; more)) =>
       let at := show(pos.line) ++ "." ++ show(pos.col) in
@@ -2035,9 +2035,9 @@ function first_difference(found: List[(Pos, Str, Name)], expected: List[Name]): 
 
 // a name that a use resolves to, a local, a builtin without a module, or a declaration by its qualified name
 function resolved_text(name: Name): Str :=
-  example resolved_text(Name(None, "x")) == "the local x"
-  example resolved_text(Name(None, "show")) == "show"
-  if name.module == None and not contains(name.base, List("<", "==", "compare", "show", "and", "or")) then
+  example resolved_text(Name(List(), "x")) == "the local x"
+  example resolved_text(Name(List(), "show")) == "show"
+  if name.path == List() and not contains(name.base, List("<", "==", "compare", "show", "and", "or")) then
     "the local " ++ name.base
   else
     format_name(name)
@@ -2117,7 +2117,7 @@ procedure user_files(
   source_files(in os_dirname(path), out below)
   let project := List(for file in walked yield normal_file(here, here, file))
   let own := List(for f in List(for file in below yield normal_file(here, here, file)) if os_dirname(f) == os_dirname(path))
-  let import_line := "import \"" ++ os_dirname(d.name) ++ "\""
+  let import_line := "import \"" ++ join("/", module_dir(d.name)) ++ "\""
   found := List()
   for file in distinct(List(for f in own if not contains(f, project)) ++ project) do
     var text: Str
@@ -2241,7 +2241,7 @@ procedure rename(
   if clashes then
     raise Refused("the package of " ++ path ++ " already declares " ++ new ++ "/" ++ show(n))
   end
-  let target := Name(Some(d.name), base), renamed := Name(Some(d.name), new)
+  let target := Name(d.name, base), renamed := Name(d.name, new)
   os_cwd(out here)
   project_root(in here, out root)
   user_files(in path, d, List(base, new), edits.files, out files)
@@ -2297,7 +2297,7 @@ function declared(lines: Array[Str], decls: List[(Key, At[Cmd], Cmd)], constrs: 
     line_at(lines, i))
 
 // whether the module other is main or a member of its package
-function is_member(source: Source, main: Id, other: Id): Bool :=
+function is_member(source: Source, main: Path, other: Path): Bool :=
   main == other or exists(source.packages, lambda p => contains(main, p.members) and contains(other, p.members))
 
 function constrs_of(cmd: Cmd): List[At[Constr]] :=
@@ -2459,7 +2459,7 @@ procedure unexport_target(
       for (file, _) in files if file != path do
         var uses: List[(Span, Name, Int)]
         resolutions(in file, out uses)
-        for (span, _, _) in find(uses, lambda (_, n, k) => n == Name(Some(d.name), key.base) and (key.arity < 0 or k == key.arity)) do
+        for (span, _, _) in find(uses, lambda (_, n, k) => n == Name(d.name, key.base) and (key.arity < 0 or k == key.arity)) do
           users := users ++ List(
             file ++ ":" ++ show(span.start.line) ++ "." ++ show(span.start.col))
         end
@@ -2945,7 +2945,7 @@ procedure refs(in word: Str, ref edits: Edits) raises Refused, OsError :=
     case _ =>
       raise Refused(path ++ " declares " ++ base ++ " of several arities, so name one, " ++ base ++ "/n")
   end
-  let n := value_or(get_at(0, arities), 0), target := Name(Some(d.name), base)
+  let n := value_or(get_at(0, arities), 0), target := Name(d.name, base)
   user_files(in path, d, List(base), edits.files, out files)
   var handles := edits.handles, found: List[Str] := List(), touched := 0
   for (file, file_text) in files do
@@ -2992,8 +2992,8 @@ function seen_decls(source: Source, base: Str): List[Str] :=
   distinct(List(for m in source.mods if m.name == d.name or contains(m.name, seen) for cmd in if m.name == d.name then placed_of(m) else m.exported ++ m.builtins for c in cmd_of(cmd) for text in decl_texts(m.name, c, base) yield text))
 
 // the declarations of base in c of the module m, a value or the constructors of a datatype, with their types
-function decl_texts(m: Id, c: Cmd, base: Str): List[Str] :=
-  let named := lambda typ: Type => List(format_name(Name(Some(m), base)) ++ ": " ++ format_type(typ)) in
+function decl_texts(m: Path, c: Cmd, base: Str): List[Str] :=
+  let named := lambda typ: Type => List(format_name(Name(m, base)) ++ ": " ++ format_type(typ)) in
   let types := lambda xs: List[At[Var]] => List(for x in xs yield x.that.typ) in
   match c
     case CFun(name, _, formals, typ, _, _) if name.base == base =>

@@ -86,7 +86,7 @@ data TypeError :=
   // the procedure name raises typ, which its raises omit
   case UndeclaredRaise(name: Name, typ: Type)
   // an import of a package of which its module uses nothing
-  case UnusedImport(package: Id)
+  case UnusedImport(package: Path)
   // the procedure value name, lambda for a lambda, raises typ, which its type omits, as the place of its use gives it
   case UntypedRaise(name: Name, typ: Type)
   // a procedure value of a type that raises typ, which the type of the place it reaches omits
@@ -96,7 +96,7 @@ data TypeError :=
   // an error with the form to write instead, which the checker knows from the part, e.g. ++ for + of strings
   case Hinted(error: TypeError, hint: Str)
   // an error of the command at the position of an imported module, or of the main module for None
-  case Located(module: Option[Id], pos: Pos, error: TypeError)
+  case Located(module: Option[Path], pos: Pos, error: TypeError)
 
 // raises the first error of check_all
 procedure check_program(
@@ -108,7 +108,7 @@ procedure check_program(
 // signatures of those before it, also of those with errors, with the tests that generate makes of each package whose definitions check without errors
 procedure check_all(
   in  source: Source,
-      generate: Checked -> List[(Pos, (Id, Cmd))],
+      generate: Checked -> List[(Pos, (Path, Cmd))],
   out q: Prog,
       errors: List[TypeError]
 ) raises InternalError
@@ -128,7 +128,7 @@ function has_errors(q: Prog): Bool
 procedure check_partial(
   in  source: Source,
       unparsed: Set[Id],
-      generate: Checked -> List[(Pos, (Id, Cmd))],
+      generate: Checked -> List[(Pos, (Path, Cmd))],
   out q: Prog,
       errors: List[TypeError]
 ) raises InternalError
@@ -144,7 +144,7 @@ procedure check_cached(
   in  source: Source,
       unparsed: Set[Id],
       partial: Bool,
-      generate: Checked -> List[(Pos, (Id, Cmd))],
+      generate: Checked -> List[(Pos, (Path, Cmd))],
   out q: Prog,
       errors: List[TypeError],
   ref checks: Checks
@@ -154,13 +154,13 @@ procedure check_cached(
 // positions, as written, and checked, its abstract types, the signature with the private declarations of its members,
 // which modules each module sees, and the private declarations, which the other members do not see
 data Checked :=
-  case Checked(placed: List[(Pos, (Id, Cmd))], defined: List[(Id, At[Cmd])], abstract: List[Name], sig: Sig, table: List[(Id, List[Id])], hidden: Set[Name])
+  case Checked(placed: List[(Pos, (Path, Cmd))], defined: List[(Path, At[Cmd])], abstract: List[Name], sig: Sig, table: List[(Path, List[Path])], hidden: Set[Name])
 
 // whether the module m of the package c sees the declaration d
-function is_seen(c: Checked, m: Id, d: Name): Bool
+function is_seen(c: Checked, m: Path, d: Name): Bool
 
 // the generator of no tests, for the commands that run none
-function no_tests(c: Checked): List[(Pos, (Id, Cmd))]
+function no_tests(c: Checked): List[(Pos, (Path, Cmd))]
 
 // whether the patterns pats, without guards, match every value of type t, as the cases of an exhaustive match do
 function covers_all(sig: Sig, t: Type, pats: List[Pat]): Bool
@@ -203,7 +203,7 @@ data Within :=
 // loop_assigned are of the command being checked, the unknown types reported, each once, and the variables that the body
 // of a while assigns which are not assigned before it, the latter of the procedure or procedure lambda being checked
 data State :=
-  case State(sig: Sig, sub: Subst, count: Int, module: Id, visible: List[Id], table: List[(Id, List[Id])], pending: List[Pending], chosen: Map[Name, Name], hidden: Set[Name], hidden_sorts: Set[Name], at: Pos, errors: List[TypeError], unparsed: Set[Id], partial: Bool, within: List[Within], taken: Set[Int], loops: List[(Pos, Env)], scopes: Map[Name, List[Env]], unknown_sorts: Set[Name], loop_assigned: Set[Name], raises_count: Int, bounds: Buffer[Bound], solved: Option[Map[Int, Set[Name]]], aliased: Set[(Id, Id)])
+  case State(sig: Sig, sub: Subst, count: Int, module: Path, visible: List[Path], table: List[(Path, List[Path])], pending: List[Pending], chosen: Map[Name, Name], hidden: Set[Name], hidden_sorts: Set[Name], at: Pos, errors: List[TypeError], unparsed: Set[Id], partial: Bool, within: List[Within], taken: Set[Int], loops: List[(Pos, Env)], scopes: Map[Name, List[Env]], unknown_sorts: Set[Name], loop_assigned: Set[Name], raises_count: Int, bounds: Buffer[Bound], solved: Option[Map[Int, Set[Name]]], aliased: Set[(Path, Path)])
 
 // the constructor of a pattern, where literals count as constructors without arguments
 data Head :=
@@ -212,7 +212,7 @@ data Head :=
 
 // the head of tuples, which have no module
 pattern HTuple(): Head :=
-  HCon(Name(None, ","))
+  HCon(Name(List(), ","))
 
 function with_sig(s: State, sig: Sig): State :=
   s with sig := sig
@@ -220,19 +220,19 @@ function with_sig(s: State, sig: Sig): State :=
 // the state for checking a declaration of module m, where the substitution starts empty and unknowns of types are
 // numbered from 1 again, since they do not outlive the command that introduces them, while the unknowns of raises and
 // their bounds go on, which the raises pass solves after the package
-function enter(s: State, m: Id): State :=
+function enter(s: State, m: Path): State :=
   s with sub := empty(), count := 0, module := m, visible := sees(m, s.table), pending := List(), chosen := empty(), at := Pos(0, 0), unknown_sorts := empty(), loop_assigned := empty()
 
-function sees(m: Id, vs: List[(Id, List[Id])]): List[Id] :=
+function sees(m: Path, vs: List[(Path, List[Path])]): List[Path] :=
   value_or(get(m, vs), List(m))
 
-function start(main: Id, vs: List[(Id, List[Id])]): State :=
+function start(main: Path, vs: List[(Path, List[Path])]): State :=
   State(empty(), empty(), 0, main, sees(main, vs), vs, List(), empty(), empty(), empty(), Pos(0, 0), List(), empty(), false, List(), empty(), List(), empty(), empty(), empty(), 0, empty(), None, empty())
 
-function in_module(m: Id, n: Name): Name :=
-  Name(Some(m), n.base)
+function in_module(m: Path, n: Name): Name :=
+  Name(m, n.base)
 
-function qualify(m: Id, cmd: Cmd): Cmd :=
+function qualify(m: Path, cmd: Cmd): Cmd :=
   match cmd
     case CSort(name, params, typ) =>
       CSort(in_module(m, name), params, typ)
@@ -268,15 +268,15 @@ function qualify(m: Id, cmd: Cmd): Cmd :=
       CTest(in_module(m, name), vars, stmt)
   end
 
-function qualify_constr(m: Id, k: Constr): Constr :=
+function qualify_constr(m: Path, k: Constr): Constr :=
   k with name := in_module(m, k.name)
 
 // each module sees itself and its direct imports, which include the implicit ones and the members of its package, for the
 // imports of each module
-function visibility(imports: List[(Id, List[Id])], main: Id): List[(Id, List[Id])] :=
+function visibility(imports: List[(Path, List[Path])], main: Path): List[(Path, List[Path])] :=
   List(for m in distinct(List(main) ++ firsts(imports)) yield (m, distinct(List(m) ++ imports_of(imports, m))))
 
-function imports_of(imports: List[(Id, List[Id])], m: Id): List[Id] :=
+function imports_of(imports: List[(Path, List[Path])], m: Path): List[Path] :=
   value_or(get(m, imports), List())
 
 // the declarations named n of a kind that the module sees, where its own declarations hide those of other modules
@@ -284,12 +284,12 @@ function imports_of(imports: List[(Id, List[Id])], m: Id): List[Id] :=
 function visible_names(s: State, n: Name, declared: Name -> Bool): List[Name] :=
   let ds := List(for d in names_of(s.sig, n.base) if declared(d)) in
   match n
-    case Name(Some(_), _) =>
+    case Name(List(_; _), _) =>
       if contains(n, ds) then List(n) else List()
 
-    case Name(None, base) =>
-      if contains(Name(Some(s.module), base), ds) then
-        List(Name(Some(s.module), base))
+    case Name(List(), base) =>
+      if contains(Name(s.module, base), ds) then
+        List(Name(s.module, base))
       else
         List(for d in ds if is_visible_sort(s, d))
   end
@@ -298,7 +298,7 @@ function visible_names(s: State, n: Name, declared: Name -> Bool): List[Name] :=
 // among them
 function overloads(s: State, n: Name, declared: Name -> Bool): List[Name] :=
   match n
-    case Name(Some(_), _) =>
+    case Name(List(_; _), _) =>
       List(for d in names_of(s.sig, n.base) if declared(d) and d == n)
     case _ =>
       List(for d in names_of(s.sig, n.base) if declared(d) and is_visible(s, d))
@@ -374,7 +374,7 @@ function edit_cells(prev: List[Int], c: Char, bs: List[Char], left: Int): List[I
 
 // whether the module sees the declaration d, which is its own, or of a module that it sees and not private to it
 function is_visible(s: State, d: Name): Bool :=
-  match d.module
+  match name_module(d)
     case Some(m) =>
       m == s.module or contains(m, s.visible) and not contains(d, s.hidden)
     case None =>
@@ -382,7 +382,7 @@ function is_visible(s: State, d: Name): Bool :=
   end
 
 function is_visible_sort(s: State, d: Name): Bool :=
-  match d.module
+  match name_module(d)
     case Some(m) =>
       m == s.module or contains(m, s.visible) and not contains(d, s.hidden_sorts)
     case None =>
@@ -428,7 +428,7 @@ function logic(): Scheme :=
 // only what cannot be defined in the prelude, which are names without a module
 function builtin_schemes(n: Name): List[Scheme] :=
   match n
-    case Name(None, base) =>
+    case Name(List(), base) =>
       builtin_scheme(base)
     case _ =>
       List()
@@ -743,8 +743,8 @@ function zonk_type(su: Subst, t: Type): Type :=
 
 // the declaration chosen for an overloaded name, which stands for it until the end of the command
 function settled(s: State, n: Name): Name :=
-  match n.module
-    case Some("?") =>
+  match name_module(n)
+    case Some(List("?")) =>
       value_or(get(n, s.chosen), n)
     case _ =>
       n
@@ -1498,7 +1498,7 @@ function relates(d: Direction, names: Set[Name], names_: Set[Name]): Bool :=
       names_ -- names == empty()
   end
 
-function bounds_toward(d: Direction, m: Id, pos: Pos, r: Raises, r_: Raises): List[Bound] :=
+function bounds_toward(d: Direction, m: Path, pos: Pos, r: Raises, r_: Raises): List[Bound] :=
   match d
     case Both =>
       List(Bound(m, pos, r, r_), Bound(m, pos, r_, r))
@@ -1766,7 +1766,7 @@ procedure normalize(in t: Type, out u: Type, ref s: State) :=
 
 // the use of the alias n by the module checked, which the expansion leaves no name of, for UnusedImport
 procedure aliased(in n: Name, ref s: State) :=
-  match n.module
+  match name_module(n)
     case Some(m) =>
       s := s with aliased := Set((s.module, m); s.aliased)
     case None =>
@@ -1971,7 +1971,7 @@ procedure choose(
       m := m_, s := s_
 
     case _ =>
-      m := Name(Some("?"), show(s.count + 1))
+      m := Name(List("?"), show(s.count + 1))
       s := s with count := s.count + 1, pending := s.pending ++ List(Pending(m, n, firsts(ok), w, s.at))
   end
 
@@ -2365,7 +2365,7 @@ procedure take_errors(
   end
 
 // d of a part of the module m, which a run reaches without the command around it (require_checked of ulang/run/run.u)
-function with_module(d: Diagnostic, m: Id): Diagnostic :=
+function with_module(d: Diagnostic, m: Path): Diagnostic :=
   d with module := or_else(d.module, Some(m))
 
 // x at pos with its errors, if it has some
@@ -2497,11 +2497,11 @@ procedure generator(
   solve(ref s)
   x := Var(unqualified("(container)"), u), w := zonk_type(s.sub, u)
   match w
-    case TSort(Name(Some(m), _), targs) if declares_fold(s.sig, m, fold_name(form)) =>
+    case TSort(Name(m, _), targs) if m != List() and declares_fold(s.sig, m, fold_name(form)) =>
       infer(in bind(List(x)) ++ env, fold_expr(s, pos, span, form, m, targs, g, AOk(pos, span, EVar(x)), AOk(pos, span, EFor(form, more, elem, Some(AOk(pos, span, EVar(form_acc()))))), base_expr(pos, span, form, rest)), out typed_fold, t, ref s)
 
     // the container stands for the form, of a type that later uses unify with anything
-    case TSort(Name(Some(_), _), _) =>
+    case TSort(Name(List(_; _), _), _) =>
       report(in NoFold(w, fold_name(form)), ref s)
       fresh(out t, ref s)
       typed_fold := standing_for(pos, x, c)
@@ -2517,16 +2517,16 @@ procedure generator(
 function fold_name(form: Form): Id :=
   if form == FList then "foldr" else "foldl"
 
-function declares_fold(sig: Sig, m: Id, fold: Id): Bool :=
-  exists(schemes_of(sig, Name(Some(m), fold)), lambda sc => match sc.typ
+function declares_fold(sig: Sig, m: Path, fold: Id): Bool :=
+  exists(schemes_of(sig, Name(m, fold)), lambda sc => match sc.typ
     case TFun(args, _) =>
       size(args) == 3
     case _ =>
       false
   end)
 
-function form_app(pos: Pos, span: Span, m: Id, f: Id, args: List[At[Expr]]): At[Expr] :=
-  AOk(pos, span, ECall(pos, span, Name(Some(m), f), THole, args))
+function form_app(pos: Pos, span: Span, m: Path, f: Id, args: List[At[Expr]]): At[Expr] :=
+  AOk(pos, span, ECall(pos, span, Name(m, f), THole, args))
 
 // the accumulator of the folds, which users cannot name
 function form_acc(): Var :=
@@ -2599,7 +2599,7 @@ function gen_container(g: Gen): At[Expr] :=
 // the fold of module m over container c into base, by foldr for lists, so that prepending keeps the order, and else by foldl,
 // so that the steps run in the order of the generators, whose function binds the pattern of g and computes body, where a
 // pattern that is no variable is matched, and the fold of a map takes key and value
-function fold_expr(s: State, pos: Pos, span: Span, form: Form, m: Id, targs: List[Type], g: Gen, c: At[Expr], body: At[Expr], base: At[Expr]): At[Expr] :=
+function fold_expr(s: State, pos: Pos, span: Span, form: Form, m: Path, targs: List[Type], g: Gen, c: At[Expr], body: At[Expr], base: At[Expr]): At[Expr] :=
   let fold := fold_name(form), acc := form_acc() in
   match g
     case GPair(k, v, _) =>
@@ -2761,8 +2761,8 @@ procedure field_access(
   unify(in w, TFun(List(u; us), t), ref s)
   solve(ref s)
   match zonk_type(s.sub, u)
-    case TSort(Name(Some(m), base), _) =>
-      let accessor: Name := Name(Some(m), base ++ suffix)
+    case TSort(Name(m, base), _) if m != List() =>
+      let accessor: Name := Name(m, base ++ suffix)
       match schemes_of(s.sig, accessor)
         case List(sc) if is_visible(s, accessor) =>
           use(in accessor, w, sc, out x, ref s)
@@ -4333,7 +4333,7 @@ function is_meta(t: Type): Bool :=
   end
 
 // datatypes may be mutually recursive, so they are known before any sort is checked
-procedure declare_datas(in cs: List[(Id, Cmd)], ref s: State) :=
+procedure declare_datas(in cs: List[(Path, Cmd)], ref s: State) :=
   for (m, cmd) in cs do
     match cmd
       case CData(name, params, _) =>
@@ -4346,7 +4346,7 @@ procedure declare_datas(in cs: List[(Id, Cmd)], ref s: State) :=
     end
   end
 
-procedure declare_sorts(in cs: List[(Id, Cmd)], ref s: State) :=
+procedure declare_sorts(in cs: List[(Path, Cmd)], ref s: State) :=
   for (m, cmd) in cs do
     match cmd
       case CSort(name, params, typ) =>
@@ -4363,7 +4363,7 @@ procedure declare_sorts(in cs: List[(Id, Cmd)], ref s: State) :=
     end
   end
 
-procedure declare_constrs(in cs: List[(Id, Cmd)], ref s: State) :=
+procedure declare_constrs(in cs: List[(Path, Cmd)], ref s: State) :=
   for (m, cmd) in cs do
     match cmd
       case CData(n, params, constrs) =>
@@ -4428,7 +4428,7 @@ function first_fields(fields: List[(Id, Type)]): List[(Id, Type)] :=
       List((f, u); first_fields(List(for p in rest if first(p) != f)))
   end
 
-procedure declare_funs(in cs: List[(Id, Cmd)], ref s: State) :=
+procedure declare_funs(in cs: List[(Path, Cmd)], ref s: State) :=
   for (m, cmd) in cs do
     match cmd
       case CFun(name, ps, formals, typ, _, _) =>
@@ -4448,7 +4448,7 @@ procedure declare_funs(in cs: List[(Id, Cmd)], ref s: State) :=
 
 // each alias after the constructors and the aliases before it, so that aliases do not recur, with the function of the
 // same name that builds its values where its pattern has no _
-procedure declare_pat_aliases(in cs: List[(Id, Cmd)], ref s: State) :=
+procedure declare_pat_aliases(in cs: List[(Path, Cmd)], ref s: State) :=
   for (m, cmd) in cs do
     match cmd
       case CPatAlias(name, ps, formals, typ, pat) =>
@@ -4677,7 +4677,7 @@ procedure proof_cases(
   env := after
 
 // lemmas have names of their own, apart from the values, which they may share
-procedure declare_lemmas(in cs: List[(Id, Cmd)], ref s: State) :=
+procedure declare_lemmas(in cs: List[(Path, Cmd)], ref s: State) :=
   for (m, cmd) in cs do
     match cmd
       case CLemma(name, ps, formals, outs, claim, _) =>
@@ -4705,7 +4705,7 @@ function is_claim(claim: Claim): Bool :=
       false
   end
 
-procedure declare_procs(in cs: List[(Id, Cmd)], ref s: State) :=
+procedure declare_procs(in cs: List[(Path, Cmd)], ref s: State) :=
   for (m, cmd) in cs do
     match cmd
       case CProc(name, ps, ins, outs, refs, raised, _, _) =>
@@ -4906,7 +4906,7 @@ function resolved_fields(sig: Sig, k: Constr): Constr :=
   end
 
 procedure commands(
-  in  cmds: List[(Id, Cmd)],
+  in  cmds: List[(Path, Cmd)],
   out typed_cmds: List[Cmd],
   ref s: State
 ) :=
@@ -4998,7 +4998,7 @@ procedure check_orders(
   end
 
 // the commands of ds without signatures and abstract types, which only the checks of sections need
-function is_definition(d: (Id, Cmd)): Bool :=
+function is_definition(d: (Path, Cmd)): Bool :=
   match d
     case (_, CFunSig(_, _, _, _, _)) =>
       false
@@ -5015,7 +5015,7 @@ function is_definition(d: (Id, Cmd)): Bool :=
 
 // the signatures and types of the builtin section of d as definitions to declare, whose definitions the interpreter and the
 // runtime give, where a type is a datatype without constructors, whose values the interpreter and the runtime make
-function natives(d: Mod): List[(Id, Cmd)] :=
+function natives(d: Mod): List[(Path, Cmd)] :=
   List(for c in commands_of(d.builtins) yield (d.name, native(qualify(d.name, c))))
 
 function native(cmd: Cmd): Cmd :=
@@ -5033,7 +5033,7 @@ function native(cmd: Cmd): Cmd :=
       cmd
   end
 
-function abstract_types(ds: List[(Id, Cmd)]): List[Name] :=
+function abstract_types(ds: List[(Path, Cmd)]): List[Name] :=
   match ds
     case List() =>
       List()
@@ -5221,7 +5221,11 @@ procedure check_arities(in im: List[(Pos, Cmd)], ex: List[Cmd]) :=
   end
 
 // the exported pattern aliases of cs expand to constructors that importers see
-procedure exported_aliases(in cs: List[(Id, Cmd)], hidden: Set[Name], s: State) :=
+procedure exported_aliases(
+  in  cs: List[(Path, Cmd)],
+      hidden: Set[Name],
+      s: State
+) :=
   for (_, cmd) in cs do
     match cmd
       case CPatAlias(name, _, _, _, _) if not contains(name, hidden) =>
@@ -5254,7 +5258,7 @@ function pattern_constrs(pat: Pat): List[Name] :=
 
 // the types of the export section name only sorts that importers can name, not the private sorts of the module
 procedure check_exposed(
-  in  m: Id,
+  in  m: Path,
       ex: List[(Pos, Cmd)],
       hidden_sorts: List[Name]
 ) :=
@@ -5280,8 +5284,8 @@ procedure check_exposed(
   end
 
 // a name as written in module m, where an unqualified name of a sort of m is one of its own
-function own_name(m: Id, n: Name): Name :=
-  if n.module == None then in_module(m, n) else n
+function own_name(m: Path, n: Name): Name :=
+  if n.path == List() then in_module(m, n) else n
 
 // the declaration of an export section with the types that it shows to importers
 function exposed(cmd: Cmd): Option[(Name, List[Type])] :=
@@ -5320,7 +5324,7 @@ procedure private_of(in d: Mod, out hidden: Set[Name], hidden_sorts: List[Name])
   hidden := Set(for x in private_names(ex, im)), hidden_sorts := private_sorts(ex, im)
 
 // the commands of docs of the module m with qualified names, at their declarations
-function placed_cmds(m: Id, docs: List[At[Cmd]]): List[(Pos, Cmd)] :=
+function placed_cmds(m: Path, docs: List[At[Cmd]]): List[(Pos, Cmd)] :=
   List(for c in docs if is_parsed(c) yield (c.pos, qualify(m, c.that)))
 
 function exported_cmds(d: Mod): List[Cmd] :=
@@ -5343,7 +5347,7 @@ procedure check_program(
 
 procedure check_all(
   in  source: Source,
-      generate: Checked -> List[(Pos, (Id, Cmd))],
+      generate: Checked -> List[(Pos, (Path, Cmd))],
   out q: Prog,
       errors: List[TypeError]
 ) raises InternalError :=
@@ -5351,11 +5355,11 @@ procedure check_all(
   check_source(in source, empty(), false, generate, out q, errors, ref checks)
 
 data Checks :=
-  case Checks(packages: Map[Id, CheckedPackage])
+  case Checks(packages: Map[Path, CheckedPackage])
 
 // the checked commands of a package, by their modules, and the signature that it shows to the packages after it
 data CheckedPackage :=
-  case CheckedPackage(cmds: List[(Id, At[Cmd])], shown: Sig)
+  case CheckedPackage(cmds: List[(Path, At[Cmd])], shown: Sig)
 
 function no_checks(): Checks :=
   Checks(empty())
@@ -5364,7 +5368,7 @@ procedure check_cached(
   in  source: Source,
       unparsed: Set[Id],
       partial: Bool,
-      generate: Checked -> List[(Pos, (Id, Cmd))],
+      generate: Checked -> List[(Pos, (Path, Cmd))],
   out q: Prog,
       errors: List[TypeError],
   ref checks: Checks
@@ -5374,17 +5378,17 @@ procedure check_cached(
 procedure check_partial(
   in  source: Source,
       unparsed: Set[Id],
-      generate: Checked -> List[(Pos, (Id, Cmd))],
+      generate: Checked -> List[(Pos, (Path, Cmd))],
   out q: Prog,
       errors: List[TypeError]
 ) raises InternalError :=
   var checks := no_checks()
   check_source(in source, unparsed, true, generate, out q, errors, ref checks)
 
-function is_seen(c: Checked, m: Id, d: Name): Bool :=
+function is_seen(c: Checked, m: Path, d: Name): Bool :=
   is_visible(start(m, c.table) with hidden := c.hidden, d)
 
-function no_tests(c: Checked): List[(Pos, (Id, Cmd))] :=
+function no_tests(c: Checked): List[(Pos, (Path, Cmd))] :=
   List()
 
 // the checked program of source, where partial tells whether it has parts that do not parse, which only then are looked for
@@ -5392,12 +5396,12 @@ procedure check_source(
   in  source: Source,
       unparsed: Set[Id],
       partial: Bool,
-      generate: Checked -> List[(Pos, (Id, Cmd))],
+      generate: Checked -> List[(Pos, (Path, Cmd))],
   out q: Prog,
       errors: List[TypeError],
   ref checks: Checks
 ) raises InternalError :=
-  var sig: Sig := empty(), imports: List[(Id, List[Id])] := List(), cmds: List[(Id, At[Cmd])] := List(), checked: List[(Id, At[Cmd])], shown: Sig, found: List[TypeError], loose: List[TypeError] := List(), found_loose: List[TypeError], placed: List[At[Cmd]], raised := false
+  var sig: Sig := empty(), imports: List[(Path, List[Path])] := List(), cmds: List[(Path, At[Cmd])] := List(), checked: List[(Path, At[Cmd])], shown: Sig, found: List[TypeError], loose: List[TypeError] := List(), found_loose: List[TypeError], placed: List[At[Cmd]], raised := false
   errors := List()
   let own := module_dir(source.main)
   // a package after one with errors is checked against its signature, whose definitions with errors are error nodes, and
@@ -5426,12 +5430,12 @@ procedure check_source(
   q := Prog(take(size(cmds), placed), drop(size(cmds), placed), source.main)
 
 // the package of the modules mods of one package, by the directory of the first
-function package_of(mods: List[Mod]): Id :=
+function package_of(mods: List[Mod]): Path :=
   match mods
     case List(d; _) =>
       module_dir(d.name)
     case List() =>
-      ""
+      List()
   end
 
 // a command of a package whose check failed, as written, which is an error node without errors of its own, so that no run
@@ -5445,13 +5449,13 @@ function unchecked(cmd: At[Cmd]): At[Cmd] :=
   end
 
 // the commands of the builtin sections of source
-function builtins_of(source: Source): List[(Id, At[Cmd])] :=
+function builtins_of(source: Source): List[(Path, At[Cmd])] :=
   List(for d in source.mods for c in written_of(d.name, d.builtins) yield c)
 
 // cmds, each with the errors whose position it contains, as the last command of their module that starts at or before it
 procedure with_errors(
-  in  main: Id,
-      cmds: List[(Id, At[Cmd])],
+  in  main: Path,
+      cmds: List[(Path, At[Cmd])],
       errors: List[TypeError],
   out placed: List[At[Cmd]]
 ) raises InternalError :=
@@ -5483,7 +5487,7 @@ procedure with_errors(
 
 // the module of the error e, main for one without a module, and for one without a position, of code that the parser did
 // not read, at Pos(0, 0) as its commands
-function error_module(main: Id, e: TypeError): Id :=
+function error_module(main: Path, e: TypeError): Path :=
   match e
     case Located(Some(m), _, _) =>
       m
@@ -5500,7 +5504,7 @@ function error_pos(e: TypeError): Pos :=
   end
 
 // the first of the commands cmds of the module m
-function first_of(cmds: List[(Int, (Id, At[Cmd]))], m: Id): Option[Int] :=
+function first_of(cmds: List[(Int, (Path, At[Cmd]))], m: Path): Option[Int] :=
   match List(for (i, (n, _)) in cmds if n == m yield i)
     case List(i; _) =>
       Some(i)
@@ -5509,7 +5513,7 @@ function first_of(cmds: List[(Int, (Id, At[Cmd]))], m: Id): Option[Int] :=
   end
 
 // the index of the last command of module m in cmds that starts at or before pos, after found
-function container(cmds: List[(Int, (Id, At[Cmd]))], m: Id, pos: Pos, found: Option[(Int, Pos)]): Option[Int] :=
+function container(cmds: List[(Int, (Path, At[Cmd]))], m: Path, pos: Pos, found: Option[(Int, Pos)]): Option[Int] :=
   match cmds
     case List() =>
       map_option(found, first)
@@ -5547,17 +5551,17 @@ function code_free_diagnostics(q: Prog): List[Diagnostic] :=
   List(for cmd in q.cmds for d in placed_diagnostics(q.main, cmd, code_free_errors(cmd)) yield d)
 
 // the errors of cmd by position
-function command_diagnostics(main: Id, cmd: At[Cmd]): List[Diagnostic] :=
+function command_diagnostics(main: Path, cmd: At[Cmd]): List[Diagnostic] :=
   placed_diagnostics(main, cmd, cmd_errors(cmd))
 
 // the errors of cmd by position, where an error of a part without a module is of the module of cmd, and one of main has
 // none
-function placed_diagnostics(main: Id, cmd: At[Cmd], errors: List[Diagnostic]): List[Diagnostic] :=
+function placed_diagnostics(main: Path, cmd: At[Cmd], errors: List[Diagnostic]): List[Diagnostic] :=
   let m := if is_parsed(cmd) then cmd_module(cmd.that) else None in
   let ds := List(for d in errors if d.kind != ParseKind yield in_main_module(main, d with module := or_else(d.module, m))) in
   List(for (_, _, d) in sort(List(for (i, d) in zip(range(0, size(ds)), ds) yield (d.pos, i, d))) yield d)
 
-function in_main_module(main: Id, d: Diagnostic): Diagnostic :=
+function in_main_module(main: Path, d: Diagnostic): Diagnostic :=
   if d.module == Some(main) then d with module := None else d
 
 function has_errors(q: Prog): Bool :=
@@ -5603,7 +5607,7 @@ function unparsed_use(unparsed: Set[Id], e: TypeError): TypeError :=
   end
 
 // e without the module if it is the main one
-function in_main(main: Id, e: TypeError): TypeError :=
+function in_main(main: Path, e: TypeError): TypeError :=
   match e
     case Located(Some(m), pos, error) if m == main =>
       Located(None, pos, error)
@@ -5629,7 +5633,7 @@ function units(mods: List[Mod], packages: List[Package]): List[List[Mod]] :=
       end
   end
 
-function take_members(mods: List[Mod], members: List[Id]): List[Mod] :=
+function take_members(mods: List[Mod], members: List[Path]): List[Mod] :=
   match mods
     case List(d; rest) if contains(d.name, members) =>
       List(d; take_members(rest, members))
@@ -5646,18 +5650,18 @@ procedure check_package(
   in  mods: List[Mod],
       packages: List[Package],
       before: Sig,
-      imports: List[(Id, List[Id])],
+      imports: List[(Path, List[Path])],
       unparsed: Set[Id],
       partial: Bool,
       judged: Bool,
-      generate: Checked -> List[(Pos, (Id, Cmd))],
-  out cmds: List[(Id, At[Cmd])],
+      generate: Checked -> List[(Pos, (Path, Cmd))],
+  out cmds: List[(Path, At[Cmd])],
       shown: Sig,
       errors: List[TypeError],
       loose: List[TypeError]
 ) :=
   let own := List(for d in mods yield (d.name, seen_modules(d, packages))), members := List(for d in mods yield d.name), placed := List(for d in mods for p in decls_of(d) yield p)
-  var s: State, decls: List[(Id, Cmd)], defined: List[(Id, At[Cmd])], tested: List[(Id, At[Cmd])] := List(), enumerated: List[(Id, At[Cmd])] := List(), hidden: Set[Name] := empty(), hidden_sorts: List[Name] := List()
+  var s: State, decls: List[(Path, Cmd)], defined: List[(Path, At[Cmd])], tested: List[(Path, At[Cmd])] := List(), enumerated: List[(Path, At[Cmd])] := List(), hidden: Set[Name] := empty(), hidden_sorts: List[Name] := List()
   let builtins := List(for d in mods for c in natives(d) yield c)
   var private: Set[Name], private_sorts: List[Name], exceptions: Exceptions
   for d in mods do
@@ -5669,7 +5673,7 @@ procedure check_package(
   declare_datas(in builtins, ref s)
   each_placed(in declare_sorts, alias_order(List(for p in placed if alias_names(p) != None), List()), ref s)
   each_placed(in declare_constrs, placed, ref s)
-  s := with_sig(s, with_variances(s.sig, List(for n => _ in s.sig.datas if exists(n.module, lambda m => contains(m, members)) yield n)))
+  s := with_sig(s, with_variances(s.sig, List(for n => _ in s.sig.datas if exists(name_module(n), lambda m => contains(m, members)) yield n)))
   each_placed(in declare_pat_aliases, placed, ref s)
   each_placed(in declare_funs, placed, ref s)
   each_placed(in declare_procs, placed, ref s)
@@ -5684,7 +5688,7 @@ procedure check_package(
         s := s with errors := s.errors ++ List(located(d.name, Pos(0, 0), e))
     end
   end
-  each_placed(in lambda in cs: List[(Id, Cmd)], ref t: State =>
+  each_placed(in lambda in cs: List[(Path, Cmd)], ref t: State =>
     exported_aliases(in cs, hidden, t)
   end, placed, ref s)
   for d in mods do
@@ -5729,22 +5733,22 @@ procedure check_package(
 // their resolved names and of the aliases that they use, which aliased pairs with the modules that use them; judged only
 // for the package of the loaded file, whose members have their tests, which may need an import alone, and only for the
 // imports that the parser read, not those of the fixtures of tests at Pos(0, 0)
-function unused_imports(mods: List[Mod], packages: List[Package], cmds: List[(Id, At[Cmd])], aliased: Set[(Id, Id)]): List[TypeError] :=
+function unused_imports(mods: List[Mod], packages: List[Package], cmds: List[(Path, At[Cmd])], aliased: Set[(Path, Path)]): List[TypeError] :=
   List(for d in mods if d.imports != List() for e in unused_of(d, packages, uses_of(d.name, cmds, aliased)) yield e)
 
 // the imports of d of which the modules used do not use a member
-function unused_of(d: Mod, packages: List[Package], used: Set[Id]): List[TypeError] :=
+function unused_of(d: Mod, packages: List[Package], used: Set[Path]): List[TypeError] :=
   List(for i in d.imports if i.pos != Pos(0, 0) and not uses_package(used, i.that, packages) yield Located(Some(d.name), i.pos, UnusedImport(i.that)))
 
 // the modules that the resolved patterns of the pattern aliases of the members use, paired with the module of each alias,
 // since an alias with _ has no definition, whose walk would find them
-function alias_uses(sig: Sig, members: List[Id]): Set[(Id, Id)] :=
-  Set(for n => alias in sig.pat_aliases for d in n.module if contains(d, members) for m in pat_modules(alias.pat) yield (d, m))
+function alias_uses(sig: Sig, members: List[Path]): Set[(Path, Path)] :=
+  Set(for n => alias in sig.pat_aliases for d in name_module(n) if contains(d, members) for m in pat_modules(alias.pat) yield (d, m))
 
-function uses_of(m: Id, cmds: List[(Id, At[Cmd])], aliased: Set[(Id, Id)]): Set[Id] :=
+function uses_of(m: Path, cmds: List[(Path, At[Cmd])], aliased: Set[(Path, Path)]): Set[Path] :=
   Set(for (n, c) in cmds if n == m for x in used_modules(c.that) yield x) ++ Set(for (n, a) in aliased if n == m yield a)
 
-function uses_package(used: Set[Id], p: Id, packages: List[Package]): Bool :=
+function uses_package(used: Set[Path], p: Path, packages: List[Package]): Bool :=
   exists(packages, lambda k => k.id == p and exists(k.members, lambda x => contains(x, used)))
 
 // cmd with the raises inferred of it if it is a private procedure without raises, which the checked program keeps
@@ -5759,7 +5763,7 @@ function with_inferred(cmd: Cmd, inferred: Map[Name, List[Type]]): Cmd :=
 // an example of the function or procedure owner, translated into the test cmd, at the position pos in module, where an
 // example of the export section is checked as an importer of module sees it
 data ExampleTest :=
-  case ExampleTest(pos: Pos, module: Id, owner: Name, exported: Bool, cmd: Cmd)
+  case ExampleTest(pos: Pos, module: Path, owner: Name, exported: Bool, cmd: Cmd)
 
 // the examples on definitions in implementation of functions and procedures that export declares, as errors of s
 procedure examples_placed(in d: Mod, ref s: State) :=
@@ -5811,7 +5815,7 @@ function spec_of(cmd: Cmd): Spec :=
 function example_tests(d: Mod): List[ExampleTest] :=
   numbered_examples(d.name, List(for c in d.exported ++ d.builtins yield (true, c.that)) ++ List(for c in d.implemented yield (false, c.that)), empty())
 
-function numbered_examples(m: Id, cmds: List[(Bool, Cmd)], counts: Map[Id, Int]): List[ExampleTest] :=
+function numbered_examples(m: Path, cmds: List[(Bool, Cmd)], counts: Map[Id, Int]): List[ExampleTest] :=
   match cmds
     case List() =>
       List()
@@ -5827,8 +5831,8 @@ function numbered_examples(m: Id, cmds: List[(Bool, Cmd)], counts: Map[Id, Int])
       end
   end
 
-function example_test(m: Id, pos: Pos, owner: Name, exported: Bool, n: Int, x: At[Example]): ExampleTest :=
-  ExampleTest(pos, m, owner, exported, CTest(Name(Some(m), owner.base ++ ".example." ++ show(n)), List(), example_body(pos, x)))
+function example_test(m: Path, pos: Pos, owner: Name, exported: Bool, n: Int, x: At[Example]): ExampleTest :=
+  ExampleTest(pos, m, owner, exported, CTest(Name(m, owner.base ++ ".example." ++ show(n)), List(), example_body(pos, x)))
 
 // the body of the test of the example x, which raises the error of a part that does not parse
 function example_body(pos: Pos, x: At[Example]): At[Stmt] :=
@@ -5889,7 +5893,7 @@ function expected_values(actual: List[Var], expected: List[At[Expr]]): List[At[S
 // a module of its own, which sees what the module sees and the module itself, with their errors located at the examples
 procedure example_commands(
   in  xs: List[ExampleTest],
-  out cmds: List[(Id, At[Cmd])],
+  out cmds: List[(Path, At[Cmd])],
   ref s: State
 ) :=
   cmds := List()
@@ -5897,7 +5901,7 @@ procedure example_commands(
     var errors: List[Diagnostic]
     let before := size(s.errors), bounds := s.bounds
     var one: List[Cmd] := List(x.cmd)
-    let viewer := if x.exported then "(example)/" ++ x.module else x.module
+    let viewer := if x.exported then List("(example)") ++ x.module else x.module
     s := s with table := List((viewer, List(x.module; sees(x.module, s.table))); s.table)
     try
       commands(in List((viewer, x.cmd)), out one, ref s)
@@ -5912,7 +5916,7 @@ procedure example_commands(
 
 // the type aliases of a package, each after those that it names, since an alias is expanded where it is declared, and
 // members name each other's aliases in any order, where aliases that name each other stay in their order
-function alias_order(pending: List[(Pos, (Id, Cmd))], done: List[(Pos, (Id, Cmd))]): List[(Pos, (Id, Cmd))] :=
+function alias_order(pending: List[(Pos, (Path, Cmd))], done: List[(Pos, (Path, Cmd))]): List[(Pos, (Path, Cmd))] :=
   match find(pending, lambda p => not exists(pending, lambda q => q != p and names_alias(p, q)))
     case Some(p) =>
       alias_order(remove(p, pending), done ++ List(p))
@@ -5921,7 +5925,7 @@ function alias_order(pending: List[(Pos, (Id, Cmd))], done: List[(Pos, (Id, Cmd)
   end
 
 // whether the alias p names the alias q, by its name as written
-function names_alias(p: (Pos, (Id, Cmd)), q: (Pos, (Id, Cmd))): Bool :=
+function names_alias(p: (Pos, (Path, Cmd)), q: (Pos, (Path, Cmd))): Bool :=
   match (alias_names(p), alias_names(q))
     case (Some((_, named)), Some((name, _))) =>
       contains(name, named)
@@ -5930,7 +5934,7 @@ function names_alias(p: (Pos, (Id, Cmd)), q: (Pos, (Id, Cmd))): Bool :=
   end
 
 // the name of the type alias of a placed command and the names of the sorts that it names, if it is one
-function alias_names(p: (Pos, (Id, Cmd))): Option[(Id, List[Id])] :=
+function alias_names(p: (Pos, (Path, Cmd))): Option[(Id, List[Id])] :=
   match p
     case (_, (_, CSort(name, _, typ))) =>
       Some((name.base, List(for n in sorts_in(typ) yield n.base)))
@@ -5938,20 +5942,20 @@ function alias_names(p: (Pos, (Id, Cmd))): Option[(Id, List[Id])] :=
       None
   end
 
-function first_member(members: List[Id]): Id :=
+function first_member(members: List[Path]): Path :=
   match members
     case List(m; _) =>
       m
     case List() =>
-      ""
+      List()
   end
 
 // the commands of module d with qualified names, with the module of each, and their positions
-function decls_of(d: Mod): List[(Pos, (Id, Cmd))] :=
+function decls_of(d: Mod): List[(Pos, (Path, Cmd))] :=
   List(for c in placed_of(d) yield (c.pos, (d.name, qualify(d.name, c.that))))
 
 // the contracts of the signatures of procedures of placed, by name and arity
-function declared_contracts(placed: List[(Pos, (Id, Cmd))]): Map[(Name, Int), Spec] :=
+function declared_contracts(placed: List[(Pos, (Path, Cmd))]): Map[(Name, Int), Spec] :=
   Map(for (_, (_, cmd)) in placed for (key, spec) in signature_contract(cmd) yield key => spec)
 
 function signature_contract(cmd: Cmd): Option[((Name, Int), Spec)] :=
@@ -5963,7 +5967,7 @@ function signature_contract(cmd: Cmd): Option[((Name, Int), Spec)] :=
   end
 
 // the definitions with the contracts of their signatures in export, which they do not repeat
-function with_contracts(defined: List[(Pos, (Id, Cmd))], placed: List[(Pos, (Id, Cmd))]): List[(Pos, (Id, Cmd))] :=
+function with_contracts(defined: List[(Pos, (Path, Cmd))], placed: List[(Pos, (Path, Cmd))]): List[(Pos, (Path, Cmd))] :=
   let declared := declared_contracts(placed) in
   List(for (p, (m, cmd)) in defined yield (p, (m, contracted(declared, cmd))))
 
@@ -5982,7 +5986,7 @@ function contracted(declared: Map[(Name, Int), Spec], cmd: Cmd): Cmd :=
   end
 
 // the name of a definition of a procedure that export declares, if it has a contract, which belongs to the signature
-function contract_on_definition(placed: List[(Pos, (Id, Cmd))], cmd: Cmd): Option[Name] :=
+function contract_on_definition(placed: List[(Pos, (Path, Cmd))], cmd: Cmd): Option[Name] :=
   match cmd
     case CProc(name, _, ins, outs, refs, _, spec, _) if spec.pre != List() or spec.post != None =>
       if get((name, size(ins) + size(outs) + size(refs)), declared_contracts(placed)) != None then
@@ -5995,7 +5999,7 @@ function contract_on_definition(placed: List[(Pos, (Id, Cmd))], cmd: Cmd): Optio
   end
 
 // the definitions to check, where a pattern alias is the function that builds its values, if it has one
-function placed_definitions(placed: List[(Pos, (Id, Cmd))]): List[(Pos, (Id, Cmd))] :=
+function placed_definitions(placed: List[(Pos, (Path, Cmd))]): List[(Pos, (Path, Cmd))] :=
   List(for (p, (m, cmd)) in placed for c in definition_of(cmd) if is_definition((m, c)) yield (p, (m, c)))
 
 function definition_of(cmd: Cmd): List[Cmd] :=
@@ -6014,8 +6018,8 @@ function definition_of(cmd: Cmd): List[Cmd] :=
 
 // the declarations of a phase, one by one, where an error is located at the declaration that raises it
 procedure each_placed(
-  in  phase: (in List[(Id, Cmd)], ref State) raises TypeError, InternalError,
-      placed: List[(Pos, (Id, Cmd))],
+  in  phase: (in List[(Path, Cmd)], ref State) raises TypeError, InternalError,
+      placed: List[(Pos, (Path, Cmd))],
   ref s: State
 ) :=
   match placed
@@ -6042,9 +6046,9 @@ function without_bounds(s: State, before: Int, bounds: Buffer[Bound]): State :=
   if size(s.errors) > before then s with bounds := bounds else s
 
 procedure placed_commands(
-  in  placed: List[(Pos, (Id, Cmd))],
+  in  placed: List[(Pos, (Path, Cmd))],
       after: (in List[Cmd]) raises TypeError,
-  out cmds: List[(Id, At[Cmd])],
+  out cmds: List[(Path, At[Cmd])],
   ref s: State
 ) :=
   match placed
@@ -6053,7 +6057,7 @@ procedure placed_commands(
 
     case List((p, d); more) =>
       let before := size(s.errors), bounds := s.bounds
-      var one: List[Cmd] := List(second(d)), rest: List[(Id, At[Cmd])], errors: List[Diagnostic]
+      var one: List[Cmd] := List(second(d)), rest: List[(Path, At[Cmd])], errors: List[Diagnostic]
       try
         commands(in List(d), out one, ref s)
         if size(s.errors) == before then
@@ -6071,7 +6075,7 @@ procedure placed_commands(
 
 // the commands of the export and implementation sections of the modules, each at its declaration, with the checked
 // definitions in place of those that placed_definitions gives, in their order, as written where they are not checked
-function with_definitions(written: List[(Id, At[Cmd])], defined: List[(Id, At[Cmd])]): List[(Id, At[Cmd])] :=
+function with_definitions(written: List[(Path, At[Cmd])], defined: List[(Path, At[Cmd])]): List[(Path, At[Cmd])] :=
   match (written, defined)
     case (List((m, cmd); rest), List((n, d); more)) if is_checked(m, cmd) =>
       List((n, d with span := cmd.span); with_definitions(rest, more))
@@ -6084,7 +6088,7 @@ function with_definitions(written: List[(Id, At[Cmd])], defined: List[(Id, At[Cm
   end
 
 // whether placed_definitions gives a definition of cmd of module m
-function is_checked(m: Id, cmd: At[Cmd]): Bool :=
+function is_checked(m: Path, cmd: At[Cmd]): Bool :=
   match cmd
     case AOk(_, _, that) =>
       is_definition((m, that)) and definition_of(that) != List()
@@ -6097,11 +6101,11 @@ function is_checked(m: Id, cmd: At[Cmd]): Bool :=
   end
 
 // the commands of docs of the module m with qualified names, at their declarations
-function written_of(m: Id, docs: List[At[Cmd]]): List[(Id, At[Cmd])] :=
+function written_of(m: Path, docs: List[At[Cmd]]): List[(Path, At[Cmd])] :=
   List(for c in docs for x in qualified_at(m, c) yield (m, x))
 
 // without_unparsed of ulang/parse/parse.u leaves no command that does not parse to the checker
-function qualified_at(m: Id, cmd: At[Cmd]): Option[At[Cmd]] :=
+function qualified_at(m: Path, cmd: At[Cmd]): Option[At[Cmd]] :=
   match cmd
     case AOk(pos, span, that) =>
       Some(AOk(pos, span, qualify(m, that)))
@@ -6114,11 +6118,11 @@ function qualified_at(m: Id, cmd: At[Cmd]): Option[At[Cmd]] :=
   end
 
 // s with the errors after the first before located at the declaration d at position p, which raised or reported them
-function placed_errors(s: State, before: Int, d: (Id, Cmd), p: Pos): State :=
+function placed_errors(s: State, before: Int, d: (Path, Cmd), p: Pos): State :=
   s with errors := take(before, s.errors) ++ List(for e in drop(before, s.errors) yield located(first(d), p, e))
 
 // the error e of a declaration of module m at position p, if the parser read it
-function located(m: Id, p: Pos, e: TypeError): TypeError :=
+function located(m: Path, p: Pos, e: TypeError): TypeError :=
   match e
     case Located(None, q, error) =>
       Located(Some(m), q, error)
@@ -6128,7 +6132,7 @@ function located(m: Id, p: Pos, e: TypeError): TypeError :=
 
 // the type of expr without a program
 procedure type_of(in expr: At[Expr], out t: Type) :=
-  var s := start("main", List()), u: Type
+  var s := start(List("main"), List()), u: Type
   infer(in List(), expr, out _, u, ref s)
   settle(ref s)
   reported(in s)
@@ -6158,7 +6162,7 @@ test inference() :=
   assert raises Mismatch(_, _, _) do
     type_of(in expr_app("<", List(expr_int(1), nowhere(ELit(LBool(true))))), out t)
   end
-  assert raises UnknownVariable(Name(None, "x")) do
+  assert raises UnknownVariable(Name(List(), "x")) do
     type_of(in expr_app("x", List()), out t)
   end
 
@@ -6189,7 +6193,7 @@ test coverage() :=
     check_program(in with_lists(List(
       CFun(unqualified("f"), List(), unplaced_vars(List(Var(unqualified("xs"), type_plain_list(TInt())))), TInt(), no_spec(), nowhere(EMatch(expr_var("xs"), List(case_at(pat_var("Nil"), expr_int(0)))))))), out _)
   end
-  assert raises Unreachable(PVar(Var(Name(None, "Nil"), THole))) do
+  assert raises Unreachable(PVar(Var(Name(List(), "Nil"), THole))) do
     check_program(in with_lists(List(
       CFun(unqualified("f"), List(), unplaced_vars(List(Var(unqualified("xs"), type_plain_list(TInt())))), TInt(), no_spec(), nowhere(EMatch(expr_var("xs"), List(
         case_at(nowhere(PWild), expr_int(0)),
@@ -6197,7 +6201,7 @@ test coverage() :=
   end
 
 test statements() :=
-  assert raises NotAssignable(Name(None, "n")) do
+  assert raises NotAssignable(Name(List(), "n")) do
     check_program(in program_of(List(
       CProc(unqualified("inc"), List(), List(), List(), unplaced_vars(List(Var(unqualified("k"), TInt()))), List(), no_spec(), nowhere(block(List(), List(
         nowhere(SAssign(List(
@@ -6226,7 +6230,7 @@ function constr_at(n: Id, fields: List[Field]): At[Constr] :=
 // and that the program imports
 function bags(): List[Mod] :=
   List(
-    sectioned("bag", List(
+    sectioned(List("bag"), List(
       CData(unqualified("Bag"), List(), List(
         constr_at("Bag", List(Field("n", TInt()))),
         constr_at("Leaf", List(Field("n", TInt()))))),
@@ -6234,7 +6238,7 @@ function bags(): List[Mod] :=
       fun_cmd("size", List(var_of("b", tsort("Bag"))), TInt(), expr_int(1)),
       fun_cmd("compare", List(var_of("a", tsort("Bag")), var_of("b", tsort("Bag"))), TInt(), expr_int(0)),
       CProc(unqualified("fill"), List(), List(), unplaced_vars(List(var_of("b", tsort("Bag")))), List(), List(), no_spec(), nowhere(SAssign(List((var_of("b", THole), expr_app("Bag", List(expr_int(0)))))))))),
-    sectioned("box", List(
+    sectioned(List("box"), List(
       CData(unqualified("Box"), List(), List(
         constr_at("Box", List(Field("s", TStr()))),
         constr_at("Leaf", List(Field("s", TStr()))))),
@@ -6244,7 +6248,7 @@ function bags(): List[Mod] :=
 
 // the module of cmds with sections, as the parser gives it: the datatypes and the signatures of the definitions exported,
 // and the definitions implemented
-function sectioned(name: Id, cmds: List[Cmd]): Mod :=
+function sectioned(name: Path, cmds: List[Cmd]): Mod :=
   Mod(name, List(), unplaced(List(for c in cmds yield signature_of(c))), List(), unplaced(List(for c in cmds if signature_of(c) != c)), List())
 
 function signature_of(cmd: Cmd): Cmd :=
@@ -6262,16 +6266,16 @@ function signature_of(cmd: Cmd): Cmd :=
 // the program of the commands cmds of the module main, which imports bag and box, each a package of its own
 function with_bags(cmds: List[Cmd]): Source :=
   Source(List(natives_prelude(); bags()) ++ List(
-    Mod("main", List(nowhere("bag"), nowhere("box")), List(), List(), unplaced(cmds), List())), List(
-    Package("prelude", List(library_module("prelude"))),
-    Package("bag", List("bag")),
-    Package("box", List("box"))), "main")
+    Mod(List("main"), List(nowhere(List("bag")), nowhere(List("box"))), List(), List(), unplaced(cmds), List())), List(
+    Package(List("prelude"), List(library_module("prelude"))),
+    Package(List("bag"), List(List("bag"))),
+    Package(List("box"), List(List("box")))), List("main"))
 
 function in_bag(n: Id): Name :=
-  Name(Some("bag"), n)
+  Name(List("bag"), n)
 
 function in_box(n: Id): Name :=
-  Name(Some("box"), n)
+  Name(List("box"), n)
 
 // the body of the last function of the checked program with_bags([cmd])
 procedure body_of(in cmd: Cmd, out b: Expr) :=
@@ -6403,13 +6407,13 @@ test locals() :=
   assert b == EName(unqualified("size"), TInt())
 
 test errors() :=
-  assert raises NoOverload(Name(None, "size"), _) do
+  assert raises NoOverload(Name(List(), "size"), _) do
     body_of(in fun_cmd("f", List(), TInt(), expr_app("size", List(expr_int(1)))), out _)
   end
-  assert raises Ambiguous(Name(None, "size"), List(_, _)) do
+  assert raises Ambiguous(Name(List(), "size"), List(_, _)) do
     body_of(in fun_cmd("f", List(), TBool(), nowhere(ELet(List(
       (pat_var("h"), lambda_at(List(var_of("x", THole)), expr_app("size", List(expr_var("x")))))), nowhere(ELit(LBool(true)))))), out _)
   end
-  assert raises WrongArity(Name(None, "size"), 2) do
+  assert raises WrongArity(Name(List(), "size"), 2) do
     body_of(in fun_cmd("f", List(), TInt(), expr_app("size", List(expr_int(1), expr_int(2)))), out _)
   end

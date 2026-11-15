@@ -161,7 +161,7 @@ function datatype_constrs(decls: Decls, t: Name): List[(Name, List[Var])] :=
 
 // the variable of a component of a tuple, which has no field name
 function component(): Var :=
-  Var(Name(None, "component"), THole)
+  Var(Name(List(), "component"), THole)
 
 function column_lit(rows: List[Row]): Option[Lit] :=
   match rows
@@ -279,7 +279,7 @@ function hole_term(holes: Holes, free: List[Int], value: Term, base: Int, h: Int
 // the leaves of List(x, y; rest) and List(x; rest) after it, over the value at the level 0: Nil without a row, Cons of
 // Nil for the second row, and Cons of Cons for the first, whose y and rest are new variables
 test nested_leaves() :=
-  let list := Name(Some("prelude/list"), "List"), nil := nil_name(), cons := cons_name(), var_of := (lambda base => Var(Name(None, base), THole)), pvar := (lambda base => nowhere(PVar(var_of(base)))), decls := (empty_decls() with constrs := Map(
+  let list := Name(List("prelude", "list"), "List"), nil := nil_name(), cons := cons_name(), var_of := (lambda base => Var(Name(List(), base), THole)), pvar := (lambda base => nowhere(PVar(var_of(base)))), decls := (empty_decls() with constrs := Map(
     nil => ConstrDecl(list, List()),
     cons => ConstrDecl(list, List(var_of("head"), var_of("tail")))), datatypes := Map(list => List(nil, cons))), two := PApp(cons, List(pvar("x"), nowhere(PApp(cons, List(pvar("y"), pvar("rest")))))), one := PApp(cons, List(pvar("x"), pvar("rest")))
   match leaves(decls, ELevel(0), 1, List((two, false), (one, false)), None)
@@ -296,7 +296,7 @@ test nested_leaves() :=
 
 // literals split into the literal and the rest, where a guarded row lets the leaf through to the next
 test literal_leaves() :=
-  let x := nowhere(PVar(Var(Name(None, "x"), THole)))
+  let x := nowhere(PVar(Var(Name(List(), "x"), THole)))
   match leaves(empty_decls(), ELevel(0), 1, List((PLit(LInt(0)), true), (PLit(LInt(0)), false), (x.that, false)), None)
     case List(zero, other) =>
       assert zero.value == EInt(0) and zero.hits == List(Hit(0, List()), Hit(1, List()))
@@ -308,7 +308,7 @@ test literal_leaves() :=
 
 // a split that induction asks for, also where the only row is a catch-all, which binds the constructor terms
 test forced_leaves() :=
-  let list := Name(Some("prelude/list"), "List"), nil := nil_name(), cons := cons_name(), var_of := (lambda base => Var(Name(None, base), THole)), decls := empty_decls() with constrs := Map(
+  let list := Name(List("prelude", "list"), "List"), nil := nil_name(), cons := cons_name(), var_of := (lambda base => Var(Name(List(), base), THole)), decls := empty_decls() with constrs := Map(
     nil => ConstrDecl(list, List()),
     cons => ConstrDecl(list, List(var_of("head"), var_of("tail")))), datatypes := Map(list => List(nil, cons))
   match leaves(decls, ELevel(0), 1, List((PVar(var_of("ys")), false)), Some(list))

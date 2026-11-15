@@ -19,7 +19,7 @@ function error_kinds(): List[ErrorKind]
 // an error of a phase at its position in module, None for the main module, where code is the constructor of the error, e.g.
 // CannotUnify, and details are its parts, such as the expected and the found type
 data Diagnostic :=
-  case Diagnostic(kind: ErrorKind, code: Str, module: Option[Id], pos: Pos, message: Str, details: List[(Str, Str)])
+  case Diagnostic(kind: ErrorKind, code: Str, module: Option[Path], pos: Pos, message: Str, details: List[(Str, Str)])
 
 // "kind error: message"
 function error_text(kind: ErrorKind, message: Str): Str
@@ -151,7 +151,7 @@ function deferred_text(ds: List[Diagnostic]): Str :=
     case List(d; _) =>
       "the " ++ kind_name(d.kind) ++ " error" ++ at_pos(d.pos) ++ match d.module
         case Some(m) =>
-          " in " ++ m
+          " in " ++ path_text(m)
         case None =>
           ""
       end ++ ", " ++ d.message
@@ -180,7 +180,7 @@ function runtime_formats(): List[(Str, Str)] :=
     ("u_text_uncaught", runtime_message(Uncaught("%s"))))
 
 test diagnostics_as_json() :=
-  assert format_diagnostic("a.u", Diagnostic(TypeKind, "Mismatch", Some("m"), Pos(2, 3), "expected \"x\"\n", List(("found", "Int")))) == "{\"file\": \"a.u\", \"module\": \"m\", \"line\": 2, \"column\": 3, \"kind\": \"type\", \"code\": \"Mismatch\", \"message\": \"expected \\\"x\\\"\\n\", \"found\": \"Int\"}"
+  assert format_diagnostic("a.u", Diagnostic(TypeKind, "Mismatch", Some(List("m")), Pos(2, 3), "expected \"x\"\n", List(("found", "Int")))) == "{\"file\": \"a.u\", \"module\": \"m\", \"line\": 2, \"column\": 3, \"kind\": \"type\", \"code\": \"Mismatch\", \"message\": \"expected \\\"x\\\"\\n\", \"found\": \"Int\"}"
   assert json_text(str(List(chr(1)))) == "\"\\u0001\""
 
 test formats() :=
@@ -199,7 +199,7 @@ function json_object(fields: List[(Str, Str)]): Str :=
   "{" ++ join(", ", List(for (k, v) in fields yield json_text(k) ++ ": " ++ v)) ++ "}"
 
 function diagnostic_fields(file: Str, d: Diagnostic): List[(Str, Str)] :=
-  List(("file", json_text(file))) ++ List(for m in d.module yield ("module", json_text(m))) ++ position_fields(d.pos) ++ List(
+  List(("file", json_text(file))) ++ List(for m in d.module yield ("module", json_text(path_text(m)))) ++ position_fields(d.pos) ++ List(
     ("kind", json_text(kind_name(d.kind))),
     ("code", json_text(d.code)),
     ("message", json_text(d.message))) ++ List(for (k, v) in d.details yield (k, json_text(v)))

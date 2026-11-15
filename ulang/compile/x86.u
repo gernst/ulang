@@ -13,7 +13,7 @@ export
 // its files
 procedure assemble_program(
   in  q: Prog,
-      m: Id,
+      m: Path,
       entry: Entry,
   out f: AsmFile
 ) raises EntryError, InternalError
@@ -1117,7 +1117,7 @@ procedure compile_stmt(in defs: Defs, env: Slots, stmt: At[Stmt], ref e: Emit) :
       place(in done, ref e)
 
     // assertions of equations show both sides when they fail
-    case SAssert(AOk(_, _, ECall(_, _, Name(None, "=="), _, List(a, b)))) =>
+    case SAssert(AOk(_, _, ECall(_, _, Name(List(), "=="), _, List(a, b)))) =>
       var as: List[Arg]
       compile_args(in defs, env, List(a, b), out as, ref e)
       call_runtime(in "u_assert_equal", as, ref e)
@@ -1531,9 +1531,9 @@ procedure data_decls(in defs: Defs, cmds: List[Cmd], ref e: Emit) :=
 // the descriptor of constructor k at position i of its declaration, of datatype t, and its value if it has no fields
 procedure constr_decls(in k: Constr, i: Int, t: Name, global: Bool, ref e: Emit) :=
   var module := "0", base: Str
-  match k.name.module
+  match name_module(k.name)
     case Some(m) =>
-      c_string(in m, out module, ref e)
+      c_string(in join("/", m), out module, ref e)
     case None =>
       skip
   end
@@ -1596,14 +1596,14 @@ procedure test_tables(in files: List[TestFile], cmds: List[Cmd], ref e: Emit) :=
   add_writable(in data_label("u_tests", false) ++ List(for r in rows) ++ List(LDirective(DZero(24))), ref e)
 
 // main(argc, argv), which gives the arguments to the runtime and calls the procedure of the entry or runs the tests
-procedure main_function(in m: Id, entry: Entry, ref e: Emit) :=
+procedure main_function(in m: Path, entry: Entry, ref e: Emit) :=
   var outer: (Buffer[Line], Int), fs: List[Int]
   begin_function(out outer, ref e)
   formal_slots(in 2, out fs, ref e)
   call_runtime(in "u_args", vals(fs), ref e)
   match entry
     case EntryProc(proc) =>
-      emit_call(in ICall(proc_name(Name(Some(m), proc))), List(), false, ref e)
+      emit_call(in ICall(proc_name(Name(m, proc))), List(), false, ref e)
       emit(in IMov(OImm(0), OReg(Rax)), ref e)
 
     case EntryTests(_) =>
@@ -1613,7 +1613,7 @@ procedure main_function(in m: Id, entry: Entry, ref e: Emit) :=
 
 procedure assemble_program(
   in  q: Prog,
-      m: Id,
+      m: Path,
       entry: Entry,
   out f: AsmFile
 ) raises EntryError, InternalError :=
@@ -1621,7 +1621,7 @@ procedure assemble_program(
   let defs := defs_of(q), cmds := definitions(q)
   match entry
     case EntryProc(proc) =>
-      require_entry(in q, Name(Some(m), proc))
+      require_entry(in q, Name(m, proc))
       for cmd in cmds do
         compile_cmd(in defs, false, cmd, ref e)
       end

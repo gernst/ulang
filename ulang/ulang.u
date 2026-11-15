@@ -346,12 +346,12 @@ function description(command: Str): Str :=
 
 // calls the procedure of the target, main by default, without parameters, where os_args gives args
 procedure run_target(in target: Target, args: List[Str], out status: Int) :=
-  var q: Prog, errors: List[Diagnostic], entry := Name(None, value_or(target.name, "main")), cache: Map[Name, Val] := empty()
+  var q: Prog, errors: List[Diagnostic], entry := Name(List(), value_or(target.name, "main")), cache: Map[Name, Val] := empty()
   check_file(in target.path, false, false, out q, errors)
   report(in target.path, errors, false)
   status := load_status(q, errors)
   if errors == List() or is_runnable(q, errors) then
-    entry := Name(Some(q.main), entry.base)
+    entry := Name(q.main, entry.base)
     try
       require_entry(in q, entry)
       run_proc(in load(q) with args := args, entry, ref cache)
@@ -464,25 +464,25 @@ function selection(runs: Bool, both: Bool, names: List[Str], own: List[Str]): Op
     Some(names)
 
 // the names of the tests of the module m of q
-function test_names(q: Prog, m: Id): List[Str] :=
+function test_names(q: Prog, m: Path): List[Str] :=
   List(for c in q.cmds for n in test_name(c.that, m) yield n)
 
-function test_name(cmd: Cmd, m: Id): Option[Str] :=
+function test_name(cmd: Cmd, m: Path): Option[Str] :=
   match cmd
     case CTest(name, _, _) =>
-      if name.module == Some(m) then Some(name.base) else None
+      if name.path == m then Some(name.base) else None
     case _ =>
       None
   end
 
 // the names of the lemmas of the module m of q
-function lemma_names(q: Prog, m: Id): List[Str] :=
+function lemma_names(q: Prog, m: Path): List[Str] :=
   List(for c in q.cmds for n in lemma_name(c.that, m) yield n)
 
-function lemma_name(cmd: Cmd, m: Id): Option[Str] :=
+function lemma_name(cmd: Cmd, m: Path): Option[Str] :=
   match cmd
     case CLemma(name, _, _, _, _, _) =>
-      if name.module == Some(m) then Some(name.base) else None
+      if name.path == m then Some(name.base) else None
     case _ =>
       None
   end
@@ -544,7 +544,7 @@ procedure print_hints(in file: Str, out status: Int) :=
   load_file(in file, false, false, out _, q, errors, ref cache)
   report(in file, errors, false)
   status := load_status(q, errors)
-  if q.main != "" then
+  if q.main != List() then
     try
       var text: Str
       os_read_utf8(in file, out text)
@@ -571,7 +571,7 @@ procedure print_lints(in source: Source, q: Prog, unit: List[Target]) :=
     end
   end
 
-function replacement_text(source: Source, m: Id, w: Warning): Str :=
+function replacement_text(source: Source, m: Path, w: Warning): Str :=
   match w.replacement
     case Some(r) =>
       ", write " ++ format_module_expr(source, m, r)
@@ -612,7 +612,7 @@ procedure compile_target(in target: Target, output: Str, out status: Int) :=
 // commands of each module are taken from the unit that it is a member of, with its tests, or else from the first unit that
 // loads it
 procedure compile_tests(in dir: Option[Str], output: Str, out status: Int) :=
-  var root: Str, found: List[Target], units: List[List[Target]], q: Prog, errors: List[Diagnostic], files: Buffer[TestFile] := empty(), own: Buffer[At[Cmd]] := empty(), others: Map[Id, List[At[Cmd]]] := empty(), members: Set[Id] := empty(), cache := no_cache()
+  var root: Str, found: List[Target], units: List[List[Target]], q: Prog, errors: List[Diagnostic], files: Buffer[TestFile] := empty(), own: Buffer[At[Cmd]] := empty(), others: Map[Path, List[At[Cmd]]] := empty(), members: Set[Path] := empty(), cache := no_cache()
   status := 0
   default_path(out root)
   targets_of(in List(for d in dir yield Target(d, None)), false, out found)
@@ -630,7 +630,7 @@ procedure compile_tests(in dir: Option[Str], output: Str, out status: Int) :=
   end
   if status == 0 then
     try
-      compile_prog(in Prog(List(for m => cs in others if not contains(m, members) for c in cs yield c) ++ List(for c in own), List(), ""), EntryTests(List(for f in files)), output)
+      compile_prog(in Prog(List(for m => cs in others if not contains(m, members) for c in cs yield c) ++ List(for c in own), List(), List()), EntryTests(List(for f in files)), output)
     catch
       // which only the entry of a procedure raises
       case UnknownEntry(name) =>
@@ -648,12 +648,12 @@ procedure compile_tests(in dir: Option[Str], output: Str, out status: Int) :=
   end
 
 // others with the commands of cmds of the modules that are neither in modules nor in others yet, by their modules
-function others_of(cmds: List[At[Cmd]], modules: List[Id], others: Map[Id, List[At[Cmd]]]): Map[Id, List[At[Cmd]]] :=
+function others_of(cmds: List[At[Cmd]], modules: List[Path], others: Map[Path, List[At[Cmd]]]): Map[Path, List[At[Cmd]]] :=
   let fresh := List(for c in cmds for m in cmd_module(c.that) if not contains(m, modules) and get(m, others) == None yield (m, c)) in
   others ++ foldl(reverse(fresh), empty(), lambda found, (m, c) => put(m, List(c; value_or(get(m, found), List())), found))
 
 // whether cmd is a command of one of the modules
-function belongs(cmd: Cmd, modules: List[Id]): Bool :=
+function belongs(cmd: Cmd, modules: List[Path]): Bool :=
   match cmd_module(cmd)
     case Some(m) =>
       contains(m, modules)
@@ -716,7 +716,7 @@ procedure refactor(
 procedure checked_diagnostics(in file: Str, out found: List[(Str, Diagnostic)]) :=
   var source: Source, errors: List[Diagnostic], path: Str, cache := no_cache()
   load_file(in file, false, false, out source, _, errors, ref cache)
-  if source.main != "" and not has_errors(source) then
+  if source.main != List() and not has_errors(source) then
     var unformatted: List[Diagnostic]
     try
       format_errors(in file, source, out unformatted)
@@ -799,7 +799,7 @@ procedure refactor_tests(
 // whether the checker generated the tests of the package of members in q, the tests of examples and of lemmas, which it
 // generates only for a package whose check finds no errors but those of raises and unused imports (check_package of
 // ulang/check/check.u), which blocks_run of ulang/syntax/error.u tells apart
-function is_generating(q: Prog, members: List[Id]): Bool :=
+function is_generating(q: Prog, members: List[Path]): Bool :=
   not exists(diagnostics(q), lambda d => d.kind == TypeKind and blocks_run(d) and contains(value_or(d.module, q.main), members))
 
 // the lemmas of d that claim to hold, which a test l.lemma tests where their formals are enumerable (enumerated_tests of
@@ -808,7 +808,7 @@ function untested_lemmas(d: Mod, names: List[Str]): List[Str] :=
   List(for c in d.implemented if is_parsed(c) for name in claimed_lemma(c.that) if not contains(name ++ lemma_suffix(), names) yield name)
 
 function claimed_lemma(cmd: Cmd): Option[Str] :=
-  example claimed_lemma(CLemma(Name(None, "l"), List(), List(), List(), ClaimHolds(List(), nowhere(ELit(LBool(true)))), None)) == Some("l")
+  example claimed_lemma(CLemma(Name(List(), "l"), List(), List(), List(), ClaimHolds(List(), nowhere(ELit(LBool(true)))), None)) == Some("l")
   match cmd
     case CLemma(name, _, _, List(), ClaimHolds(_, _), _) =>
       Some(name.base)
@@ -831,7 +831,7 @@ function reaches(reached: Option[Str], path: Str, d: Diagnostic): Bool :=
   match reached
     case Some(text) =>
       text == deferred_text(List(d with module := None)) or text == deferred_text(List(
-        d with module := Some(value_or(d.module, slice(path, 0, size(path) - 2)))))
+        d with module := Some(value_or(d.module, dir_path(slice(path, 0, size(path) - 2))))))
 
     case None =>
       false
@@ -1061,7 +1061,7 @@ data Cache :=
   case Cache(loaded: Loaded, checks: Checks)
 
 function no_cache(): Cache :=
-  Cache(Loaded("", Source(List(), List(), "")), no_checks())
+  Cache(Loaded("", Source(List(), List(), List())), no_checks())
 
 // check_file with the parsed source, which has no modules if file does not parse
 procedure load_file(
@@ -1073,7 +1073,7 @@ procedure load_file(
       errors: List[Diagnostic],
   ref cache: Cache
 ) :=
-  source := Source(List(), List(), ""), q := Prog(List(), List(), ""), errors := List()
+  source := Source(List(), List(), List()), q := Prog(List(), List(), List()), errors := List()
   try
     var loaded := cache.loaded, checks := cache.checks
     parse_file_loaded(in file, out source, ref loaded)
@@ -1130,7 +1130,7 @@ procedure format_errors(
   errors := List(for d in found)
 
 // the modules of the unit of the main module of source: the members of its package, or main alone if it is in none
-function unit_modules(source: Source): List[Id] :=
+function unit_modules(source: Source): List[Path] :=
   match find(source.packages, lambda p => contains(source.main, p.members))
     case Some(p) =>
       p.members
@@ -1139,13 +1139,13 @@ function unit_modules(source: Source): List[Id] :=
   end
 
 // the name of the file of the module m in its directory
-function module_file(m: Id): Str :=
-  os_basename(m) ++ ".u"
+function module_file(m: Path): Str :=
+  os_basename(join("/", m)) ++ ".u"
 
 // the module of file, a file of the directory of the module main
-function sibling(main: Id, file: Str): Id :=
+function sibling(main: Path, file: Str): Path :=
   let name := slice(os_basename(file), 0, size(os_basename(file)) - 2) in
-  if module_dir(main) == "" then name else module_dir(main) ++ "/" ++ name
+  module_dir(main) ++ List(name)
 
 // prints the error of loading file, after the lines of the others if there are several files, else alone to stderr
 // the errors of loading file, on the output if there are several files, else on the output of errors
@@ -1184,7 +1184,7 @@ procedure diagnostic_file(in file: Str, d: Diagnostic, out path: Str) :=
       else
         var root: Str
         project_root(in os_dirname(normal_path(if starts_with(file, "/") then file else os_join(here, file))), out root)
-        target := os_join(root, m ++ ".u")
+        target := os_join(root, join("/", m) ++ ".u")
       end
       path := if starts_with(target, here ++ "/") then
         slice(target, size(here) + 1, size(target))
@@ -1381,7 +1381,7 @@ procedure compiled_only_of(in path: Str, out skipped: List[Str]) :=
     else
       var v: Option[Val]
       try
-        constant_of(in load(q), Name(Some(q.main), "project"), out v)
+        constant_of(in load(q), Name(q.main, "project"), out v)
       catch
         case Thrown(value, _) =>
           report(in os_join(root, "project.u"), List(

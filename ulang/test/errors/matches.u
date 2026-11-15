@@ -23,18 +23,18 @@ test guard_not_exhaustive() :=
   end
 
 test lambda_pattern() :=
-  assert raises Located(None, Pos(2, 3), NotExhaustive(PApp(Name(Some("prelude/option"), "None"), List()))) do
+  assert raises Located(None, Pos(2, 3), NotExhaustive(PApp(Name(List("prelude", "option"), "None"), List()))) do
     check_text(in "ulang/test/errors/lambda-pattern.u", List("function value(): Option[Int] -> Int :=", "  lambda Some(x) => x"))
   end
 
 // a formal that names a constructor matches it, as in a case, and binds nothing
 test lambda_constructor_formal() :=
-  assert raises Located(None, Pos(2, 4), NotExhaustive(PApp(Name(Some("prelude/option"), "Some"), List(AOk(_, _, PWild))))) do
+  assert raises Located(None, Pos(2, 4), NotExhaustive(PApp(Name(List("prelude", "option"), "Some"), List(AOk(_, _, PWild))))) do
     check_text(in "ulang/test/errors/lambda-constructor-formal.u", List("function f(): Int :=", "  (lambda x, None => x)(1, Some(2))"))
   end
 
 test missing_cons() :=
-  assert raises Located(None, Pos(2, 3), NotExhaustive(PApp(Name(Some("prelude/list"), "Cons"), List(AOk(_, _, PWild), AOk(_, _, PWild))))) do
+  assert raises Located(None, Pos(2, 3), NotExhaustive(PApp(Name(List("prelude", "list"), "Cons"), List(AOk(_, _, PWild), AOk(_, _, PWild))))) do
     check_text(in "ulang/test/errors/missing-cons.u", List(
       "function f(x: List[Option[Int]]): Int :=",
       "  match x",
@@ -80,7 +80,7 @@ test missing_nested_zero() :=
   end
 
 test missing_nil() :=
-  assert raises Located(None, Pos(2, 3), NotExhaustive(PApp(Name(Some("prelude/list"), "Nil"), List()))) do
+  assert raises Located(None, Pos(2, 3), NotExhaustive(PApp(Name(List("prelude", "list"), "Nil"), List()))) do
     check_text(in "ulang/test/errors/missing-nil.u", List(
       "function f(x: List[Option[Int]]): Int :=",
       "  match x",
@@ -155,7 +155,7 @@ test missing_successor() :=
 
 // a missing value is named by the alias that matches it
 test pattern_alias_missing() :=
-  assert raises Located(None, Pos(8, 3), NotExhaustive(PApp(Name(Some("ulang/test/errors/pattern-alias-missing"), "No"), List()))) do
+  assert raises Located(None, Pos(8, 3), NotExhaustive(PApp(Name(List("ulang", "test", "errors", "pattern-alias-missing"), "No"), List()))) do
     check_text(in "ulang/test/errors/pattern-alias-missing.u", List(
       "pattern Yes(): Option[Bool] :=",
       "  Some(true)",
@@ -174,7 +174,7 @@ test pattern_alias_missing() :=
 
 // an unreachable case is named as written, by its alias
 test pattern_alias_unreachable() :=
-  assert raises Located(None, Pos(9, 10), Unreachable(PApp(Name(None, "Yes"), List()))) do
+  assert raises Located(None, Pos(9, 10), Unreachable(PApp(Name(List(), "Yes"), List()))) do
     check_text(in "ulang/test/errors/pattern-alias-unreachable.u", List(
       "pattern Yes(): Option[Bool] :=",
       "  Some(true)",
@@ -250,7 +250,7 @@ test unreachable_literal() :=
   end
 
 test unreachable_repeated() :=
-  assert raises Located(None, Pos(9, 10), Unreachable(PApp(Name(None, "Nil"), List()))) do
+  assert raises Located(None, Pos(9, 10), Unreachable(PApp(Name(List(), "Nil"), List()))) do
     check_text(in "ulang/test/errors/unreachable-repeated.u", List(
       "function f(xs: List[Int]): Int :=",
       "  match xs",

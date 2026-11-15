@@ -14,17 +14,17 @@ data Unformatted :=
   case Unformatted(line: Int)
 
 // the module name of source as format writes it, with the notation that it sees
-function format_module(source: Source, name: Id): Str
+function format_module(source: Source, name: Path): Str
 
 // raises Unformatted if text, the source of the module name of source, is not what format_module writes of it
 procedure require_formatted(
   in  source: Source,
-      name: Id,
+      name: Path,
       text: Str
 ) raises Unformatted
 
 // expr as format writes it in the module name of source, with the notation of all its sections, at the start of a line
-function format_module_expr(source: Source, name: Id, expr: At[Expr]): Str
+function format_module_expr(source: Source, name: Path, expr: At[Expr]): Str
 
 function format_lit(lit: Lit): Str
 
@@ -46,7 +46,7 @@ implementation
 
 procedure require_formatted(
   in  source: Source,
-      name: Id,
+      name: Path,
       text: Str
 ) raises Unformatted :=
   match first_difference(split(text, '\n'), split(format_module(source, name), '\n'), 1)
@@ -88,7 +88,7 @@ data Shape :=
 function format_program(source: Source): Str :=
   format_module(source, source.main)
 
-function format_module(source: Source, name: Id): Str :=
+function format_module(source: Source, name: Path): Str :=
   match find(source.mods, lambda d => d.name == name)
     // an empty module is the empty file, which has no line to end
     case Some(d) =>
@@ -99,7 +99,7 @@ function format_module(source: Source, name: Id): Str :=
       ""
   end
 
-function format_module_expr(source: Source, name: Id, expr: At[Expr]): Str :=
+function format_module_expr(source: Source, name: Path, expr: At[Expr]): Str :=
   match find(source.mods, lambda d => d.name == name)
     case Some(d) =>
       format_expr(with_notation(imported_notation(source.mods, seen_modules(d, source.packages)), commands_of(d.exported ++ d.builtins ++ d.implemented)), List(), "", expr)
@@ -108,10 +108,10 @@ function format_module_expr(source: Source, name: Id, expr: At[Expr]): Str :=
   end
 
 // the notation that the modules names of mods export, in order
-function imported_notation(mods: List[Mod], names: List[Id]): Notation :=
+function imported_notation(mods: List[Mod], names: List[Path]): Notation :=
   with_notation(empty_notation(), imported_cmds(mods, names))
 
-function imported_cmds(mods: List[Mod], names: List[Id]): List[Cmd] :=
+function imported_cmds(mods: List[Mod], names: List[Path]): List[Cmd] :=
   List(for d in mods for c in commands_of(d.exported) if contains(d.name, names) yield c)
 
 // a block of the text of a module, which a blank line separates from the next: the imports, a section keyword by its word,
@@ -126,7 +126,7 @@ function format_mod(notation: Notation, d: Mod): List[Entry] :=
 
 // one block of the imported packages, in their order, which is the order of loading
 function import_lines(d: Mod): List[Entry] :=
-  let is := List(for p in d.imports yield "import " ++ quote(p.that)) in
+  let is := List(for p in d.imports yield "import " ++ quote(join("/", p.that))) in
   if d.imports == List() then
     List()
   else
@@ -814,10 +814,10 @@ function pattern_out(notation: Notation, indent: Str, pat: Pat): Out :=
     case POr(alts) =>
       Out(join(" | ", List(for a in alts yield alternative_text(notation, indent, a))), Open)
 
-    case PApp(Name(None, "Nil"), List()) =>
+    case PApp(Name(List(), "Nil"), List()) =>
       Out("List()", Atom)
 
-    case PApp(Name(None, "Cons"), List(_, _)) =>
+    case PApp(Name(List(), "Cons"), List(_, _)) =>
       Out(list_pattern_text(notation, indent, pat), Atom)
 
     case PApp(constr, args) =>
@@ -860,7 +860,7 @@ function spread_list_pattern(notation: Notation, indent: Str, pat: Pat): Str :=
 
 function pattern_rest_text(notation: Notation, indent: Str, pat: Pat): Str :=
   match cons_pattern_rest(pat)
-    case PApp(Name(None, "Nil"), List()) =>
+    case PApp(Name(List(), "Nil"), List()) =>
       ""
     case rest =>
       "; " ++ pattern_out(notation, indent, rest).text
@@ -868,7 +868,7 @@ function pattern_rest_text(notation: Notation, indent: Str, pat: Pat): Str :=
 
 function cons_pattern_items(pat: Pat): List[At[Pat]] :=
   match pat
-    case PApp(Name(None, "Cons"), List(a, b)) =>
+    case PApp(Name(List(), "Cons"), List(a, b)) =>
       List(a; cons_pattern_items(b.that))
     case _ =>
       List()
@@ -876,7 +876,7 @@ function cons_pattern_items(pat: Pat): List[At[Pat]] :=
 
 function cons_pattern_rest(pat: Pat): Pat :=
   match pat
-    case PApp(Name(None, "Cons"), List(_, b)) =>
+    case PApp(Name(List(), "Cons"), List(_, b)) =>
       cons_pattern_rest(b.that)
     case _ =>
       pat
@@ -1608,11 +1608,11 @@ function source_pattern(pat: Pat): Pat :=
       POr(List(for p in alts yield map_at(p, source_pattern)))
 
     case PCons(x, xs) =>
-      PApp(Name(None, "Cons"), List(map_at(x, source_pattern), map_at(xs, source_pattern)))
+      PApp(Name(List(), "Cons"), List(map_at(x, source_pattern), map_at(xs, source_pattern)))
 
     // also the Nil of the parser, of a pattern as written, which an error names
-    case PNil() | PApp(Name(None, "Nil"), List()) =>
-      PApp(Name(None, "Nil"), List())
+    case PNil() | PApp(Name(List(), "Nil"), List()) =>
+      PApp(Name(List(), "Nil"), List())
 
     case PApp(constr, List()) =>
       PName(constr, THole)
@@ -1628,10 +1628,10 @@ function is_symbolic(n: Id): Bool :=
 // the name with its module, to tell names apart
 function format_name(n: Name): Str :=
   match n
-    case Name(Some(m), base) =>
-      m ++ "." ++ base
-    case Name(None, base) =>
+    case Name(List(), base) =>
       base
+    case Name(m, base) =>
+      path_text(m) ++ "." ++ base
   end
 
 test printing() :=

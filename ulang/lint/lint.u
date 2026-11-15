@@ -343,7 +343,7 @@ function option_default(cases: List[Branch[At[Expr]]]): Option[At[Expr]] :=
 // whether pat is Some(x) and body the variable x
 function is_some_of(pat: At[Pat], body: At[Expr]): Bool :=
   match (strip_pat(pat), strip_expr(body))
-    case (AOk(_, _, PApp(Name(None, "Some"), List(AOk(_, _, PVar(v))))), AOk(_, _, EVar(w))) =>
+    case (AOk(_, _, PApp(Name(List(), "Some"), List(AOk(_, _, PVar(v))))), AOk(_, _, EVar(w))) =>
       v.name == w.name
     case _ =>
       false
@@ -353,9 +353,9 @@ function is_some_of(pat: At[Pat], body: At[Expr]): Bool :=
 function is_none(pat: At[Pat]): Bool :=
   match strip_pat(pat)
     case AOk(_, _, PVar(v)) =>
-      v.name == Name(None, "None")
+      v.name == Name(List(), "None")
 
-    case AOk(_, _, PApp(Name(None, "None"), List())) =>
+    case AOk(_, _, PApp(Name(List(), "None"), List())) =>
       true
 
     case _ =>
@@ -375,7 +375,7 @@ function is_plain(expr: At[Expr]): Bool :=
       forall(args, is_plain)
 
     case AOk(_, _, ECall(_, _, name, _, args)) =>
-      name.module == None and is_capitalized(name.base) and forall(args, is_plain)
+      name.path == List() and is_capitalized(name.base) and forall(args, is_plain)
 
     case _ =>
       false
@@ -604,7 +604,7 @@ function appended(x: Id, body: At[Stmt]): Option[At[Expr]] :=
       appended(x, only)
 
     case SAssign(List(
-      (y, AOk(_, _, ECall(_, _, Name(None, "++"), _, List(AOk(_, _, EVar(z)), AOk(_, _, EForm(FList, List(YVal(e)), None)))))))) if y.name.base == x and z.name.base == x and not contains(x, expr_names(e)) =>
+      (y, AOk(_, _, ECall(_, _, Name(List(), "++"), _, List(AOk(_, _, EVar(z)), AOk(_, _, EForm(FList, List(YVal(e)), None)))))))) if y.name.base == x and z.name.base == x and not contains(x, expr_names(e)) =>
       Some(e)
 
     case _ =>
@@ -648,8 +648,8 @@ function reach(graph: Map[Id, Set[Id]], todo: List[Id], seen: Set[Id]): Set[Id] 
   end
 
 // the names that the language uses without a use in the module: the hooks, and project of project.u
-function conventional(m: Id): Set[Id] :=
-  Set("show", "compare", "==") ++ (if m == "project" then Set("project") else Set())
+function conventional(m: Path): Set[Id] :=
+  Set("show", "compare", "==") ++ (if m == List("project") then Set("project") else Set())
 
 // whether cmd is used where it is, as a test, a lemma, a declaration with examples, which are tests, or a procedure without
 // formals, which run and test may call
@@ -826,7 +826,7 @@ function decl_name_lints(pos: Pos, name: Id, results: List[Type]): List[Warning]
 
 function is_str(typ: Type): Bool :=
   match typ
-    case TSort(Name(None, "Str"), List()) =>
+    case TSort(Name(List(), "Str"), List()) =>
       true
     case _ =>
       false

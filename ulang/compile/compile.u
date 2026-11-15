@@ -18,7 +18,7 @@ data Entry :=
 
 // a file of tests: its path, as the arguments of the compiled program name it, and its module
 data TestFile :=
-  case TestFile(path: Str, module: Id)
+  case TestFile(path: Str, module: Path)
 
 procedure compile_file(
   in  source: Str,
@@ -71,12 +71,16 @@ function descriptor_decl(n: Name, i: Int, t: Name): CDecl :=
 
 function descriptor_fields(n: Name, i: Int, t: Name): List[CExpr] :=
   match n
-    case Name(Some(m), base) =>
-      List(CeStr(m), CeStr(base), CeNum(i), CeUnary("&", CeVar(type_name(t))))
-
-    case Name(None, base) =>
+    case Name(List(), base) =>
       List(
         CeVar("NULL"),
+        CeStr(base),
+        CeNum(i),
+        CeUnary("&", CeVar(type_name(t))))
+
+    case Name(m, base) =>
+      List(
+        CeStr(join("/", m)),
         CeStr(base),
         CeNum(i),
         CeUnary("&", CeVar(type_name(t))))
@@ -931,7 +935,7 @@ procedure compile_stmt(
         CsIf(CeUnary("!", CeVar(t)), List(CsExpr(c_call("u_no_case", List(CeVar(d))))), List()))
 
     // assertions of equations show both sides when they fail
-    case SAssert(AOk(_, _, ECall(_, _, Name(None, "=="), _, List(a, b)))) =>
+    case SAssert(AOk(_, _, ECall(_, _, Name(List(), "=="), _, List(a, b)))) =>
       var as: List[CStmt], bs: List[CStmt], ra: CExpr, rb: CExpr
       compile_expr(in defs, env, a, out as, ra, ref g)
       compile_expr(in defs, env, b, out bs, rb, ref g)
@@ -1347,15 +1351,15 @@ function prototype(d: CDecl): List[CDecl] :=
   end
 
 // the C of q of module m, whose main calls the procedure of the entry without parameters, or runs the tests of its files
-procedure compile_program(in q: Prog, m: Id, entry: Entry, out f: CFile) :=
+procedure compile_program(in q: Prog, m: Path, entry: Entry, out f: CFile) :=
   var g := Gen(0, List())
   let defs := defs_of(q)
   var ds: List[CDecl], ms: List[CStmt], fs: List[CDecl], hs: List[CDecl], tables: List[CDecl]
   match entry
     case EntryProc(proc) =>
-      require_entry(in q, Name(Some(m), proc))
+      require_entry(in q, Name(m, proc))
       compile_cmds(in defs, false, definitions(q), out ds, ms, ref g)
-      ms := List(CsExpr(c_call(proc_name(Name(Some(m), proc)), List()))), tables := List()
+      ms := List(CsExpr(c_call(proc_name(Name(m, proc)), List()))), tables := List()
 
     case EntryTests(files) =>
       compile_cmds(in defs, true, definitions(q), out ds, ms, ref g)
