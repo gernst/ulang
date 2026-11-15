@@ -518,6 +518,10 @@ function gen_over(g: Gen): At[Expr] :=
 function fold_expansion(pos: Pos, span: Span, form: Form, m: Path, targs: List[Type], g: Gen, body: At[Expr], base: At[Expr], is_var: At[Pat] -> Bool): At[Expr] :=
   let fold := fold_name(form), acc := AOk(pos, span, PVar(form_acc())) in
   match g
+    // a pair of key and value of a container that is no map matches its items, as the checker typed it
+    case GPair(k, v, c, typ) if m != library_module("map") =>
+      fold_expansion(pos, span, form, m, targs, GVal(AOk(k.pos, span_over(k, v), PTuple(List(k, v))), c, typ), body, base, is_var)
+
     case GPair(k, v, c, _) =>
       let kx := fold_formal(k, "(key)", key_type(targs), is_var), vx := fold_formal(v, "(value)", value_type(targs), is_var) in
       form_call(pos, span, m, fold, List(
