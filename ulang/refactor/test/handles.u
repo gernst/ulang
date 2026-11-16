@@ -211,6 +211,23 @@ test element_spans() :=
   assert status == 0
   assert text == "function names(): List[Str] :=\n  List(\n    \"alpha-alpha-alpha-alpha\",\n    \"aleph\",\n    \"bravo\",\n    \"gamma-gamma-gamma-gamma-gamma\",\n    \"delta-delta-delta\")\n"
 
+// a comment at the end of the line of an element stays with it: an element put after the last one leaves it with the
+// element before, and a drop of the last element takes the comma before a comment of the element before it
+test element_comments() :=
+  var status: Int, text: Str
+  let dir := "out/test/refactor/comments", path := "out/test/refactor/comments/e.u"
+  let original := "function names(): List[Str] :=\n  List(\n    \"alpha-alpha-alpha-alpha\", // first\n    \"beta-beta-beta-beta-beta\",\n    \"gamma-gamma-gamma-gamma-gamma\", // third\n    \"delta-delta-delta-delta-delta-delta\") // last\n"
+  os_write_utf8(in os_join(dir, "handles.txt"), "")
+  os_write_utf8(in path, original)
+  run_script(in "@put after " ++ path ++ ":names \"\\\"delta\"\n\"epsilon\"\n", false, dir, no_diagnostics, out _, status, _)
+  os_read_utf8(in path, out text)
+  assert status == 0
+  assert text == "function names(): List[Str] :=\n  List(\n    \"alpha-alpha-alpha-alpha\", // first\n    \"beta-beta-beta-beta-beta\",\n    \"gamma-gamma-gamma-gamma-gamma\", // third\n    \"delta-delta-delta-delta-delta-delta\", // last\n    \"epsilon\")\n"
+  run_script(in "@drop " ++ path ++ ":names \"\\\"epsilon\"\n", false, dir, no_diagnostics, out _, status, _)
+  os_read_utf8(in path, out text)
+  assert status == 0
+  assert text == original
+
 // the lines of a spec are nodes, an example of a signature in export a node of its definition, which @example adds to,
 // on the signature if it has one, and a drop of the last line of the spec of a signature drops its :=
 test spec_lines() :=
