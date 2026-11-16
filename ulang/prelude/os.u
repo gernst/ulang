@@ -38,7 +38,8 @@ function os_dirname(path: Str): Str :=
 // print a string and then a newline
 procedure os_println(in text: Str)
 
-// remove path and, if it is a directory, everything below it, without following links, where a link is removed as a file
+// remove path and, if it is a directory, everything below it, without following links, where a link is removed as a file,
+// and a missing path raises OsError
 procedure os_remove_all(in path: Str) raises OsError
 
 builtin
