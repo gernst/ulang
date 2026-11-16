@@ -188,6 +188,21 @@ test puts_specs_on_signatures() :=
     path ++ ": replaced g/1, the examples of g/1 on its signature")
   assert text == "export\n\n// the first\nfunction f(x: Int): Int :=\n  example f(2) == 2\n\nfunction g(x: Int): Int :=\n  example g(3) == 3\n\nimplementation\n\nfunction f(x: Int): Int :=\n  x\n\n// a new doc of g\nfunction g(x: Int): Int :=\n  x + 0\n"
 
+// a datatype put with a doc keeps the doc of its abstract type in export, which its importers read, and signatures put
+// next to a declaration of both sections without a line export go to the export section
+test puts_datatype_docs() :=
+  var reply: List[Str], status: Int, text: Str
+  let state := "out/test/refactor/declarations/datatype_docs", path := "out/test/refactor/declarations/datatype_docs.u"
+  os_write_utf8(in path, "export\n\n// the symbols, for importers\ntype Symbols\n\nfunction translate(x: Int): Int\n\nimplementation\n\nfunction translate(x: Int): Int :=\n  x\n")
+  run_script(in "@put after " ++ path ++ ":translate\n// the representation\ndata Symbols :=\n  case Symbols(names: List[Str])\n@put before " ++ path ++ ":translate\n// the table\ntype Table\nfunction lookup(x: Int): Int\n", false, state, no_diagnostics, out reply, status, _)
+  os_read_utf8(in path, out text)
+  assert status == 0
+  assert take(3, reply) == List(
+    "applied, clean",
+    path ++ ": added Symbols after translate/1",
+    path ++ ": exported Table before translate/1, exported lookup/1 after Table")
+  assert text == "export\n\n// the symbols, for importers\ntype Symbols\n\n// the table\ntype Table\n\nfunction lookup(x: Int): Int\n\nfunction translate(x: Int): Int\n\nimplementation\n\nfunction translate(x: Int): Int :=\n  x\n\n// the representation\ndata Symbols :=\n  case Symbols(names: List[Str])\n"
+
 // @patch of a declaration keeps the handles of its nodes, refuses a hunk that changes nothing, and adds lines by a hunk
 // of several new lines
 test patches_keep_handles() :=
@@ -367,6 +382,21 @@ test patches_after_drops() :=
   os_read_utf8(in path, out text)
   assert status == 0 and take(2, reply) == List("applied, clean", path ++ ": patched a/0, b/0")
   assert text == "export\n\n// both\nfunction b(): Int\n\nimplementation\n\nfunction a(): Int :=\n  1\n\nfunction b(): Int :=\n  2\n"
+
+// a @patch whose old text is in another declaration of the file, also after an earlier action of the script, names that
+// declaration, and blames the earlier action only where it removed the text
+test patches_after_puts() :=
+  var reply: List[Str], status: Int
+  let state := "out/test/refactor/declarations/after_puts", path := "out/test/refactor/declarations/after_puts.u"
+  os_write_utf8(in path, "function inference(x: Int): Int :=\n  let y := x + 1 in\n  y * 2\n\nfunction errors(x: Int): Int :=\n  x - 1\n")
+  run_script(in "@put " ++ path ++ "\nfunction extra(): Int := 3\n@patch " ++ path ++ ":errors\n-let y := x + 1 in\n+let y := x + 2 in\n", false, state, no_diagnostics, out reply, status, _)
+  assert status == 1 and reply == List(
+    "rejected",
+    "@patch: the old text \"let y := x + 1 in\" occurs nowhere in the target, but in " ++ path ++ ":inference/1")
+  run_script(in "@put " ++ path ++ ":errors\nfunction errors(x: Int): Int := x - 2\n@patch " ++ path ++ ":errors\n-x - 1\n+x - 3\n", false, state, no_diagnostics, out reply, status, _)
+  assert status == 1 and reply == List(
+    "rejected",
+    "@patch: the old text \"x - 1\" occurs nowhere in the target, which the file had before an earlier action of the script, " ++ path ++ ": replaced errors/1")
 
 // the hunks of one @patch apply in order, so that one may take the text that one before it wrote, a hunk without new
 // lines deletes its old lines, a hunk whose text a hunk before it changed says so, naming its line, and a line -* is a

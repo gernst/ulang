@@ -1583,16 +1583,35 @@ procedure put_into(
 ) raises Refused, OsError :=
   put_anchored(in path, text, code, Anchor("end", "", None), ref edits)
 
-// the lines of the fragment under no line of a section go to the builtin section if they are anchored at a declaration
-// there that the implementation does not define, else to the implementation; a declaration of the fragment replaces the
-// one of its key that is a signature as it is, in its section, else where the file has it, so that no part of the file
-// gets a second copy, and a definition of an exported name that the fragment writes without its signature gives its
-// doc to the signature, where the docs of the module stand
+// put_sections of the fragment with its lines under no line of a section in their default section, else, if that is
+// refused since they are signatures, which only the export section takes, in the export section, where the anchor has
+// its signature, so that a target in both sections takes the section of the signatures
 procedure put_anchored(
   in  path: Str,
       text: Str,
       code: List[Str],
       anchor: Anchor,
+  ref edits: Edits
+) raises Refused, OsError :=
+  try
+    put_sections(in path, text, code, anchor, "", ref edits)
+  catch
+    case Refused(message) if anchor.side != "end" and index_of("belong to the export", message) != None and not exists(code, lambda line => contains(line, List("export", "builtin", "implementation"))) =>
+      put_sections(in path, text, code, anchor, "export", ref edits)
+  end
+
+// the lines of the fragment under no line of a section go to the export section if unheaded is export and they are
+// anchored at a declaration that has a signature there, else to the builtin section if they are anchored at a
+// declaration there that the implementation does not define, else to the implementation; a declaration of the
+// fragment replaces the one of its key that is a signature as it is, in its section, else where the file has it, so
+// that no part of the file gets a second copy, and a definition of an exported name that the fragment writes without
+// its signature gives its doc to the signature, where the docs of the module stand
+procedure put_sections(
+  in  path: Str,
+      text: Str,
+      code: List[Str],
+      anchor: Anchor,
+      unheaded: Str,
   ref edits: Edits
 ) raises Refused, OsError :=
   var source: Source, combined: Source, result: Str, anchor_key: Option[Key] := None
@@ -1613,7 +1632,9 @@ procedure put_anchored(
   let is_anchor := lambda c: At[Cmd] => anchor_key != None and cmd_key(c) == anchor_key
   let export_anchor := find(d.exported, is_anchor), builtin_anchor := find(d.builtins, is_anchor)
   let impl_anchor := find(d.implemented, lambda c => is_anchor(c) and not is_signature_at(c))
-  let parts := parts_of(code, if impl_anchor == None and builtin_anchor != None then
+  let parts := parts_of(code, if unheaded == "export" and export_anchor != None then
+    "export"
+  else if impl_anchor == None and builtin_anchor != None then
     "builtin"
   else
     "implementation")
@@ -1769,9 +1790,10 @@ procedure put_anchored(
     let signs_definition := role == "export" and is_signature_at(cmd) and not exists(added, lambda (c, _, _) => cmd_key(c) == new_key and not is_signature_at(c))
     let has_own_doc := exists(old, lambda o => cmd_range(all_lines, o, 0, true).first < o.span.start.line)
     // the signature in export that takes the doc of a definition that the fragment writes without the signature, unless
-    // the definition has a doc of its own, which the doc of the fragment replaces
+    // the definition has a doc of its own, which the doc of the fragment replaces, or is a datatype, whose abstract type in
+    // export has a doc of its own, for its importers
     let doc_signature := if has_doc and wanted != None and not is_signature_at(cmd) and not writes_signature and not has_own_doc then
-      find(all.exported, lambda c => contains(c, olds) and cmd_key(c) == wanted and is_signature_at(c))
+      find(all.exported, lambda c => contains(c, olds) and cmd_key(c) == wanted and is_signature_at(c) and not exists(cmd_of(c), is_abstract))
     else
       None
     let doc := lines_in(all_lines, Range(range.first, cmd.span.start.line - 1))
@@ -2267,7 +2289,7 @@ procedure patch(
         every := every ++ List("replaced " ++ quote(text) ++ " " ++ counted(count, "time"))
       else
         var context: Str
-        absent_context(in path, List(text), lines, regions, if h > 0 then original else List(), edits, out context)
+        absent_context(in path, key, List(text), lines, regions, if h > 0 then original else List(), edits, out context)
         raise Refused(refusal ++ " the old text " ++ quote(text) ++ " occurs nowhere in the target" ++ context)
       end
     else
@@ -2290,7 +2312,7 @@ procedure patch(
       if not found then
         var context: Str
         let wanted := List(for line in old yield trim(line))
-        absent_context(in path, wanted, lines, regions, if h > 0 then original else List(), edits, out context)
+        absent_context(in path, key, wanted, lines, regions, if h > 0 then original else List(), edits, out context)
         if size(drop_blank(old)) == 1 then
           raise Refused(refusal ++ " the old text " ++ quote(join("", drop_blank(wanted))) ++ " occurs nowhere in the target" ++ context)
         else
@@ -2450,13 +2472,15 @@ procedure patch_hunk(
     end
   end
 
-// the end of the refusal of a @patch of the file path whose old lines, wanted without their indentation, occur nowhere
-// in the regions of lines that it searched: the hunk before it that changed them, if they occur in the texts of the
-// target before the hunks, original, else the earlier action of the script that removed them, else the declarations of
-// the file that have one old line, or the text of the target if old lines occur in the file outside it, else the line
-// of the target that starts most like the first old line, with the text of the target if some old lines occur in it
+// the end of the refusal of a @patch of the file path, or of its declaration key, whose old lines, wanted without their
+// indentation, occur nowhere in the regions of lines that it searched: the hunk before it that changed them, if they
+// occur in the texts of the target before the hunks, original, else the earlier action of the script that removed them
+// from the target, else the declarations of the file that have them, or the text of the target if old lines occur in
+// the file outside it, else the earlier action that removed them from the file, else the line of the target that starts
+// most like the first old line, with the text of the target if some old lines occur in it
 procedure absent_context(
   in  path: Str,
+      key: Key,
       wanted: List[Str],
       lines: Array[Str],
       regions: List[Range],
@@ -2473,31 +2497,34 @@ procedure absent_context(
   if exists(original, lambda t => occurs(split(t, '\n'))) then
     context := ", which a hunk before it of this @patch changed"
   else
-    earlier_action(in path, lambda before => occurs(split(before, '\n')), edits, out context)
+    earlier_action(in path, key, occurs, edits, out context)
   end
   if context == "" then
     let searched := List(for region in regions for line in lines_in(lines, region) yield line)
     let trimmed := List(for line in searched yield trim(line))
     if occurs(List(for line in lines)) then
-      if one then
-        var current: Source, now: Str
-        current_text(in path, edits.files, out now)
-        parsed(in path, now, edits.files, no_fragment(), out current)
-        let d := main_mod(current)
-        let holders := distinct(List(for (key, cmd, _) in keyed(placed_of(d)) if index_of(text, join("\n", lines_in(lines, cmd_range(lines, cmd, 0, true)))) != None yield path ++ ":" ++ key_text(key)))
-        context := ", but in " ++ (if holders == List() then
-          "the lines of no declaration of " ++ path
-        else
-          join(", ", holders))
+      var current: Source, now: Str
+      current_text(in path, edits.files, out now)
+      parsed(in path, now, edits.files, no_fragment(), out current)
+      let holders := distinct(List(for (k, cmd, _) in keyed(placed_of(main_mod(current))) if occurs(lines_in(lines, cmd_range(lines, cmd, 0, true))) yield path ++ ":" ++ key_text(k)))
+      if holders != List() then
+        context := ", but in " ++ join(", ", holders)
       else
-        context := ", but in the file outside the target, which @patch " ++ path ++ " takes, while the target is:\n" ++ join("\n", searched)
+        if one then
+          context := ", but in the lines of no declaration of " ++ path
+        else
+          context := ", but in the file outside the target, which @patch " ++ path ++ " takes, while the target is:\n" ++ join("\n", searched)
+        end
       end
     else
-      for (n, line) in nearest_line(lines, regions, value_or(get_at(0, drop_blank(wanted)), "")) do
-        context := ", and the line of the target that starts most like " ++ (if one then "it" else "the first of them") ++ " is " ++ path ++ ":" ++ show(n) ++ ", " ++ quote(trim(line))
-      end
-      if not one and exists(wanted, lambda line => not is_blank(line) and contains(line, trimmed)) then
-        context := context ++ ", while some of them occur in the target, which is:\n" ++ join("\n", searched)
+      earlier_action(in path, Key("", "", -1), occurs, edits, out context)
+      if context == "" then
+        for (n, line) in nearest_line(lines, regions, value_or(get_at(0, drop_blank(wanted)), "")) do
+          context := ", and the line of the target that starts most like " ++ (if one then "it" else "the first of them") ++ " is " ++ path ++ ":" ++ show(n) ++ ", " ++ quote(trim(line))
+        end
+        if not one and exists(wanted, lambda line => not is_blank(line) and contains(line, trimmed)) then
+          context := context ++ ", while some of them occur in the target, which is:\n" ++ join("\n", searched)
+        end
       end
     end
   end
@@ -2514,10 +2541,12 @@ function new_lines_text(hunks: List[Hunk]): Str :=
     "its new lines are fragment lines " ++ join(", ", texts)
 
 // the nodes of a declaration in new that an edit of old to new changed, each a span and the part of it that counts, of
-// nodes: the outermost that start on the lines that it changed, where a node starts at the comments that format places
-// above it, so that an edit of a comment changed the node that it documents, and a node contains those inside the part
-// that counts, so that an edit of the line of a let … in changed the let alone, shown whole only if a node of its body
-// changed too, else the innermost around them, so that an edit of a head alone changed none
+// nodes: for each run of the lines that it changed, by a longest common subsequence of the lines between the prefix and
+// the suffix that both share, so that the hunks of a @patch are runs of their own, the outermost that start on the
+// lines of the run, where a node starts at the comments that format places above it, so that an edit of a comment
+// changed the node that it documents, and a node contains those inside the part that counts, so that an edit of the
+// line of a let … in changed the let alone, shown whole only if a node of its body changed too, else the innermost
+// around them, so that an edit of a head alone changed none
 function changed_nodes(old: Array[Str], new: Array[Str], nodes: List[(Span, Span)]): List[Span] :=
   example changed_nodes(Array("a", "  b", "  c"), Array("a", "  b", "  d"), List(
       (Span(Pos(2, 3), Pos(3, 4)), Span(Pos(2, 3), Pos(3, 4))),
@@ -2534,19 +2563,80 @@ function changed_nodes(old: Array[Str], new: Array[Str], nodes: List[(Span, Span
   example changed_nodes(Array("let a := 1 in", "a"), Array("let a := 2 in", "b"), List(
       (Span(Pos(1, 1), Pos(2, 2)), Span(Pos(1, 1), Pos(1, 14))),
       (Span(Pos(2, 1), Pos(2, 2)), Span(Pos(2, 1), Pos(2, 2))))) == List(Span(Pos(1, 1), Pos(2, 2)))
+  example changed_nodes(Array("p :=", "  a", "  b", "  c"), Array("p :=", "  x", "  b", "  y"), List(
+      (Span(Pos(2, 3), Pos(2, 4)), Span(Pos(2, 3), Pos(2, 4))),
+      (Span(Pos(3, 3), Pos(3, 4)), Span(Pos(3, 3), Pos(3, 4))),
+      (Span(Pos(4, 3), Pos(4, 4)), Span(Pos(4, 3), Pos(4, 4))))) == List(Span(Pos(2, 3), Pos(2, 4)), Span(Pos(4, 3), Pos(4, 4)))
   let olds := List(for line in old), news := List(for line in new) in
   let shared := common_prefix(olds, news) in
   let suffix := min(common_prefix(reverse(olds), reverse(news)), min(size(olds), size(news)) - shared) in
-  let first := shared + 1, final := size(news) - suffix in
+  let removed := take(size(olds) - shared - suffix, drop(shared, olds)) in
+  let added := Array(for line in take(size(news) - shared - suffix, drop(shared, news))) in
+  let runs := edit_runs(removed, lcs_rows(removed, added), added, 0, None) in
+  let shown := distinct(List(for run in runs for span in run_nodes(new, nodes, run.first + shared, run.last + shared) yield span)) in
+  List(for span in shown if not exists(shown, lambda other => other != span and is_inside(span, other)))
+
+// the nodes of nodes in new that an edit of the lines from first to final changed, as changed_nodes takes them, where
+// final is first - 1 if the edit removed lines before first
+function run_nodes(new: Array[Str], nodes: List[(Span, Span)], first: Int, final: Int): List[Span] :=
   let starting := List(for (span, counted) in nodes if first <= span.start.line and with_comments(new, Range(span.start.line, span.stop.line)).first <= final yield (span, counted)) in
   let shown := List(for (span, counted) in starting yield if exists(starting, lambda (other, _) => other != span and is_inside(other, span) and not is_inside(other, counted)) then
     span
   else
     counted) in
   if shown != List() then
-    List(for span in shown if not exists(shown, lambda other => other != span and is_inside(span, other)))
+    shown
   else
     List(for span in last(List(for (span, _) in nodes if span.start.line < first and span.stop.line >= max(first, final) yield span)))
+
+// the runs of the lines of ys that an edit of xs to ys changed, by a longest common subsequence of both, whose lengths
+// rows gives (lcs_rows), from the index j of ys on, each the range of its lines in ys from 1, which is empty after the
+// line before which the edit removed lines, where open is the run that the lines before j started
+function edit_runs(xs: List[Str], rows: List[Array[Int]], ys: Array[Str], j: Int, open: Option[Range]): List[Range] :=
+  example edit_runs(List("a", "b", "c"), lcs_rows(List("a", "b", "c"), Array("a", "x", "c", "y")), Array("a", "x", "c", "y"), 0, None) == List(Range(2, 2), Range(4, 4))
+  example edit_runs(List("a", "b"), lcs_rows(List("a", "b"), Array("b")), Array("b"), 0, None) == List(Range(1, 0))
+  match (xs, rows)
+    case (List(x; xs_), List(row, below; rest)) =>
+      if j < size(ys) and x == at(j, ys) then
+        List(for run in open) ++ edit_runs(xs_, List(below; rest), ys, j + 1, None)
+      else if at(j, below) == at(j, row) then
+        edit_runs(xs_, List(below; rest), ys, j, Some(value_or(open, Range(j + 1, j))))
+      else
+        edit_runs(xs, rows, ys, j + 1, Some(Range(value_or(map_option(open, lambda run => run.first), j + 1), j + 1)))
+
+    case _ =>
+      if j < size(ys) then
+        List(
+          Range(value_or(map_option(open, lambda run => run.first), j + 1), size(ys)))
+      else
+        List(for run in open)
+  end
+
+// the lengths of the longest common subsequences of each suffix of xs, from the longest, with each suffix of ys, a row
+// per suffix of xs with an entry per start of the suffix of ys and one for the empty suffix
+function lcs_rows(xs: List[Str], ys: Array[Str]): List[Array[Int]] :=
+  example lcs_rows(List("a", "b"), Array("b")) == List(Array(1, 0), Array(1, 0), Array(0, 0))
+  match xs
+    case List(x; rest) =>
+      let rows := lcs_rows(rest, ys) in
+      match rows
+        case List(below; _) =>
+          List(lcs_row(x, ys, below); rows)
+        case List() =>
+          rows
+      end
+
+    case List() =>
+      List(Array(for _ in range(0, size(ys) + 1) yield 0))
+  end
+
+// the row of lcs_rows of the suffix of xs that starts with x, where below is the row of the suffix after x
+function lcs_row(x: Str, ys: Array[Str], below: Array[Int]): Array[Int] :=
+  Array(for n in foldl(reverse(range(0, size(ys))), List(0), lambda row: List[Int], j => List(
+    if x == at(j, ys) then
+      1 + at(j + 1, below)
+    else
+      max(at(j, below), value_or(get_at(0, row), 0)); row)))
 
 // each node with the part of it that an edit of its lines changes, of a let … in its bindings, the lines before its body,
 // which is a node of its own, else the node whole
@@ -2714,11 +2804,13 @@ function nearest_line(lines: Array[Str], regions: List[Range], wanted: Str): Opt
   let (score, best) := foldl(scored, (0, 0), lambda (s, n), (s_, n_) => if s_ > s then (s_, n_) else (s, n)) in
   if score == 0 then None else Some((best, line_at(lines, best)))
 
-// the end of the refusal of a @patch of the file path whose old text the target lacks, if the file had it before the
-// script, as is_found tells of its text, and an earlier action of the script edited it: that action, else empty
+// the end of the refusal of a @patch of the file path, or of its declaration key, whose old text the target lacks, if
+// the target had it before the script, as is_found tells of its lines, and an earlier action of the script edited the
+// file: that action, else empty
 procedure earlier_action(
   in  path: Str,
-      is_found: Str -> Bool,
+      key: Key,
+      is_found: List[Str] -> Bool,
       edits: Edits,
   out context: Str
 ) :=
@@ -2728,12 +2820,23 @@ procedure earlier_action(
     try
       var before: Str
       os_read_utf8(in path, out before)
-      if is_found(before) then
+      let lines := Array(for line in split(before, '\n'))
+      var target := List(for line in lines)
+      if key.base != "" then
+        var source: Source
+        parsed(in path, before, edits.files, no_fragment(), out source)
+        target := List(for (k, cmd, _) in keyed(placed_of(main_mod(source))) if k == key for line in lines_in(lines, cmd_range(lines, cmd, 0, true)) yield line)
+      end
+      if is_found(target) then
         context := ", which the file had before an earlier action of the script, " ++ last
       end
     catch
       // a file that the script made had no text before it
       case OsError(_) =>
+        context := ""
+
+      // nor is a text that does not parse a target
+      case Refused(_) =>
         context := ""
     end
   end
@@ -4365,10 +4468,28 @@ function script_position(item: Str, line: Int): Option[Str] :=
       None
   end
 
-// whether two diagnostics are the same but for their positions, which edits move, and the numbers of the unknowns in
-// their messages, which depend on what the checker checked before
+// whether two diagnostics are the same but for their positions, which edits move, the numbers of the unknowns in their
+// messages, which depend on what the checker checked before, and the lines that their messages name, where both moved
+// by the same lines, as a RepeatedExpr of an expression and its first occurrence below an edit
 function is_same(file: Str, d: Diagnostic, other: Str, e: Diagnostic): Bool :=
-  file == other and d.code == e.code and renumbered(d.message) == renumbered(e.message)
+  example is_same("a.u", Diagnostic(FormatKind, "warning[RepeatedExpr]", None, Pos(9, 3), "the expression repeats the one of line 7", List()), "a.u", Diagnostic(FormatKind, "warning[RepeatedExpr]", None, Pos(12, 3), "the expression repeats the one of line 10", List()))
+  example not is_same("a.u", Diagnostic(FormatKind, "warning[RepeatedExpr]", None, Pos(9, 3), "the expression repeats the one of line 7", List()), "a.u", Diagnostic(FormatKind, "warning[RepeatedExpr]", None, Pos(12, 3), "the expression repeats the one of line 8", List()))
+  let message := renumbered(d.message), message_ := renumbered(e.message) in
+  file == other and d.code == e.code and (message == message_ or relative_lines(message, d.pos.line) == relative_lines(message_, e.pos.line))
+
+// text with each number after "line " as its distance from line
+function relative_lines(text: Str, line: Int): Str :=
+  example relative_lines("the one of line 7, not line 12", 9) == "the one of line -2, not line 3"
+  example relative_lines("no line", 9) == "no line"
+  match index_of("line ", text)
+    case Some(i) =>
+      let rest := chars(slice(text, i + 5, size(text))) in
+      let digits := take_while(rest, is_digit) in
+      slice(text, 0, i + 5) ++ value_or(map_option(number(str(digits)), lambda n => show(n - line)), "") ++ relative_lines(str(drop_while(rest, is_digit)), line)
+
+    case None =>
+      text
+  end
 
 // text with the unknowns ?N numbered in the order of their first occurrences, ?1, ?2
 function renumbered(text: Str): Str :=
