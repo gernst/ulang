@@ -35,6 +35,8 @@ data Lint :=
   case LocalTooHigh
   // a var with a value that no statement after it assigns, which is a let
   case UnassignedVar
+  // a generator or for over chars(s), the list of the characters of a string, which ranges over the string itself
+  case CharsLoop
   // a part of an expression that repeats an earlier one of the same declaration, of at least repeat_threshold parts,
   // modulo positions and the names of the variables bound inside it
   case RepeatedExpr
@@ -223,7 +225,7 @@ function stmt_lints(fun: Id, stmt: At[Stmt]): List[Warning] :=
 function stmts_lints(fun: Id, stmts: List[At[Stmt]]): List[Warning] :=
   List(for s in stmts for w in stmt_lints(fun, s) yield w)
 
-// the lints of stmt at pos, where the locals of a block are judged at the position of the block, since a Var has none
+// the lints of stmt at pos, which places the locals of a block that the parser did not read
 function part_stmt_lints(fun: Id, pos: Pos, stmt: Stmt): List[Warning] :=
   match stmt
     case SSkip =>
@@ -422,12 +424,17 @@ function literal_bool(expr: At[Expr]): Option[Bool] :=
   end
 
 // a list that a generator iterates, which is the elements of its container in the order of its fold, as the generator
-// takes them from the container itself, where a map gives its pairs to a single pattern
+// takes them from the container itself, where a map gives its pairs to a single pattern, and the characters of a string,
+// over which the generator ranges by the folds of strings; chars is judged as written, as the lints judge names
 function iterated_list(over: At[Expr]): List[Warning] :=
   match over
     case AOk(pos, span, EFor(FList, List(g), elem, None)) if is_identity(g, elem) =>
       List(
         rewritten(CopiedContainer, pos, span, "a list that is only iterated, of the elements of a container, is that container", gen_over(g)))
+
+    case AOk(pos, span, EApp(AOk(_, _, EVar(Var(Name(List(), "chars"), _))), List(s))) =>
+      List(
+        rewritten(CharsLoop, pos, span, "a generator over the characters of a string ranges over the string itself", s))
 
     case _ =>
       List()
@@ -532,9 +539,8 @@ function is_skip(stmt: At[Stmt]): Bool :=
       false
   end
 
-// the warnings of the locals xs of a block at pos, whose statements are stmts, starting with the assignments of the locals
-// that have initial values
-// the warnings of the locals xs of a block at pos, each at its declaration
+// the warnings of the locals xs of a block at pos, whose statements are stmts, each at its declaration, else at pos if
+// the parser did not read it
 function locals_lints(pos: Pos, xs: List[At[Var]], stmts: List[At[Stmt]]): List[Warning] :=
   let inits := initialized(vars(xs), stmts) in
   List(for x in xs for w in local_lints(decl_pos(pos, x.pos), x.that.name.base, contains(x.that.name.base, inits), None, stmts) yield w)
@@ -1668,14 +1674,6 @@ function measured_parts(place: Place, pos: Pos, expr: Expr): Measured :=
       summed(List(
         measured_gens(place, gens, lambda inner => measured_all(inner, yield_exprs(elem))),
         measured_all(place, List(for e in rest))))
-  end
-
-function yield_exprs(elem: Yield): List[At[Expr]] :=
-  match elem
-    case YVal(value) =>
-      List(value)
-    case YPair(key, value) =>
-      List(key, value)
   end
 
 function measured_stmt(place: Place, stmt: At[Stmt]): Measured :=

@@ -67,7 +67,11 @@ function -(n: Int): Int
 // the absolute value, and the greatest common divisor, which is 0 only for 0 and 0
 function abs(n: Int): Int
 
-function gcd(a: Int, b: Int): Int
+function gcd(a: Int, b: Int): Int :=
+  example gcd(12, 18) == 6
+  example gcd(12, -18) == 6
+  example gcd(-4, 0) == 4
+  example gcd(0, 0) == 0
 
 // the lesser and the greater of two integers
 function min(a: Int, b: Int): Int :=
@@ -110,6 +114,15 @@ function /(a: Int, b: Int): Int
 function %(a: Int, b: Int): Int
 
 function ++(a: Str, b: Str): Str
+
+// the characters of s folded from the last to the first, f(c1, f(c2, … f(cn, acc))), and from the first to the last,
+// f(… f(f(acc, c1), c2) …, cn), so that generators and for statements range over a string without the list of its
+// characters
+function foldr[R](s: Str, acc: R, f: (Char, R) -> R): R :=
+  example foldr("ab", "", lambda c, r => r ++ str(List(c))) == "ba"
+
+function foldl[R](s: Str, acc: R, f: (R, Char) -> R): R :=
+  example foldl("ab", "", lambda r, c => r ++ str(List(c))) == "ab"
 
 implementation
 

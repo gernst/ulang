@@ -1,8 +1,8 @@
 // strings of code points and their characters, by the functions that the interpreter and the runtime implement, with the names that strings share with the containers, in their order and with their results, where a string is a map
 // from indices to characters, concatenated by ++ of the prelude, compared by compare, and shown by show
 //
-// which every module imports implicitly after list, so that list.u cannot use it, where the builtin section declares the
-// functions that the interpreter and the runtime define
+// a member of the package of the library, whose members see each other's exports, and which every module imports
+// implicitly, where the builtin section declares the functions that the interpreter and the runtime define
 
 export
 
@@ -17,7 +17,9 @@ function starts_with(s: Str, start: Str): Bool
 function ends_with(s: Str, finish: Str): Bool
 
 // n copies of s
-function repeat(s: Str, n: Int): Str
+function repeat(n: Int, s: Str): Str :=
+  example repeat(2, "ab") == "abab"
+  example repeat(0, "a") == ""
 
 // s without the characters at its start and its end that is_space takes
 function trim(s: Str): Str :=
@@ -40,6 +42,9 @@ function upper(s: Str): Str :=
 function index_of(part: Str, s: Str): Option[Int] :=
   example index_of("lo", "hello") == Some(3)
   example index_of("x", "hello") == None
+  example index_of("", "hello") == Some(0)
+  example index_of("hello!", "hello") == None
+  example index_of("ab", "aab") == Some(1)
 
 builtin
 
@@ -98,12 +103,16 @@ function get(i: Int, s: Str): Option[Char] :=
   if 0 <= i and i < size(s) then Some(at(i, s)) else None
 
 function starts_with(s: Str, start: Str): Bool :=
-  size(start) <= size(s) and slice(s, 0, size(start)) == start
+  size(start) <= size(s) and stands_at(start, s, 0, 0)
 
 function ends_with(s: Str, finish: Str): Bool :=
-  size(finish) <= size(s) and slice(s, size(s) - size(finish), size(s)) == finish
+  size(finish) <= size(s) and stands_at(finish, s, size(s) - size(finish), 0)
 
-function repeat(s: Str, n: Int): Str :=
+// whether the characters of part from j on are those of s from i + j on
+function stands_at(part: Str, s: Str, i: Int, j: Int): Bool :=
+  j == size(part) or at(j, part) == at(i + j, s) and stands_at(part, s, i, j + 1)
+
+function repeat(n: Int, s: Str): Str :=
   join("", replicate(n, s))
 
 test strings() :=
@@ -111,12 +120,20 @@ test strings() :=
   assert get(-1, "abc") == None and contains('b', "abc") and not contains('d', "abc")
   assert slice("abc", 1, 3) == "bc" and join(", ", split("a,b", ',')) == "a, b"
   assert quote("a\"b") == "\"a\\\"b\"" and number("-12") == Some(-12) and number("1a") == None
-  assert repeat("ab", 2) == "abab" and repeat("a", 0) == ""
+  assert repeat(2, "ab") == "abab" and repeat(0, "a") == ""
   assert starts_with("abc", "ab") and not starts_with("a", "ab") and ends_with("abc", "bc") and not ends_with("abc", "ab")
 
 function trim(s: Str): Str :=
-  let kept := drop_while(chars(s), is_space) in
-  str(reverse(drop_while(reverse(kept), is_space)))
+  let i := first_kept(s, 0), j := last_kept(s, size(s)) in
+  if i >= j then "" else if i == 0 and j == size(s) then s else slice(s, i, j)
+
+// the first index from i on of a character that is no space, or the size of s
+function first_kept(s: Str, i: Int): Int :=
+  if i < size(s) and is_space(at(i, s)) then first_kept(s, i + 1) else i
+
+// the end of the last character before j that is no space, or 0
+function last_kept(s: Str, j: Int): Int :=
+  if j > 0 and is_space(at(j - 1, s)) then last_kept(s, j - 1) else j
 
 function lines(s: Str): List[Str] :=
   if s == "" then
@@ -127,10 +144,19 @@ function lines(s: Str): List[Str] :=
     split(s, '\n')
 
 function lower(s: Str): Str :=
-  str(List(for c in chars(s) yield if int('A') <= int(c) and int(c) <= int('Z') then chr(int(c) + 32) else c))
+  str(List(for c in s yield if int('A') <= int(c) and int(c) <= int('Z') then chr(int(c) + 32) else c))
 
 function upper(s: Str): Str :=
-  str(List(for c in chars(s) yield if int('a') <= int(c) and int(c) <= int('z') then chr(int(c) - 32) else c))
+  str(List(for c in s yield if int('a') <= int(c) and int(c) <= int('z') then chr(int(c) - 32) else c))
 
 function index_of(part: Str, s: Str): Option[Int] :=
-  find(range(0, size(s) - size(part) + 1), lambda i => slice(s, i, i + size(part)) == part)
+  index_from(part, s, 0)
+
+// the first index from i on at which part stands in s
+function index_from(part: Str, s: Str, i: Int): Option[Int] :=
+  if i + size(part) > size(s) then
+    None
+  else if stands_at(part, s, i, 0) then
+    Some(i)
+  else
+    index_from(part, s, i + 1)

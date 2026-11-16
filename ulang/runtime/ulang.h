@@ -32,8 +32,9 @@ struct u_name {
   const struct u_type *type;
 };
 
-// the built-in types, where integers that fit into a long long are of u_int_type with num, and others of u_big_type
-// with an mpz_t, such that each integer has one representation
+// the built-in types, where integers from -2^61 to 2^61 - 1 are tagged words of u_int_type, which u_type_of gives,
+// others that fit into a long long objects of u_int_type with num, and the rest of u_big_type with an mpz_t, such that
+// each integer has one representation
 extern const struct u_type u_int_type, u_big_type, u_bool_type, u_char_type, u_byte_type, u_io_type, u_socket_type,
   u_listener_type, u_window_type, u_str_type, u_tuple_type, u_closure_type, u_proc_type, u_array_type;
 
@@ -101,6 +102,25 @@ struct u_object {
   };
 };
 
+// an integer from -2^61 to 2^61 - 1 is no object but the word 2n + 1, odd, which no pointer to an object is, so that
+// arithmetic allocates nothing; other integers are objects, of u_int_type up to 64 bits and of u_big_type beyond.
+// Every read of the type or the number of a value that may be an integer goes through u_type_of and u_num_of.
+#define U_IS_TAGGED(v) (((uintptr_t)(v)) & 1)
+#define U_TAG_MIN (-(1LL << 61))
+#define U_TAG_MAX ((1LL << 61) - 1)
+
+static inline const struct u_type *u_type_of(u_value v) {
+  return U_IS_TAGGED(v) ? &u_int_type : v->type;
+}
+
+static inline long long u_num_of(u_value v) {
+  return U_IS_TAGGED(v) ? (long long)((intptr_t)(v) >> 1) : v->num;
+}
+
+static inline u_value u_tagged(long long n) {
+  return (u_value)(uintptr_t)(((unsigned long long)n << 1) | 1);
+}
+
 u_value u_mk_int(long long n);
 u_value u_mk_int_str(const char *digits);
 u_value u_mk_bool(int b);
@@ -124,14 +144,20 @@ static inline long long u_str_at(u_value s, long long i) {
 const char *u_utf8(u_value s, size_t *n);
 u_value u_from_utf8(const char *bytes, size_t n);
 
-// the cache of a function without arguments while its value is computed, which is no object
-#define U_COMPUTING ((u_value)-1)
+// the cache of a function without arguments while its value is computed, which is no object and, being even, no tagged
+// integer, as -1 would be the integer -1
+#define U_COMPUTING ((u_value)-2)
 
 // the initializer of a static object of a string literal as of u_mk_lit, which needs no allocation
 #define U_LIT(s) {.type = &u_str_type, .units = s, .length = sizeof(s) / sizeof(s[0]) - 1, .width = sizeof(s[0])}
 u_value u_mk_con(const struct u_name *name, int size, ...);
+u_value u_mk_con_1(const struct u_name *name, u_value a);
+u_value u_mk_con_2(const struct u_name *name, u_value a, u_value b);
+u_value u_mk_con_3(const struct u_name *name, u_value a, u_value b, u_value c);
 u_value u_mk_con_array(const struct u_name *name, int size, u_value *items);
 u_value u_mk_tuple(int size, ...);
+u_value u_mk_tuple_2(u_value a, u_value b);
+u_value u_mk_tuple_3(u_value a, u_value b, u_value c);
 u_value u_mk_closure(code fun, int size, ...);
 u_value u_mk_proc(proc_code proc, int size, ...);
 
@@ -216,13 +242,15 @@ u_value u_array_done(u_value a, int n);
 // last element to the first, and u_array_reversed turns, where the size n is ignored
 u_value u_array_start(u_value n);
 u_value u_array_reversed(u_value a);
-u_value u_array_list(u_value a);
 u_value u_array_size(u_value a);
 u_value u_array_at(u_value i, u_value a);
 u_value u_array_put(u_value i, u_value x, u_value a);
 u_value u_array_slice(u_value a, u_value i, u_value j);
 u_value u_array_foldr(u_value a, u_value acc, u_value f);
 u_value u_array_foldl(u_value a, u_value acc, u_value f);
+u_value u_str_foldr(u_value s, u_value acc, u_value f);
+u_value u_str_foldl(u_value s, u_value acc, u_value f);
+u_value u_str_item(u_value s, long long i);
 
 u_value u_is_digit(u_value c);
 u_value u_is_letter(u_value c);
@@ -231,7 +259,7 @@ u_value u_is_space(u_value c);
 // the text of a value as it is printed, by the descriptors of its objects, which use the shows that datatypes declare
 u_value u_show(u_value v);
 
-// the texts of the runtime errors, which every program defines from failure_formats of ulang/syntax/error.u, where %s stands for a
+// the texts of the runtime errors, which every program defines from runtime_formats of ulang/syntax/error.u, where %s stands for a
 // value as show gives it
 extern const char *const u_text_no_case, *const u_text_compare_functions, *const u_text_compare_procedures,
   *const u_text_assertion_failed, *const u_text_assertion_unequal, *const u_text_assertion_not_raised, *const u_text_uncaught;

@@ -64,6 +64,9 @@ function array_name(): Name
 
 function array_foldr_name(): Name
 
+// the fold of strings, which comprehensions and for statements over strings call, and whose loops the compilers walk by index
+function str_foldr_name(): Name
+
 implementation
 
 function nil_name(): Name :=
@@ -116,3 +119,6 @@ function array_name(): Name :=
 
 function array_foldr_name(): Name :=
   library_name("array", "foldr")
+
+function str_foldr_name(): Name :=
+  library_name("prelude", "foldr")

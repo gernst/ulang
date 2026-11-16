@@ -297,7 +297,7 @@ function shape_fields(shape: Shape): List[Str] :=
 // a field without tabs and newlines, which unescaped gives back the text
 function escaped(text: Str): Str :=
   example escaped("a\\b\nc") == "a\\\\b\\nc"
-  str(concat(List(for c in chars(text) yield escape_char(c))))
+  str(concat(List(for c in text yield escape_char(c))))
 
 function escape_char(c: Char): List[Char] :=
   match c

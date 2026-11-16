@@ -27,7 +27,7 @@ data Request :=
   case RCompile(target: Target, output: Str)
   // the tests of the .u files below the directory, by default the root of the project
   case RCompileTests(dir: Option[Str], output: Str)
-  // the script of the file, or of stdin if none, or the one action of the words that start with @, see ulang/refactor/refactor.u,
+  // the script of the file, or of stdin if none, or the actions of the words, a line from each that starts with @, see ulang/refactor/refactor.u,
   // where each overlay is a file and the file whose text the script takes instead, as of an editor's unsaved buffer
   case RRefactor(script: Option[Str], inline: Option[Str], dry: Bool, overlays: List[(Str, Str)])
   case RHelp(command: Option[Str])
@@ -361,7 +361,7 @@ function refactor_request(words: List[Str], request: Request): Request :=
 
     case List(word; rest) =>
       if starts_with(word, "@") then
-        request with inline := Some(join(" ", words))
+        request with inline := Some(inline_script(words))
       else if starts_with(word, "-") then
         RUsage("refactor does not take " ++ word)
       else if request.script == None then
@@ -373,11 +373,26 @@ function refactor_request(words: List[Str], request: Request): Request :=
       request
   end
 
+// the script of the words of inline actions, a line for each action, each from a word that starts with @ up to the next
+function inline_script(words: List[Str]): Str :=
+  example inline_script(List("@sig", "a", "@show", "a.u:f", "#2")) == "@sig a\n@show a.u:f #2"
+  match words
+    case List(word, next; rest) =>
+      word ++ (if starts_with(next, "@") then "\n" else " ") ++ inline_script(List(next; rest))
+
+    case List(word) =>
+      word
+
+    case List() =>
+      ""
+  end
+
 test refactor_requests() :=
   assert request(List("refactor", "--dry", "s.txt")) == RRefactor(Some("s.txt"), None, true, List())
   assert request(List("refactor", "@show", "a.u:f")) == RRefactor(None, Some("@show a.u:f"), false, List())
   assert request(List("refactor", "--overlay", "a.u=/tmp/b", "@check", "a.u")) == RRefactor(None, Some("@check a.u"), false, List(("a.u", "/tmp/b")))
   assert request(List("refactor", "--overlay", "a.u")) == RUsage("refactor takes --overlay F=<path>, the file F and the file of its text")
+  assert request(List("refactor", "@sig", "a", "@sig", "b")) == RRefactor(None, Some("@sig a\n@sig b"), false, List())
   assert request(List("refactor", "-v", "s.txt")) == RUsage("refactor does not take -v")
   assert request(List("refactor", "--overlay")) == RUsage("refactor takes --overlay F=<path>, the file F and the file of its text")
 
@@ -420,7 +435,7 @@ function description(command: Str): Str :=
       "calls the procedure, main by default, which takes no parameters, where os_args gives the arguments after --"
 
     case "check" =>
-      "checks the files, also below directories, by default the project, each unit loaded once, with the errors of parsing,\n" ++ "of types, and of format, and adds the phases of the options, which run as far as the errors allow: --lint prints the\n" ++ "lints of the files that load, as warnings with the rule and, where it has one, the simpler expression to write, which\n" ++ "do not fail the check; --test runs the tests, all or the named ones, in the working directory, where the arguments\n" ++ "after -- are those of os_args, printing a line per test, each failed if it runs longer than the seconds of --timeout;\n" ++ "--prove proves the lemmas, all or the named ones, where a\n" ++ "recursive function unfolds only if the prover proves that it terminates, unless code that the lemmas may reach has\n" ++ "errors, and a lemma whose test found a counterexample is falsified; a file passes if it loads and its phases pass, and\n" ++ "with several files, check prints the files that do not pass and how many do; --overlay F=<path> takes the text of\n" ++ "the file at path as that of F, as of an unsaved buffer of an editor, and reports its errors against F"
+      "checks the files, also below directories, by default the project, each unit loaded once, without --test and --prove\n" ++ "with its imports only as far as it sees them, so without the errors of their definitions, with the errors of parsing,\n" ++ "of types, and of format, and adds the phases of the options, which run as far as the errors allow: --lint prints the\n" ++ "lints of the files that load, as warnings with the rule and, where it has one, the simpler expression to write, which\n" ++ "do not fail the check; --test runs the tests, all or the named ones, in the working directory, where the arguments\n" ++ "after -- are those of os_args, printing a line per test, each failed if it runs longer than the seconds of --timeout;\n" ++ "--prove proves the lemmas, all or the named ones, where a\n" ++ "recursive function unfolds only if the prover proves that it terminates, unless code that the lemmas may reach has\n" ++ "errors, and a lemma whose test found a counterexample is falsified; a file passes if it loads and its phases pass, and\n" ++ "with several files, check prints the files that do not pass and how many do; --overlay F=<path> takes the text of\n" ++ "the file at path as that of F, as of an unsaved buffer of an editor, and reports its errors against F"
 
     case "format" =>
       "rewrites the files, also below directories, by default the project, as format_program writes them, where check\n" ++ "reports the files that differ"
@@ -432,7 +447,7 @@ function description(command: Str): Str :=
       "translates the file to C, or to assembly for x86-64 if the target ends in .s, whose main calls the procedure, main by default, or with --tests the tests of the .u files below the directory, by default the root of the project, with its packages and programs,\n" ++ "whose main takes the targets of check --test, but none of its options, with the tests of lemmas but without their proofs, and runs them as\n" ++ "check --test does, from the root of the project"
 
     case "refactor" =>
-      "runs the script of the file, or of stdin, or the one action of the words, a line per action that starts with @,\n" ++ "followed by its fragment: @show T, @outline F, @refs T, @sig name, @sig M, @resolve F:L.C, @put F, @put F:name, @put\n" ++ "[F] before|after T, @put [before|after|into] N, @drop T, @patch T, @rename T new, @export T, @unexport T, @fix T\n" ++ "[Rule ...], @undo [n], and @check [test] [F], where T is a file or a declaration file.u:name[/arity], a node N is\n" ++ "#n, F:name #n, F:name \"text\", or F:L.C, and a module M is a file or a path from the root, prelude/str for the\n" ++ "library, as one transaction, then checks the files that changed and replies with the state and the diagnostics that\n" ++ "are new or gone, exiting 1 while errors remain and 3 if a test failed; an inline @put or @patch takes its fragment\n" ++ "from stdin; --dry writes nothing and checks the texts that it would write; --overlay F=<path> takes the text of the\n" ++ "file at path as that of F, as of an unsaved buffer, which the script writes only if it changes it; the actions, an\n" ++ "example, and the reply are in Refactoring of README.md"
+      "runs the script of the file, or of stdin, or the actions of the words, a line per action that starts with @,\n" ++ "followed by its fragment: @show T, @outline F, @refs T, @sig name, @sig M, @resolve F:L.C, @put F, @put F:name, @put\n" ++ "[F] before|after T, @put [before|after|into] N, @drop T, @patch T, @example F:name, @rename T new, @export T, @unexport T, @fix T\n" ++ "[Rule ...], @undo [n], and @check [test] [F], where T is a file or a declaration file.u:name[/arity], a node N is\n" ++ "#n, F:name #n, F:name \"text\", or F:L.C, and a module M is a file or a path from the root, prelude/str for the\n" ++ "library, as one transaction, then checks the files that changed and replies with the state and the diagnostics that\n" ++ "are new or gone, exiting 1 while errors remain and 3 if a test failed; inline actions are a line each,\n" ++ "where a last @put, @patch, or @example takes its fragment from stdin; --dry writes nothing and checks the texts that it would write; --overlay F=<path> takes the text of the\n" ++ "file at path as that of F, as of an unsaved buffer, which the script writes only if it changes it; the actions, an\n" ++ "example, and the reply are in Refactoring of README.md"
 
     case _ =>
       "prints the usage of all commands, or of one"
@@ -498,7 +513,7 @@ procedure check_targets(
   if status == 0 then
     var found: List[Target]
     targets_of(in targets, phases.tests, out found)
-    visit_units(in found, texts, phases.tests, lambda in source, q, unit, listed, out failed =>
+    visit_units(in found, texts, phases.tests, not phases.tests and not phases.proofs, lambda in source, q, unit, listed, out failed =>
       failed := List()
       if phases.lints and listed == List() then
         print_lints(in source, q, unit)
@@ -558,7 +573,7 @@ procedure check_unit(
       if blocks_proofs(q) then
         os_println(in label ++ "no lemma proven, since code that the lemmas may reach has errors")
       else
-        prove_module(in without_rejected_lemmas(q), m, file, selected, falsified, label, out proven)
+        prove_module(in q, m, file, selected, falsified, label, out proven)
         passed := passed and proven
       end
     end
@@ -617,27 +632,16 @@ function blocks_proofs(q: Prog): Bool :=
 function without_rejected_proofs(q: Prog): Prog :=
   q with cmds := List(for c in q.cmds if not is_lemma_or_test(c.that) or cmd_errors(c) == List())
 
-// q without its lemmas that have errors, which the prover does not prove
-function without_rejected_lemmas(q: Prog): Prog :=
-  q with cmds := List(for c in q.cmds if not is_lemma(c.that) or cmd_errors(c) == List())
-
-function is_lemma(cmd: Cmd): Bool :=
-  match cmd
-    case CLemma(_, _, _, _, _, _) =>
-      true
-    case _ =>
-      false
-  end
-
 // checks each unit of the targets once, where the error of a unit that does not load is reported at its first file, and
 // calls visit with the checked program of each unit that loads, also with errors if it is runnable, whose files then
 // fail, and the errors printed of it, each with its file, List() if it loaded without errors, which gives the files of the
-// unit that fail, where tested loads them with
+// unit that fail, where declared loads the packages that a unit imports only as far as it sees them, and tested loads them with
 // the tests of their lemmas, then prints how many files passed, where status is the exit status of the worst
 procedure visit_units(
   in  found: List[Target],
       overlays: Map[Str, Str],
       tested: Bool,
+      declared: Bool,
       visit: (in Source, Prog, List[Target], List[(Str, Diagnostic)], out List[Str]),
   out status: Int
 ) :=
@@ -645,7 +649,7 @@ procedure visit_units(
   units_of(in found, overlays, out units)
   status := 0
   for unit in units do
-    load_file(in first_path(unit), overlays, true, tested, out source, q, errors, ref cache)
+    load_file(in first_path(unit), overlays, true, tested, declared, out source, q, errors, ref cache)
     if errors != List() then
       report(in first_path(unit), errors, size(files_of(found)) > 1)
       failed := failed ++ files_of(unit), status := max(status, load_status(q, errors))
@@ -665,14 +669,15 @@ procedure visit_units(
   end
   summarize(in files_of(found), List(for f in failed))
 
-// prints the errors of checking file, as check does, with the texts of the overlays instead of their files, and the
+// prints the errors of checking file, as check does, with the packages that it imports only as far as it sees them,
+// with the texts of the overlays instead of their files, and the
 // findings of the check in it, hints of ulang/check/hints.u, as far as it is checked
 procedure print_hints(in file: Str, overlays: List[(Str, Str)], out status: Int) :=
   var texts: Map[Str, Str]
   overlay_texts(in overlays, out texts, status)
   if status == 0 then
     var q: Prog, errors: List[Diagnostic], cache := no_cache()
-    load_file(in file, texts, false, false, out _, q, errors, ref cache)
+    load_file(in file, texts, false, false, true, out _, q, errors, ref cache)
     report(in file, errors, false)
     status := load_status(q, errors)
     if q.main != List() then
@@ -716,7 +721,7 @@ function replacement_text(source: Source, m: Path, w: Warning): Str :=
 // it reports as warnings
 procedure compile_target(in target: Target, output: Str, out status: Int) :=
   var source: Source, q: Prog, errors: List[Diagnostic], cache := no_cache()
-  load_file(in target.path, Map(), false, false, out source, q, errors, ref cache)
+  load_file(in target.path, Map(), false, false, false, out source, q, errors, ref cache)
   let harmless := code_free_diagnostics(q) ++ List(for e in code_free_parse_errors(source) yield parse_diagnostic(e)), blocking := List(for d in errors if blocks_run(d) and not contains(d, harmless))
   report(in target.path, blocking, false)
   warn(in target.path, List(for d in errors if not contains(d, blocking)))
@@ -750,7 +755,7 @@ procedure compile_tests(in dir: Option[Str], output: Str, out status: Int) :=
   targets_of(in List(for d in dir yield Target(d, None)), false, out found)
   units_of(in found, Map(), out units)
   for unit in units do
-    load_file(in first_path(unit), Map(), true, true, out _, q, errors, ref cache)
+    load_file(in first_path(unit), Map(), true, true, false, out _, q, errors, ref cache)
     if errors != List() then
       report(in first_path(unit), errors, true)
       status := max(status, load_status(q, errors))
@@ -803,8 +808,8 @@ function from_root(root: Str, file: Str): Str :=
 test paths_from_root() :=
   assert from_root(".", "./ulang/ulang.u") == "ulang/ulang.u" and from_root("../..", "../../a/b.u") == "a/b.u"
 
-// runs the refactor script of the file, of stdin, or of the inline action, whose fragment, of @put and @patch, is stdin,
-// and prints its reply
+// runs the refactor script of the file, of stdin, or of the inline actions, a line each, where the last one, if it is a
+// @put, @patch, or @example, takes its fragment from stdin, and prints its reply
 procedure refactor(
   in  script: Option[Str],
       inline: Option[Str],
@@ -822,7 +827,7 @@ procedure refactor(
     match (inline, script)
       case (Some(action), _) =>
         text := action
-        if starts_with(action, "@put") or starts_with(action, "@patch") then
+        if exists(List("@put", "@patch", "@example"), lambda word => starts_with(value_or(last(lines(action)), ""), word)) then
           var io: IO, fragment: Str
           io_stdin(out io)
           io_read_utf8(in io, out fragment)
@@ -847,7 +852,8 @@ procedure refactor(
       status := 1
   end
 
-// the errors of checking file, each with the file to edit, and the warnings of its lints, whose code is warning[Rule],
+// the errors of checking file, with the packages that it imports only as far as it sees them, so without the errors of
+// their definitions, each with the file to edit, and the warnings of its lints, whose code is warning[Rule],
 // where the format of each member of its unit is checked whatever its other errors, unlike load_file, so that a reply
 // compares the format before and after alike, unless a member does not parse
 procedure checked_diagnostics(
@@ -856,7 +862,7 @@ procedure checked_diagnostics(
   out found: List[(Str, Diagnostic)]
 ) :=
   var source: Source, errors: List[Diagnostic], path: Str, cache := no_cache()
-  load_file(in file, overlays, false, false, out source, _, errors, ref cache)
+  load_file(in file, overlays, false, false, true, out source, _, errors, ref cache)
   if source.main != List() and not has_errors(source) then
     var unformatted: List[Diagnostic]
     try
@@ -885,27 +891,35 @@ procedure refactor_tests(
   out tests: Tests
 ) :=
   var units: List[List[Target]], source: Source, q: Prog, errors: List[Diagnostic], outcomes: List[Outcome], cache := no_cache()
-  var lines: Buffer[Str] := empty(), passed := 0, failed := 0, skipped := 0
+  var lines: Buffer[Str] := empty(), passed := 0, failed := 0, skipped := 0, unrun: Map[Str, Str] := Map()
   try
-    var found: List[Target]
-    targets_of(in List(for path in paths yield Target(path, None)), true, out found)
+    var found: List[Target], compiled: List[Str]
+    compiled_only_files(in paths, out compiled)
+    lines := lines ++ List(for path in compiled yield "no test of " ++ path ++ " ran, since its project runs its directory only compiled")
+    // no target is the whole project to targets_of
+    let runnable := List(for path in paths if not contains(path, compiled) yield Target(path, None))
+    found := List()
+    if runnable != List() then
+      targets_of(in runnable, true, out found)
+    end
     units_of(in found, Map(), out units)
   catch
     case OsError(m) =>
       units := List(), lines := lines ++ List("no test ran: " ++ m)
   end
   for unit in units do
-    load_file(in first_path(unit), Map(), false, true, out source, q, errors, ref cache)
+    load_file(in first_path(unit), Map(), false, true, false, out source, q, errors, ref cache)
     for file in files_of(unit) do
       let m := sibling(source.main, file)
       let declared := List(for d in find(source.mods, lambda d => d.name == m) for name in declared_tests(d) yield name), examples := sum(List(for d in find(source.mods, lambda d => d.name == m) yield example_count(d)))
       if not is_runnable(q, errors) then
-        skipped := skipped + size(declared) + examples
+        skipped := skipped + size(declared) + examples, unrun := put(file, "all its tests, since its unit does not load far enough to run", unrun)
         lines := lines ++ List(
           "no test of " ++ file ++ " ran, since its unit does not load far enough to run")
       else
         test_outcomes(in q, m, List(), List(), out outcomes)
-        let names := List(for o in outcomes yield o.name), failures := List(for o in outcomes if o.message != "" yield failure_text(o, listed))
+        let misplaced := List(for o in outcomes if o.message != "" and exists(diagnostics(q), lambda d => d.code == "ExampleOnDefinition" and reaches(o.reached, file, d)) yield o.name)
+        let names := List(for o in outcomes yield o.name), failures := List(for o in outcomes if o.message != "" and not contains(o.name, misplaced) yield failure_text(o, listed))
         let missing := List(for name in declared if not contains(name, names)), absent := examples - size(List(for name in names if index_of(".example.", name) != None yield name))
         let members := value_or(map_option(find(source.packages, lambda p => contains(m, p.members)), lambda p => p.members), List(m))
         let lemmas := if is_generating(q, members) then
@@ -924,18 +938,50 @@ procedure refactor_tests(
             List(
               "the tests of lemmas " ++ join(", ", lemmas) ++ ", if their formals are enumerable")
         end
-        let not_run := List(for name in missing yield "test " ++ name) ++ (if absent > 0 then List(counted_text(absent, "example")) else List()) ++ lemma_tests, left := size(missing) + max(absent, 0)
-        passed := passed + size(outcomes) - size(failures), failed := failed + size(failures), skipped := skipped + left
-        let counts := show(size(outcomes) - size(failures)) ++ " passed, " ++ show(size(failures)) ++ " failed" ++ (if left == 0 then "" else ", " ++ show(left) ++ " not run")
+        let not_run := List(for name in missing yield "test " ++ name) ++ (if absent > 0 then List(counted_text(absent, "example")) else List()) ++ lemma_tests, left := size(missing) + max(absent, 0) + size(misplaced)
+        passed := passed + size(outcomes) - size(failures) - size(misplaced), failed := failed + size(failures), skipped := skipped + left
+        let counts := show(size(outcomes) - size(failures) - size(misplaced)) ++ " passed, " ++ show(size(failures)) ++ " failed" ++ (if left == 0 then "" else ", " ++ show(left) ++ " not run")
         lines := lines ++ List("tested " ++ file ++ ": " ++ counts) ++ List(for f in failures yield "  " ++ f)
         if not_run != List() then
+          unrun := put(file, join(", ", not_run), unrun)
           lines := lines ++ List(
             "  not run, since the errors leave them out of the program: " ++ join(", ", not_run))
+        end
+        if misplaced != List() then
+          lines := lines ++ List(
+            "  not run, since they are examples on definitions, which belong to the signatures in export: " ++ join(", ", misplaced))
         end
       end
     end
   end
-  tests := Tests(List(for line in lines), passed, failed, skipped)
+  tests := Tests(List(for line in lines), passed, failed, skipped, unrun)
+
+// the paths of paths below the directories that their projects run only compiled (compiled_only_of), whose tests a
+// refactor script does not run, since the interpreter takes far too long for them, as check --test does not when it walks
+procedure compiled_only_files(in paths: List[Str], out compiled: List[Str]) :=
+  var here: Str, dirs: List[Str] := List()
+  os_cwd(out here)
+  for dir in distinct(List(for path in paths yield os_dirname(path))) do
+    var skipped: List[Str]
+    compiled_only_of(in dir, out skipped)
+    dirs := distinct(dirs ++ skipped)
+  end
+  compiled := List(for path in paths if exists(dirs, lambda d => starts_with(absolute_path(here, path), d ++ "/")) yield path)
+
+test compiled_only_paths() :=
+  var compiled: List[Str]
+  compiled_only_files(in List("ulang/ulang.u", "ulang/test/errors/types.u"), out compiled)
+  assert compiled == List("ulang/test/errors/types.u")
+
+// the tests of examples on a definition, which belong to its signature, are not run, but counted as not run
+test misplaced_examples() :=
+  var tests: Tests
+  let path := "out/test/refactor/misplaced/misplaced.u"
+  os_write_utf8(in path, "export\n\nfunction f(x: Int): Int\n\nimplementation\n\nfunction f(x: Int): Int :=\n  example f(1) == 2\n  x + 1\n")
+  refactor_tests(in List(path), List(), out tests)
+  assert tests == Tests(List(
+    "tested " ++ path ++ ": 0 passed, 0 failed, 1 not run",
+    "  not run, since they are examples on definitions, which belong to the signatures in export: f.example.1"), 0, 0, 1, Map())
 
 // whether the checker generated the tests of the package of members in q, the tests of examples and of lemmas, which it
 // generates only for a package whose check finds no errors but those of raises and unused imports (check_package of
@@ -1065,79 +1111,6 @@ function reformat_error(p: Source, q: Source): Option[Diagnostic] :=
 function unparsable(message: Str): Diagnostic :=
   Diagnostic(FormatKind, "Unparsable", None, Pos(0, 0), "the source does not parse: " ++ message, List())
 
-// comments stand anywhere, and format keeps them where they are, at the end of a line, before end, else, and catch, on
-// a local line, between arguments, elements, and cases, and above a blank line
-test formatted_comments() :=
-  var p: Source
-  let text := join("\n", List(
-    "// the module",
-    "",
-    "// a function",
-    "function f(x: Int): Int := // after the head",
-    "  g(",
-    "    x, // between arguments",
-    "    2)",
-    "",
-    "data T := // after data",
-    "  // A",
-    "  case A // after A",
-    "  case B(x: Int)",
-    "",
-    "function g(x: Int, y: Int): Int :=",
-    "  example g(1, 2) == 3 // after an example",
-    "  let z := x + y in",
-    "  // the body",
-    "  match z",
-    "    // zero",
-    "    case 0 =>",
-    "      1 // one",
-    "",
-    "    // between cases",
-    "    case _ =>",
-    "      List(",
-    "        1, // between elements",
-    "        2,",
-    "        // before an element",
-    "        3)",
-    "  end",
-    "",
-    "// detached",
-    "",
-    "procedure main() :=",
-    "  let x := 1 // on a local line",
-    "  if x == 1 then // after then",
-    "    os_println(in \"a\") // after a call",
-    "    // before else",
-    "  else",
-    "    // after else",
-    "",
-    "    skip",
-    "  end",
-    "  while x > 1 do",
-    "    skip",
-    "    // before the end of a while",
-    "  end",
-    "  try",
-    "    skip",
-    "    // before catch",
-    "  catch",
-    "    case _ =>",
-    "      skip",
-    "    // before the end of a try",
-    "  end",
-    "// at the end")) ++ "\n"
-  parse_file_text(in "a.u", text, out p)
-  assert format_program(p) == text
-
-// a comment that the layout of its part has no place for stands above the line of the part, from where it stays
-test moved_comments() :=
-  var p: Source
-  let text := "procedure main() :=\n  x := 1 + // inner\n  2\n", moved := "procedure main() :=\n  // inner\n  x := 1 + 2\n"
-  parse_file_text(in "a.u", text, out p)
-  assert format_program(p) == moved
-  parse_file_text(in "a.u", moved, out p)
-  assert format_program(p) == moved
-
 test reformat_errors() :=
   var p: Source, q: Source, other: Source
   parse_text_recovering(in "procedure main() :=\n  skip\n", out p)
@@ -1174,21 +1147,25 @@ procedure check_file(
       errors: List[Diagnostic]
 ) :=
   var cache := no_cache()
-  load_file(in file, Map(), formatted, tested, out _, q, errors, ref cache)
+  load_file(in file, Map(), formatted, tested, false, out _, q, errors, ref cache)
 
 // what the files of a run before have parsed and checked of the packages that they import, which load_file reuses
 data Cache :=
   case Cache(loaded: Loaded, checks: Checks)
 
 function no_cache(): Cache :=
-  Cache(Loaded("", Map(), Source(List(), List(), List())), no_checks())
+  Cache(Loaded("", Map(), false, Source(List(), List(), List())), no_checks())
 
-// check_file with the parsed source, which has no modules if file does not parse
+// check_file with the parsed source, which has no modules if file does not parse, where declared tells whether the
+// packages other than that of file, the library included, are loaded and checked only as far as their importers see
+// them, without their definitions (parse_file_loaded of ulang/parse/parse.u), for a check that reports only the errors of
+// the package of file
 procedure load_file(
   in  file: Str,
       overlays: Map[Str, Str],
       formatted: Bool,
       tested: Bool,
+      declared: Bool,
   out source: Source,
       q: Prog,
       errors: List[Diagnostic],
@@ -1197,7 +1174,7 @@ procedure load_file(
   source := Source(List(), List(), List()), q := Prog(List(), List(), List(), List()), errors := List()
   try
     var loaded := cache.loaded, checks := cache.checks
-    parse_file_loaded(in file, overlays, out source, ref loaded)
+    parse_file_loaded(in file, overlays, declared, out source, ref loaded)
     if loaded.root != cache.loaded.root then
       checks := no_checks()
     end
@@ -1205,10 +1182,10 @@ procedure load_file(
       load_tester(ref source)
     end
     if has_errors(source) then
-      check_cached(in without_unparsed(source), unparsed_names(source), true, if tested then enumerated_tests else no_tests, out q, _, ref checks)
+      check_cached(in without_unparsed(source), unparsed_names(source), true, declared, if tested then enumerated_tests else no_tests, out q, _, _, ref checks)
       errors := take(20, List(for e in parse_errors(source) yield parse_diagnostic(e)) ++ diagnostics(q))
     else
-      check_cached(in source, empty(), false, if tested then enumerated_tests else no_tests, out q, _, ref checks)
+      check_cached(in source, empty(), false, declared, if tested then enumerated_tests else no_tests, out q, _, _, ref checks)
       errors := take(20, diagnostics(q))
     end
     cache := Cache(loaded, checks)

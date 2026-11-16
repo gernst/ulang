@@ -180,7 +180,7 @@ function cmd_fields(cmd: Cmd): List[(Str, Set[Str])] :=
   end
 
 function words_of(text: Str): Set[Str] :=
-  Set(for w in split(str(List(for c in chars(text) yield if is_word_char(c) then c else ' ')), ' ') if w != "")
+  Set(for w in split(str(List(for c in text yield if is_word_char(c) then c else ' ')), ' ') if w != "")
 
 // the declarations of the file at its path from the root, or None if it cannot be read or parsed, which the cache keeps
 // by the path, where only the module of the file is taken from what the parser loads, which also holds its imports and the

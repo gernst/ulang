@@ -52,16 +52,18 @@ test finds_refs() :=
   run_script(in "@refs " ++ dir ++ "/a.u:g", false, state, no_diagnostics, out reply, status, _)
   assert status == 1
 
-// @rename to a name that the library declares with the same arity warns of the declarations that the uses also see
+// @rename to a name that the library declares with the same arity warns of the declarations that the uses also see,
+// but not of those that it renames, which the sibling b.u sees
 test renames_beside_overloads() :=
   var reply: List[Str], status: Int, text: Str
   let state := "out/test/refactor/queries/overloads", dir := "out/test/refactor/queries/overloads/p"
   os_write_utf8(in os_join(dir, "a.u"), "function shout(s: Str): Str :=\n  s\n\nfunction use(s: Str): Str :=\n  shout(s)\n")
+  os_write_utf8(in os_join(dir, "b.u"), "function twice(s: Str): Str :=\n  shout(s) ++ shout(s)\n")
   run_script(in "@rename " ++ dir ++ "/a.u:shout size", false, state, no_diagnostics, out reply, status, _)
   os_read_utf8(in os_join(dir, "a.u"), out text)
   assert status == 0 and text == "function size(s: Str): Str :=\n  s\n\nfunction use(s: Str): Str :=\n  size(s)\n"
   let warnings := List(for line in reply if starts_with(line, "warning: the uses of size/1 also see ") yield line)
-  assert size(warnings) == 1 and exists(warnings, lambda w => index_of("prelude.str.size: Str -> Int", w) != None)
+  assert size(warnings) == 1 and exists(warnings, lambda w => index_of("prelude.str.size: Str -> Int", w) != None and index_of("p.a.size", w) == None)
   run_script(in "@rename " ++ dir ++ "/a.u:size lowered", false, state, no_diagnostics, out reply, status, _)
   assert status == 0 and not exists(reply, lambda line => starts_with(line, "warning:"))
 

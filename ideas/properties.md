@@ -113,7 +113,7 @@ The levers that a language or toolchain has for these properties, and where ulan
 | Lever | Properties | ulang |
 |---|---|---|
 | Effects in signatures | locality, explicitness | pure functions, modes, checked raises; `uses os` open (Later 1), no polymorphism over raised sets (`rejected.md`) |
-| Contracts as part of signatures | locality, failing loudly, grounding | contracts and claims of procedures; of functions open (Verification 1, `ideas/prove.md`) |
+| Contracts as part of signatures | locality, failing loudly, grounding | contracts and claims of procedures; of functions open (Verification 1) |
 | Canonical forms | uniformity, proportionality | one construct each, the format enforced by `check` |
 | Equivalence instead of identity of definitions | non-redundancy | the e-graph lints (`ideas/lint.md`), where Unison identifies definitions by the hash of their syntax |
 | Provenance of code | traceability | reachability by tests, examples, and lemmas only |

@@ -50,10 +50,12 @@ procedure parse_file(
 
 // parse_file of the overlays, the texts of files by their paths, absolute or from the working directory, which loading
 // takes instead of those files, also of files and directories that do not exist, so that the overlays in a new directory
-// are a package that the file may import, and the overlays of the library replace its files
+// are a package that the file may import, and the overlays of the library replace its files, where declared loads the
+// packages other than that of the file only as far as their importers see them, as parse_file_loaded does
 procedure parse_file_overlaid(
   in  path: Str,
       overlays: Map[Str, Str],
+      declared: Bool,
   out source: Source
 ) raises ParseError, OsError
 
@@ -65,16 +67,20 @@ procedure overlaid_text(
 ) raises OsError
 
 // the packages that the files of a run before have loaded without their tests, of the project at root with the overlays,
-// by their absolute and normal paths, in load order
+// by their absolute and normal paths, in load order, where declared tells whether they are loaded only as far as their
+// importers see them
 data Loaded :=
-  case Loaded(root: Str, overlays: Map[Str, Str], source: Source)
+  case Loaded(root: Str, overlays: Map[Str, Str], declared: Bool, source: Source)
 
 // parse_file_overlaid with the packages of loaded instead of their files, but for the package of the file and those that
 // import it, so that a run over many files reads and parses each package that they import once, which loaded then holds
-// too, unless loaded is of another root or of other overlays
+// too, unless loaded is of another root, of other overlays, or of another declared, which tells whether the packages
+// other than that of the file, the library included, are loaded only as far as their importers see them, without their
+// definitions (declared_tokens), for the checks that only report the errors of the package of the file
 procedure parse_file_loaded(
   in  path: Str,
       overlays: Map[Str, Str],
+      declared: Bool,
   out source: Source,
   ref loaded: Loaded
 ) raises ParseError, OsError
@@ -98,7 +104,7 @@ procedure parse_text_recovering(
   out source: Source
 ) raises ParseError, OsError
 
-// the source of texts instead of files, for the tests: the members of the package of the directory dir from the root,
+// the source of texts instead of files, for the tests, loaded as parse_file_loaded loads them by declared: the members of the package of the directory dir from the root,
 // each its module and text, and main, the module and text of the main file, which is one of them or a program in dir,
 // where the packages of imported, each its directory and the modules and texts of its members, are loaded first, without
 // their tests, and imports take them instead of files, and the library and the other imported packages are read from
@@ -109,6 +115,7 @@ procedure parse_texts(
       imported: List[(Str, List[(Path, Str)])],
       members: List[(Path, Str)],
       main: (Path, Str),
+      declared: Bool,
   out source: Source
 ) raises ParseError, OsError
 
@@ -126,6 +133,9 @@ procedure project_root(in dir: Str, out root: Str) raises OsError
 
 // the absolute path without . and .. and repeated /
 function normal_path(path: Str): Str
+
+// the errors of an import that failed, which the parser keeps as an error node at its line
+function import_failures(i: At[Path]): List[Diagnostic]
 
 implementation
 
@@ -178,7 +188,7 @@ procedure require_parsed(in source: Source) raises ParseError :=
   end
 
 function without_unparsed(source: Source): Source :=
-  source with mods := List(for m in source.mods yield m with exported := whole(m.exported), builtins := whole(m.builtins), implemented := whole(m.implemented))
+  source with mods := List(for m in source.mods yield m with imports := List(for i in m.imports if import_failures(i) == List()), exported := whole(m.exported), builtins := whole(m.builtins), implemented := whole(m.implemented))
 
 function unparsed_names(source: Source): Set[Id] :=
   Set(for m in source.mods for d in m.exported ++ m.builtins ++ m.implemented for x in declared_by(d) yield x)
@@ -260,8 +270,16 @@ function whole(docs: List[At[Cmd]]): List[At[Cmd]] :=
 
 // the errors of the parts of the commands of m that do not parse, by position
 function mod_errors(m: Mod): List[Diagnostic] :=
-  let errors := List(for d in m.exported ++ m.builtins ++ m.implemented for e in cmd_errors(d) yield e) in
+  let errors := List(for i in m.imports for e in import_failures(i) yield e) ++ List(for d in m.exported ++ m.builtins ++ m.implemented for e in cmd_errors(d) yield e) in
   List(for (_, e) in sort(List(for e in errors yield (e.pos, e))) yield e)
+
+function import_failures(i: At[Path]): List[Diagnostic] :=
+  match i
+    case AErr(_, _, _, errors) =>
+      errors
+    case _ =>
+      List()
+  end
 
 function type_ops(): Ops[List[Type]] :=
   Ops("type", starts_type, parse_type_atom, type_apply)
@@ -2073,7 +2091,7 @@ procedure parse_if(
   parse_expr(in notation, params, out cond, ref toks)
   expect(in TKw("then"), ref toks)
   parse_body(in notation, params, out l, ref toks)
-  if head_token(toks) == TName("elif") then
+  if is_elif(head_token(toks)) then
     raise expected("else or end", toks)
   end
   if at_kw(toks, "else") then
@@ -2756,7 +2774,7 @@ procedure parse_proc_example(
     var pat: At[Pat]
     advance(ref toks)
     parse_pattern(in notation, params, out pat, ref toks)
-    match (raising_outs(outs), ref_befores(refs))
+    match (raising_outs(outs), plain_values(refs))
       case (Some(n), Some(before)) =>
         x := XCallRaises(unqualified(p), ins, n, before, pat)
 
@@ -2765,7 +2783,7 @@ procedure parse_proc_example(
         invalid := Some(ParseError("an example that raises has _ for each out and each ref as before the call", pos))
     end
   else
-    match (expected_outs(outs), before_after(refs))
+    match (plain_values(outs), before_after(refs))
       case (Some(values), Some(changes)) =>
         x := XCall(unqualified(p), ins, values, changes)
 
@@ -2802,27 +2820,15 @@ procedure parse_example_arg(
 function raising_outs(args: List[(Option[At[Expr]], Option[At[Expr]])]): Option[Int] :=
   if forall(args, lambda a => a == (None, None)) then Some(size(args)) else None
 
-// the refs if each is given only as before the call
-function ref_befores(args: List[(Option[At[Expr]], Option[At[Expr]])]): Option[List[At[Expr]]] :=
-  match args
-    case List() =>
-      Some(List())
-
-    case List((Some(before), None); more) =>
-      map_option(ref_befores(more), lambda rest => List(before; rest))
-
-    case _ =>
-      None
-  end
-
-// the outs if each is a value
-function expected_outs(args: List[(Option[At[Expr]], Option[At[Expr]])]): Option[List[At[Expr]]] :=
+// the values of args if each is a value alone, without => after: the outs of an example of a procedure, and its refs
+// as before the call of one that raises
+function plain_values(args: List[(Option[At[Expr]], Option[At[Expr]])]): Option[List[At[Expr]]] :=
   match args
     case List() =>
       Some(List())
 
     case List((Some(value), None); more) =>
-      map_option(expected_outs(more), lambda rest => List(value; rest))
+      map_option(plain_values(more), lambda rest => List(value; rest))
 
     case _ =>
       None
@@ -2913,7 +2919,7 @@ function at_step(toks: Tokens): Bool :=
   at_name_stmt(toks) or exists(List("let", "var", "assert", "invariant", "induction", "match", "if"), lambda kw => at_kw(toks, kw))
 
 // the steps of a proof, the locals first, then the calls, cuts, and assignments, which are parsed as statements, and at
-// most one split, which ends the proof, see ideas/prove.md, section 4, where a proof ends at a token that starts no step
+// most one split, which ends the proof, see ideas/verification.md, section 4, where a proof ends at a token that starts no step
 procedure parse_proof(
   in  notation: Notation,
       params: List[Id],
@@ -3284,15 +3290,16 @@ procedure parse_texts(
       imported: List[(Str, List[(Path, Str)])],
       members: List[(Path, Str)],
       main: (Path, Str),
+      declared: Bool,
   out source: Source
 ) raises ParseError, OsError :=
   match main
     case (id, _) =>
       source := Source(List(), List(), id)
       for (d, files) in imported do
-        load_members(in Root(root, Map()), Some(d), files, None, List(), ref source)
+        load_members(in Root(root, Map(), declared), Some(d), files, None, List(), ref source)
       end
-      load_members(in Root(root, Map()), Some(dir), List(for (m, t) in members if m != id yield (m, t)) ++ List(main), Some(main), List(), ref source)
+      load_members(in Root(root, Map(), declared), Some(dir), List(for (m, t) in members if m != id yield (m, t)) ++ List(main), Some(main), List(), ref source)
   end
 
 procedure load_after_library(
@@ -3301,7 +3308,7 @@ procedure load_after_library(
   ref source: Source
 ) raises ParseError, OsError :=
   let before := source.mods
-  load_members(in Root("", Map()), Some(dir), members, None, List(), ref source)
+  load_members(in Root("", Map(), false), Some(dir), members, None, List(), ref source)
   source := source with mods := List(for d in source.mods if is_library_module(d.name)) ++ List(for d in drop(size(before), source.mods) if not is_library_module(d.name)) ++ List(for d in before if not is_library_module(d.name))
 
 function is_main(id: Path, main: Option[(Path, Str)]): Bool :=
@@ -3394,7 +3401,7 @@ procedure parse_member(
   out own: Mod,
   ref source: Source
 ) :=
-  var rest := toks
+  var rest := if root.declared and not tested then declared_tokens(toks) else toks
   try
     if not is_library_module(id) then
       load_package(in root, None, None, loading, ref source)
@@ -3408,6 +3415,55 @@ procedure parse_member(
   end
   if not tested then
     own := without_tests_of(own)
+  end
+
+// the tokens of a member of a package that another one imports as far as its importers see it: its imports and its
+// export and builtin sections, and of its implementation section the data and type commands, whose fields give the
+// variances of its abstract types (with_variances of ulang/check/check.u), where a member without sections, which
+// exports nothing, has no tokens but the end
+function declared_tokens(toks: Tokens): Tokens :=
+  if exists(toks, lambda (_, tok, _) => is_section(tok)) then
+    before_implementation(toks)
+  else
+    List(for (pos, tok, stop) in toks if tok == TEnd yield (pos, tok, stop))
+
+function is_section(tok: Token): Bool :=
+  match tok
+    case TKw(kw) =>
+      contains(kw, List("export", "builtin", "implementation"))
+    case _ =>
+      false
+  end
+
+function before_implementation(toks: Tokens): Tokens :=
+  match toks
+    case List((pos, TKw("implementation"), stop); rest) =>
+      List((pos, TKw("implementation"), stop); sorts_of(rest, false))
+
+    case List(t; rest) =>
+      List(t; before_implementation(rest))
+
+    case List() =>
+      List()
+  end
+
+// the data and type commands of toks, a section, and its end, where kept tells whether the command of the next token is one
+function sorts_of(toks: Tokens, kept: Bool): Tokens :=
+  match toks
+    case List((pos, TKw(kw), stop); rest) if is_command_kw(kw) =>
+      if kw == "data" or kw == "type" then
+        List((pos, TKw(kw), stop); sorts_of(rest, true))
+      else
+        sorts_of(rest, false)
+
+    case List((pos, TEnd, stop); _) =>
+      List((pos, TEnd, stop))
+
+    case List(t; rest) =>
+      if kept then List(t; sorts_of(rest, true)) else sorts_of(rest, false)
+
+    case List() =>
+      List()
   end
 
 procedure import_all(
@@ -3548,9 +3604,17 @@ procedure parse_section_or_command(
       var imported: Path
       advance(ref toks)
       parse_import(out imported, ref toks)
-      import_package(in imported, root, dir, loading, pos, ref source)
-      import_notation(in package_members(imported, source.packages), source.mods, pos, ref notation)
-      imports := imports ++ List(AOk(pos, span_from(pos, toks), imported))
+      // an import that fails stays at its line with its error, so that the module keeps it where an edit or format
+      // prints it, and the failure is no failure of the parse of the other commands (import_failures)
+      try
+        import_package(in imported, root, dir, loading, pos, ref source)
+        import_notation(in package_members(imported, source.packages), source.mods, pos, ref notation)
+        imports := imports ++ List(AOk(pos, span_from(pos, toks), imported))
+      catch
+        case ParseError(message, at) =>
+          imports := imports ++ List(
+            AErr(pos, span_from(pos, toks), imported, List(parse_diagnostic(ParseError(message, at)))))
+      end
 
     case _ =>
       parse_command(in notation, out more, ref toks)
@@ -3683,7 +3747,7 @@ procedure parse_file_text(
   var place: Place
   place_of(in path, out place)
   source := Source(List(), List(), place.id)
-  load_package(in Root(place.root, Map()), place.dir, Some((place.id, text)), List(), ref source)
+  load_package(in Root(place.root, Map(), false), place.dir, Some((place.id, text)), List(), ref source)
 
 procedure parse_file(
   in  path: Str,
@@ -3696,6 +3760,7 @@ procedure parse_file(
 procedure parse_file_overlaid(
   in  path: Str,
       overlays: Map[Str, Str],
+      declared: Bool,
   out source: Source
 ) raises ParseError, OsError :=
   var text: Str, place: Place, absolute: Map[Str, Str]
@@ -3703,11 +3768,12 @@ procedure parse_file_overlaid(
   overlaid_text(in path, overlays, out text)
   place_of(in path, out place)
   source := Source(List(), List(), place.id)
-  load_package(in Root(place.root, absolute), place.dir, Some((place.id, text)), List(), ref source)
+  load_package(in Root(place.root, absolute, declared), place.dir, Some((place.id, text)), List(), ref source)
 
 procedure parse_file_loaded(
   in  path: Str,
       overlays: Map[Str, Str],
+      declared: Bool,
   out source: Source,
   ref loaded: Loaded
 ) raises ParseError, OsError :=
@@ -3716,19 +3782,20 @@ procedure parse_file_loaded(
   overlaid_text(in path, overlays, out text)
   place_of(in path, out place)
   let own := package_id(place.dir)
-  let before := if loaded.root == place.root and loaded.overlays == absolute then
+  let before := if loaded.root == place.root and loaded.overlays == absolute and loaded.declared == declared then
     without_dependents(loaded.source, own)
   else
     Source(List(), List(), List())
   source := before with main := place.id
-  load_package(in Root(place.root, absolute), place.dir, Some((place.id, text)), List(), ref source)
+  load_package(in Root(place.root, absolute, declared), place.dir, Some((place.id, text)), List(), ref source)
   source := reached(source, own)
-  loaded := Loaded(place.root, absolute, with_loaded(before, source, own))
+  loaded := Loaded(place.root, absolute, declared, with_loaded(before, source, own))
 
-// the root of a project, the directory path, and the overlays, the texts that loading takes instead of the files of their
-// paths, absolute and normal
+// the root of a project, the directory path, the overlays, the texts that loading takes instead of the files of their
+// paths, absolute and normal, and whether the packages other than that of the main file are loaded as far as their
+// importers see them (declared_tokens)
 data Root :=
-  case Root(path: Str, overlays: Map[Str, Str])
+  case Root(path: Str, overlays: Map[Str, Str], declared: Bool)
 
 // overlays with their paths absolute and normal, from the working directory
 procedure absolute_overlays(
@@ -3849,7 +3916,7 @@ procedure parse_text_recovering(
 ) raises ParseError, OsError :=
   var toks: Tokens, comments: List[Comment], own: Mod, loaded := Source(List(), List(), List("main"))
   lex_text(in text, out toks, comments)
-  parse_mod(in List("main"), comments, List(), builtin_notation(), Root("", Map()), None, List(), out own, ref loaded, toks)
+  parse_mod(in List("main"), comments, List(), builtin_notation(), Root("", Map(), false), None, List(), out own, ref loaded, toks)
   source := Source(List(own), List(), List("main"))
 
 // the file of a module: its id, the root of its project, and its directory from the root, None for the library

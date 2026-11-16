@@ -1,0 +1,77 @@
+// loading a file with the packages other than its own only as far as it sees them, the library included (declared of
+// parse_file_loaded of ulang/parse/parse.u and of check_cached of ulang/check/check.u), shows it the same signatures,
+// diagnostics, and hints as loading them whole, while the errors of their definitions are not found; each load reads
+// the library, which the interpreter does too slowly, so project.u runs these tests only compiled
+
+import ulang.syntax
+import ulang.parse
+import ulang.check
+
+// the source, the checked program, and the signatures of the packages of the file at path, loaded whole or, by declared,
+// only as far as it sees its imports
+procedure load_mode(
+  in  path: Str,
+      declared: Bool,
+  out source: Source,
+      q: Prog,
+      signatures: List[(Path, Sig)]
+) raises ParseError, OsError, InternalError :=
+  var loaded := Loaded("", Map(), false, Source(List(), List(), List())), checks := no_checks()
+  parse_file_loaded(in path, Map(), declared, out source, ref loaded)
+  check_cached(in source, empty(), false, declared, no_tests, out q, _, signatures, ref checks)
+
+// the checked program of the text of the module main in the directory dir, after the packages of imported, each its
+// directory and the modules and texts of its members, loaded as load_mode loads them
+procedure check_mode(
+  in  dir: Str,
+      imported: List[(Str, List[(Path, Str)])],
+      main: (Path, Str),
+      declared: Bool,
+  out q: Prog
+) raises ParseError, OsError, InternalError :=
+  var here: Str, root: Str, source: Source, checks := no_checks()
+  os_cwd(out here)
+  project_root(in normal_path(here), out root)
+  parse_texts(in root, dir, imported, List(), main, declared, out source)
+  check_cached(in source, empty(), false, declared, no_tests, out q, _, _, ref checks)
+
+function user(): Str :=
+  "ulang/test/declared/user/user.u"
+
+function shapes(): Path :=
+  List("ulang", "test", "declared", "shapes")
+
+test same_signatures() :=
+  var full: List[(Path, Sig)], cut: List[(Path, Sig)], source: Source
+  load_mode(in user(), false, out _, _, full)
+  load_mode(in user(), true, out source, _, cut)
+  assert firsts(cut) == firsts(full)
+  assert List(for ((id, s), (_, t)) in zip(full, cut) if s != t yield id) == List()
+  // the cut load has of the implementation sections of shapes only the datatypes and type aliases, and nothing of notes
+  assert List(for d in source.mods if module_dir(d.name) == shapes() yield (d.name, size(d.implemented))) == List((shapes() ++ List("notes"), 0), (shapes() ++ List("shapes"), 3))
+
+test same_hints() :=
+  var full: Prog, cut: Prog, text: Str
+  load_mode(in user(), false, out _, full, _)
+  load_mode(in user(), true, out _, cut, _)
+  os_read_utf8(in user(), out text)
+  assert hints(text, full) != List() and hints(text, cut) == hints(text, full)
+
+// the errors of a module are the same, also those that the declarations of its imports decide
+test same_diagnostics() :=
+  var full: Prog, cut: Prog
+  let main := (List("ulang", "test", "declared", "texts", "main"), "import ulang.test.declared.shapes\n\nfunction wrong(): Int :=\n  area(1)\n\nfunction wide(s: Shape): Int :=\n  match s\n    case Wide(w, h) =>\n      w\n    case _ =>\n      0\n  end\n\nprocedure entry() :=\n  measure(in Circle(1), out _)\n")
+  check_mode(in "ulang/test/declared/texts", List(), main, false, out full)
+  check_mode(in "ulang/test/declared/texts", List(), main, true, out cut)
+  assert List(for d in diagnostics(full) yield d.code) == List("Mismatch", "CountMismatch", "CountMismatch", "UndeclaredRaise")
+  assert diagnostics(cut) == diagnostics(full)
+
+// an error in a definition of an import is found only by the load of the import whole
+test errors_of_imports() :=
+  var full: Prog, cut: Prog
+  let broken := ("ulang/test/declared/broken", List(
+    (List("ulang", "test", "declared", "broken", "broken"), "export\n\nfunction f(): Int\n\nimplementation\n\nfunction f(): Int :=\n  true\n")))
+  let main := (List("ulang", "test", "declared", "texts", "main"), "import ulang.test.declared.broken\n\nfunction g(): Int :=\n  f() + 1\n")
+  check_mode(in "ulang/test/declared/texts", List(broken), main, false, out full)
+  check_mode(in "ulang/test/declared/texts", List(broken), main, true, out cut)
+  assert size(diagnostics(full)) == 1 and diagnostics(cut) == List()

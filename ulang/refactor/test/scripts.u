@@ -45,9 +45,9 @@ test handles() :=
   os_write_utf8(in os_join(state, "handles.txt"), "")
   os_write_utf8(in path, original)
   run_script(in "@show " ++ path ++ ":f", false, state, nothing_found, out reply, status, _)
-  let shown := "      function f(x: Int): Int :=\n#1      match x\n#2        case 0 =>\n#3          1\n#4        case _ =>\n#5          x\n        end"
+  let shown := "#1    function f(x: Int): Int :=\n#2      match x\n#3        case 0 =>\n#4          1\n#5        case _ =>\n#6          x\n        end"
   assert reply == List("applied", "@show " ++ path ++ ":f\n" ++ shown)
-  run_script(in "@put #3\n2\n@put before #4\n      case 1 =>\n        3\n@patch #5\nx => x + 1\n", false, state, nothing_found, out reply, status, _)
+  run_script(in "@put #4\n2\n@put before #5\n      case 1 =>\n        3\n@patch #6\nx => x + 1\n", false, state, nothing_found, out reply, status, _)
   os_read_utf8(in path, out text)
   assert status == 0
   assert text == "function f(x: Int): Int :=\n  match x\n    case 0 =>\n      2\n\n    case 1 =>\n      3\n\n    case _ =>\n      x + 1\n  end\n"
@@ -83,14 +83,14 @@ test renames() :=
 test fixes() :=
   var status: Int, text: Str
   let state := "out/test/refactor/fixes", path := "out/test/refactor/fixes/f.u"
-  os_write_utf8(in path, "function is_pos(n: Int): Bool :=\n  if n > 0 and n < 10 then true else false\n\nfunction first(o: Option[Int]): Int :=\n  match o\n    case Some(x) =>\n      x\n    case None =>\n      0\n  end\n\nfunction unused_helper(n: Int): Int :=\n  n\n\nprocedure classify(in n: Int, out text: Str) :=\n  var label: Str, count := 1, spare: Int\n  let k := n + 1\n  if is_pos(n) then\n    label := \"pos\"\n    text := label ++ show(count) ++ show(first(Some(k)))\n  else\n    label := \"neg\"\n    text := label\n  end\n\nfunction pairs(xs: List[(Int, Int)]): List[Int] :=\n  List(for (a, b) in xs yield a)\n\nprocedure main() :=\n  var t: Str\n  classify(in 3, out t)\n  os_println(in t)\n")
+  os_write_utf8(in path, "function is_pos(n: Int): Bool :=\n  if n > 0 and n < 10 then true else false\n\nfunction first(o: Option[Int]): Int :=\n  match o\n    case Some(x) =>\n      x\n    case None =>\n      0\n  end\n\nfunction unused_helper(n: Int): Int :=\n  n\n\nprocedure classify(in n: Int, out text: Str) :=\n  var label: Str, count := 1, spare: Int\n  let k := n + 1\n  if is_pos(n) then\n    label := \"pos\"\n    text := label ++ show(count) ++ show(first(Some(k)))\n  else\n    label := \"neg\"\n    text := label\n  end\n\nfunction pairs(xs: List[(Int, Int)]): List[Int] :=\n  List(for (a, b) in xs yield a)\n\nfunction count_a(s: Str): Int :=\n  size(List(for c in chars(s) if c == 'a'))\n\nprocedure main() :=\n  var t: Str\n  classify(in 3, out t)\n  os_println(in t)\n  os_println(in show(count_a(t)))\n")
   run_script(in "@fix " ++ path, false, state, nothing_found, out _, status, _)
   os_read_utf8(in path, out text)
   assert status == 0
-  assert text == "function is_pos(n: Int): Bool :=\n  n > 0 and n < 10\n\nfunction first(o: Option[Int]): Int :=\n  value_or(o, 0)\n\nprocedure classify(in n: Int, out text: Str) :=\n  var count := 1\n  let k := n + 1\n  if is_pos(n) then\n    var label: Str\n    label := \"pos\"\n    text := label ++ show(count) ++ show(first(Some(k)))\n  else\n    var label: Str\n    label := \"neg\"\n    text := label\n  end\n\nprocedure main() :=\n  var t: Str\n  classify(in 3, out t)\n  os_println(in t)\n"
+  assert text == "function is_pos(n: Int): Bool :=\n  n > 0 and n < 10\n\nfunction first(o: Option[Int]): Int :=\n  value_or(o, 0)\n\nprocedure classify(in n: Int, out text: Str) :=\n  var count := 1\n  let k := n + 1\n  if is_pos(n) then\n    var label: Str\n    label := \"pos\"\n    text := label ++ show(count) ++ show(first(Some(k)))\n  else\n    var label: Str\n    label := \"neg\"\n    text := label\n  end\n\nfunction count_a(s: Str): Int :=\n  size(List(for c in s if c == 'a'))\n\nprocedure main() :=\n  var t: Str\n  classify(in 3, out t)\n  os_println(in t)\n  os_println(in show(count_a(t)))\n"
   run_script(in "@fix " ++ path, false, state, nothing_found, out _, status, _)
   os_read_utf8(in path, out text)
-  assert text == "function is_pos(n: Int): Bool :=\n  n > 0 and n < 10\n\nfunction first(o: Option[Int]): Int :=\n  value_or(o, 0)\n\nprocedure classify(in n: Int, out text: Str) :=\n  let count := 1\n  let k := n + 1\n  if is_pos(n) then\n    var label: Str\n    label := \"pos\"\n    text := label ++ show(count) ++ show(first(Some(k)))\n  else\n    var label: Str\n    label := \"neg\"\n    text := label\n  end\n\nprocedure main() :=\n  var t: Str\n  classify(in 3, out t)\n  os_println(in t)\n"
+  assert text == "function is_pos(n: Int): Bool :=\n  n > 0 and n < 10\n\nfunction first(o: Option[Int]): Int :=\n  value_or(o, 0)\n\nprocedure classify(in n: Int, out text: Str) :=\n  let count := 1\n  let k := n + 1\n  if is_pos(n) then\n    var label: Str\n    label := \"pos\"\n    text := label ++ show(count) ++ show(first(Some(k)))\n  else\n    var label: Str\n    label := \"neg\"\n    text := label\n  end\n\nfunction count_a(s: Str): Int :=\n  size(List(for c in s if c == 'a'))\n\nprocedure main() :=\n  var t: Str\n  classify(in 3, out t)\n  os_println(in t)\n  os_println(in show(count_a(t)))\n"
 
 // a check that finds an error at each use of value_or in the text of the file, the overlay if any, as if the module
 // declared another
@@ -195,3 +195,21 @@ test exports_and_renames() :=
   assert status == 0 and text == "function use_b(): Int :=\n  h(1)\n"
   os_read_utf8(in os_join(dir, "a.u"), out text)
   assert index_of("k(x) + 1", text) != None and index_of("example k(1) == 2", text) != None
+
+// a line of a script that starts with @ starts an action, so an action that takes a fragment and is followed by one is
+// refused with the line that it took as an action, and a fragment line that starts with @@ is the line with one @
+test escapes_at_lines() :=
+  var reply: List[Str], status: Int, text: Str
+  let path := "out/test/refactor/at.u"
+  os_write_utf8(in path, "function f(): Str :=\n  \"@a\"\n")
+  run_script(in "@patch " ++ path ++ ":f\n@drop " ++ path ++ ":f\n", false, "out/test/refactor/state", lambda in _, _, out found =>
+    found := List()
+  end, out reply, status, _)
+  assert status == 1 and reply == List(
+    "rejected",
+    "@patch " ++ path ++ ":f has no fragment, since line 2 of the script, @drop " ++ path ++ ":f, starts with @, which starts an action; write a fragment line that starts with @ as @@")
+  run_script(in "@patch " ++ path ++ ":f\n@@a => @b\n", false, "out/test/refactor/state", lambda in _, _, out found =>
+    found := List()
+  end, out reply, status, _)
+  os_read_utf8(in path, out text)
+  assert status == 0 and text == "function f(): Str :=\n  \"@b\"\n"

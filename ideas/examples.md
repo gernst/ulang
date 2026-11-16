@@ -1,6 +1,6 @@
 # Ideas for examples
 
-Programs that show ulang on tasks of real software, beside `examples/words.u`, the most frequent words of files, `examples/csv.u`, the relational algebra on CSV files over `library/csv`, `examples/grep.u`, over the regular expressions of `library/regex`, `examples/jq.u`, queries on JSON over `library/json`, and `examples/md2html.u`, Markdown to HTML over `library/md`.
+Programs that show ulang on tasks of real software, beside `examples/words.u`, the most frequent words of files, `examples/csv.u`, the relational algebra on CSV files over `library/csv`, `examples/grep.u`, over the regular expressions of `library/regex`, `examples/jq.u`, queries on JSON over `library/json`, and `examples/md2html.u`, Markdown to HTML over `library/md`, and `ubox/`, 29 commands of Unix in one program in the manner of BusyBox, which `ubox/test/compare.sh` compares with those of the system in 60 cases, written by an agent through `refactor` (Refactor 5B).
 What `os` and `io` offer bounds them: files, streams, arguments, printing, directories, bytes, the environment, the clock, and sockets of TCP, but no processes, so most are tools from text or bytes to text.
 
 ## Within the language as it is

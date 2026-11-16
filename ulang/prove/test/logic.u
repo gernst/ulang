@@ -79,3 +79,16 @@ lemma boolean_equivalence(in a: Bool, b: Bool) :=
 lemma boolean_below_true(in b: Bool) :=
   requires b < true
   ensures  b == false
+
+// a comparison of compare with an integer is the comparison of its arguments that it means
+lemma compare_zero(in x: Str, y: Str) :=
+  requires compare(x, y) == 0
+  ensures  x == y
+
+lemma compare_negative(in x: Str, y: Str, z: Str) :=
+  requires compare(x, y) < 0, compare(y, z) <= 0
+  ensures  x < z
+
+lemma compare_of_less(in x: Str, y: Str) :=
+  requires x < y
+  ensures  compare(x, y) == -1 and compare(y, x) > 0

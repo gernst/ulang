@@ -1,0 +1,29 @@
+// lemmas over calls of functions without formals, whose call unfolds to the body, while the function stays a value
+
+data Box :=
+  case Box(n: Int)
+
+function one(): Int :=
+  1
+
+function top(): Box :=
+  Box(2)
+
+function apply(f: () -> Int): Int :=
+  f()
+
+lemma call_unfolds(in n: Int) :=
+  ensures one() == 1
+
+lemma call_in_assumption(in n: Int) :=
+  requires n == one()
+  ensures  n == 1
+
+lemma call_in_sum(in n: Int) :=
+  ensures one() + n == n + 1
+
+lemma field_of_call(in n: Int) :=
+  ensures top().n == 2
+
+lemma function_passed(in n: Int) :=
+  ensures apply(one) == 1

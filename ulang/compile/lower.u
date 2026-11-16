@@ -23,10 +23,16 @@ function proc_name(n: Name): Str
 // sections of the prelude, str.u, and array.u by their qualified names
 function builtin_functions(): Map[Name, (Str, Int)]
 
-// the datatypes and constructors whose descriptors the runtime defines, of OsError, which its builtins create also in
-// programs that do not import os, while each program defines those of the prelude and its modules, which it always has
-function runtime_constructors(): Set[Name]
+// the function of the runtime that makes a tuple, or else a constructor, of k fields, and whether it takes k as an
+// argument, which the functions of fixed arity for the sizes that most constructions have do not
+function construction(is_tuple: Bool, k: Int): (Str, Bool) :=
+  example construction(false, 2) == ("u_mk_con_2", false)
+  example construction(true, 1) == ("u_mk_tuple", true)
+  example construction(true, 3) == ("u_mk_tuple_3", false)
+  example construction(false, 4) == ("u_mk_con", true)
 
+// the datatypes whose descriptors and constructors the runtime defines itself, of OsError, which its builtins create also
+// in programs that do not import os, while each program defines those of the prelude and its modules, which it always has
 function runtime_types(): Set[Name]
 
 // the datatypes whose descriptors, of themselves, their constructors, and their values without arguments,
@@ -83,9 +89,9 @@ data Fused :=
 
 function fusion_of(name: Name, args: List[At[Expr]]): Option[Fused]
 
-// the array of the items of a for statement over an array, array.foldr(a, Nil, lambda x, acc => Cons(x, acc)) of items of
-// ulang/check/check.u, which the backends walk by index instead of building the list
-function array_items(over: At[Expr]): Option[At[Expr]]
+// the fold and the container of the items of a for statement over an array or a string, foldr(c, Nil, lambda x, acc =>
+// Cons(x, acc)) of items of ulang/check/check.u, which the backends walk by index instead of building the list
+function indexed_items(over: At[Expr]): Option[(Name, At[Expr])]
 
 function var_names(xs: List[Var]): List[Name]
 
@@ -238,9 +244,18 @@ function builtin_functions(): Map[Name, (Str, Int)] :=
     library_name("array", "slice") => ("u_array_slice", 3),
     library_name("array", "foldr") => ("u_array_foldr", 3),
     library_name("array", "foldl") => ("u_array_foldl", 3),
+    library_name("prelude", "foldr") => ("u_str_foldr", 3),
+    library_name("prelude", "foldl") => ("u_str_foldl", 3),
     array_start_name() => ("u_array_start", 1),
     array_push_name() => ("u_array_push", 2),
     array_reversed_name() => ("u_array_reversed", 1))
+
+function construction(is_tuple: Bool, k: Int): (Str, Bool) :=
+  let base := (if is_tuple then "u_mk_tuple" else "u_mk_con"), least := if is_tuple then 2 else 1 in
+  if least <= k and k <= 3 then
+    (base ++ "_" ++ show(k), false)
+  else
+    (base, true)
 
 // the internal builtins of the arrays that comprehensions build inside folds, by names that users cannot write
 function array_start_name(): Name :=
@@ -251,9 +266,6 @@ function array_push_name(): Name :=
 
 function array_reversed_name(): Name :=
   library_name("array", "(reversed)")
-
-function runtime_constructors(): Set[Name] :=
-  Set(os_error_name())
 
 function runtime_types(): Set[Name] :=
   Set(os_error_name())
@@ -534,7 +546,7 @@ function fusion_of(name: Name, args: List[At[Expr]]): Option[Fused] :=
 // foldr(c2, acc, lambda x2, acc => ... if q then Cons(e, acc) else acc)), into which comprehensions translate, where each
 // generator is the fold of its container, the container, and the variable, and acc is free nowhere else
 function fused(f: Name, c: At[Expr], x: Var, body: At[Expr], acc: Name): Option[Fusion] :=
-  if f != list_foldr_name() and f != array_foldr_name() then
+  if f != list_foldr_name() and f != array_foldr_name() and f != str_foldr_name() then
     None
   else
     match consing(body, acc)
@@ -611,15 +623,15 @@ function pushed(body: At[Expr], acc: Var): Option[At[Expr]] :=
       end
   end
 
-function array_items(over: At[Expr]): Option[At[Expr]] :=
+function indexed_items(over: At[Expr]): Option[(Name, At[Expr])] :=
   match over.that
     case ECall(_, _, f, _, List(
       a,
       AOk(_, _, ENil(_)),
-      AOk(_, _, ELam(List(AOk(_, _, PVar(x)), AOk(_, _, PVar(acc))), body)))) if f == array_foldr_name() =>
+      AOk(_, _, ELam(List(AOk(_, _, PVar(x)), AOk(_, _, PVar(acc))), body)))) if f == array_foldr_name() or f == str_foldr_name() =>
       match consing(body, acc.name)
         case Some((None, AOk(_, _, EName(name, _)))) if name == x.name =>
-          Some(a)
+          Some((f, a))
         case _ =>
           None
       end

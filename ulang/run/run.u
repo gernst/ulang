@@ -29,10 +29,11 @@ data Val :=
   case VProcClos(env: Map[Name, Val], ins: List[Var], outs: List[Var], refs: List[Var], stmt: At[Stmt])
 
 // main, the module of the loaded file, whose errors a Deferred names without their module, as the diagnostics do, and
-// the deadline of a test, after which its calls and loops raise TimedOut, and aliases the pattern aliases of the program,
-// which the expansion of a test takes
+// the deadline of a test, after which its calls and loops raise TimedOut, aliases the pattern aliases of the program,
+// which the expansion of a test takes, and diverted whether os_print writes to the error output, as the tests of a
+// refactor script print, whose reply is the output
 data Run :=
-  case Run(defs: Defs, computing: List[Name], args: List[Str], main: Path, deadline: Option[Deadline], aliases: Aliases)
+  case Run(defs: Defs, computing: List[Name], args: List[Str], main: Path, deadline: Option[Deadline], aliases: Aliases, diverted: Bool)
 
 // the time of os_clock after which a run stops, and its limit in seconds, which the error names
 data Deadline :=
@@ -212,7 +213,7 @@ procedure unordered(in run: Run, k: Name, equating: Bool) :=
   end
 
 function load(q: Prog): Run :=
-  Run(defs_of(expanded(q)), List(), List(), q.main, None, aliases_of(q))
+  Run(defs_of(expanded(q)), List(), List(), q.main, None, aliases_of(q), false)
 
 // the contents of a string, as printing and declared shows give them, and the source of any other value
 function text_of(v: Val): Str :=
@@ -261,7 +262,9 @@ function builtin_names(): Set[Name] :=
     library_name("array", "at"),
     library_name("array", "slice"),
     library_name("array", "foldr"),
-    library_name("array", "foldl"))
+    library_name("array", "foldl"),
+    library_name("prelude", "foldr"),
+    library_name("prelude", "foldl"))
 
 function is_builtin(n: Name): Bool :=
   contains(n, builtin_names())
@@ -649,6 +652,22 @@ procedure apply_value(
             apply_value(in run, g, List(at(k, values), v), out v, ref cache)
           end
 
+        case ("prelude.prelude.foldr", List(VStr(text), acc, g)) =>
+          var k: Int
+          k := size(text), v := acc
+          while k > 0 do
+            k := k - 1
+            apply_value(in run, g, List(VChar(at(k, text)), v), out v, ref cache)
+          end
+
+        case ("prelude.prelude.foldl", List(VStr(text), acc, g)) =>
+          var k: Int
+          k := 0, v := acc
+          while k < size(text) do
+            apply_value(in run, g, List(v, VChar(at(k, text))), out v, ref cache)
+            k := k + 1
+          end
+
         case ("prelude.array.foldl", List(VArr(values), acc, g)) =>
           var k: Int
           k := 0, v := acc
@@ -741,7 +760,7 @@ procedure primitive(in n: Name, vs: List[Val], out v: Val) :=
       v := VInt(a % b)
 
     case ("prelude.str.chars", List(VStr(text))) =>
-      v := list_value(List(for c in chars(text) yield VChar(c)))
+      v := list_value(List(for c in text yield VChar(c)))
 
     case ("prelude.str.str", List(w)) =>
       match list_elements(w)
@@ -1379,7 +1398,7 @@ procedure invoke(
 
     case None if format_name(n) == "prelude.os.os_print" =>
       outs := List()
-      print_all(in List(for v in ins yield text_of(v)))
+      print_all(in List(for v in ins yield text_of(v)), run.diverted)
 
     case None if format_name(n) == "prelude.os.os_args" =>
       outs := List(list_value(List(for a in run.args yield VStr(a))))
@@ -1474,9 +1493,21 @@ procedure read_outs(
     end
   end
 
-procedure print_all(in lines: List[Str]) :=
+procedure print_all(in lines: List[Str], diverted: Bool) :=
   for line in lines do
-    os_print(in line)
+    if diverted then
+      try
+        var io: IO
+        io_stderr(out io)
+        io_write_utf8(in io, line)
+      catch
+        // the error output failed, so the line goes to the output
+        case OsError(_) =>
+          os_print(in line)
+      end
+    else
+      os_print(in line)
+    end
   end
 
 // the procedures of the library os are those of the interpreter of this program, whose OsError the program can catch
