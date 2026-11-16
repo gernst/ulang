@@ -57,7 +57,7 @@ Exported now, and enough for the side table: class ids, `class_of`, `class_nodes
 Engines: **eq** (definitions and lemmas), **ctx** (extended by the path), **classes** (parts that share a class). Priority: **A** soon, **B** after the mechanism has settled.
 
 - **R1 `CopiedContainer`** (eq, A for lists, sets and maps under binders): `List(for y in List(for x in c) yield e)` is `List(for y in c yield e)`, also as the generator of a `for`; replaces `iterated_list`.
-- **R2 `Folded`** (eq, A): a part that spells out the body of a library function, `value_or`, `map_option`, `not`, `exists`; replaces the patterns of `value_or`, `map_option`, `exists`, and `forall` of options in `folded_match` of `ulang/lint/lint.u`.
+- **R2 `Reimplemented`** (eq, A): a part that spells out the body of a library function, `value_or`, `map_option`, `not`, `exists`, under a code of its own; replaces the interim rule `OptionMatch`, the matches on an option that spell out `value_or`, `map_option`, `exists`, and `forall` (`option_match` of `ulang/lint/lint.u`), which skips a case of `Some` that calls the function that it defines, since the rewrite would move its recursion into a lambda.
 - **R4 `RepeatedExpr`** (classes, B, a finding without edit): two source parts in one class, larger than a threshold, in one declaration or module, modulo the names of locals, overloads, and the lemmas, so `x.name` and `name_of(x)` are found too.
 - **R5 `BoolIte`** (eq, A): `if c then true else false == c`, `c == true == c`, `if c then a else a == a`; replaces the patterns of `placed_lints` and `compared_bool`.
 - **R6 `IdentityForm`** (eq, A): `List(for x in xs) == xs` of a list, `Set(for x in s) == s` of a set.

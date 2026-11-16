@@ -13,8 +13,9 @@ data Lint :=
   // an if of true and false, or of false and true, which is its condition or not of it, a comparison of a condition
   // with true or false, which is the condition or not of it, or an if of equal branches, which is that branch
   case BoolIte
-  // a match on an option that spells out value_or, map_option, exists, or forall
-  case Folded
+  // a match on an option that spells out value_or, map_option, exists, or forall, unless its case of Some calls the
+  // function that it defines, whose recursion would move into a lambda
+  case OptionMatch
   // a list that a generator only iterates, of the elements of a container, which is that container
   case CopiedContainer
   // a for whose body only appends one element to a list that starts empty, which is a form List(for …)
@@ -77,7 +78,7 @@ function placed_cmd_lints(pos: Pos, cmd: Cmd): List[Warning] :=
       stmt_lints("", stmt)
 
     case CLemma(_, _, ins, outs, claim, _) =>
-      vars_lints(pos, ins ++ outs) ++ exprs_lints("", claim_exprs(claim))
+      vars_lints(pos, ins ++ outs) ++ without_bool_ites(exprs_lints("", claim_exprs(claim)))
 
     case CPatAlias(name, _, formals, _, _) =>
       decl_name_lints(pos, name.base, List()) ++ vars_lints(pos, formals)
@@ -243,7 +244,7 @@ function part_stmt_lints(fun: Id, pos: Pos, stmt: Stmt): List[Warning] :=
       expr_lints(fun, arg) ++ List(for br in parts(cases) for w in stmt_branch_lints(fun, br) yield w)
 
     case SAssert(cond) =>
-      expr_lints(fun, cond)
+      without_bool_ites(expr_lints(fun, cond))
 
     case SAssertRaises(_, pat, guard, body) =>
       binder_lints(List(pat), option_names(guard)) ++ option_lints(fun, guard) ++ stmt_lints(fun, body)
@@ -293,7 +294,7 @@ function placed_lints(fun: Id, pos: Pos, span: Span, expr: Expr): List[Warning] 
       compared_bool(pos, span, left, right)
 
     case EMatch(arg, cases) =>
-      folded_match(fun, pos, span, arg, parts(cases))
+      option_match(fun, pos, span, arg, parts(cases))
 
     case _ =>
       List()
@@ -318,16 +319,17 @@ function bool_comparison(pos: Pos, span: Span, cond: At[Expr], value: Bool): War
   else
     rewritten(BoolIte, pos, span, "a comparison with false is not of the condition", expr_app("not", List(cond)))
 
-// a match that spells out an option function of the library, but in the definition of that function, fun
-function folded_match(fun: Id, pos: Pos, span: Span, arg: At[Expr], cases: List[Branch[At[Expr]]]): List[Warning] :=
+// a match that spells out an option function of the library, but in the definition of that function, fun, and where its
+// case of Some calls fun, whose recursion would move into a lambda, while a call of fun in the argument stays where it is
+function option_match(fun: Id, pos: Pos, span: Span, arg: At[Expr], cases: List[Branch[At[Expr]]]): List[Warning] :=
   match (option_default(cases), option_fold(cases))
     case (Some(d), _) if fun != "value_or" =>
       List(
-        rewritten(Folded, pos, span, "a match that gives the value of an option, or else a default, is value_or", expr_app("value_or", List(arg, d))))
+        rewritten(OptionMatch, pos, span, "a match on an option that is value_or", expr_app("value_or", List(arg, d))))
 
-    case (_, Some((f, x, body))) if fun != f =>
+    case (_, Some((f, x, body))) if fun != f and not contains(fun, expr_names(body)) =>
       List(
-        rewritten(Folded, pos, span, "a match that spells out " ++ f ++ " of an option is " ++ f, expr_app(f, List(arg, nowhere(ELam(List(x), body))))))
+        rewritten(OptionMatch, pos, span, "a match on an option that is " ++ f, expr_app(f, List(arg, nowhere(ELam(List(x), body))))))
 
     case _ =>
       List()
@@ -398,6 +400,11 @@ function is_none_expr(expr: At[Expr]): Bool :=
 // a warning whose edit writes expr instead of the part at span
 function rewritten(lint: Lint, pos: Pos, span: Span, message: Str, expr: At[Expr]): Warning :=
   Warning(lint, pos, message, Some(expr), Some(EditExpr(span, expr)))
+
+// the warnings of ws but those of BoolIte, which the claims of lemmas, whose equations are their statements, and the
+// conditions of assert, which print both sides of a failed ==, do not take
+function without_bool_ites(ws: List[Warning]): List[Warning] :=
+  List(for w in ws if w.lint != BoolIte)
 
 function literal_bool(expr: At[Expr]): Option[Bool] :=
   match strip_expr(expr)
