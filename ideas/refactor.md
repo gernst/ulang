@@ -52,7 +52,6 @@ By priority, each the problem and the solution.
 
 21. **The record of resolutions** of Diagnostics 3, which declaration each name, field, type, and constructor resolves to, for item 12, the handles of diagnostics, and item 16.
 22. **A single node formats as in its file**, also over error nodes, so that `@show`, `@patch`, and the code of diagnostics always match the file.
-23. **Additions that break nothing**: patterns of fields by name, `case Link(url := u)`, the others implicitly `_`, and defaults of fields, `title: Str := ""`, which a construction may leave out at the end, so that adding a field is one `@put` without follow-ups.
 24. **Drafting**: a hole `todo`, an expression of any type and a statement, which raises `Todo`, is an open goal for the prover, and whose uses `check --test` lists, so a new constructor is stubbed in each match by `case Scroll(_) => todo`; and an optional inline `export function f(…) := …`, so that a fragment is the whole truth of a declaration.
 
 ### Found by the third client outside the tool
@@ -72,4 +71,4 @@ By priority, each the problem and the solution.
 
 ## Order of work
 
-The small ones any time, 52 to 57, and the doc of 26; then 6, the cost of every script, and 3 after it; then 21 with 12, 14 and 15 with Diagnostics 6 (item 10), 23 and 24 at any time, each making 14 smaller, then 1 and 20, and the rest of 18 as uses ask.
+The small ones any time, 52 to 57, and the doc of 26; then 6, the cost of every script, and 3 after it; then 21 with 12, 14 and 15 with Diagnostics 6 (item 10), 24 at any time, making 14 smaller, then 1 and 20, and the rest of 18 as uses ask.
