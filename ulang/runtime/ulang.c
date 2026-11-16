@@ -427,6 +427,7 @@ static int compare(u_value a, u_value b) {
 }
 
 int u_equals(u_value a, u_value b) {
+  if (a->type == b->type && (a->type == &u_int_type || a->type == &u_char_type)) return a->num == b->num;
   return u_truth(a->type->equals(a, b));
 }
 
@@ -586,7 +587,9 @@ u_value u_lt(u_value a, u_value b) {
   return u_mk_bool(compare(a, b) < 0);
 }
 
+// small integers and characters directly, and other values by the equality of their type
 u_value u_eq(u_value a, u_value b) {
+  if (a->type == b->type && (a->type == &u_int_type || a->type == &u_char_type)) return u_mk_bool(a->num == b->num);
   return a->type->equals(a, b);
 }
 
