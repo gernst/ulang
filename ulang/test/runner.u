@@ -164,19 +164,6 @@ procedure test_message(
       message := error_text(InternalKind, internal_message(e))
   end
 
-// the lemmas up to the last of the named ones, all if none are named, since those before are the facts of the named ones,
-// while those after are not needed
-function lemmas_upto(lemmas: List[Lemma], names: List[Str]): List[Lemma] :=
-  if names == List() then
-    lemmas
-  else
-    match index_of(true, reverse(List(for l in lemmas yield contains(l.name.base, names))))
-      case Some(i) =>
-        take(size(lemmas) - i, lemmas)
-      case None =>
-        lemmas
-    end
-
 procedure prove_module(
   in  q: Prog,
       m: Path,
@@ -186,8 +173,8 @@ procedure prove_module(
       label: Str,
   out proven: Bool
 ) :=
-  let provable := without_rejected_lemmas(q), t := translate(provable, m), proofs := prove_lemmas(t.decls, t.contracts, List(for l in lemmas_upto(t.lemmas, names) if not contains(l.name.base, falsified))), ds: List[Diagnostic] := proof_diagnostics(with_proofs(provable, m, proofs, names), m)
-  proven := ds == List() and not exists(t.lemmas, lambda l => contains(l.name.base, falsified) and is_named(l.name.base, names))
+  let p := provable(q), t := translate(p.prog, m), refuted := Set(for l in t.lemmas if contains(l.name.base, falsified) yield l.name), selected := List(for l in t.lemmas if is_named(l.name.base, names) yield l), targets := Set(for l in selected if not contains(l.name, refuted) and not contains(l.name, p.broken) yield l.name), proofs := prove_lemmas(t.decls, t.contracts, Lemmas(t.lemmas, targets, refuted, p.erroneous)), ds: List[Diagnostic] := proof_diagnostics(with_proofs(p.prog, m, proofs, names), m)
+  proven := ds == List() and not exists(selected, lambda l => contains(l.name, refuted))
   for n in names if not exists(t.lemmas, lambda l => l.name.base == n) do
     os_println(in label ++ error_text(RuntimeKind, "there is no lemma " ++ n))
     proven := false
@@ -195,8 +182,9 @@ procedure prove_module(
   for d in ds if d.code == "OpenTermination" do
     os_println(in format_diagnostic(file, d))
   end
-  for l in lemmas_upto(t.lemmas, names) if is_named(l.name.base, names) do
-    match find(proofs.lemmas, lambda p => p.name == l.name)
+  // a lemma whose proof has errors is not proven, which its errors report
+  for l in selected if not contains(l.name, p.broken) do
+    match find(proofs.lemmas, lambda proved => proved.name == l.name)
       case Some(Proved(name, List())) =>
         os_println(in label ++ "lemma " ++ name.base ++ " proved")
 

@@ -81,7 +81,7 @@ procedure prove_text(
 ) raises ParseError, TypeError, Unformatted, InternalError, OsError, OpenLemma, OpenTermination
 
 // the lemmas of the case despite its errors of types, as check --prove proves those of a unit with errors, without the
-// lemmas that have errors
+// lemmas whose statements have errors and the proofs that have errors
 procedure prove_text_despite_errors(
   in  path: Str,
       lines: List[Str]

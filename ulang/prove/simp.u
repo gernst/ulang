@@ -1186,7 +1186,7 @@ function simp_app(ctx: Ctx, f: Term, args: List[Term]): Term :=
       simp_term(ctx, beta(args, body))
 
     case EFun(name) =>
-      match simp_builtin(ctx, EApp(f, args))
+      match simp_builtin_atom(ctx, EApp(f, args))
         case Some(t) =>
           t
 
@@ -1202,6 +1202,72 @@ function simp_app(ctx: Ctx, f: Term, args: List[Term]): Term :=
     case _ =>
       rewrite(ctx, EApp(f, args))
   end
+
+// e simplified by simp_builtin, after compare_atom has replaced a comparison of compare(x, y) with an integer by the
+// comparison of x and y that it means
+function simp_builtin_atom(ctx: Ctx, e: Term): Option[Term] :=
+  match compare_atom(e)
+    case Some(t) =>
+      Some(simp_term(ctx, t))
+    case None =>
+      simp_builtin(ctx, e)
+  end
+
+// a comparison of compare(x, y) with an integer as the comparison of x and y that it means, since the results of compare
+// are -1, 0, and 1 and follow <, so that facts and goals over compare reach the e-graph and the inequalities
+function compare_atom(e: Term): Option[Term] :=
+  match e
+    case Eq(Compare(x, y), EInt(k)) | Eq(EInt(k), Compare(x, y)) =>
+      Some(compare_equal(x, y, k))
+
+    case Less(Compare(x, y), EInt(k)) | Greater(EInt(k), Compare(x, y)) =>
+      Some(compare_below(x, y, k))
+
+    case LessEq(Compare(x, y), EInt(k)) | GreaterEq(EInt(k), Compare(x, y)) =>
+      Some(compare_below(x, y, k + 1))
+
+    case Less(EInt(k), Compare(x, y)) | Greater(Compare(x, y), EInt(k)) =>
+      Some(compare_above(x, y, k))
+
+    case LessEq(EInt(k), Compare(x, y)) | GreaterEq(Compare(x, y), EInt(k)) =>
+      Some(compare_above(x, y, k - 1))
+
+    case _ =>
+      None
+  end
+
+// compare(x, y) == k
+function compare_equal(x: Term, y: Term, k: Int): Term :=
+  if k == 0 then
+    Eq(x, y)
+  else if k == -1 then
+    Less(x, y)
+  else if k == 1 then
+    Less(y, x)
+  else
+    EBool(false)
+
+// compare(x, y) < k
+function compare_below(x: Term, y: Term, k: Int): Term :=
+  if k <= -1 then
+    EBool(false)
+  else if k == 0 then
+    Less(x, y)
+  else if k == 1 then
+    LessEq(x, y)
+  else
+    EBool(true)
+
+// k < compare(x, y)
+function compare_above(x: Term, y: Term, k: Int): Term :=
+  if k < -1 then
+    EBool(true)
+  else if k == -1 then
+    LessEq(y, x)
+  else if k == 0 then
+    Less(y, x)
+  else
+    EBool(false)
 
 // e simplified if it is an application of a builtin, whose arguments are simplified, which takes precedence over a
 // definition of the same name, as of not and ==> in the prelude

@@ -14,10 +14,10 @@ data Proved :=
 data Proofs :=
   case Proofs(lemmas: List[Proved], terminations: List[Termination])
 
-// the lemmas in their order, each by simplification, else by induction on the first of its formals by which all cases
-// close, where the lemmas proven before are assumptions, and the recursive functions that they reach unfold only if
-// their termination is proven
-function prove_lemmas(decls: Decls, contracts: List[Lemma], lemmas: List[Lemma]): Proofs
+// the targets, each on its own, by its proof, else by simplification and then induction on the first of its formals by
+// which all cases close, where the lemmas before it are facts, but the falsified ones and the claims, and the recursive
+// functions that they reach unfold only if their termination is proven
+function prove_lemmas(decls: Decls, contracts: List[Lemma], lemmas: Lemmas): Proofs
 
 function is_proven(proved: Proved): Bool
 
@@ -57,13 +57,25 @@ data OpenTermination :=
 // function that they reach whose termination is not proven, else OpenLemma for the first lemma that is open
 procedure prove_program(in q: Prog, m: Path) raises OpenLemma, OpenTermination
 
-// q without its lemmas that have errors, which the prover does not prove
-function without_rejected_lemmas(q: Prog): Prog
+// the lemmas of a module for the prover: all whose statements check, in the order of the source, of which a proof cites
+// any but the claims, also those after it and those that are open or falsified, since a proof looks only at the
+// statements that it cites; the names of the ones to prove; those that a test falsified, which are no facts; and the
+// names of the lemmas whose statements have errors, which no proof can cite
+data Lemmas :=
+  case Lemmas(all: List[Lemma], targets: Set[Name], falsified: Set[Name], erroneous: Set[Name])
+
+// the program that the prover takes of a checked one, where a lemma whose errors are only in its proof has lost the
+// proof, broken, which is not proven but citable and a fact, and a lemma whose statement has errors is left out,
+// erroneous, which no proof can cite
+data Provable :=
+  case Provable(prog: Prog, erroneous: Set[Name], broken: Set[Name])
+
+function provable(q: Prog): Provable
 
 implementation
 
 procedure prove_program(in q: Prog, m: Path) raises OpenLemma, OpenTermination :=
-  let t := translate(without_rejected_lemmas(q), m), proofs := prove_lemmas(t.decls, t.contracts, t.lemmas)
+  let p := provable(q), t := translate(p.prog, m), proofs := prove_lemmas(t.decls, t.contracts, Lemmas(t.lemmas, Set(for l in t.lemmas if not contains(l.name, p.broken) yield l.name), empty(), p.erroneous))
   for tm in proofs.terminations do
     match tm.open
       case List(site; _) =>
@@ -72,20 +84,20 @@ procedure prove_program(in q: Prog, m: Path) raises OpenLemma, OpenTermination :
         skip
     end
   end
-  for p in proofs.lemmas do
-    match p.gaps
+  for proved in proofs.lemmas do
+    match proved.gaps
       case List(gap; _) =>
-        raise OpenLemma(p.name.base, print_gap(gap))
+        raise OpenLemma(proved.name.base, print_gap(gap))
       case List() =>
         skip
     end
   end
 
-function prove_lemmas(decls: Decls, contracts: List[Lemma], lemmas: List[Lemma]): Proofs :=
-  let roots := Set(for l in lemmas ++ contracts for k in defined_in(decls, lemma_symbols(l)) yield k) in
+function prove_lemmas(decls: Decls, contracts: List[Lemma], lemmas: Lemmas): Proofs :=
+  let roots := Set(for l in reached_lemmas(lemmas) ++ contracts for k in defined_in(decls, lemma_symbols(l)) yield k) in
   let ts := terminations(decls, roots) in
   let proven := Set(for t in ts if is_terminating(t) for k in t.names yield k) in
-  Proofs(proofs(decls with terminating := proven, contracts, lemmas, List()), ts)
+  Proofs(proofs(decls with terminating := proven, contracts, lemmas), ts)
 
 function has_errors(proofs: Proofs): Bool :=
   exists(proofs.lemmas, lambda p => not is_proven(p)) or exists(proofs.terminations, lambda t => not is_terminating(t))
@@ -111,29 +123,6 @@ function defined_in(decls: Decls, symbols: Set[(Name, Int)]): List[(Name, Int)] 
 // the symbols of the statement of the lemma and of its proof, whose steps unfold the functions that they name too
 function lemma_symbols(l: Lemma): Set[(Name, Int)] :=
   Set(for t in lemma_terms(l) for k in symbols_in(t) yield k)
-
-// the lemmas in their order, where proven are the lemmas proven before, whose goals are the facts of the default proof,
-// without the claims, which hold only for the runs that end, so that ensures false of a loop that does not end would
-// prove every lemma after it
-function proofs(decls: Decls, contracts: List[Lemma], lemmas: List[Lemma], proven: List[Lemma]): List[Proved] :=
-  match lemmas
-    case List() =>
-      List()
-
-    case List(target; rest) =>
-      let gaps := match target.proof
-        case Some(proof) =>
-          check_proof(decls, proven, contracts, target, proof)
-        case None =>
-          default_gaps(decls, List(for l in proven yield l.goal), target.goal)
-      end in
-      let proved := Proved(target.name, gaps) in
-      List(
-        proved; proofs(decls, contracts, rest, if is_proven(proved) and not target.claim then
-          proven ++ List(target)
-        else
-          proven))
-  end
 
 function default_gaps(decls: Decls, facts: List[Seq], goal: Seq): List[Gap] :=
   let after := default_proof(decls, facts, goal) in
@@ -224,13 +213,66 @@ function default_proof(decls: Decls, facts: List[Seq], goal: Seq): Seq :=
 function is_true(decls: Decls, goal: Seq): Bool :=
   simplify(decls, goal) == TrueSeq()
 
-function without_rejected_lemmas(q: Prog): Prog :=
-  q with cmds := List(for c in q.cmds if not is_lemma(c.that) or cmd_errors(c) == List())
+function provable(q: Prog): Provable :=
+  let lemmas := List(for c in q.cmds for name in lemma_name(c.that) yield (name, c)) in
+  Provable(q with cmds := List(for c in q.cmds for kept in provable_cmd(c) yield kept), Set(for (name, c) in lemmas if has_statement_errors(c) yield name), Set(for (name, c) in lemmas if cmd_errors(c) != List() and not has_statement_errors(c) yield name))
 
-function is_lemma(cmd: Cmd): Bool :=
-  match cmd
-    case CLemma(_, _, _, _, _, _) =>
-      true
+// the command, where a lemma whose errors are only in its proof has lost the proof, None for a lemma whose statement has
+// errors
+function provable_cmd(cmd: At[Cmd]): Option[At[Cmd]] :=
+  match cmd.that
+    case CLemma(name, params, ins, outs, claim, _) =>
+      if cmd_errors(cmd) == List() then
+        Some(cmd)
+      else if has_statement_errors(cmd) then
+        None
+      else
+        Some(AOk(cmd.pos, cmd.span, CLemma(name, params, ins, outs, claim, None)))
+
+    case _ =>
+      Some(cmd)
+  end
+
+// whether the lemma has errors outside its proof
+function has_statement_errors(cmd: At[Cmd]): Bool :=
+  match cmd.that
+    case CLemma(_, _, _, _, _, proof) =>
+      size(cmd_errors(cmd)) > size(List(for p in proof for e in errors_in_proof(p) yield e))
     case _ =>
       false
+  end
+
+function lemma_name(cmd: Cmd): Option[Name] :=
+  match cmd
+    case CLemma(name, _, _, _, _, _) =>
+      Some(name)
+    case _ =>
+      None
+  end
+
+// the lemmas up to the last target that no test falsified, which the targets prove or take as facts
+function reached_lemmas(lemmas: Lemmas): List[Lemma] :=
+  let indexed := zip(range(0, size(lemmas.all)), lemmas.all) in
+  let last := foldl(indexed, -1, lambda k, (i, l) => if contains(l.name, lemmas.targets) then i else k) in
+  List(for (i, l) in indexed if i <= last and not contains(l.name, lemmas.falsified) yield l)
+
+// the targets in their order, each on its own, since a proof looks only at the statements that it cites and at its
+// facts, so that proved means proved from them, whatever their own proofs give
+function proofs(decls: Decls, contracts: List[Lemma], lemmas: Lemmas): List[Proved] :=
+  let indexed := zip(range(0, size(lemmas.all)), lemmas.all) in
+  let statements := List(for l in lemmas.all if not l.claim yield l) in
+  List(for (i, target) in indexed if contains(target.name, lemmas.targets) yield Proved(target.name, lemma_gaps(decls, contracts, Citations(statements, facts_before(lemmas, i), lemmas.erroneous), target)))
+
+// the goals of the lemmas before the one at i, the facts of its proof: neither the claims, which hold only for the runs
+// that end, so that ensures false of a loop that does not end would prove every lemma after it, nor the falsified ones,
+// since a fact is used without being named, so that a false one would close every default proof after it unseen
+function facts_before(lemmas: Lemmas, i: Int): List[Seq] :=
+  List(for l in take(i, lemmas.all) if not l.claim and not contains(l.name, lemmas.falsified) yield l.goal)
+
+function lemma_gaps(decls: Decls, contracts: List[Lemma], citations: Citations, target: Lemma): List[Gap] :=
+  match target.proof
+    case Some(proof) =>
+      check_proof(decls, citations, contracts, target, proof)
+    case None =>
+      default_gaps(decls, citations.facts, target.goal)
   end
