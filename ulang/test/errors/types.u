@@ -1309,3 +1309,119 @@ test errors_on_parts() :=
     case _ =>
       assert false
   end
+
+// a call of a function, constructor, or pattern alias of another arity is one CountMismatch that names it
+test function_arity_call() :=
+  var q: Prog
+  checked_text(in "ulang/test/errors/function-arity-call.u", List(
+    "data Pair :=",
+    "  case Pair(a: Int, b: Int)",
+    "",
+    "pattern First(n: Int): Pair :=",
+    "  Pair(n, 0)",
+    "",
+    "function g(x: Int, y: Int): Int :=",
+    "  x",
+    "",
+    "function f(n: Int): Int :=",
+    "  g(n)",
+    "",
+    "function h(n: Int): Pair :=",
+    "  Pair(n)",
+    "",
+    "function k(n: Int): Pair :=",
+    "  First(n, n)"), out q, _)
+  assert List(for d in diagnostics(q) yield (d.code, d.pos, d.message)) == List(
+    ("CountMismatch", Pos(11, 3), "function g expects 2 arguments, got 1"),
+    ("CountMismatch", Pos(14, 3), "constructor Pair expects 2 arguments, got 1"),
+    ("CountMismatch", Pos(17, 3), "pattern alias First expects 1 arguments, got 2"))
+
+// a call of a procedure with an in where it has an out is one CallMismatch with the type of the procedure, and so is a
+// call of the old arity
+test call_wrong_mode() :=
+  var q: Prog
+  checked_text(in "ulang/test/errors/call-wrong-mode.u", List(
+    "procedure p(in x: Int, out y: Int) :=",
+    "  y := x",
+    "",
+    "procedure q(out z: Int) :=",
+    "  p(in 1, z)",
+    "",
+    "procedure r(out z: Int) :=",
+    "  p(in 1, 2, 3, out z)"), out q, _)
+  assert List(for d in diagnostics(q) yield (d.code, d.pos, d.message)) == List(
+    ("OutputUnassigned", Pos(4, 1), "output z of q is not assigned on every path"),
+    ("CallMismatch", Pos(5, 3), "procedure p takes (in Int, out Int), but the call passes 2 ins"),
+    ("Unassigned", Pos(5, 11), "z is not assigned on every path"),
+    ("CallMismatch", Pos(8, 3), "procedure p takes (in Int, out Int), but the call passes 3 ins and 1 out"))
+
+// + of a string is one mismatch with the hint of ++, without the mismatch of its result
+test plus_of_string() :=
+  var q: Prog
+  checked_text(in "ulang/test/errors/plus-of-string.u", List("function f(n: Int): Str :=", "  \"0\" + show(n)"), out q, _)
+  assert List(for d in diagnostics(q) yield (d.code, d.pos, d.message)) == List(
+    ("Mismatch", Pos(2, 3), "expected Int but found Str in argument 1 of the call; strings join by ++, and + adds integers"))
+
+// a use that no candidate fits lists the candidates, which tell that get of a list looks up an association list
+test no_overload_candidates() :=
+  var q: Prog
+  checked_text(in "ulang/test/errors/no-overload-candidates.u", List("function f(xs: List[Str]): Option[Str] :=", "  get(0, xs)"), out q, _)
+  assert List(for d in diagnostics(q) yield (d.code, d.pos, d.message)) == List(
+    ("NoOverload", Pos(2, 3), "no declaration of get has the type (Int, List[Str]) -> ?2, among prelude.array.get: (Int, Array[A]) -> Option[A], prelude.list.get: (K, List[(K, V)]) -> Option[V], prelude.map.get: (K, Map[K, V]) -> Option[V], prelude.str.get: (Int, Str) -> Option[Char]"))
+
+// a pattern of an unknown constructor or of another arity is one error, whose variables make no follow-ups in the body
+// and whose match is not judged
+test wrong_pattern_alone() :=
+  var q: Prog
+  checked_text(in "ulang/test/errors/wrong-pattern-alone.u", List(
+    "data Pair :=",
+    "  case Pair(a: Int, b: Str)",
+    "",
+    "function f(o: Option[Int]): Int :=",
+    "  match o",
+    "    case Just(x) =>",
+    "      x + 1",
+    "",
+    "    case None =>",
+    "      0",
+    "  end",
+    "",
+    "function g(p: Pair): Int :=",
+    "  match p",
+    "    case Pair(number) =>",
+    "      number + 1",
+    "  end"), out q, _)
+  assert List(for d in diagnostics(q) yield (d.code, d.pos, d.message)) == List(
+    ("UnknownConstructor", Pos(6, 10), "unknown constructor Just"),
+    ("CountMismatch", Pos(15, 10), "constructor Pair expects 2 arguments, got 1"))
+
+// a lambda passed to an unknown function or to one of another arity makes no follow-up in its body
+test lambda_of_wrong_call() :=
+  var q: Prog
+  checked_text(in "ulang/test/errors/lambda-of-wrong-call.u", List(
+    "function g(x: Int, y: Int): Int :=",
+    "  x",
+    "",
+    "function f(n: Int): Int :=",
+    "  g(lambda p => p.x)",
+    "",
+    "function h(xs: List[Int]): Bool :=",
+    "  exists_all(xs, lambda p => p.x == 1)"), out q, _)
+  assert List(for d in diagnostics(q) yield (d.code, d.pos, d.message)) == List(
+    ("CountMismatch", Pos(5, 3), "function g expects 2 arguments, got 1"),
+    ("UnknownVariable", Pos(8, 3), "unknown variable exists_all"))
+
+// a lambda bound by let and called at another type than its first use has the hint that a let does not generalize, and
+// the call has no type that its uses report, while a formal of a function type gets no such hint
+test let_not_generalized() :=
+  var q: Prog
+  checked_text(in "ulang/test/errors/let-not-generalized.u", List(
+    "function f(n: Int): Bool :=",
+    "  let id := lambda x => x in",
+    "  id(n) == 1 and id(true)",
+    "",
+    "function g(h: Int -> Int): Int :=",
+    "  h(true)"), out q, _)
+  assert List(for d in diagnostics(q) yield (d.code, d.pos, d.message)) == List(
+    ("Mismatch", Pos(3, 21), "expected Int but found Bool in argument 1 of the call; a let does not generalize, so the lambda of id has the one type of its first use; a function declared with type parameters takes several"),
+    ("Mismatch", Pos(6, 5), "expected Int but found Bool in argument 1 of the call"))

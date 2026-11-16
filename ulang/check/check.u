@@ -3306,12 +3306,15 @@ function is_plus(fun: At[Expr]): Bool :=
       false
   end
 
-// the callee fun as a message names it, a constructor or a function by its kind and name, a variable by its name, and
-// else none
+// the callee fun as a message names it, a constructor, a pattern alias, or a function by its kind and name, a variable
+// by its name, and else none
 function callee_text(sig: Sig, fun: At[Expr]): Str :=
   match fun.that
     case EVar(x) if is_constr(sig, x.name) =>
       "constructor " ++ x.name.base
+
+    case EVar(x) if is_pat_alias(sig, x.name) =>
+      "pattern alias " ++ x.name.base
 
     case EVar(x) if is_fun(sig, x.name) =>
       "function " ++ x.name.base
