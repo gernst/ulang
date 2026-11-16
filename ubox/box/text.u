@@ -63,7 +63,7 @@ function last_lines(n: Int, ls: List[Str]): List[Str] :=
 
 function right(n: Int, width: Int): Str :=
   let digits := show(n) in
-  repeat(" ", width - size(digits)) ++ digits
+  repeat(width - size(digits), " ") ++ digits
 
 function number_lines(ls: List[Str]): List[Str] :=
   List(for (i, l) in zip(range(1, size(ls) + 1), ls) yield right(i, 6) ++ "\t" ++ l)

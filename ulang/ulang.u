@@ -27,7 +27,7 @@ data Request :=
   case RCompile(target: Target, output: Str)
   // the tests of the .u files below the directory, by default the root of the project
   case RCompileTests(dir: Option[Str], output: Str)
-  // the script of the file, or of stdin if none, or the one action of the words that start with @, see ulang/refactor/refactor.u,
+  // the script of the file, or of stdin if none, or the actions of the words, a line from each that starts with @, see ulang/refactor/refactor.u,
   // where each overlay is a file and the file whose text the script takes instead, as of an editor's unsaved buffer
   case RRefactor(script: Option[Str], inline: Option[Str], dry: Bool, overlays: List[(Str, Str)])
   case RHelp(command: Option[Str])

@@ -1,4 +1,6 @@
-// the default proof of lemmas, until proofs have syntax, see ideas/verification.md
+// the proving of lemmas in their order, each by its proof, which ulang/prove/proof.u checks, else by the default proof,
+// simplification and then induction, with the terminations of the recursive functions that they reach, and the gaps
+// and open terminations as errors of proofs on their commands
 
 import ulang.syntax
 

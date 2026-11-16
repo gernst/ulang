@@ -63,7 +63,8 @@ function sort[A](xs: List[A]): List[A]
 
 // the elements of xs without those that occurred before, in their order, in n log n steps by a set of those seen,
 // which orders them by compare, so that it raises Unordered for an abstract type that declares only ==
-function distinct[A](xs: List[A]): List[A]
+function distinct[A](xs: List[A]): List[A] :=
+  example distinct(List(2, 1, 2, 3, 1)) == List(2, 1, 3)
 
 // the last element, if any
 function last[A](xs: List[A]): Option[A]
@@ -81,13 +82,18 @@ function reverse_onto[A](xs: List[A], ys: List[A]): List[A]
 
 function reverse[A](xs: List[A]): List[A]
 
-function zip[A, B](xs: List[A], ys: List[B]): List[(A, B)]
+function zip[A, B](xs: List[A], ys: List[B]): List[(A, B)] :=
+  example zip(List(1, 2, 3), List("a", "b")) == List((1, "a"), (2, "b"))
+  example zip(List(), List("a")) == List()
 
 // the elements with their indices from 0
 function numbered[A](xs: List[A]): List[(A, Int)] :=
   example numbered(List("a", "b")) == List(("a", 0), ("b", 1))
 
-function take[A](n: Int, xs: List[A]): List[A]
+function take[A](n: Int, xs: List[A]): List[A] :=
+  example take(2, List(1, 2, 3)) == List(1, 2)
+  example take(3, List(1, 2)) == List(1, 2)
+  example take(-1, List(1, 2)) == List()
 
 function drop[A](n: Int, xs: List[A]): List[A]
 

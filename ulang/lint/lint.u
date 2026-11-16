@@ -213,7 +213,7 @@ function stmt_lints(fun: Id, stmt: At[Stmt]): List[Warning] :=
 function stmts_lints(fun: Id, stmts: List[At[Stmt]]): List[Warning] :=
   List(for s in stmts for w in stmt_lints(fun, s) yield w)
 
-// the lints of stmt at pos, where the locals of a block are judged at the position of the block, since a Var has none
+// the lints of stmt at pos, which places the locals of a block that the parser did not read
 function part_stmt_lints(fun: Id, pos: Pos, stmt: Stmt): List[Warning] :=
   match stmt
     case SSkip =>
@@ -423,9 +423,8 @@ function is_skip(stmt: At[Stmt]): Bool :=
       false
   end
 
-// the warnings of the locals xs of a block at pos, whose statements are stmts, starting with the assignments of the locals
-// that have initial values
-// the warnings of the locals xs of a block at pos, each at its declaration
+// the warnings of the locals xs of a block at pos, whose statements are stmts, each at its declaration, else at pos if
+// the parser did not read it
 function locals_lints(pos: Pos, xs: List[At[Var]], stmts: List[At[Stmt]]): List[Warning] :=
   let inits := initialized(vars(xs), stmts) in
   List(for x in xs for w in local_lints(decl_pos(pos, x.pos), x.that.name.base, contains(x.that.name.base, inits), None, stmts) yield w)

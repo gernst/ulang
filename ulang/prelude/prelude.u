@@ -67,7 +67,11 @@ function -(n: Int): Int
 // the absolute value, and the greatest common divisor, which is 0 only for 0 and 0
 function abs(n: Int): Int
 
-function gcd(a: Int, b: Int): Int
+function gcd(a: Int, b: Int): Int :=
+  example gcd(12, 18) == 6
+  example gcd(12, -18) == 6
+  example gcd(-4, 0) == 4
+  example gcd(0, 0) == 0
 
 // the lesser and the greater of two integers
 function min(a: Int, b: Int): Int :=
