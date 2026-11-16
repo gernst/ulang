@@ -126,7 +126,7 @@ function format_str(text: Str): Str :=
   example format_str("a\n" ++ str(List(chr(0), chr(127)))) == "\"a\\n\\000\\177\""
   example format_str("ä") == "\"\\344\""
   let greatest := foldl(chars(text), 0, lambda m, c => max(m, int(c))) in
-  (if greatest < 256 then "" else if greatest < 65536 then "u" else "U") ++ "\"" ++ join("", List(for c in chars(text) yield format_unit(greatest, c))) ++ "\""
+  (if greatest < 256 then "" else if greatest < 65536 then "u" else "U") ++ "\"" ++ join("", List(for c in text yield format_unit(greatest, c))) ++ "\""
 
 function format_unit(greatest: Int, c: Char): Str :=
   let code := int(c), quoted := quote(str(List(c))) in

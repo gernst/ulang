@@ -142,10 +142,10 @@ function lines(s: Str): List[Str] :=
     split(s, '\n')
 
 function lower(s: Str): Str :=
-  str(List(for c in chars(s) yield if int('A') <= int(c) and int(c) <= int('Z') then chr(int(c) + 32) else c))
+  str(List(for c in s yield if int('A') <= int(c) and int(c) <= int('Z') then chr(int(c) + 32) else c))
 
 function upper(s: Str): Str :=
-  str(List(for c in chars(s) yield if int('a') <= int(c) and int(c) <= int('z') then chr(int(c) - 32) else c))
+  str(List(for c in s yield if int('a') <= int(c) and int(c) <= int('z') then chr(int(c) - 32) else c))
 
 function index_of(part: Str, s: Str): Option[Int] :=
   index_from(part, s, 0)

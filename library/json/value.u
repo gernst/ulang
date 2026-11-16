@@ -87,7 +87,7 @@ function format_number(m: Int, e: Int): Str :=
     sign ++ slice(digits, 0, 1) ++ (if size(digits) > 1 then "." ++ slice(digits, 1, size(digits)) else "") ++ "e" ++ show(e + size(digits) - 1)
 
 function json_quote(s: Str): Str :=
-  "\"" ++ join("", List(for c in chars(s) yield escape(c))) ++ "\""
+  "\"" ++ join("", List(for c in s yield escape(c))) ++ "\""
 
 function escape(c: Char): Str :=
   if c == '"' then

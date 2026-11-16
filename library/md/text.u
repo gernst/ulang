@@ -38,7 +38,7 @@ function trim_end(s: Str): Str :=
   str(reverse(kept))
 
 function escape_html(s: Str): Str :=
-  join("", List(for c in chars(s) yield escape_char(c)))
+  join("", List(for c in s yield escape_char(c)))
 
 function escape_char(c: Char): Str :=
   if c == '&' then

@@ -160,13 +160,13 @@ function translated(c: Char, source: List[Char], target: List[Char]): Char :=
   end
 
 function translate(source: List[Char], target: List[Char], text: Str): Str :=
-  str(List(for c in chars(text) yield translated(c, source, target)))
+  str(List(for c in text yield translated(c, source, target)))
 
 function delete_chars(set: List[Char], text: Str): Str :=
-  str(List(for c in chars(text) if not contains(c, set) yield c))
+  str(List(for c in text if not contains(c, set) yield c))
 
 function words(s: Str): List[Str] :=
-  List(for w in split(str(List(for c in chars(s) yield if is_space(c) then ' ' else c)), ' ') if w != "" yield w)
+  List(for w in split(str(List(for c in s yield if is_space(c) then ' ' else c)), ' ') if w != "" yield w)
 
 function counts(text: Str): (Int, Int, Int) :=
   let (newlines, starts) := scanned(text, 0, 0, 0, false) in
@@ -188,7 +188,7 @@ function scanned(text: Str, i: Int, newlines: Int, starts: Int, inside: Bool): (
 
 test counts_as_by_lists(text: Str) :=
   let (l, w, _) := counts(text)
-  assert l == size(List(for c in chars(text) if c == '\n' yield c)) and w == size(words(text))
+  assert l == size(List(for c in text if c == '\n' yield c)) and w == size(words(text))
 
 // the end of the run of characters from index i on of which p holds
 function run_end(s: Str, i: Int, p: Char -> Bool): Int :=

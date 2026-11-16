@@ -31,7 +31,7 @@ procedure parse_json(in text: Str, out j: Json) raises JsonError :=
   end
 
 function line_of(text: Str, pos: Int): Int :=
-  1 + size(List(for c in chars(slice(text, 0, pos)) if c == '\n' yield c))
+  1 + size(List(for c in slice(text, 0, pos) if c == '\n' yield c))
 
 function column_of(text: Str, pos: Int): Int :=
   1 + size(take_while_back(chars(slice(text, 0, pos))))

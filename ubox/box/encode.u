@@ -85,7 +85,7 @@ function bytes_of(ds: List[Int]): Option[List[Int]] :=
   end
 
 function decode64(text: Str): Option[List[Int]] :=
-  let digits := List(for c in chars(text) if not is_space(c) and c != '=' yield digit(c)) in
+  let digits := List(for c in text if not is_space(c) and c != '=' yield digit(c)) in
   if contains(None, digits) then
     None
   else

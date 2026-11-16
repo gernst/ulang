@@ -759,7 +759,7 @@ procedure primitive(in n: Name, vs: List[Val], out v: Val) :=
       v := VInt(a % b)
 
     case ("prelude.str.chars", List(VStr(text))) =>
-      v := list_value(List(for c in chars(text) yield VChar(c)))
+      v := list_value(List(for c in text yield VChar(c)))
 
     case ("prelude.str.str", List(w)) =>
       match list_elements(w)

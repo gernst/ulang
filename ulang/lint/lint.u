@@ -33,6 +33,8 @@ data Lint :=
   case LocalTooHigh
   // a var with a value that no statement after it assigns, which is a let
   case UnassignedVar
+  // a generator or for over chars(s), the list of the characters of a string, which ranges over the string itself
+  case CharsLoop
 
 // a warning of lint at pos of a module, with the expression to write instead if there is one, and the edit that removes
 // it if there is one, which needs no choice
@@ -306,12 +308,17 @@ function literal_bool(expr: At[Expr]): Option[Bool] :=
   end
 
 // a list that a generator iterates, which is the elements of its container in the order of its fold, as the generator
-// takes them from the container itself, where a map gives its pairs to a single pattern
+// takes them from the container itself, where a map gives its pairs to a single pattern, and the characters of a string,
+// over which the generator ranges by the folds of strings; chars is judged as written, as the lints judge names
 function iterated_list(over: At[Expr]): List[Warning] :=
   match over
     case AOk(pos, span, EFor(FList, List(g), elem, None)) if is_identity(g, elem) =>
       List(
         rewritten(CopiedContainer, pos, span, "a list that is only iterated, of the elements of a container, is that container", gen_over(g)))
+
+    case AOk(pos, span, EApp(AOk(_, _, EVar(Var(Name(List(), "chars"), _))), List(s))) =>
+      List(
+        rewritten(CharsLoop, pos, span, "a generator over the characters of a string ranges over the string itself", s))
 
     case _ =>
       List()

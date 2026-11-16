@@ -230,7 +230,7 @@ procedure str_object(in text: Str, out symbol: Str, ref e: Emit) :=
 
 procedure str_object_named(in symbol: Str, text: Str, ref e: Emit) :=
   var units: Str
-  let codes := List(for c in chars(text) yield int(c))
+  let codes := List(for c in text yield int(c))
   var width: Int
   new_label(out units, ref e)
   width := unit_width(foldl(codes, 0, lambda m, c => max(m, c)))
