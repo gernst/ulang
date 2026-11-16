@@ -639,6 +639,20 @@ procedure unhidden(in env: Env, xs: List[Var], ref s: State) :=
     report(in HiddenLocal(x.name), ref s)
   end
 
+// unhidden at pos, the declaration of xs, a pattern of a let or a local, whose errors stand there, not on the let
+procedure unhidden_at(in pos: Pos, env: Env, xs: List[Var], ref s: State) :=
+  let outer := s.at
+  s := s with at := decl_pos(outer, pos)
+  unhidden(in env, xs, ref s)
+  s := s with at := outer
+
+// the coverage of the irrefutable pattern pat of a let or a local, whose errors stand at it, not on the let
+procedure covered_at(in pat: At[Pat], typed_pat: At[Pat], t: Type, ref s: State) :=
+  let outer := s.at
+  s := s with at := decl_pos(outer, pat.pos)
+  coverage(in t, List((typed_pat, true)), List(pat), ref s)
+  s := s with at := outer
+
 // the first names of the paths that the module sees, of its own package and module, the packages that it imports and
 // their members, and the library, which a local may not take, since an access x.y of it would be a qualified name
 function qualifiers(s: State): Set[Id] :=
@@ -2289,7 +2303,7 @@ procedure infer_node(
           case Some(List(x)) =>
             var xs: List[Var], typed_value_list: List[At[Expr]]
             formals(in "binding", List(x), out xs, ref s)
-            unhidden(in inner, xs, ref s)
+            unhidden_at(in pat.pos, inner, xs, ref s)
             checks(in inner, "the bindings", List(value), List(for y in xs yield y.typ), out typed_value_list, ref s)
             bindings := bindings ++ zip(List(for y in xs yield pat with that := PVar(y)), typed_value_list), inner := bind(xs) ++ inner
 
@@ -2298,14 +2312,14 @@ procedure infer_node(
             fresh(out t, ref s)
             check(in inner, value, t, "the bindings", out typed_value, ref s)
             typed_pattern(in pat, t, out typed_pat, xs, ref s)
-            unhidden(in inner, xs, ref s)
+            unhidden_at(in pat.pos, inner, xs, ref s)
             bindings := bindings ++ List((typed_pat, typed_value)), covered := covered ++ List((typed_pat, t, pat)), inner := bind(xs) ++ inner
         end
       end
       infer_body(in inner, body, expected, out b, typ, ref s)
       solve(ref s)
       for (typed_pat, t, pat) in covered do
-        coverage(in t, List((typed_pat, true)), List(pat), ref s)
+        covered_at(in pat, typed_pat, t, ref s)
       end
       res := ELet(bindings, b)
 
@@ -3988,21 +4002,21 @@ procedure statement_node(
           case (Some(x), Some(value)) =>
             var xs: List[Var], typed_values: List[At[Expr]]
             formals(in "local", List(x), out xs, ref s)
-            unhidden(in env, xs, ref s)
+            unhidden_at(in x.pos, env, xs, ref s)
             checks(in env, "the assignment", List(value), List(for z in xs yield z.typ), out typed_values, ref s)
             typed_decls := typed_decls ++ List(for (z, e) in zip(xs, typed_values) yield (AOk(x.pos, x.span, PVar(z)), Some(e))), env := bind(xs) ++ env
 
           case (Some(x), None) =>
             var xs: List[Var]
             formals(in "local", List(x), out xs, ref s)
-            unhidden(in env, xs, ref s)
+            unhidden_at(in x.pos, env, xs, ref s)
             typed_decls := typed_decls ++ List(for z in xs yield (AOk(x.pos, x.span, PVar(z)), None)), env := unassigned(xs) ++ env
 
           case (None, Some(value)) =>
             var t: Type, typed_value: At[Expr], typed_pat: At[Pat], xs: List[Var]
             infer(in env, value, out typed_value, t, ref s)
             typed_pattern(in pat, t, out typed_pat, xs, ref s)
-            unhidden(in env, xs, ref s)
+            unhidden_at(in pat.pos, env, xs, ref s)
             typed_decls := typed_decls ++ List((typed_pat, Some(typed_value))), covered := covered ++ List((typed_pat, t, pat)), env := bind(xs) ++ env
 
           // the parser gives a value to every declaration that is no variable
@@ -4012,7 +4026,7 @@ procedure statement_node(
       end
       solve(ref s)
       for (typed_pat, t, pat) in covered do
-        coverage(in t, List((typed_pat, true)), List(pat), ref s)
+        covered_at(in pat, typed_pat, t, ref s)
       end
       y := SLocal(mutable, typed_decls)
 

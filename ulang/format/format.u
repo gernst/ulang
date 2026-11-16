@@ -1631,11 +1631,13 @@ function source_pattern(pat: Pat): Pat :=
     case PNil() | PApp(Name(List(), "Nil"), List()) =>
       PApp(Name(List(), "Nil"), List())
 
+    // a constructor by its base name, as the source writes it where it fails, also of the library, so that a message
+    // reads DivisionByZero, not prelude.prelude.DivisionByZero, and a hint add case None => can be pasted
     case PApp(constr, List()) =>
-      PName(constr, THole)
+      PName(unqualified(constr.base), THole)
 
     case PApp(constr, args) =>
-      PApp(constr, List(for p in args yield map_at(p, source_pattern)))
+      PApp(unqualified(constr.base), List(for p in args yield map_at(p, source_pattern)))
   end
 
 // whether a name is an operator, which starts with a symbol
@@ -1648,4 +1650,5 @@ test printing() :=
   assert format_type(TProc(List(TParam("A")), List(), List(int_type), RWritten(List()))) == "(in A, ref Int)"
   assert format_type(TProc(List(TParam("A")), List(), List(), RWritten(List(TSort(unqualified("E"), List()), int_type)))) == "(in A) raises E, Int"
   assert format_pat(PCons(nowhere(var_pat), nowhere(PApp(unqualified("Some"), List(nowhere(PWild)))))) == "List(x; Some(_))"
+  assert format_pat(PApp(Name(List("prelude", "option"), "Some"), List(nowhere(PApp(Name(List("prelude", "option"), "None"), List()))))) == "Some(None)"
   assert format_name(cons_name()) == "prelude.list.Cons" and cons_name().base == "Cons"

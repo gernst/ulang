@@ -65,7 +65,7 @@ test rename_messages() :=
   run_script(in "@refs ./" ++ dir ++ "/p/a.u:f", false, dir, unchecked, out reply, status, _)
   assert status == 0
   assert drop(1, reply) == List(
-    "@refs " ++ dir ++ "/p/a.u:f: 1 use of " ++ dir ++ "/p/a.f/1 in 1 file\n  " ++ dir ++ "/p/b.u:6.3 in h/1 #1: f(y)")
+    "@refs " ++ dir ++ "/p/a.u:f: 1 use of out.test.refactor.small.rename.p.a.f/1 in 1 file\n  " ++ dir ++ "/p/b.u:6.3 in h/1 #1: f(y)")
   run_script(in "@rename " ++ dir ++ "/m.u:shout max", false, dir, unchecked, out reply, status, _)
   assert status == 0
   assert exists(reply, lambda line => starts_with(line, "warning: the uses of max/1 also see ") and index_of("prelude.prelude.max: (Int, Int) -> Int", line) != None)

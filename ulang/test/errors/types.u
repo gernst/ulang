@@ -269,12 +269,12 @@ test hidden_lambda() :=
   end
 
 test hidden_let() :=
-  assert raises Located(None, Pos(2, 3), HiddenLocal(Name(List(), "x"))) do
+  assert raises Located(None, Pos(2, 7), HiddenLocal(Name(List(), "x"))) do
     check_text(in "ulang/test/errors/hidden-let.u", List("function f(x: Int): Int :=", "  let x := 2 in", "  x"))
   end
 
 test hidden_local() :=
-  assert raises Located(None, Pos(2, 3), HiddenLocal(Name(List(), "n"))) do
+  assert raises Located(None, Pos(2, 7), HiddenLocal(Name(List(), "n"))) do
     check_text(in "ulang/test/errors/hidden-local.u", List("procedure p(in n: Int) :=", "  let n := 1", "  assert n == 1"))
   end
 

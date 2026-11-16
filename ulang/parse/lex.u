@@ -358,7 +358,7 @@ procedure lex_all(
   out toks: Tokens,
       comments: List[Comment]
 ) raises LexError :=
-  var offset := 0, found: Buffer[(Pos, Token, Pos)] := empty(), noted: Buffer[Comment] := empty(), pending: List[(Pos, Str, Bool, Bool)] := List(), start: Int, tok: Token, last := 0, line := 1, column := 1, comment: Str, stop := Pos(1, 1)
+  var offset := 0, found: Buffer[(Pos, Token, Pos)] := empty(), noted: Buffer[Comment] := empty(), pending: List[(Pos, Str, Bool, Bool)] := List(), start: Int, tok: Token, last := 0, line := 1, column := 1, comment: Str, stop := Pos(1, 1), prev := TEnd
   while offset < size(text) do
     start := offset
     if is_space(at(offset, text)) then
@@ -372,6 +372,7 @@ procedure lex_all(
           (Pos(line, column), comment, own_line, is_blank_after(text, offset))), last := start
       else
         lex_token(in text, out tok, ref offset)
+        tok := named_after_dot(prev, tok), prev := tok
         lex_move_position(in text, last, start, ref line, column)
         found := found ++ List((Pos(line, column), tok, stop)), last := start
         noted := noted ++ comments_before(pending, Pos(line, column), tok), pending := List()
@@ -382,6 +383,33 @@ procedure lex_all(
   lex_move_position(in text, last, offset, ref line, column)
   toks := List(for t in found ++ List((Pos(line, column), TEnd, stop)))
   comments := List(for c in noted ++ comments_before(pending, Pos(line, column), TEnd))
+
+// a keyword after . is a name, of a path or a field, ulang.test.cases, as the parser reads every name after ., so that
+// no keyword inside a path starts a command or a statement where the parser resumes after an error
+function named_after_dot(prev: Token, tok: Token): Token :=
+  match (prev, tok)
+    case (TKw("."), TKw(kw)) if is_keyword(kw) =>
+      TName(kw)
+    case _ =>
+      tok
+  end
+
+test keyword_after_dot() :=
+  var toks: Tokens
+  lex(in "import ulang.test.cases\ntest t() :=", out toks)
+  assert tokens(toks) == List(
+    TKw("import"),
+    TName("ulang"),
+    TKw("."),
+    TName("test"),
+    TKw("."),
+    TName("cases"),
+    TKw("test"),
+    TName("t"),
+    TKw("("),
+    TKw(")"),
+    TKw(":="),
+    TEnd)
 
 function tokens(toks: Tokens): List[Token] :=
   List(for (_, tok, _) in toks yield tok)
