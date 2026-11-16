@@ -74,6 +74,10 @@ Rules that wait for other items, kept here until those take them:
 - **T4 `UnusedExport`** (opt-in, `refs` of Diagnostics 3); **T5 `ulang.bin coverage`**, the declarations that no test or example reaches, by `callees` and `reachable` of `ulang/prove/translate.u`; **L1 `ulang.bin deps file:name`**, the definitions whose bodies a proof would unfold.
 - **G1** a permutation of the arguments that fits a candidate, and **G2** the nearest visible names and the packages not imported that export the name, as hints of Diagnostics 2.
 
+A rule of the syntax, a walk of `ulang/lint/lint.u` that needs no e-graph, kept here until it is built:
+
+- **S1 `TypeNamedConstructor`** (a finding without edit): a datatype of several constructors, one of which has the name of the type, as `ParseError` of `ulang/parse/parse.u` beside `ImportError` and `ParseErrors`, so that a pattern of that constructor reads as one of the whole type: `catch case ParseError(message, _) =>` leaves the other constructors raised, and the error that follows, `UndeclaredRaise` at the call, names neither the handler nor the constructors it misses. The rename is the writer's choice, `ParseFailure` or the like, so the rule has no edit; a datatype of one constructor named as its type is the convention of records and no finding. As every new rule, run over the project first, each finding classified, before it is proposed with its count (`CLAUDE.md`).
+
 ## 7. Order
 
 1. **Into `ideas/verification.md`:** the needs of section 5, which only this file lists, so that the session of the prover takes them before extraction is designed.

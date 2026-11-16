@@ -466,18 +466,31 @@ function expected(what: Str, toks: Tokens): ParseError :=
 function name_for(kw: Str): Option[Str] :=
   example name_for("raises") == Some("raised")
   example name_for("then") == None
+  example name_for("builtin") == Some("builtins")
   get(kw, List(
+    ("assert", "assertion"),
+    ("builtin", "builtins"),
     ("case", "kind"),
+    ("catch", "caught"),
     ("correct", "is_correct"),
     ("data", "datum"),
     ("end", "stop"),
     ("ensures", "post"),
     ("example", "sample"),
+    ("export", "exported"),
     ("function", "fun"),
+    ("implementation", "implemented"),
+    ("import", "imported"),
     ("induction", "ind"),
+    ("infix", "middle"),
     ("invariant", "inv"),
+    ("lambda", "fn"),
+    ("lemma", "lem"),
     ("match", "matched"),
+    ("out", "output"),
     ("pattern", "pat"),
+    ("postfix", "trail"),
+    ("prefix", "lead"),
     ("procedure", "proc"),
     ("raises", "raised"),
     ("requires", "pre"),
