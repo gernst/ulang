@@ -98,6 +98,20 @@ test renumbered_unknowns() :=
   assert status == 1 and take(1, reply) == List("applied, 1 error (0 new)")
   assert contains("checked 1 file: 0 new, 0 gone", reply)
 
+// a warning that only moved, with the line that its message names, as a RepeatedExpr below the lines that a script
+// added, is neither new nor gone
+test moved_warnings() :=
+  var reply: List[Str], status: Int
+  let state := "out/test/refactor/replies/state", path := "out/test/refactor/replies/moved.u"
+  os_write_utf8(in path, "function f(x: Int): Int :=\n  x\n")
+  run_script(in "@put " ++ path ++ "\nfunction f(x: Int): Int := x + 1\n", false, state, lambda in file, overlays, out found =>
+    let shift := if overlays == Map() then 0 else 4
+    found := List(
+      (file, Diagnostic(FormatKind, "warning[RepeatedExpr]", None, Pos(6 + shift, 12), "the expression repeats the one of line " ++ show(5 + shift), List())))
+  end, out reply, status, _)
+  assert status == 0 and take(1, reply) == List("applied, 1 warning (0 new)")
+  assert contains("checked 1 file: 0 new, 0 gone", reply)
+
 // a script that changes no file lists the diagnostics of the state, unmarked but for their handles, since it has no change
 // to compare, while one that changes a file lists those that are new or gone
 test state_without_changes() :=

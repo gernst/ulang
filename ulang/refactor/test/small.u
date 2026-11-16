@@ -64,6 +64,15 @@ test patches_lets() :=
     "patched " ++ path ++ ":f/1",
     "#2      let b := a * 3 in\n#3      a - b")
 
+// the reply of a @patch of several hunks shows the nodes that each hunk changed, not those between them
+test patches_apart() :=
+  var reply: List[Str], status: Int
+  let dir := "out/test/refactor/small/apart", path := "out/test/refactor/small/apart/p.u"
+  os_write_utf8(in os_join(dir, "handles.txt"), "")
+  os_write_utf8(in path, "procedure p(out y: Int) :=\n  y := 1\n  y := y + 1\n  y := y + 2\n  y := y + 5\n")
+  run_script(in "@patch " ++ path ++ ":p\n-y := 1\n+y := 10\n\n-y := y + 5\n+y := y + 50\n", false, dir, unchecked, out reply, status, _)
+  assert status == 0 and take(3, drop(1, reply)) == List("patched " ++ path ++ ":p/1", "#1      y := 10", "#2      y := y + 50")
+
 // a hunk -* of @patch replaces every occurrence of its text in the target, in its head and body alike, and says how
 // often, one without a line + deletes them, its text is taken as written, and one that occurs nowhere is refused
 test patches_every() :=
