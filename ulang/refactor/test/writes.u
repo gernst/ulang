@@ -75,4 +75,6 @@ test refuses_keyword_as_name() :=
   let state := "out/test/refactor/writes", path := "out/test/refactor/writes/keyword.u"
   os_write_utf8(in path, "export\n\nfunction f(x: Int): Int\n\nimplementation\n\ndata Parts :=\n  case Parts(xs: List[Int])\n\nfunction f(x: Int): Int :=\n  x + 1\n\nfunction g(x: Int): Int :=\n  x\n")
   run_script(in "@put " ++ path ++ ":Parts\ndata Parts :=\n  case Parts(xs: List[Int], builtin: List[Int])\n", false, state, unseen, out reply, status, _)
-  assert status == 1 and reply == List("rejected", "fragment 2.29, script 3.29: keyword builtin is not a name")
+  assert status == 1 and reply == List(
+    "rejected",
+    "fragment 2.29, script 3.29: keyword builtin is not a name; write a name such as builtins")

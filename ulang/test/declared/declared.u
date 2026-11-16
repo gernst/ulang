@@ -63,7 +63,7 @@ test same_diagnostics() :=
   let main := (List("ulang", "test", "declared", "texts", "main"), "import ulang.test.declared.shapes\n\nfunction wrong(): Int :=\n  area(1)\n\nfunction wide(s: Shape): Int :=\n  match s\n    case Wide(w, h) =>\n      w\n    case _ =>\n      0\n  end\n\nprocedure entry() :=\n  measure(in Circle(1), out _)\n")
   check_mode(in "ulang/test/declared/texts", List(), main, false, out full)
   check_mode(in "ulang/test/declared/texts", List(), main, true, out cut)
-  assert List(for d in diagnostics(full) yield d.code) == List("Mismatch", "CountMismatch", "CountMismatch", "UndeclaredRaise")
+  assert List(for d in diagnostics(full) yield d.code) == List("Mismatch", "CountMismatch", "UndeclaredRaise")
   assert diagnostics(cut) == diagnostics(full)
 
 // an error in a definition of an import is found only by the load of the import whole

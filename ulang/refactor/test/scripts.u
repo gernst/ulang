@@ -79,7 +79,8 @@ test renames() :=
   assert other == "function g(y: Int): Int :=\n  let f := 1 in\n  f + y\n\nfunction h(y: Int): Int :=\n  next(y)\n"
 
 // @fix applies the edit of each lint that has one, an expression rewritten, a declaration dropped, a variable written
-// _, and a local moved into the branches that use it, where a second @fix takes what the first enables, a var made let
+// _, a local moved into the branches that use it, and a declaration of a var that nothing assigns moved into a let, so
+// that a second @fix finds nothing left
 test fixes() :=
   var status: Int, text: Str
   let state := "out/test/refactor/fixes", path := "out/test/refactor/fixes/f.u"
@@ -87,10 +88,11 @@ test fixes() :=
   run_script(in "@fix " ++ path, false, state, nothing_found, out _, status, _)
   os_read_utf8(in path, out text)
   assert status == 0
-  assert text == "function is_pos(n: Int): Bool :=\n  n > 0 and n < 10\n\nfunction first(o: Option[Int]): Int :=\n  value_or(o, 0)\n\nprocedure classify(in n: Int, out text: Str) :=\n  var count := 1\n  let k := n + 1\n  if is_pos(n) then\n    var label: Str\n    label := \"pos\"\n    text := label ++ show(count) ++ show(first(Some(k)))\n  else\n    var label: Str\n    label := \"neg\"\n    text := label\n  end\n\nfunction count_a(s: Str): Int :=\n  size(List(for c in s if c == 'a'))\n\nprocedure main() :=\n  var t: Str\n  classify(in 3, out t)\n  os_println(in t)\n  os_println(in show(count_a(t)))\n"
+  assert text == "function is_pos(n: Int): Bool :=\n  n > 0 and n < 10\n\nfunction first(o: Option[Int]): Int :=\n  value_or(o, 0)\n\nprocedure classify(in n: Int, out text: Str) :=\n  let count := 1\n  let k := n + 1\n  if is_pos(n) then\n    var label: Str\n    label := \"pos\"\n    text := label ++ show(count) ++ show(first(Some(k)))\n  else\n    var label: Str\n    label := \"neg\"\n    text := label\n  end\n\nfunction count_a(s: Str): Int :=\n  size(List(for c in s if c == 'a'))\n\nprocedure main() :=\n  var t: Str\n  classify(in 3, out t)\n  os_println(in t)\n  os_println(in show(count_a(t)))\n"
+  let first_fix := text
   run_script(in "@fix " ++ path, false, state, nothing_found, out _, status, _)
   os_read_utf8(in path, out text)
-  assert text == "function is_pos(n: Int): Bool :=\n  n > 0 and n < 10\n\nfunction first(o: Option[Int]): Int :=\n  value_or(o, 0)\n\nprocedure classify(in n: Int, out text: Str) :=\n  let count := 1\n  let k := n + 1\n  if is_pos(n) then\n    var label: Str\n    label := \"pos\"\n    text := label ++ show(count) ++ show(first(Some(k)))\n  else\n    var label: Str\n    label := \"neg\"\n    text := label\n  end\n\nfunction count_a(s: Str): Int :=\n  size(List(for c in s if c == 'a'))\n\nprocedure main() :=\n  var t: Str\n  classify(in 3, out t)\n  os_println(in t)\n  os_println(in show(count_a(t)))\n"
+  assert text == first_fix
 
 // a check that finds an error at each use of value_or in the text of the file, the overlay if any, as if the module
 // declared another
