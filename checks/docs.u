@@ -415,15 +415,10 @@ procedure comment_problems(out problems: List[Str]) raises OsError :=
   for file in files do
     var text: Str
     os_read_utf8(in file, out text)
-    try
-      var comments: List[Comment]
-      lex_all(in text, out _, comments)
-      for c in comments do
-        found := found ++ List(for form in old_forms(c.text) yield file ++ ":" ++ show(c.pos.line) ++ ": the comment writes " ++ form ++ ", a form that ulang does not have")
-      end
-    catch
-      case LexError(_, _) =>
-        skip
+    var comments: List[Comment]
+    lex_all(in text, out _, comments)
+    for c in comments do
+      found := found ++ List(for form in old_forms(c.text) yield file ++ ":" ++ show(c.pos.line) ++ ": the comment writes " ++ form ++ ", a form that ulang does not have")
     end
   end
   problems := List(for p in found)
