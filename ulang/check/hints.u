@@ -88,18 +88,6 @@ function proc_type(cmd: At[Cmd]): Option[(Name, Type)] :=
 function types_of(xs: List[At[Var]]): List[Type] :=
   List(for x in vars(xs) yield x.typ)
 
-function that_of[A](x: At[A]): Option[A] :=
-  match x
-    case AOk(_, _, that) =>
-      Some(that)
-
-    case AErr(_, _, that, _) =>
-      Some(that)
-
-    case AUnparsed(_, _, _, _) =>
-      None
-  end
-
 function cmd_hints(lines: Array[Str], decls: Decls, cmd: At[Cmd]): List[Hint] :=
   match that_of(cmd)
     case Some(CFun(_, _, formals, _, _, body)) =>

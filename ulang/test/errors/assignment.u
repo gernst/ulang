@@ -118,7 +118,7 @@ test unassigned_after_while() :=
   end
 
 test unassigned_lambda_output() :=
-  assert raises Located(None, Pos(2, 12), OutputUnassigned(Name(List(), "y"), Name(List(), "lambda"))) do
+  assert raises Located(None, Pos(3, 5), Hinted(OutputUnassigned(Name(List(), "y"), Name(List(), "lambda")), "the if without an else leaves y unassigned")) do
     check_text(in "ulang/test/errors/unassigned-lambda-output.u", List(
       "test unassigned_lambda_output() :=",
       "  var p := lambda in x: Int, out y: Int =>",

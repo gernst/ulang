@@ -313,7 +313,7 @@ test if_statement_condition() :=
 // self-application, whose infinite type is reported once, without binding the variable, which made the substitution
 // cyclic and every later lookup loop
 test infinite_type_lambda() :=
-  assert raises Located(None, Pos(2, 24), InfiniteType(_, _)) do
+  assert raises Located(None, Pos(2, 24), InfiniteType(_, _, Some(Name(List(), "x")))) do
     check_text(in "ulang/test/errors/infinite-type-lambda.u", List("function f(): Int :=", "  let w := lambda x => x(x) in 1"))
   end
 
