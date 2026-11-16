@@ -1669,7 +1669,7 @@ procedure put_anchored(
       ", but " ++ join(", ", List(for k in fragment_keys yield key_text(k))) ++ ", while a declaration of another name replaces it only as the one declaration of the fragment, of its kind"))
   end
   var splices: List[(Range, List[Str])] := List(), entries: List[(Str, Str, Str, Str, Str)] := List(), replaced_keys: List[(Key, Key)] := List()
-  var exported_keys: List[Key] := List(), spec_keys: List[Key] := List()
+  var exported_keys: List[Key] := List(), spec_keys: List[Key] := List(), defined_keys: List[(Key, Key)] := List()
   let section_cmds := lambda role: Str => if role == "export" then
     all.exported
   else if role == "builtin" then
@@ -1715,6 +1715,8 @@ procedure put_anchored(
     let is_old := lambda c: At[Cmd] => contains(c, olds) and cmd_key(c) == wanted and is_signature_at(c) == is_signature_at(cmd)
     let old := or_else(find(section_cmds(role), is_old), find(olds, is_old))
     let writes_signature := exists(added, lambda (c, _, other) => other == "export" and cmd_key(c) == new_key)
+    // a signature that the fragment writes without its definition, whose head the definition then repeats
+    let signs_definition := role == "export" and is_signature_at(cmd) and not exists(added, lambda (c, _, _) => cmd_key(c) == new_key and not is_signature_at(c))
     let has_own_doc := exists(old, lambda o => cmd_range(all_lines, o, 0, true).first < o.span.start.line)
     // the signature in export that takes the doc of a definition that the fragment writes without the signature, unless
     // the definition has a doc of its own, which the doc of the fragment replaces
@@ -1752,12 +1754,14 @@ procedure put_anchored(
         entries := entries ++ List((first(entry), second(entry), section, role, ""))
         replaced_keys := replaced_keys ++ List(for k in new_key for o_k in old_key if section == "implementation" yield (o_k, k))
         spec_keys := spec_keys ++ List(for k in new_key if section == "implementation" and not is_signature_at(cmd) and not writes_signature yield k)
+        defined_keys := defined_keys ++ List(for k in new_key for o_k in old_key if section == "export" and signs_definition yield (o_k, k))
 
       case None =>
         if doc_signature != None then
           splices := splices ++ List((range, new))
         end
         exported_keys := exported_keys ++ List(for k in new_key if role == "export" yield k)
+        defined_keys := defined_keys ++ List(for k in new_key if signs_definition yield (k, k))
         entries := entries ++ List(
           ("added " ++ value_or(map_option(new_key, key_text), "a notation"), moved ++ beside_text(new_key, olds), role, role, place_of(role, get(role, last_added))))
         last_added := Map(for k in new_key yield role => k; last_added)
@@ -1767,6 +1771,7 @@ procedure put_anchored(
   var done := List(for line in imports yield "added " ++ line) ++ List(for (what, suffix) in distinct(List(for (w, s, _, _, _) in entries yield (w, s))) for line in Some(done_text(what, suffix, entries, plain)) if line != "" yield line)
   formatted(in path, join("\n", spliced(all_lines_list, splices)), edits.files, no_fragment(), out result, source)
   with_signatures(in path, replaced_keys, spec_keys, edits.files, ref result, done)
+  with_definitions(in path, defined_keys, edits.files, ref result, done)
   with_exported_raises(in path, text, exported_keys, edits.files, ref result, done)
   edits := edits with files := Map(path => result; edits.files)
   if done != List() then
@@ -1925,6 +1930,39 @@ procedure with_signatures(
         if moved != None then
           done := done ++ List(
             "the " ++ spec_word(def_c) ++ " of " ++ key_text(key) ++ " on its signature")
+        end
+
+      case _ =>
+        skip
+    end
+  end
+  if splices != List() then
+    formatted(in path, join("\n", spliced(List(for line in lines), splices)), files, no_fragment(), out text, source)
+  end
+
+// gives the definition of each of keys, the key of the signature in export that the fragment replaced and its own,
+// which differ if its arity changed, the head of the signature, in text, which is formatted, as a definition repeats
+// the head of its signature
+procedure with_definitions(
+  in  path: Str,
+      keys: List[(Key, Key)],
+      files: Map[Str, Str],
+  ref text: Str,
+      done: List[Str]
+) raises Refused, OsError :=
+  var source: Source, splices: List[(Range, List[Str])] := List()
+  parsed(in path, text, files, no_fragment(), out source)
+  let d := main_mod(source), lines := Array(for line in split(text, '\n'))
+  for (old, key) in keys do
+    let definitions := List(for (k, def, c) in keyed(d.implemented) if not is_signature(c) yield (k, def))
+    let definition := or_else(find(definitions, lambda (k, _) => k == key), find(definitions, lambda (k, _) => k == old))
+    let signature := find(keyed(d.exported), lambda (k, _, c) => k == key and is_signature(c) and not is_abstract(c))
+    match (definition, signature)
+      case (Some((_, def)), Some((_, sig, _))) =>
+        let head := head_range(lines, def), new_head := with_assign(head_lines(lines_in(lines, head_range(lines, sig))))
+        if new_head != lines_in(lines, head) then
+          splices := splices ++ List((head, new_head))
+          done := done ++ List("with the head of the definition of " ++ key_text(key))
         end
 
       case _ =>

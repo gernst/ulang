@@ -95,6 +95,28 @@ test replaces_by_other_name() :=
     "applied, clean",
     path ++ ": replaced g/0 by h/0, whose uses keep the name g, which @rename changes, with the signature of h/0")
 
+// a signature put into export without its definition gives the definition its head, also of another arity by @put
+// F:name and of a private definition that it exports, and the reply says so
+test signature_heads() :=
+  var reply: List[Str], status: Int, text: Str
+  let state := "out/test/refactor/declarations/heads", path := "out/test/refactor/declarations/heads.u"
+  os_write_utf8(in path, "export\n\nfunction f(x: Int): Int\n\nprocedure p(in x: Int, out y: Int) :=\n  example p(in 1, out 1)\n\nimplementation\n\nfunction f(x: Int): Int :=\n  0\n\nprocedure p(in x: Int, out y: Int) :=\n  y := x\n\nfunction g(x: Int): Int :=\n  0\n")
+  run_script(in "@put " ++ path ++ "\nexport\nfunction f(x: Str): Int\nprocedure p(in x: Int, out y: Int) raises Str :=\n  example p(in 1, out 1)\n", false, state, no_diagnostics, out reply, status, _)
+  os_read_utf8(in path, out text)
+  assert status == 0
+  assert text == "export\n\nfunction f(x: Str): Int\n\nprocedure p(in x: Int, out y: Int) raises Str :=\n  example p(in 1, out 1)\n\nimplementation\n\nfunction f(x: Str): Int :=\n  0\n\nprocedure p(in x: Int, out y: Int) raises Str :=\n  y := x\n\nfunction g(x: Int): Int :=\n  0\n"
+  assert take(2, reply) == List(
+    "applied, clean",
+    path ++ ": replaced f/1, of another type, replaced p/2, of another type, with the head of the definition of f/1, with the head of the definition of p/2")
+  run_script(in "@put " ++ path ++ ":f\nexport\nfunction f(x: Str, y: Int): Int\n@put " ++ path ++ "\nexport\nfunction g(n: Int): Int\n", false, state, no_diagnostics, out reply, status, _)
+  os_read_utf8(in path, out text)
+  assert status == 0
+  assert text == "export\n\nfunction f(x: Str, y: Int): Int\n\nprocedure p(in x: Int, out y: Int) raises Str :=\n  example p(in 1, out 1)\n\nfunction g(n: Int): Int\n\nimplementation\n\nfunction f(x: Str, y: Int): Int :=\n  0\n\nprocedure p(in x: Int, out y: Int) raises Str :=\n  y := x\n\nfunction g(n: Int): Int :=\n  0\n"
+  assert take(3, reply) == List(
+    "applied, clean",
+    path ++ ": replaced f/1 by f/2, with the head of the definition of f/2",
+    path ++ ": exported g/1, with the head of the definition of g/1")
+
 // a declaration that the file has is replaced where it stands, whatever section the fragment names, also by @put F:name,
 // and the reply names the section where it differs
 test replaces_where_it_stands() :=
