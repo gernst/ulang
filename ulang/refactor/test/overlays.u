@@ -128,6 +128,19 @@ test importers() :=
   assert status == 0 and not exists(reply, lambda line => index_of("whose importers are not checked", line) != None)
   os_remove_all(in dir)
 
+// a field added at the end of a constructor changes the datatype, the constructor, and the new field, but not the
+// fields before it, whose types and positions stay, while a field inserted before others moves them
+test changed_fields() :=
+  var reply: List[Str], status: Int
+  let state := "out/test/refactor/overlays/state", dir := "out/test/refactor/overlays/fields"
+  let lib := dir ++ "/lib/lib.u"
+  os_write_utf8(in lib, "export\n\ndata Loaded :=\n  case Loaded(root: Str, source: Int)\n  case Empty\n")
+  run_script(in "@patch " ++ lib ++ ":Loaded\nsource: Int) => source: Int, declared: Bool)\n", true, state, checked, out reply, status, _)
+  assert status == 0 and contains(lib ++ ": the exports Loaded, declared changed, whose importers are not checked", reply)
+  run_script(in "@patch " ++ lib ++ ":Loaded\nroot: Str, => root: Str, declared: Bool,\n", true, state, checked, out reply, status, _)
+  assert status == 0 and contains(lib ++ ": the exports Loaded, source, declared changed, whose importers are not checked", reply)
+  os_remove_all(in dir)
+
 // the check of a script loads the imports of a file only as far as it sees them, so an error in a definition of an
 // import is not listed in the reply of an edit of the file, but in that of an edit of the import
 test broken_imports() :=

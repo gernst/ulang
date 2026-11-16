@@ -3925,14 +3925,71 @@ function verdict(dry: Bool, checked: Bool, errors: Int, warnings: Int, fresh: Op
   join(", ", List(if dry then "dry" else "applied") ++ state ++ queries ++ ran)
 
 // the names that the export and builtin sections of the formatted texts before and after declare differently: those of
-// the declarations whose lines differ, with the constructors and fields of a datatype, which importers name
+// the declarations whose lines differ, with the constructors of a datatype whose lines differ and its fields whose types
+// or positions among the fields of a constructor differ, which importers depend on
 function changed_exports(before: Str, after: Str): List[Str] :=
   example changed_exports("export\n\nfunction f(x: Int): Int\n\nfunction g(): Int\n", "export\n\nfunction f(y: Int): Int\n\nfunction g(): Int\n") == List("f")
-  example changed_exports("export\n\ndata T :=\n  case C(name: Int)\n", "export\n\ndata T :=\n  case C(name: Int)\n  case D\n") == List("T", "C", "name", "D")
+  example changed_exports("export\n\ndata T :=\n  case C(name: Int)\n", "export\n\ndata T :=\n  case C(name: Int)\n  case D\n") == List("T", "D")
+  example changed_exports("export\n\ndata T :=\n  case C(a: Int, b: Str)\n", "export\n\ndata T :=\n  case C(a: Int, c: Int, b: Str)\n") == List("T", "C", "b", "c")
   example changed_exports("function f(): Int :=\n  1\n", "function f(): Int :=\n  2\n") == List()
   let old := exported_blocks(before), new := exported_blocks(after) in
   distinct(List(for k in distinct(List(for k => _ in old yield k) ++ List(for k => _ in new yield k)) if get(k, old) != get(k, new) for word in List(
-    k; declared_parts(value_or(get(k, old), List()) ++ value_or(get(k, new), List()))) yield word))
+    k; changed_parts(value_or(get(k, old), List()), value_or(get(k, new), List()))) yield word))
+
+// the constructors of the lines of a datatype before and after whose lines differ, and the fields whose constructors,
+// positions, or types differ
+function changed_parts(old: List[Str], new: List[Str]): List[Str] :=
+  example changed_parts(List("data T :=", "  case C(a: Int, b: Str)"), List("data T :=", "  case C(a: Int, b: Int)", "  case D")) == List("C", "D", "b")
+  example changed_parts(List("pattern P(): T :=", "  case C(x)"), List("pattern P(): T :=", "  case D(x)")) == List()
+  let before := case_lines(old), after := case_lines(new) in
+  let constrs := List(for (name, text) in before ++ after if not contains((name, text), before) or not contains((name, text), after) yield name) in
+  let fields := List(for (_, text) in before ++ after for (field, _) in fields_of(text) if field_places(field, before) != field_places(field, after) yield field) in
+  distinct(constrs ++ fields)
+
+// the constructors of the lines of a datatype, each by its name and the text of its case line, none of other lines
+function case_lines(lines: List[Str]): List[(Str, Str)] :=
+  example case_lines(List("data T :=", "  case C(a: Int)", "  case D")) == List(("C", "C(a: Int)"), ("D", "D"))
+  if not starts_with(value_or(get_at(0, lines), ""), "data ") then
+    List()
+  else
+    List(for line in lines if starts_with(trim(line), "case ") yield let text := slice(trim(line), size("case "), size(trim(line))) in
+    (head_name(text), text))
+
+// the constructor, the position, and the type of each field of the name among constrs
+function field_places(field: Str, constrs: List[(Str, Str)]): List[(Str, Int, Str)] :=
+  List(for (name, text) in constrs for (i, (f, typ)) in zip(range(0, size(fields_of(text))), fields_of(text)) if f == field yield (name, i, typ))
+
+// the fields of the text of a constructor, C(name: T, …), each with the text of its type
+function fields_of(text: Str): List[(Str, Str)] :=
+  example fields_of("C(name: Int, at: Map[Int, Str])") == List(("name", "Int"), ("at", "Map[Int, Str]"))
+  example fields_of("D") == List()
+  match (index_of("(", text), last(occurrences(text, ")")))
+    case (Some(open), Some(close)) =>
+      List(for part in top_parts(chars(slice(text, open + 1, close)), 0, List(), List()) for i in index_of(": ", part) yield (trim(slice(part, 0, i)), trim(slice(part, i + 2, size(part)))))
+    case _ =>
+      List()
+  end
+
+// the parts of cs between the commas outside brackets, where depth counts the open brackets, part holds the reversed
+// characters of the current part, and parts those before it
+function top_parts(cs: List[Char], depth: Int, part: List[Char], parts: List[Str]): List[Str] :=
+  example top_parts(chars("a: Int, b: Map[Int, Str]"), 0, List(), List()) == List("a: Int", " b: Map[Int, Str]")
+  match cs
+    case List(','; rest) if depth == 0 =>
+      top_parts(rest, 0, List(), parts ++ List(str(reverse(part))))
+
+    case List(c; rest) =>
+      let inner := if c == '(' or c == '[' then
+        depth + 1
+      else if c == ')' or c == ']' then
+        depth - 1
+      else
+        depth in
+      top_parts(rest, inner, List(c; part), parts)
+
+    case List() =>
+      parts ++ List(str(reverse(part)))
+  end
 
 // the declarations of the export and builtin sections of a formatted text, the lines of each name without comments and
 // blank lines, where a declaration starts with a keyword at the first column and goes on in the lines below it that do
@@ -3970,25 +4027,6 @@ function declared_name(line: Str): Str :=
     value_or(last(words), "")
   else
     head_name(value_or(get_at(1, words), ""))
-
-// the constructors and fields that the lines of a datatype declare, in its case lines
-function declared_parts(lines: List[Str]): List[Str] :=
-  example declared_parts(List("data T :=", "  case C(name: Int, at: Map[Int, Str])", "  case D")) == List("C", "name", "at", "D")
-  List(for line in lines if starts_with(trim(line), "case ") for word in constr_words(slice(trim(line), size("case "), size(trim(line)))) yield word)
-
-function constr_words(text: Str): List[Str] :=
-  List(
-    head_name(text); List(for w in split(text, ' ') if ends_with(w, ":") yield head_name(after_paren(w))))
-
-// word after its last (, if any
-function after_paren(word: Str): Str :=
-  example after_paren("C(name:") == "name:"
-  match last(occurrences(word, "("))
-    case Some(i) =>
-      slice(word, i + 1, size(word))
-    case None =>
-      word
-  end
 
 // the start of word up to the first (, [, or :
 function head_name(word: Str): Str :=
