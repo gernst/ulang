@@ -227,10 +227,13 @@ function text_of(v: Val): Str :=
 // the builtins without a module, and the functions of the builtin sections of the prelude, str, and array
 function builtin_names(): Set[Name] :=
   Set(
-    unqualified("<"),
     unqualified("=="),
     unqualified("compare"),
     unqualified("show"),
+    library_name("prelude", "<"),
+    library_name("prelude", "<="),
+    library_name("prelude", ">"),
+    library_name("prelude", ">="),
     library_name("prelude", "+"),
     library_name("prelude", "-"),
     library_name("prelude", "*"),
@@ -525,6 +528,10 @@ procedure variable_value(
         raise Uninitialized(n)
       end
 
+    // the comparisons that the prelude defines, which primitive computes as their definitions do
+    case (None, Some(_)) if contains(n, defined_builtins()) =>
+      v := VPrim(n)
+
     case (None, Some(_)) =>
       match get((n, arity(t)), run.defs.funs)
         case Some(_) =>
@@ -636,13 +643,37 @@ procedure apply_value(
           show_in(in run, a, out s, ref cache)
           v := VStr(s)
 
-        case ("<", List(VInt(a), VInt(b))) =>
+        case ("prelude.prelude.<", List(VInt(a), VInt(b))) =>
           v := VBool(a < b)
 
-        case ("<", List(a, b)) =>
+        case ("prelude.prelude.<", List(a, b)) =>
           var k: Int
           compare_values(in run, a, b, out k, ref cache)
           v := VBool(k < 0)
+
+        case ("prelude.prelude.<=", List(VInt(a), VInt(b))) =>
+          v := VBool(a <= b)
+
+        case ("prelude.prelude.<=", List(a, b)) =>
+          var k: Int
+          compare_values(in run, b, a, out k, ref cache)
+          v := VBool(k >= 0)
+
+        case ("prelude.prelude.>", List(VInt(a), VInt(b))) =>
+          v := VBool(a > b)
+
+        case ("prelude.prelude.>", List(a, b)) =>
+          var k: Int
+          compare_values(in run, b, a, out k, ref cache)
+          v := VBool(k < 0)
+
+        case ("prelude.prelude.>=", List(VInt(a), VInt(b))) =>
+          v := VBool(a >= b)
+
+        case ("prelude.prelude.>=", List(a, b)) =>
+          var k: Int
+          compare_values(in run, a, b, out k, ref cache)
+          v := VBool(k >= 0)
 
         case ("prelude.array.foldr", List(VArr(values), acc, g)) =>
           var k: Int
@@ -1815,7 +1846,9 @@ function procedures(): List[Cmd] :=
       SAssign(List(
         (Var(unqualified("s"), THole), expr_int(0)),
         (Var(unqualified("i"), THole), expr_int(0)))),
-      SWhile(expr_app("<", List(expr_var("i"), expr_var("n"))), block(List(), List(
+      SWhile(expr_app("==", List(
+        expr_app("compare", List(expr_var("i"), expr_var("n"))),
+        expr_int(-1))), block(List(), List(
         SAssign(List(
           (Var(unqualified("s"), THole), expr_app("+", List(expr_var("s"), expr_app("+", List(expr_var("i"), expr_int(1)))))),
           (Var(unqualified("i"), THole), expr_app("+", List(expr_var("i"), expr_int(1)))))))))))),
@@ -1901,5 +1934,14 @@ test handler_types() :=
   assert raises Uncaught("\"x\"") do
     check_and_run(in List(
       CTest(unqualified("t"), List(), nowhere(STry(nowhere(SIf(nowhere(ELit(LBool(true))), nowhere(SRaise(nowhere(ELit(LStr("x"))), THole)), nowhere(SRaise(expr_int(1), THole)))), List(
-        nowhere(Catch(THole, pat_var("k"), Some(expr_app("<", List(expr_var("k"), expr_int(2)))), nowhere(SSkip)))))))))
+        nowhere(Catch(THole, pat_var("k"), Some(expr_app("==", List(
+          expr_app("compare", List(expr_var("k"), expr_int(2))),
+          expr_int(-1)))), nowhere(SSkip)))))))))
   end
+
+function defined_builtins(): Set[Name] :=
+  Set(
+    library_name("prelude", "<"),
+    library_name("prelude", "<="),
+    library_name("prelude", ">"),
+    library_name("prelude", ">="))

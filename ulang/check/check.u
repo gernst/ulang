@@ -20,7 +20,7 @@ data TypeError :=
   case Mismatch(expected_type: Type, found_type: Type, what: Str)
   case InfiniteType(meta: Type, typ: Type)
   case UnknownVariable(name: Name)
-  case NoOverload(name: Name, typ: Type)
+  case NoOverload(name: Name, typ: Type, candidates: List[(Name, Scheme)])
   case WrongArity(name: Name, arity: Int)
   case AlreadyDefined(name: Name)
   case Duplicate(what: Str, item: Str)
@@ -34,6 +34,9 @@ data TypeError :=
   // takes
   case NoFold(typ: Type, fold: Id)
   case CountMismatch(owner: Str, unit: Str, expected: Int, actual: Int)
+  // a call of the procedure proc of the type typ with other numbers of ins, outs, and refs than typ has, as a mode written
+  // wrong, where the arguments are not checked against the formals, which they do not line up with
+  case CallMismatch(proc: Name, typ: Type, ins: Int, outs: Int, refs: Int)
   case UnknownConstructor(name: Name)
   case NotExhaustive(pat: Pat)
   case Unreachable(pat: Pat)
@@ -470,11 +473,7 @@ function builtin_schemes(n: Name): List[Scheme] :=
   end
 
 function builtin_scheme(b: Id): List[Scheme] :=
-  let a := TParam("A") in
   match b
-    case "<" =>
-      List(Scheme(List(a), TFun(List(a, a), TBool())))
-
     case "and" =>
       List(logic())
 
@@ -1818,12 +1817,6 @@ procedure unique_ids(in what: Str, ns: List[Id], ref s: State) :=
       skip
   end
 
-// the number n of the units of owner, which expects m of them, e.g. the arguments of a constructor
-procedure same_length(in owner: Str, unit: Str, m: Int, n: Int, ref s: State) :=
-  if m != n then
-    report(in CountMismatch(owner, unit, m, n), ref s)
-  end
-
 // expands type definitions and replaces holes by fresh unknowns
 procedure normalize(in t: Type, out u: Type, ref s: State) :=
   match t
@@ -2084,7 +2077,7 @@ procedure choose(
   match ok
     // a use that no candidate fits has the result TError, so that what uses it makes no follow-ups
     case List() =>
-      report(in NoOverload(n, zonk_type(s.sub, w)), ref s)
+      report(in NoOverload(n, zonk_type(s.sub, w), cs), ref s)
       unify_result(in w, ref s)
       m := n
 
@@ -2140,7 +2133,8 @@ procedure revisit(in ps: List[Pending], ref changed: Bool, s: State) :=
       match ok
         case List() =>
           if not has_error_type(zonk_type(s.sub, p.typ)) then
-            s := s with errors := s.errors ++ List(at_use(p.pos, NoOverload(p.name, zonk_type(s.sub, p.typ))))
+            s := s with errors := s.errors ++ List(
+              at_use(p.pos, NoOverload(p.name, zonk_type(s.sub, p.typ), p.cands)))
           end
 
         case List(((m, _), s_)) =>
@@ -2683,7 +2677,7 @@ function error_types(e: TypeError): List[Type] :=
     case Mismatch(expected_type, found_type, _) =>
       List(expected_type, found_type)
 
-    case NoOverload(_, typ) =>
+    case NoOverload(_, typ, _) =>
       List(typ)
 
     case UnknownFieldType(_, typ) =>
@@ -2914,7 +2908,7 @@ procedure application(
             var typed_args: List[At[Expr]], typed_fun: At[Expr], u: Type
             s := s with within := List(InCall(name); outer)
             infer(in env, fun, out typed_fun, u, ref s)
-            apply(in env, u, args, expected, out typed_args, t, ref s)
+            apply(in env, typed_fun, u, args, expected, out typed_args, t, ref s)
             typed_expr := EApp(typed_fun, typed_args), s := s with within := outer
         end
       end
@@ -2930,7 +2924,7 @@ procedure application(
     case _ =>
       var typed_fun: At[Expr], u: Type, typed_args: List[At[Expr]]
       infer(in env, fun, out typed_fun, u, ref s)
-      apply(in env, u, args, expected, out typed_args, t, ref s)
+      apply(in env, typed_fun, u, args, expected, out typed_args, t, ref s)
       typed_expr := EApp(typed_fun, typed_args)
   end
 
@@ -3014,8 +3008,10 @@ function continued_update(suffix: Id, expr: At[Expr], e: TypeError): TypeError :
       e
   end
 
+// the call of the callee fun, of the type f, of the arguments args
 procedure apply(
   in  env: Env,
+      fun: At[Expr],
       f: Type,
       args: List[At[Expr]],
       expected: Option[(Type, Str)],
@@ -3026,7 +3022,7 @@ procedure apply(
   var fitting := false
   fresh(out r, ref s)
   match (zonk_type(s.sub, f), expected)
-    case (TFun(ps, res), Some((t, _))) if size(ps) == size(args) =>
+    case (TFun(ps, res), Some((t, _))) if size(ps) == size(args) and not is_plus(fun) =>
       fits(in res, t, s, out fitting)
     case _ =>
       skip
@@ -3036,6 +3032,7 @@ procedure apply(
     case (TError, _) =>
       var ts: List[Type]
       infers_first(in env, args, out typed_args, ts, ref s)
+      unifies(in ts, replicate(size(ts), TError), ref s)
       infers_lambdas(in env, args, ts, ref typed_args, s)
       unify(in r, TError, ref s)
 
@@ -3043,6 +3040,24 @@ procedure apply(
       unify(in res, t, ref s)
       unify(in res, r, ref s)
       checks_args(in env, args, ps, out typed_args, ref s)
+
+    // a string added by + is one error, with the hint of ++, at the first string, and the result is TError, since the
+    // sum meant a string, so that no follow-up reports it
+    case (TFun(ps, res), _) if size(ps) == size(args) and is_plus(fun) =>
+      var ts: List[Type]
+      infers_first(in env, args, out typed_args, ts, ref s)
+      match List(for ((a, i), t) in zip(numbered(args), ts) if zonk_type(s.sub, t) == TStr() yield (a, i))
+        case List((a, i); _) =>
+          expect(in a.pos, "argument " ++ show(i + 1) ++ " of the call", TInt(), TStr(), ref s)
+          unify(in r, TError, ref s)
+
+        case List() =>
+          for ((a, p), (t, i)) in zip(zip(args, ps), numbered(ts)) do
+            expect(in a.pos, "argument " ++ show(i + 1) ++ " of the call", p, t, ref s)
+          end
+          unify(in res, r, ref s)
+      end
+      infers_lambdas(in env, args, ts, ref typed_args, s)
 
     case (TFun(ps, res), _) if size(ps) == size(args) =>
       var ts: List[Type]
@@ -3052,6 +3067,15 @@ procedure apply(
       end
       unify(in res, r, ref s)
       infers_lambdas(in env, args, ts, ref typed_args, s)
+
+    // of a function of another arity, whose result is TError, so that its uses make no follow-ups
+    case (TFun(ps, _), _) =>
+      var ts: List[Type]
+      report(in CountMismatch(callee_text(s.sig, fun), "arguments", size(ps), size(args)), ref s)
+      infers_first(in env, args, out typed_args, ts, ref s)
+      unifies(in ts, replicate(size(ts), TError), ref s)
+      infers_lambdas(in env, args, ts, ref typed_args, s)
+      unify(in r, TError, ref s)
 
     // of a value that no function type fits, whose result is TError, so that its uses make no follow-ups
     case _ =>
@@ -3064,6 +3088,32 @@ procedure apply(
       if not applicable then
         unify(in r, TError, ref s)
       end
+  end
+
+// whether the callee fun is the + of the prelude, whose arguments are integers
+function is_plus(fun: At[Expr]): Bool :=
+  match fun.that
+    case EVar(x) =>
+      x.name == Owned(List("prelude", "prelude"), List(), "+")
+    case _ =>
+      false
+  end
+
+// the callee fun as a message names it, a constructor or a function by its kind and name, a variable by its name, and
+// else none
+function callee_text(sig: Sig, fun: At[Expr]): Str :=
+  match fun.that
+    case EVar(x) if is_constr(sig, x.name) =>
+      "constructor " ++ x.name.base
+
+    case EVar(x) if is_fun(sig, x.name) =>
+      "function " ++ x.name.base
+
+    case EVar(x) =>
+      x.name.base
+
+    case _ =>
+      ""
   end
 
 // whether u unifies with t, tried on a copy of s
@@ -3250,6 +3300,12 @@ procedure infer_lambda(
       take_errors(in expr.pos, before, out errors, ref s)
       typed_expr := checked_at(expr.pos, expr.span, x, errors), s := s with at := outer
 
+    // of a call of an unknown function or of one of another arity, whose formals are TError, so that their uses make no
+    // follow-ups
+    case (ELam(formals, _), TError) =>
+      infer_lambda(in env, expr, TFun(replicate(size(formals), TError), TError), out typed_expr, ref s)
+      u := TError
+
     case _ =>
       infer(in env, expr, out typed_expr, u, ref s)
   end
@@ -3387,15 +3443,36 @@ procedure guard(
   end
 
 // guarded cases neither cover values for exhaustiveness nor make later cases unreachable, and the patterns as written,
-// one per case, name an unreachable case as its source does, with its pattern aliases
+// one per case, name an unreachable case as its source does, with its pattern aliases; cases with an unknown constructor
+// or one of another arity, whose typed pattern is _, are not judged, since what they meant to cover is not known
 procedure coverage(
   in  t: Type,
       cs: List[(At[Pat], Bool)],
       written: List[At[Pat]],
   ref s: State
 ) :=
-  if zonk_type(s.sub, t) != TError then
+  if zonk_type(s.sub, t) != TError and not exists(written, lambda p => has_wrong_constructor(s, p)) then
     coverage_known(in t, cs, written, ref s)
+  end
+
+// whether pat as written names a constructor or pattern alias that the module does not see, or none of its arity
+function has_wrong_constructor(s: State, pat: At[Pat]): Bool :=
+  match pat.that
+    case PApp(constr, args) =>
+      results(s.sig, overloads(s, constr, lambda n => is_pattern_name(s.sig, n)), size(args)) == List() or exists(args, lambda a => has_wrong_constructor(s, a))
+
+    // a qualified name is a constructor or an alias, never a variable
+    case PVar(x) =>
+      x.name.path != List() and results(s.sig, overloads(s, x.name, lambda n => is_pattern_name(s.sig, n)), 0) == List()
+
+    case PTuple(args) | POr(args) =>
+      exists(args, lambda a => has_wrong_constructor(s, a))
+
+    case PAnnotated(inner, _) =>
+      has_wrong_constructor(s, inner)
+
+    case PWild | PLit(_) =>
+      false
   end
 
 // coverage of a type that no error reaches, which says which values there are, where a missing value is named by the
@@ -3637,7 +3714,8 @@ procedure pattern_binders(
         end
       end
 
-    // a pattern of an unknown constructor is _, which binds nothing
+    // a pattern of an unknown constructor is _, which binds the variables of its arguments as TError, so that the uses
+    // of them make no follow-ups
     case PApp(constr, args) =>
       var k: Option[Name], head: Option[PatHead]
       match overloads(s, constr, lambda n => is_pattern_name(s.sig, n))
@@ -3663,7 +3741,8 @@ procedure pattern_binders(
 
         case (Some(_), None) =>
           report(in UnknownConstructor(constr), ref s)
-          typed_pat := AOk(pos, span, PWild), xs := List()
+          binder_list(in args, replicate(size(args), TError), out _, xs, ref s)
+          typed_pat := AOk(pos, span, PWild)
 
         // a constructor that does not parse binds the variables of its arguments, of unknown types
         case (None, _) if contains(constr.base, s.unparsed) =>
@@ -3674,7 +3753,8 @@ procedure pattern_binders(
 
         // reported where k was resolved
         case (None, _) =>
-          typed_pat := AOk(pos, span, PWild), xs := List()
+          binder_list(in args, replicate(size(args), TError), out _, xs, ref s)
+          typed_pat := AOk(pos, span, PWild)
       end
 
     case PTuple(args) =>
@@ -3777,12 +3857,18 @@ procedure constructor_binders(
       xs: List[Var],
   ref s: State
 ) :=
-  var m: List[(Type, Type)], qs: List[At[Pat]]
-  same_length(in head.what ++ " " ++ k.base, "arguments", size(head.args), size(args), ref s)
-  instance(in head.params, out m, ref s)
-  unify(in subst(head.typ, m), t, ref s)
-  binder_list(in args, List(for a in head.args yield subst(a, m)), out qs, xs, ref s)
-  typed_pat := AOk(pos, span, PApp(k, qs))
+  // of another arity, the pattern is _, whose variables are TError, since the arguments that they meant are not known
+  if size(head.args) != size(args) then
+    report(in CountMismatch(head.what ++ " " ++ k.base, "arguments", size(head.args), size(args)), ref s)
+    binder_list(in args, replicate(size(args), TError), out _, xs, ref s)
+    typed_pat := AOk(pos, span, PWild)
+  else
+    var m: List[(Type, Type)], qs: List[At[Pat]]
+    instance(in head.params, out m, ref s)
+    unify(in subst(head.typ, m), t, ref s)
+    binder_list(in args, List(for a in head.args yield subst(a, m)), out qs, xs, ref s)
+    typed_pat := AOk(pos, span, PApp(k, qs))
+  end
   match pat_alias_of(s.sig, k)
     case Some(alias) =>
       pattern_aliased(in k, alias, ref s)
@@ -3811,7 +3897,7 @@ procedure pattern_constructor(
       c := Some(c_)
 
     case List() =>
-      report(in NoOverload(n, zonk_type(s.sub, t)), ref s)
+      report(in NoOverload(n, zonk_type(s.sub, t), results(s.sig, ks, k)), ref s)
       c := None
 
     case _ =>
@@ -4367,15 +4453,20 @@ procedure declared_call(
     case Some(proc) =>
       var m: List[(Type, Type)], typed_ins: List[At[Expr]], typed_outs: List[Var], typed_refs: List[Var]
       instance(in proc.params, out m, ref s)
-      same_length(in "procedure " ++ q.base, "ins", size(proc.ins), size(ins), ref s)
-      same_length(in "procedure " ++ q.base, "outs", size(proc.outs), size(outs), ref s)
-      same_length(in "procedure " ++ q.base, "refs", size(proc.refs), size(refs), ref s)
       unique(in "out or ref", List(for x in outs ++ refs if not is_dropped(x) yield x.name), ref s)
-      checks(in env, "procedure " ++ q.base, ins, List(for t in proc.ins yield subst(t, m)), out typed_ins, ref s)
-      out_variables(in env, assignable, outs, out typed_outs, ref s)
-      variables(in env, assignable, refs, out typed_refs, ref s)
-      unifies_toward(in From, List(for x in typed_outs yield x.typ), List(for t in proc.outs yield subst(t, m)), ref s)
-      unifies(in List(for x in typed_refs yield x.typ), List(for t in proc.refs yield subst(t, m)), ref s)
+      if size(proc.ins) == size(ins) and size(proc.outs) == size(outs) and size(proc.refs) == size(refs) then
+        checks(in env, "procedure " ++ q.base, ins, List(for t in proc.ins yield subst(t, m)), out typed_ins, ref s)
+        out_variables(in env, assignable, outs, out typed_outs, ref s)
+        variables(in env, assignable, refs, out typed_refs, ref s)
+        unifies_toward(in From, List(for x in typed_outs yield x.typ), List(for t in proc.outs yield subst(t, m)), ref s)
+        unifies(in List(for x in typed_refs yield x.typ), List(for t in proc.refs yield subst(t, m)), ref s)
+      else
+        report(in CallMismatch(q, TProc(proc.ins, proc.outs, proc.refs, RSet(empty())), size(ins), size(outs), size(refs)), ref s)
+        infers(in env, ins, out typed_ins, _, ref s)
+        out_variables(in env, assignable, outs, out typed_outs, ref s)
+        variables(in env, assignable, refs, out typed_refs, ref s)
+        unifies(in List(for x in typed_outs ++ typed_refs yield x.typ), replicate(size(outs) + size(refs), TError), ref s)
+      end
       stmt := SCall(q, typed_ins, typed_outs, typed_refs)
 
     // a call that does nothing, of an unknown procedure
@@ -6423,7 +6514,7 @@ function let_id(arg: At[Expr]): At[Expr] :=
 
 test inference() :=
   var t: Type
-  type_of(in expr_app("<", List(expr_int(1), expr_int(2))), out t)
+  type_of(in expr_app("==", List(expr_int(1), expr_int(2))), out t)
   assert t == TBool()
   type_of(in let_id(expr_int(2)), out t)
   assert t == TTuple(List(TInt(), TInt()))
@@ -6434,7 +6525,7 @@ test inference() :=
     type_of(in lambda_at(List(Var(unqualified("f"), THole)), expr_app("f", List(expr_var("f")))), out t)
   end
   assert raises Mismatch(_, _, _) do
-    type_of(in expr_app("<", List(expr_int(1), nowhere(ELit(LBool(true))))), out t)
+    type_of(in expr_app("==", List(expr_int(1), nowhere(ELit(LBool(true))))), out t)
   end
   assert raises UnknownVariable(Name(List(), "x")) do
     type_of(in expr_app("x", List()), out t)
@@ -6681,7 +6772,7 @@ test locals() :=
   assert b == EName(unqualified("size"), TInt())
 
 test errors() :=
-  assert raises NoOverload(Name(List(), "size"), _) do
+  assert raises NoOverload(Name(List(), "size"), _, List(_, _)) do
     body_of(in fun_cmd("f", List(), TInt(), expr_app("size", List(expr_int(1)))), out _)
   end
   assert raises Ambiguous(Name(List(), "size"), List(_, _)) do

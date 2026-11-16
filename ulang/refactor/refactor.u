@@ -389,7 +389,7 @@ procedure parsed(
   out source: Source
 ) raises Refused, OsError :=
   try
-    parse_file_overlaid(in path, Map(path => text; files), false, out source)
+    parse_file_overlaid(in path, Map(path => text; files), true, out source)
     // an import that fails is no failure of the parse here, so that a script can fix it
     require_parsed(in source with mods := List(for m in source.mods yield m with imports := List(for i in m.imports if import_failures(i) == List())))
   catch
@@ -3346,7 +3346,7 @@ function first_difference(found: List[(Pos, Str, Name)], expected: List[Name]): 
 function resolved_text(name: Name): Str :=
   example resolved_text(Name(List(), "x")) == "the local x"
   example resolved_text(Name(List(), "show")) == "show"
-  if name.path == List() and not contains(name.base, List("<", "==", "compare", "show", "and", "or")) then
+  if name.path == List() and not contains(name.base, List("==", "compare", "show", "and", "or")) then
     "the local " ++ name.base
   else
     format_name(name)

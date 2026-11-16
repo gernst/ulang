@@ -669,9 +669,9 @@ function merge_all(ctx: Ctx, xs: List[Term], ys: List[Term]): Ctx :=
       ctx
   end
 
-// the context with d == 0, solved for its greatest atom with a coefficient 1 or -1, a variable that a proof defines
-// before any other, so that it stays equal to its value, or else kept as the equation of its atoms, divided by their
-// greatest common divisor, with the constant
+// the context with d == 0, divided by the greatest common divisor of its factors, solved for its greatest atom with a
+// coefficient 1 or -1, a variable that a proof defines before any other, so that it stays equal to its value, or else
+// kept as the equation of its atoms with the constant
 function merge_lin(ctx: Ctx, d: Lin): Ctx :=
   match d
     case Lin(k, List()) =>
@@ -687,8 +687,11 @@ function merge_lin(ctx: Ctx, d: Lin): Ctx :=
           let g := gcd_all(summands) in
           if k % g != 0 then
             contradiction(ctx)
+            // the factors that the division leaves may be units, as of 2 * s - 2 * k, which then solves
+          else if g != 1 then
+            merge_lin(ctx, Lin(k / g, divided(summands, g)))
           else
-            equate(ctx, sum_term(Lin(0, divided(summands, g))), EInt(0 - k / g))
+            equate(ctx, sum_term(Lin(0, summands)), EInt(0 - k))
       end
   end
 
