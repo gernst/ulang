@@ -1148,15 +1148,9 @@ function simp_term(ctx: Ctx, e: Term): Term :=
     case ESum(constant, summands) =>
       rewrite(ctx, sum_term(simp_summands(ctx, summands, Lin(constant, List()))))
 
-    case EFun(name) =>
-      match get((name, 0), ctx.decls.defs)
-        case Some(d) =>
-          unfold(ctx, (name, 0), e, d, List())
-        case None =>
-          rewrite(ctx, e)
-      end
-
-    case ELevel(_) =>
+    // a function value, which only an application unfolds, also of a function without formals, since the value of a
+    // call is not the function
+    case EFun(_) | ELevel(_) =>
       rewrite(ctx, e)
 
     case EBound(_) | ELit(_) | ELam(_, _) =>
