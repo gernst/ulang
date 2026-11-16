@@ -2,7 +2,6 @@
 
 #include <dirent.h>
 #include <errno.h>
-#include <gc.h>
 #include <limits.h>
 #include <netdb.h>
 #include <stdarg.h>
@@ -17,6 +16,7 @@
 // the runtime calls u_mk_int, which programs inline for small integers
 #define U_RUNTIME
 #include "ulang.h"
+#include "gc_decls.h"
 
 // the layout of the structures that the assembly of ulang/compile/x86.u reads and writes, which it repeats
 _Static_assert(sizeof(struct u_object) == 32 && offsetof(struct u_object, type) == 0, "u_object");
