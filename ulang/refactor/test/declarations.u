@@ -275,3 +275,18 @@ test patches_after_drops() :=
   os_read_utf8(in path, out text)
   assert status == 0 and take(2, reply) == List("applied, clean", path ++ ": patched a/0, b/0")
   assert text == "export\n\n// both\nfunction b(): Int\n\nimplementation\n\nfunction a(): Int :=\n  1\n\nfunction b(): Int :=\n  2\n"
+
+// @put F:name of several declarations replaces the target by its namesake, also of another arity, replaces each other
+// one that the file declares where it stands, and places the new ones after the target, where one that the file
+// declares with another arity is added beside it, which the reply says
+test puts_several() :=
+  var reply: List[Str], status: Int, text: Str
+  let state := "out/test/refactor/declarations/several", path := "out/test/refactor/declarations/several.u"
+  os_write_utf8(in path, "function f(x: Int): Int :=\n  x\n\nfunction g(x: Int): Int :=\n  x\n\nfunction h(): Int :=\n  0\n")
+  run_script(in "@put " ++ path ++ ":f\nfunction f(x: Int, y: Int): Int := x + y\nfunction h(): Int := 1\nfunction g(): Int := 2\nfunction k(): Int := 3\n", false, state, no_diagnostics, out reply, status, _)
+  os_read_utf8(in path, out text)
+  assert status == 0
+  assert text == "function f(x: Int, y: Int): Int :=\n  x + y\n\nfunction g(): Int :=\n  2\n\nfunction k(): Int :=\n  3\n\nfunction g(x: Int): Int :=\n  x\n\nfunction h(): Int :=\n  1\n"
+  assert take(2, reply) == List(
+    "applied, clean",
+    path ++ ": replaced f/1 by f/2, replaced h/0, added g/0, beside g/1, added k/0")

@@ -20,6 +20,7 @@ function actions(script: Str): List[Action] :=
   example actions("@show a.u\n@put a.u\nf\ng\n") == List(
       Action(1, List("show", "a.u"), ""),
       Action(2, List("put", "a.u"), "f\ng"))
+  example actions("@patch a.u\n@@x => @y\n") == List(Action(1, List("patch", "a.u"), "@x => @y"))
 
 // the directory of the state of refactor, out/refactor of the root of the project of the working directory, where the
 // table of handles and the journal are kept
@@ -104,7 +105,7 @@ function actions(script: Str): List[Action] :=
 function actions_of(lines: List[(Str, Int)]): List[Action] :=
   match lines
     case List((line, i); rest) =>
-      if starts_with(line, "@") then
+      if is_action_line(line) then
         let (body, more) := fragment_lines(rest) in
         List(
           Action(i, words_of(slice(line, 1, size(line))), trimmed_fragment(firsts(body))); actions_of(more))
@@ -117,12 +118,32 @@ function actions_of(lines: List[(Str, Int)]): List[Action] :=
 
 function fragment_lines(lines: List[(Str, Int)]): (List[(Str, Int)], List[(Str, Int)]) :=
   match lines
-    case List((line, i); rest) if not starts_with(line, "@") =>
+    case List((line, i); rest) if not is_action_line(line) =>
       let (body, more) := fragment_lines(rest) in
-      (List((line, i); body), more)
+      (List(
+        (if starts_with(line, "@@") then slice(line, 1, size(line)) else line, i); body), more)
 
     case _ =>
       (List(), lines)
+  end
+
+// whether a line of a script starts an action, a line that starts with @, but for a line that starts with @@, which is a
+// line of a fragment that starts with @
+function is_action_line(line: Str): Bool :=
+  example is_action_line("@put a.u")
+  example not is_action_line("@@put a.u")
+  starts_with(line, "@") and not starts_with(line, "@@")
+
+// the refusal of an action that takes a fragment and has none, where the next action of the script, if there is one, is
+// the line after it that starts with @, which may have been meant as the fragment
+function fragment_refusal(action: Action, next: Option[Action]): Option[Str] :=
+  example fragment_refusal(Action(1, List("patch", "a.u:f"), ""), Some(Action(2, List("drop", "T"), ""))) == Some("@patch a.u:f has no fragment, since line 2 of the script, @drop T, starts with @, which starts an action; write a fragment line that starts with @ as @@")
+  example fragment_refusal(Action(1, List("drop", "a.u:f"), ""), Some(Action(2, List("drop", "T"), ""))) == None
+  match (action.words, next)
+    case (List("put" | "patch" | "example"; _), Some(after)) if action.fragment == "" =>
+      Some("@" ++ join(" ", action.words) ++ " has no fragment, since line " ++ show(after.line) ++ " of the script, @" ++ join(" ", after.words) ++ ", starts with @, which starts an action; write a fragment line that starts with @ as @@")
+    case _ =>
+      None
   end
 
 // the lines joined, without the blank lines at the end
@@ -373,10 +394,23 @@ procedure parsed(
     require_parsed(in source with mods := List(for m in source.mods yield m with imports := List(for i in m.imports if import_failures(i) == List())))
   catch
     case ParseErrors(errors) =>
-      raise Refused(join("\n", List(for e in errors yield parse_message(path, fragment, parse_diagnostic(e)))))
+      raise Refused(join("\n", List(for d in shown_errors(fragment, List(for e in errors yield parse_diagnostic(e))) yield parse_message(path, fragment, d))))
     case e =>
       raise Refused(parse_message(path, fragment, parse_diagnostic(e)))
   end
+
+// the errors of a parse to show, where those at the lines of the fragment, if there are any, explain those at the lines of
+// the file, which parsed before the fragment was spliced in, and a keyword written as a name hides the errors after it on
+// its line, which follow from the parse that took it as the start of a section or a command
+function shown_errors(fragment: List[(Range, Int)], ds: List[Diagnostic]): List[Diagnostic] :=
+  let inside := List(for d in ds if exists(fragment, lambda (r, _) => r.first <= d.pos.line and d.pos.line <= r.last)) in
+  let kept := if inside == List() then ds else inside in
+  List(for d in kept if not exists(kept, lambda k => is_keyword_error(k) and k.pos.line == d.pos.line and (k.pos.col < d.pos.col or k.pos.col == d.pos.col and not is_keyword_error(d))))
+
+// whether d is the error of a keyword where a name is expected
+function is_keyword_error(d: Diagnostic): Bool :=
+  example is_keyword_error(Diagnostic(ParseKind, "", None, Pos(1, 1), "keyword builtin is not a name", List()))
+  starts_with(d.message, "keyword ") and index_of(" is not a name", d.message) != None
 
 // the message of d at its line in the fragment if it is in one of the blocks of the text that the fragment wrote, each its
 // lines and the line of the fragment of its first, else at its line in the file
@@ -507,7 +541,7 @@ procedure perform(
 
     case _ =>
       let actions := "@show T, @put F, @put F:name, @put [before|after] F:name, @put [before|after|into] N, @drop T, where a node N is #h, F:name #h, F:name \"text\", or F:L.C, @patch T, @example F:name, @rename T new, @outline F, @refs T, @sig name, @sig M, @resolve F:L.C, @export T, @unexport T, @fix T [Rule ...], @undo [n], @check [test] [F]"
-      raise Refused("line " ++ show(action.line) ++ ": unknown action @" ++ join(" ", action.words) ++ ", which is one of " ++ actions)
+      raise Refused("line " ++ show(action.line) ++ ": unknown action @" ++ join(" ", action.words) ++ ", which is one of " ++ actions ++ "; a line of a script that starts with @ starts an action, so a fragment line that starts with @ is written @@")
   end
 
 // the definition of key in d, with the lines of the specs of its signatures as its own, for its nodes, so that the
@@ -1475,7 +1509,7 @@ procedure put_anchored(
   let exported_at := keyword_line(lines, "export"), builtin_at := keyword_line(lines, "builtin")
   let implemented_at := keyword_line(lines, "implementation")
   let has_sections := exported_at != None or implemented_at != None or builtin_at != None
-  let imports := List(for line in parts.imports if not contains(line, List(for l in lines yield l)))
+  let imports := distinct(List(for line in parts.imports if not contains(trim(line), List(for l in lines yield trim(l))) yield trim(line)))
   let code_at := first_code_line(lines)
   let import_at := value_or(map_option(last(List(for i in range(1, size(lines) + 1) if starts_with(line_at(lines, i), "import ") yield i)), lambda i => i + 1), code_at)
   let export_lines := firsts(parts.exported), export_first := value_or(map_option(get_at(0, parts.exported), lambda (_, i) => i), 1)
@@ -1634,11 +1668,11 @@ procedure put_anchored(
         end
         exported_keys := exported_keys ++ List(for k in new_key if role == "export" yield k)
         entries := entries ++ List(
-          ("added " ++ value_or(map_option(new_key, key_text), "a notation"), moved, role, role))
+          ("added " ++ value_or(map_option(new_key, key_text), "a notation"), moved ++ beside_text(new_key, olds), role, role))
     end
   end
   let plain := not (has_sections or has_exports or has_builtins)
-  var done := List(for line in imports yield "imported " ++ slice(line, 7, size(line))) ++ List(for (what, suffix) in distinct(List(for (w, s, _, _) in entries yield (w, s))) for line in Some(done_text(what, suffix, entries, plain)) if line != "" yield line)
+  var done := List(for line in imports yield "added " ++ line) ++ List(for (what, suffix) in distinct(List(for (w, s, _, _) in entries yield (w, s))) for line in Some(done_text(what, suffix, entries, plain)) if line != "" yield line)
   formatted(in path, join("\n", spliced(all_lines_list, splices)), edits.files, no_fragment(), out result, source)
   with_signatures(in path, replaced_keys, edits.files, ref result, done)
   with_exported_raises(in path, text, exported_keys, edits.files, ref result, done)
@@ -1646,6 +1680,12 @@ procedure put_anchored(
   if done != List() then
     note(in path ++ ": " ++ join(", ", done), ref edits)
   end
+
+// the text of the other arities of the name of key among cmds, of its kind, which a declaration of key that is added
+// overloads, so that the reply tells an overload from a replacement
+function beside_text(key: Option[Key], cmds: List[At[Cmd]]): Str :=
+  let others := distinct(List(for k in key for cmd in cmds for o in cmd_key(cmd) if o.kind == k.kind and o.base == k.base and o.arity != k.arity yield key_text(o))) in
+  if others == List() then "" else ", beside " ++ join(", ", others)
 
 // the one element of xs, if it has one
 function sole[A](xs: List[A]): Option[A] :=
@@ -2558,11 +2598,15 @@ procedure run_actions(
     let base := Map(for path => text in overlays yield normal_file(here, here, path) => text)
     var edits := Edits(base, empty(), List(), handles, List(), state, List(), false), written: Map[Str, Str] := Map(), failure: Option[Str] := None
     var refused := 0
-    for action in actions(script) if failure == None do
+    let all := actions(script)
+    for action in all if failure == None do
       if is_rename(action) then
         flush(in edits, ref written)
       end
       try
+        for message in fragment_refusal(action, find(all, lambda a => a.line > action.line)) do
+          raise Refused(message)
+        end
         perform(in action with words := normal_words(here, action.words), check, ref edits)
         if is_rename(action) then
           commit_rename(in edits, ref written)

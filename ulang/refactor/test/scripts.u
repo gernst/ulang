@@ -195,3 +195,21 @@ test exports_and_renames() :=
   assert status == 0 and text == "function use_b(): Int :=\n  h(1)\n"
   os_read_utf8(in os_join(dir, "a.u"), out text)
   assert index_of("k(x) + 1", text) != None and index_of("example k(1) == 2", text) != None
+
+// a line of a script that starts with @ starts an action, so an action that takes a fragment and is followed by one is
+// refused with the line that it took as an action, and a fragment line that starts with @@ is the line with one @
+test escapes_at_lines() :=
+  var reply: List[Str], status: Int, text: Str
+  let path := "out/test/refactor/at.u"
+  os_write_utf8(in path, "function f(): Str :=\n  \"@a\"\n")
+  run_script(in "@patch " ++ path ++ ":f\n@drop " ++ path ++ ":f\n", false, "out/test/refactor/state", lambda in _, _, out found =>
+    found := List()
+  end, out reply, status, _)
+  assert status == 1 and reply == List(
+    "rejected",
+    "@patch " ++ path ++ ":f has no fragment, since line 2 of the script, @drop " ++ path ++ ":f, starts with @, which starts an action; write a fragment line that starts with @ as @@")
+  run_script(in "@patch " ++ path ++ ":f\n@@a => @b\n", false, "out/test/refactor/state", lambda in _, _, out found =>
+    found := List()
+  end, out reply, status, _)
+  os_read_utf8(in path, out text)
+  assert status == 0 and text == "function f(): Str :=\n  \"@b\"\n"

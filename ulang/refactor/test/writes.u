@@ -52,3 +52,27 @@ test exports_inferred_raises() :=
   run_script(in "@put " ++ path ++ "\nexport\n\nprocedure p(in x: Int, out y: Int) raises OsError, Str\n", false, state, unseen, out reply, status, _)
   os_read_utf8(in path, out text)
   assert index_of("procedure p(in x: Int, out y: Int) raises OsError, Str :=", text) != None
+
+// @put of a fragment of an import names the import that it added, and one that the file has already is no edit
+test names_added_import() :=
+  var reply: List[Str], status: Int, text: Str
+  let state := "out/test/refactor/writes", path := "out/test/refactor/writes/imports/a.u"
+  os_write_utf8(in "out/test/refactor/writes/imports/b/b.u", "export\n\nfunction k(): Int\n\nimplementation\n\nfunction k(): Int :=\n  1\n")
+  os_write_utf8(in path, "function f(): Int :=\n  1\n")
+  run_script(in "@put " ++ path ++ "\nimport out.test.refactor.writes.imports.b\n", false, state, unseen, out reply, status, _)
+  os_read_utf8(in path, out text)
+  assert status == 0 and text == "import out.test.refactor.writes.imports.b\n\nfunction f(): Int :=\n  1\n"
+  assert take(2, reply) == List(
+    "applied, clean",
+    path ++ ": added import out.test.refactor.writes.imports.b")
+  run_script(in "@put " ++ path ++ "\nimport out.test.refactor.writes.imports.b\n", false, state, unseen, out reply, status, _)
+  assert status == 0 and reply == List("applied")
+
+// a keyword written as a name in a fragment, which the parse of the file takes as the start of a section, is refused at
+// its line in the fragment alone, without the errors of the declarations of the file after it
+test refuses_keyword_as_name() :=
+  var reply: List[Str], status: Int
+  let state := "out/test/refactor/writes", path := "out/test/refactor/writes/keyword.u"
+  os_write_utf8(in path, "export\n\nfunction f(x: Int): Int\n\nimplementation\n\ndata Parts :=\n  case Parts(xs: List[Int])\n\nfunction f(x: Int): Int :=\n  x + 1\n\nfunction g(x: Int): Int :=\n  x\n")
+  run_script(in "@put " ++ path ++ ":Parts\ndata Parts :=\n  case Parts(xs: List[Int], builtin: List[Int])\n", false, state, unseen, out reply, status, _)
+  assert status == 1 and reply == List("rejected", "fragment 2.29, script 3.29: keyword builtin is not a name")
