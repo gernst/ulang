@@ -593,8 +593,6 @@ function strip_cmd(cmd: Cmd): Cmd
 
 function strip_expr(expr: At[Expr]): At[Expr]
 
-function strip_stmt(stmt: At[Stmt]): At[Stmt]
-
 function strip_pat(pat: At[Pat]): At[Pat]
 
 function strip_yield(y: Yield): Yield

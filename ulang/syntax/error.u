@@ -14,8 +14,6 @@ data ErrorKind :=
   case ProofKind
   case InternalKind
 
-function error_kinds(): List[ErrorKind]
-
 // an error of a phase at its position in module, None for the main module, where code is the constructor of the error, e.g.
 // CannotUnify, and details are its parts, such as the expected and the found type
 data Diagnostic :=
