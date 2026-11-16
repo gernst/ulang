@@ -215,3 +215,72 @@ test lints_of_names() :=
     (Pos(1, 1), "the name show_it is show if it gives text that parses back, else format_ if it prints into another language"),
     (Pos(1, 18), "the name e1 has a numeric index, name it by its role"),
     (Pos(4, 7), "the name y2 has a numeric index, name it by its role"))
+
+// a part repeats modulo the names that it binds, with the same free variables, bound at the same places, if it has at least
+// repeat_threshold parts, only where no larger repeated part contains it, and only on one path, and in a procedure only if
+// it reads no variable that the procedure assigns
+test lints_of_repeated_parts() :=
+  var found: List[(Pos, Str)]
+  linted(in List(RepeatedExpr), List(
+    "infix left 9 +",
+    "infix right 8 ++",
+    "function f(xs: List[Int], y: Int, z: Int): Int :=",
+    "  g(h(size(xs), y), k(y)) + g(h(size(xs), y), k(y))",
+    "function free(xs: List[Int], y: Int, z: Int): Int :=",
+    "  g(h(size(xs), y), k(y)) + g(h(size(xs), z), k(z))",
+    "function small(a: Int, b: Int): Int :=",
+    "  f(a, b) + f(a, b)",
+    "function bound(xs: List[Int]): List[Int] :=",
+    "  List(for x in xs yield h(x, x, x, x)) ++ List(for z in xs yield h(z, z, z, z))",
+    "function lambdas(): List[Int -> Int] :=",
+    "  List(lambda a => h(a, a, a, a, a), lambda b => h(b, b, b, b, b))",
+    "function largest(xs: List[Int], y: Int): Int :=",
+    "  p(g(h(size(xs), y), k(y)), 1) + p(g(h(size(xs), y), k(y)), 1)",
+    "function branches(c: Bool, xs: List[Int], y: Int): Int :=",
+    "  if c then g(h(size(xs), y), k(y)) else g(h(size(xs), y), k(y))",
+    "procedure q(in xs: List[Int], y: Int, out n: Int) :=",
+    "  n := g(h(size(xs), y), k(y))",
+    "  r(in g(h(size(xs), y), k(y)), out n)",
+    "function siblings(xs: List[Int], ys: List[Int]): List[Int] :=",
+    "  List(for x in xs yield g(h(x, x, x, x, x, x, x))) ++ List(for x in ys yield h(x, x, x, x, x, x, x))",
+    "procedure t(in xs: List[Int], out n: Int) :=",
+    "  var y := 1",
+    "  n := g(h(size(xs), y), k(y))",
+    "  y := 2",
+    "  n := g(h(size(xs), y), k(y))"), out found)
+  assert found == List(
+    (Pos(4, 29), "the expression repeats the one of line 4"),
+    (Pos(10, 44), "the expression repeats the one of line 10"),
+    (Pos(12, 38), "the expression repeats the one of line 12"),
+    (Pos(14, 35), "the expression repeats the one of line 14"),
+    (Pos(19, 8), "the expression repeats the one of line 18"))
+
+// two definitions are duplicates if their types and bodies are equal modulo the names of their formals and type parameters,
+// and of the variables bound inside
+test lints_of_duplicate_definitions() :=
+  var found: List[(Pos, Str)]
+  linted(in List(DuplicateDefinition), List(
+    "infix left 9 +",
+    "function f[A](xs: List[A], n: Int): Int :=",
+    "  size(xs) + n",
+    "function g[B](ys: List[B], m: Int): Int :=",
+    "  size(ys) + m",
+    "function h(ys: List[Int], m: Int): Int :=",
+    "  size(ys) + m",
+    "function k[B](m: Int, ys: List[B]): Int :=",
+    "  size(ys) + m",
+    "function l[B](ys: List[B], m: Int): Int :=",
+    "  size(ys) + 1",
+    "procedure p(in a: Int, out b: Int) :=",
+    "  let c := a + 1",
+    "  b := c",
+    "procedure q(in x: Int, out y: Int) :=",
+    "  let z := x + 1",
+    "  y := z",
+    "function four(): Int :=",
+    "  4",
+    "function vier(): Int :=",
+    "  4"), out found)
+  assert found == List(
+    (Pos(4, 1), "the function g repeats the definition of f at line 2"),
+    (Pos(15, 1), "the procedure q repeats the definition of p at line 12"))

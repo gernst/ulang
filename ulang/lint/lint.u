@@ -33,19 +33,26 @@ data Lint :=
   case LocalTooHigh
   // a var with a value that no statement after it assigns, which is a let
   case UnassignedVar
+  // a part of an expression that repeats an earlier one of the same declaration, of at least repeat_threshold parts,
+  // modulo positions and the names of the variables bound inside it
+  case RepeatedExpr
+  // a function or procedure whose definition repeats an earlier one of its module, modulo positions and the names of its
+  // formals, type parameters, and the variables bound inside
+  case DuplicateDefinition
 
 // a warning of lint at pos of a module, with the expression to write instead if there is one, and the edit that removes
 // it if there is one, which needs no choice
 data Warning :=
   case Warning(lint: Lint, pos: Pos, message: Str, replacement: Option[At[Expr]], edit: Option[Edit])
 
-// the warnings of module d, of its commands in the order of the module, and then of its unused private declarations
+// the warnings of module d, of its commands in the order of the module, then of its unused private declarations, of the
+// parts that repeat in a declaration, and of the definitions that repeat another
 function lints(d: Mod): List[Warning]
 
 implementation
 
 function lints(d: Mod): List[Warning] :=
-  List(for cmd in d.exported ++ d.builtins ++ d.implemented for w in cmd_lints(cmd) yield w) ++ unused_privates(d)
+  List(for cmd in d.exported ++ d.builtins ++ d.implemented for w in cmd_lints(cmd) yield w) ++ unused_privates(d) ++ List(for cmd in d.implemented for w in repeated_exprs(cmd) yield w) ++ duplicate_definitions(d)
 
 function cmd_lints(cmd: At[Cmd]): List[Warning] :=
   match cmd
@@ -1211,4 +1218,627 @@ function own_names(stmt: Stmt): Set[Id] :=
 
     case SFor(gens, _) =>
       gens_names(gens)
+  end
+
+// the smallest size of a part that RepeatedExpr reports, in parts of expressions, so that x.name, f(a, b), and
+// g(x.f, y.f) repeat freely
+function repeat_threshold(): Int :=
+  8
+
+// a part of an expression in a declaration, as canon_expr writes it, with its size in parts of expressions, the locals
+// bound outside it that it reads, each at its binder, and the branches that lead to it, each the position of its if,
+// match, or try and that of the branch
+data Occurrence :=
+  case Occurrence(canon: At[Expr], size: Int, pos: Pos, span: Span, bindings: List[(Id, Pos)], path: List[(Pos, Pos)])
+
+// the size of a part in parts of expressions, and the occurrences of its parts of at least repeat_threshold parts
+data Measured :=
+  case Measured(size: Int, found: List[Occurrence])
+
+// the warnings of the parts of expressions that repeat on one path of the function or procedure cmd, each at an occurrence
+// that no larger repeated part contains, naming the first on its path, where a part of a procedure counts only if it reads
+// no variable that the procedure assigns, since its value may change between its occurrences; tests, whose literal data
+// repeat by design, and the parts in different branches of an if, a match, or a try, which no let before them can bind
+// once, are not judged
+function repeated_exprs(cmd: At[Cmd]): List[Warning] :=
+  match cmd
+    case AOk(_, _, CFun(_, _, _, _, _, body)) =>
+      repeats(measured(Place(List(), Map()), body).found)
+
+    case AOk(_, _, CProc(_, _, _, outs, refs, _, _, stmt)) =>
+      let changed := Set(for x in outs ++ refs yield x.that.name.base) ++ assigned(stmt) ++ call_outs(stmt) in
+      repeats(List(for o in measured_stmt(Place(List(), Map()), stmt).found if forall(expr_names(o.canon), lambda x => not contains(x, changed)) yield o))
+
+    case _ =>
+      List()
+  end
+
+// the occurrences grouped by their parts and the binders of the locals that they read, so that two parts that read
+// variables of one name bound in different places do not repeat
+function repeats(found: List[Occurrence]): List[Warning] :=
+  let groups := foldl(found, (Map(): Map[(At[Expr], List[(Id, Pos)]), List[Occurrence]]), lambda m, o => put((o.canon, o.bindings), value_or(get((o.canon, o.bindings), m), List()) ++ List(o), m)) in
+  let repeated := List(for _ => os in groups if size(os) > 1 for o in os yield o) in
+  sort(List(for _ => os in groups if size(os) > 1 for w in repeat_warnings(List(), List(for (_, o) in sort(List(for o in os yield (o.pos, o))) yield o), repeated) yield w))
+
+function repeat_warning(first: Occurrence, o: Occurrence): Warning :=
+  Warning(RepeatedExpr, o.pos, "the expression repeats the one of line " ++ show(first.pos.line), None, None)
+
+function is_within(inner: Span, outer: Span): Bool :=
+  outer.start <= inner.start and inner.stop <= outer.stop
+
+// whether the paths take different branches of one construct
+function is_exclusive(path: List[(Pos, Pos)], path_: List[(Pos, Pos)]): Bool :=
+  exists(path, lambda (at, branch) => exists(path_, lambda (at_, branch_) => at == at_ and branch != branch_))
+
+function measured(place: Place, expr: At[Expr]): Measured :=
+  match expr
+    case AOk(pos, span, that) | AErr(pos, span, that, _) =>
+      let inner := measured_parts(place, pos, that) in
+      let size := inner.size + 1 in
+      if size >= repeat_threshold() then
+        let canon := canon_expr(Map(), 0, expr) in
+        let bindings := List(for x in expr_names(canon) for binder in get(x, place.scope) yield (x, binder)) in
+        Measured(size, List(
+          Occurrence(canon, size, pos, span, bindings, place.path); inner.found))
+      else
+        Measured(size, inner.found)
+
+    case AUnparsed(_, _, _, _) =>
+      Measured(0, List())
+  end
+
+function measured_all(place: Place, exprs: List[At[Expr]]): Measured :=
+  summed(List(for e in exprs yield measured(place, e)))
+
+function summed(ms: List[Measured]): Measured :=
+  Measured(foldl(ms, 0, lambda n, m => n + m.size), List(for m in ms for o in m.found yield o))
+
+// the parts of expr at pos, where the branches of an if and the cases of a match extend the path, and binders the scope
+function measured_parts(place: Place, pos: Pos, expr: Expr): Measured :=
+  match expr
+    case ELit(_) | EVar(_) =>
+      Measured(0, List())
+
+    case EApp(fun, args) =>
+      measured_all(place, List(fun; args))
+
+    case EField(base, _) =>
+      measured(place, base)
+
+    case EUpdate(base, _, value) =>
+      measured_all(place, List(base, value))
+
+    case ELam(formals, body) =>
+      measured(with_pats(place, formals), body)
+
+    case EProc(ins, outs, refs, _, stmt) =>
+      measured_stmt(with_vars(place, ins ++ outs ++ refs), stmt)
+
+    case ELet(bindings, body) =>
+      measured_bindings(place, bindings, body)
+
+    case EIte(cond, then_expr, else_expr) =>
+      summed(List(
+        measured(place, cond),
+        measured(along(place, pos, then_expr.pos), then_expr),
+        measured(along(place, pos, else_expr.pos), else_expr)))
+
+    case EMatch(arg, cases) =>
+      summed(List(
+        measured(place, arg); List(for c in cases if is_parsed(c) yield measured_guarded(along(place, pos, c.pos), c.that.pat, c.that.guard, c.that.body, measured))))
+
+    case ETuple(args) =>
+      measured_all(place, args)
+
+    case EAnnotated(inner, _) =>
+      measured(place, inner)
+
+    case EForm(_, elems, rest) =>
+      measured_all(place, List(for y in elems for e in yield_exprs(y) yield e) ++ List(for e in rest))
+
+    case EFor(_, gens, elem, rest) =>
+      summed(List(
+        measured_gens(place, gens, lambda inner => measured_all(inner, yield_exprs(elem))),
+        measured_all(place, List(for e in rest))))
+  end
+
+function yield_exprs(elem: Yield): List[At[Expr]] :=
+  match elem
+    case YVal(value) =>
+      List(value)
+    case YPair(key, value) =>
+      List(key, value)
+  end
+
+function measured_stmt(place: Place, stmt: At[Stmt]): Measured :=
+  match stmt
+    case AOk(pos, _, that) | AErr(pos, _, that, _) =>
+      measured_statement(place, pos, that)
+    case AUnparsed(_, _, _, _) =>
+      Measured(0, List())
+  end
+
+// the statements of a block, each in the scope of the locals that those before it declare
+function measured_stmts(place: Place, stmts: List[At[Stmt]]): Measured :=
+  match stmts
+    case List() =>
+      Measured(0, List())
+
+    case List(stmt; rest) =>
+      match stmt_part(stmt)
+        case SLocal(_, decls) =>
+          summed(List(
+            measured_decls(place, decls),
+            measured_stmts(with_pats(place, List(for (pat, _) in decls yield pat)), rest)))
+
+        case _ =>
+          summed(List(measured_stmt(place, stmt), measured_stmts(place, rest)))
+      end
+  end
+
+// the parts of the statement stmt at pos, where the branches of an if and a try and the cases of a match extend the path,
+// and binders the scope
+function measured_statement(place: Place, pos: Pos, stmt: Stmt): Measured :=
+  match stmt
+    case SSkip =>
+      Measured(0, List())
+
+    case SAssign(upd) =>
+      measured_all(place, List(for (_, e) in upd yield e))
+
+    case SBlock(locals, stmts) =>
+      measured_stmts(with_vars(place, locals), stmts)
+
+    case SLocal(_, decls) =>
+      measured_decls(place, decls)
+
+    case SIf(cond, left, right) =>
+      summed(List(
+        measured(place, cond),
+        measured_stmt(along(place, pos, left.pos), left),
+        measured_stmt(along(place, pos, right.pos), right)))
+
+    case SWhile(cond, body) =>
+      summed(List(measured(place, cond), measured_stmt(place, body)))
+
+    case SCall(_, ins, _, _) =>
+      measured_all(place, ins)
+
+    case SMatch(arg, cases) =>
+      summed(List(
+        measured(place, arg); List(for c in cases if is_parsed(c) yield measured_guarded(along(place, pos, c.pos), c.that.pat, c.that.guard, c.that.body, measured_stmt))))
+
+    case SAssert(cond) =>
+      measured(place, cond)
+
+    case SAssertRaises(_, pat, guard, body) =>
+      summed(List(for g in guard yield measured(with_pats(place, List(pat)), g)) ++ List(measured_stmt(place, body)))
+
+    case SRaise(value, _) =>
+      measured(place, value)
+
+    case STry(body, catches) =>
+      summed(List(
+        measured_stmt(along(place, pos, body.pos), body); List(for c in catches if is_parsed(c) yield measured_guarded(along(place, pos, c.pos), c.that.pat, c.that.guard, c.that.body, measured_stmt))))
+
+    case SFor(gens, body) =>
+      measured_gens(place, gens, lambda inner => measured_stmt(inner, body))
+  end
+
+// expr without positions, where each variable bound inside it is named by the number of the binders around it and before
+// it, (0), (1), …, from level, and the variables of env as env names them, so that two parts that differ only in the
+// names of the variables that they bind are equal, while their free variables keep their names
+function canon_expr(env: Map[Id, Id], level: Int, expr: At[Expr]): At[Expr] :=
+  match expr
+    case AOk(_, _, that) | AErr(_, _, that, _) =>
+      nowhere(canon_node(env, level, that))
+    case AUnparsed(_, _, _, _) =>
+      strip_expr(expr)
+  end
+
+function canon_exprs(env: Map[Id, Id], level: Int, exprs: List[At[Expr]]): List[At[Expr]] :=
+  List(for e in exprs yield canon_expr(env, level, e))
+
+function canon_node(env: Map[Id, Id], level: Int, expr: Expr): Expr :=
+  match expr
+    case ELit(_) =>
+      expr
+
+    case EVar(v) =>
+      EVar(canon_var(env, v))
+
+    case EApp(fun, args) =>
+      EApp(canon_expr(env, level, fun), canon_exprs(env, level, args))
+
+    case EField(base, field) =>
+      EField(canon_expr(env, level, base), field)
+
+    case EUpdate(base, field, value) =>
+      EUpdate(canon_expr(env, level, base), field, canon_expr(env, level, value))
+
+    case ELam(formals, body) =>
+      let (inner, next) := bound(env, level, formals) in
+      ELam(List(for p in formals yield canon_pat(inner, p)), canon_expr(inner, next, body))
+
+    case EProc(ins, outs, refs, raised, stmt) =>
+      let (inner, next) := bound_vars(env, level, ins ++ outs ++ refs) in
+      EProc(canon_vars(inner, ins), canon_vars(inner, outs), canon_vars(inner, refs), raised, canon_stmt(inner, next, stmt))
+
+    case ELet(bindings, body) =>
+      let (bindings_, inner, next) := canon_bindings(env, level, bindings) in
+      ELet(bindings_, canon_expr(inner, next, body))
+
+    case EIte(cond, then_expr, else_expr) =>
+      EIte(canon_expr(env, level, cond), canon_expr(env, level, then_expr), canon_expr(env, level, else_expr))
+
+    case EMatch(arg, cases) =>
+      EMatch(canon_expr(env, level, arg), List(for c in cases yield canon_case(env, level, c, canon_expr)))
+
+    case ETuple(args) =>
+      ETuple(canon_exprs(env, level, args))
+
+    case EAnnotated(inner, typ) =>
+      EAnnotated(canon_expr(env, level, inner), typ)
+
+    case EForm(form, elems, rest) =>
+      EForm(form, List(for y in elems yield canon_yield(env, level, y)), map_option(rest, lambda r => canon_expr(env, level, r)))
+
+    case EFor(form, gens, elem, rest) =>
+      let (gens_, inner, next) := canon_gens(env, level, gens) in
+      EFor(form, gens_, canon_yield(inner, next, elem), map_option(rest, lambda r => canon_expr(env, level, r)))
+  end
+
+function canon_yield(env: Map[Id, Id], level: Int, elem: Yield): Yield :=
+  match elem
+    case YVal(value) =>
+      YVal(canon_expr(env, level, value))
+    case YPair(key, value) =>
+      YPair(canon_expr(env, level, key), canon_expr(env, level, value))
+  end
+
+// the bindings of a let, each value in the scope of the patterns before it, with the scope after them
+function canon_bindings(env: Map[Id, Id], level: Int, bindings: List[(At[Pat], At[Expr])]): (List[(At[Pat], At[Expr])], Map[Id, Id], Int) :=
+  match bindings
+    case List() =>
+      (List(), env, level)
+
+    case List((pat, value); more) =>
+      let (inner, next) := bound(env, level, List(pat)) in
+      let (rest, last, top) := canon_bindings(inner, next, more) in
+      (List((canon_pat(inner, pat), canon_expr(env, level, value)); rest), last, top)
+  end
+
+// the generators of a form or a for, each in the scope of the patterns before it, with the scope after them
+function canon_gens(env: Map[Id, Id], level: Int, gens: List[Gen]): (List[Gen], Map[Id, Id], Int) :=
+  match gens
+    case List() =>
+      (List(), env, level)
+
+    case List(g; more) =>
+      let (inner, next) := bound(env, level, gen_pats(g)) in
+      let (rest, last, top) := canon_gens(inner, next, more) in
+      (List(canon_gen(env, level, inner, g); rest), last, top)
+  end
+
+// the generator g over the scope env, whose patterns bind the variables of inner
+function canon_gen(env: Map[Id, Id], level: Int, inner: Map[Id, Id], g: Gen): Gen :=
+  match g
+    case GVal(pat, over, typ) =>
+      GVal(canon_pat(inner, pat), canon_expr(env, level, over), typ)
+
+    case GPair(key, value, over, typ) =>
+      GPair(canon_pat(inner, key), canon_pat(inner, value), canon_expr(env, level, over), typ)
+
+    case GIf(cond) =>
+      GIf(canon_expr(env, level, cond))
+  end
+
+function canon_case[A](env: Map[Id, Id], level: Int, c: At[Branch[A]], canon_body: (Map[Id, Id], Int, A) -> A): At[Branch[A]] :=
+  match c
+    case AOk(_, _, br) | AErr(_, _, br, _) =>
+      let (inner, next) := bound(env, level, List(br.pat)) in
+      nowhere(Branch(canon_pat(inner, br.pat), map_option(br.guard, lambda g => canon_expr(inner, next, g)), canon_body(inner, next, br.body)))
+
+    case AUnparsed(_, _, _, _) =>
+      c
+  end
+
+function canon_handler(env: Map[Id, Id], level: Int, c: At[Catch]): At[Catch] :=
+  match c
+    case AOk(_, _, handler) | AErr(_, _, handler, _) =>
+      let (inner, next) := bound(env, level, List(handler.pat)) in
+      nowhere(Catch(handler.typ, canon_pat(inner, handler.pat), map_option(handler.guard, lambda g => canon_expr(inner, next, g)), canon_stmt(inner, next, handler.body)))
+
+    case AUnparsed(_, _, _, _) =>
+      c
+  end
+
+function canon_pat(env: Map[Id, Id], pat: At[Pat]): At[Pat] :=
+  match pat
+    case AOk(_, _, that) | AErr(_, _, that, _) =>
+      nowhere(canon_pattern(env, that))
+    case AUnparsed(_, _, _, _) =>
+      strip_pat(pat)
+  end
+
+function canon_pattern(env: Map[Id, Id], pat: Pat): Pat :=
+  match pat
+    case PVar(v) =>
+      PVar(canon_var(env, v))
+
+    case PApp(constr, args) =>
+      PApp(constr, List(for p in args yield canon_pat(env, p)))
+
+    case PTuple(args) =>
+      PTuple(List(for p in args yield canon_pat(env, p)))
+
+    case PAnnotated(inner, typ) =>
+      PAnnotated(canon_pat(env, inner), typ)
+
+    case POr(alts) =>
+      POr(List(for p in alts yield canon_pat(env, p)))
+
+    case PWild | PLit(_) =>
+      pat
+  end
+
+function canon_var(env: Map[Id, Id], v: Var): Var :=
+  match get(v.name.base, env)
+    case Some(base) if v.name.path == List() =>
+      Var(unqualified(base), v.typ)
+    case _ =>
+      v
+  end
+
+function canon_vars(env: Map[Id, Id], xs: List[At[Var]]): List[At[Var]] :=
+  List(for x in xs yield nowhere(canon_var(env, x.that)))
+
+// env and level with the variables that pats bind, in the order of the source, where the alternatives of a pattern bind
+// those of the first
+function bound(env: Map[Id, Id], level: Int, pats: List[At[Pat]]): (Map[Id, Id], Int) :=
+  binding(env, level, List(for p in pats for (_, x) in pat_vars(p) yield x))
+
+function bound_vars(env: Map[Id, Id], level: Int, xs: List[At[Var]]): (Map[Id, Id], Int) :=
+  binding(env, level, List(for x in xs yield x.that.name.base))
+
+function binding(env: Map[Id, Id], level: Int, names: List[Id]): (Map[Id, Id], Int) :=
+  match names
+    case List() =>
+      (env, level)
+    case List(x; more) =>
+      binding(put(x, "(" ++ show(level) ++ ")", env), level + 1, more)
+  end
+
+function canon_stmt(env: Map[Id, Id], level: Int, stmt: At[Stmt]): At[Stmt] :=
+  match stmt
+    case AOk(_, _, that) | AErr(_, _, that, _) =>
+      nowhere(canon_statement(env, level, that))
+    case AUnparsed(_, _, _, _) =>
+      strip_stmt(stmt)
+  end
+
+// the statements of a block, each in the scope of the locals that the statements before it declare
+function canon_stmts(env: Map[Id, Id], level: Int, stmts: List[At[Stmt]]): List[At[Stmt]] :=
+  match stmts
+    case List() =>
+      List()
+
+    case List(stmt; rest) =>
+      let (inner, next) := match stmt_part(stmt)
+        case SLocal(_, decls) =>
+          bound(env, level, List(for (pat, _) in decls yield pat))
+        case _ =>
+          (env, level)
+      end in
+      List(canon_stmt(env, level, stmt); canon_stmts(inner, next, rest))
+  end
+
+// the declarations of a let or var, each value in the scope of the patterns before it
+function canon_decls(env: Map[Id, Id], level: Int, decls: List[(At[Pat], Option[At[Expr]])]): List[(At[Pat], Option[At[Expr]])] :=
+  match decls
+    case List() =>
+      List()
+
+    case List((pat, init); more) =>
+      let (inner, next) := bound(env, level, List(pat)) in
+      List(
+        (canon_pat(inner, pat), map_option(init, lambda e => canon_expr(env, level, e))); canon_decls(inner, next, more))
+  end
+
+function canon_statement(env: Map[Id, Id], level: Int, stmt: Stmt): Stmt :=
+  match stmt
+    case SSkip =>
+      stmt
+
+    case SAssign(upd) =>
+      SAssign(List(for (x, e) in upd yield (canon_var(env, x), canon_expr(env, level, e))))
+
+    case SBlock(locals, stmts) =>
+      let (inner, next) := bound_vars(env, level, locals) in
+      SBlock(canon_vars(inner, locals), canon_stmts(inner, next, stmts))
+
+    case SLocal(mutable, decls) =>
+      SLocal(mutable, canon_decls(env, level, decls))
+
+    case SIf(cond, left, right) =>
+      SIf(canon_expr(env, level, cond), canon_stmt(env, level, left), canon_stmt(env, level, right))
+
+    case SWhile(cond, body) =>
+      SWhile(canon_expr(env, level, cond), canon_stmt(env, level, body))
+
+    case SCall(proc, ins, outs, refs) =>
+      SCall(canon_var(env, Var(proc, THole)).name, canon_exprs(env, level, ins), List(for x in outs yield canon_var(env, x)), List(for x in refs yield canon_var(env, x)))
+
+    case SMatch(arg, cases) =>
+      SMatch(canon_expr(env, level, arg), List(for c in cases yield canon_case(env, level, c, canon_stmt)))
+
+    case SAssert(cond) =>
+      SAssert(canon_expr(env, level, cond))
+
+    case SAssertRaises(typ, pat, guard, body) =>
+      let (inner, next) := bound(env, level, List(pat)) in
+      SAssertRaises(typ, canon_pat(inner, pat), map_option(guard, lambda g => canon_expr(inner, next, g)), canon_stmt(env, level, body))
+
+    case SRaise(value, typ) =>
+      SRaise(canon_expr(env, level, value), typ)
+
+    case STry(body, catches) =>
+      STry(canon_stmt(env, level, body), List(for c in catches yield canon_handler(env, level, c)))
+
+    case SFor(gens, body) =>
+      let (gens_, inner, next) := canon_gens(env, level, gens) in
+      SFor(gens_, canon_stmt(inner, next, body))
+  end
+
+// a function or procedure of a module, at pos, by its definition as canon_definition writes it
+data Definition :=
+  case Definition(kind: Str, name: Id, pos: Pos, canon: Canon)
+
+// the types of the formals and the body of a definition, where the formals and the type parameters are named by their
+// positions, as canon_expr names the variables bound inside
+data Canon :=
+  case CanonFun(formals: List[Type], typ: Type, body: At[Expr])
+  case CanonProc(ins: List[Type], outs: List[Type], refs: List[Type], raised: List[Type], stmt: At[Stmt])
+
+// the functions and procedures of d with formals whose definitions repeat an earlier one, each at its definition, where
+// those without formals are named constants, whose names tell equal values apart, as name_offset and num_offset of
+// ulang/compile/x86.u
+function duplicate_definitions(d: Mod): List[Warning] :=
+  duplicates(List(for c in d.implemented for decl in canon_definition(c) yield decl), Map())
+
+function duplicates(decls: List[Definition], seen: Map[Canon, Definition]): List[Warning] :=
+  match decls
+    case List() =>
+      List()
+
+    case List(decl; rest) =>
+      match get(decl.canon, seen)
+        case Some(first) =>
+          List(
+            Warning(DuplicateDefinition, decl.pos, "the " ++ decl.kind ++ " " ++ decl.name ++ " repeats the definition of " ++ first.name ++ " at line " ++ show(first.pos.line), None, None); duplicates(rest, seen))
+
+        case None =>
+          duplicates(rest, put(decl.canon, decl, seen))
+      end
+  end
+
+function canon_definition(cmd: At[Cmd]): Option[Definition] :=
+  match cmd
+    case AOk(pos, _, CFun(name, params, formals, typ, _, body)) if formals != List() =>
+      let (env, level) := bound_vars(Map(), 0, formals) in
+      Some(Definition("function", name.base, pos, CanonFun(canon_formals(params, formals), canon_type(params, typ), canon_expr(env, level, body))))
+
+    case AOk(pos, _, CProc(name, params, ins, outs, refs, raised, _, stmt)) if ins ++ outs ++ refs != List() =>
+      let (env, level) := bound_vars(Map(), 0, ins ++ outs ++ refs) in
+      let canon := CanonProc(canon_formals(params, ins), canon_formals(params, outs), canon_formals(params, refs), canon_types(params, raised), canon_stmt(env, level, stmt)) in
+      Some(Definition("procedure", name.base, pos, canon))
+
+    case _ =>
+      None
+  end
+
+function canon_formals(params: List[Id], formals: List[At[Var]]): List[Type] :=
+  List(for x in formals yield canon_type(params, x.that.typ))
+
+function canon_types(params: List[Id], types: List[Type]): List[Type] :=
+  List(for t in types yield canon_type(params, t))
+
+// typ with each type parameter of params named by its position
+function canon_type(params: List[Id], typ: Type): Type :=
+  match typ
+    case TParam(param) =>
+      match index_of(param, params)
+        case Some(i) =>
+          TParam("(" ++ show(i) ++ ")")
+        case None =>
+          typ
+      end
+
+    case TSort(name, args) =>
+      TSort(name, canon_types(params, args))
+
+    case TFun(args, res) =>
+      TFun(canon_types(params, args), canon_type(params, res))
+
+    case TProc(ins, outs, refs, raised) =>
+      TProc(canon_types(params, ins), canon_types(params, outs), canon_types(params, refs), raised)
+
+    case TTuple(types) =>
+      TTuple(canon_types(params, types))
+
+    case THole | TMeta(_) | TError =>
+      typ
+  end
+
+// the warnings of the occurrences os of one part after those of earlier, in the order of the source, at each that no
+// larger part of repeated contains, naming the first of earlier on its path
+function repeat_warnings(earlier: List[Occurrence], os: List[Occurrence], repeated: List[Occurrence]): List[Warning] :=
+  match os
+    case List() =>
+      List()
+
+    case List(o; later) =>
+      let covered := exists(repeated, lambda p => p.size > o.size and is_within(o.span, p.span)) in
+      let found := if covered then
+        List()
+      else
+        List(for p in find(earlier, lambda p => not is_exclusive(p.path, o.path)) yield repeat_warning(p, o)) in
+      found ++ repeat_warnings(earlier ++ List(o), later, repeated)
+  end
+
+// where a part of a declaration stands: the branches that lead to it, as of Occurrence, and the locals in scope, each at its
+// binder, where the formals of the declaration, which no local hides, are not
+data Place :=
+  case Place(path: List[(Pos, Pos)], scope: Map[Id, Pos])
+
+// place with the variables that pats bind in scope
+function with_pats(place: Place, pats: List[At[Pat]]): Place :=
+  place with scope := place.scope ++ Map(for p in pats for (pos, x) in pat_vars(p) yield x => pos)
+
+function with_vars(place: Place, xs: List[At[Var]]): Place :=
+  place with scope := place.scope ++ Map(for x in xs yield x.that.name.base => x.pos)
+
+// place in the branch at branch of the construct at at
+function along(place: Place, at: Pos, branch: Pos): Place :=
+  place with path := List((at, branch); place.path)
+
+// the bindings of a let and its body, each value in the scope of the patterns before it
+function measured_bindings(place: Place, bindings: List[(At[Pat], At[Expr])], body: At[Expr]): Measured :=
+  match bindings
+    case List() =>
+      measured(place, body)
+
+    case List((pat, value); more) =>
+      summed(List(
+        measured(place, value),
+        measured_bindings(with_pats(place, List(pat)), more, body)))
+  end
+
+// the generators gens, each in the scope of the patterns before it, and then what inside measures in the scope of all
+function measured_gens(place: Place, gens: List[Gen], inside: Place -> Measured): Measured :=
+  match gens
+    case List() =>
+      inside(place)
+
+    case List(g; more) =>
+      summed(List(
+        measured(place, gen_over(g)),
+        measured_gens(with_pats(place, gen_pats(g)), more, inside)))
+  end
+
+// a case or handler of pattern pat, whose guard and body are in its scope
+function measured_guarded[A](place: Place, pat: At[Pat], guard: Option[At[Expr]], body: A, measure: (Place, A) -> Measured): Measured :=
+  let inner := with_pats(place, List(pat)) in
+  summed(List(for g in guard yield measured(inner, g)) ++ List(measure(inner, body)))
+
+// the declarations of a let or var, each value in the scope of the patterns before it
+function measured_decls(place: Place, decls: List[(At[Pat], Option[At[Expr]])]): Measured :=
+  match decls
+    case List() =>
+      Measured(0, List())
+
+    case List((pat, init); more) =>
+      summed(List(
+        measured_all(place, List(for e in init)),
+        measured_decls(with_pats(place, List(pat)), more)))
   end
