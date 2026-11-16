@@ -217,7 +217,8 @@ test containers() :=
   assert Map(for k => v in m yield k => v + 1) == Map("a" => 2, "b" => 3)
   assert List(for x in xs let y := x * x if y > 4 yield y) == List(9, 16)
   assert at(1, xs) == 2 and get(1, List((1, "one"))) == Some("one")
-  assert lines("a\nb\n") == List("a", "b") and split("a\nb\n", '\n') == List("a", "b", "")
+  assert lines("a\nb\n") == List("a", "b")
+  assert split("a\nb\n", '\n') == List("a", "b", "")
   var sum := 0
   for x in xs if x > 1 do
     sum := sum + x
