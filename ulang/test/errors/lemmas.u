@@ -66,6 +66,32 @@ test cites_broken() :=
       "  ensures n == n + 1"))
   end
 
+// two lemmas whose proofs cite each other are each proven locally, and neither is established
+test citation_cycle() :=
+  assert raises OpenLemma("first", "it rests on the lemma second, which is not established") do
+    prove_text(in "ulang/test/errors/citation-cycle.u", List(
+      "lemma first(in n: Int) :=",
+      "  ensures n == n + 1",
+      "  second(in n)",
+      "",
+      "lemma second(in n: Int) :=",
+      "  ensures n == n + 1",
+      "  first(in n)"))
+  end
+
+// a lemma rests on those that its proof cites and on all its facts, the lemmas before it, so one that cites a lemma after
+// it rests on that one, which rests on it, until the facts that a proof uses are known (open point 20)
+test forward_citation() :=
+  assert raises OpenLemma("early", "it rests on the lemma late, which is not established") do
+    prove_text(in "ulang/test/errors/forward-citation.u", List(
+      "lemma early(in x: Int) :=",
+      "  ensures x == x",
+      "  late(in x)",
+      "",
+      "lemma late(in x: Int) :=",
+      "  ensures x == x"))
+  end
+
 test falsified() :=
   assert raises Uncaught("Falsified(\"xs = List(1, 0), ys = List()\")") do
     run_text(in "ulang/test/errors/falsified.u", List(
