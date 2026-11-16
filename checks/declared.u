@@ -1,0 +1,91 @@
+// that loading a file with the packages other than its own only as far as it sees them (declared of parse_file_loaded of
+// ulang/parse/parse.u and of check_cached of ulang/check/check.u) shows it what loading them whole shows: for a file of
+// each directory of the project, the signature of each package that it imports, the library included, its diagnostics,
+// and its hints, where a difference of diagnostics is expected only when an import has errors, which only the whole load
+// finds
+
+import ulang.syntax
+import ulang.parse
+import ulang.check
+
+procedure main() raises OsError, InternalError :=
+  var entries: List[(Str, Bool)], files: List[Str] := List(), whole := no_loaded(), declared := no_loaded(), cache := no_checks(), compared: Set[Path] := empty(), differing := 0
+  os_list(in ".", out entries)
+  for (name, dir) in entries if dir and not starts_with(name, ".") and name != "out" do
+    var found: List[Str]
+    os_walk(in name, out found)
+    files := files ++ List(for f in found if is_source(f))
+  end
+  for dir in distinct(List(for f in files yield os_dirname(f))) do
+    let file := value_or(find(files, lambda f => os_dirname(f) == dir), "")
+    try
+      var full: Prog, cut: Prog, full_sigs: List[(Path, Sig)], cut_sigs: List[(Path, Sig)], own: Path, text: Str, lines: List[Str]
+      load_mode(in file, false, out own, full, full_sigs, ref whole, cache)
+      var cut_cache := no_checks()
+      load_mode(in file, true, out _, cut, cut_sigs, ref declared, cut_cache)
+      for (id, s) in full_sigs if id != own and not contains(id, compared) do
+        match find(cut_sigs, lambda (i, _) => i == id)
+          case Some((_, t)) =>
+            lines := List(for line in differences(s, t) yield path_text(id) ++ ": " ++ line)
+          case None =>
+            lines := List(path_text(id) ++ ": no signature of the declared load")
+        end
+        for line in lines do
+          os_println(in line)
+        end
+        differing := differing + size(lines), compared := compared ++ Set(id)
+      end
+      let found_whole := List(for d in diagnostics(full) yield format_diagnostic(file, d)), found_declared := List(for d in diagnostics(cut) yield format_diagnostic(file, d))
+      for line in found_whole if not contains(line, found_declared) do
+        os_println(in file ++ ": only whole: " ++ line)
+      end
+      for line in found_declared if not contains(line, found_whole) do
+        os_println(in file ++ ": only declared: " ++ line)
+      end
+      os_read_utf8(in file, out text)
+      let hints_whole := List(for h in hints(text, full) for line in format_hint(h) yield line), hints_declared := List(for h in hints(text, cut) for line in format_hint(h) yield line)
+      for line in hints_whole if not contains(line, hints_declared) do
+        os_println(in file ++ ": hint only whole: " ++ line)
+      end
+      for line in hints_declared if not contains(line, hints_whole) do
+        os_println(in file ++ ": hint only declared: " ++ line)
+      end
+      differing := differing + size(List(for line in hints_whole if not contains(line, hints_declared))) + size(List(for line in hints_declared if not contains(line, hints_whole)))
+    catch
+      case ParseError(message, _) | ImportError(_, message, _) =>
+        os_println(in file ++ ": does not load: " ++ message)
+      case ParseErrors(_) =>
+        os_println(in file ++ ": does not parse")
+    end
+  end
+  os_println(in show(size(compared)) ++ " packages compared, " ++ show(differing) ++ " differences of signatures and hints")
+  if differing > 0 then
+    os_exit(in 3)
+  end
+
+function no_loaded(): Loaded :=
+  Loaded("", Map(), false, Source(List(), List(), List()))
+
+// the package of the file at path, its checked program, and the signatures of the packages that it loads, whole or, by
+// declared, only as far as it sees its imports, with the packages that loaded and cache hold of the files before
+procedure load_mode(
+  in  path: Str,
+      declared: Bool,
+  out own: Path,
+      q: Prog,
+      signatures: List[(Path, Sig)],
+  ref loaded: Loaded,
+      cache: Checks
+) raises ParseError, OsError, InternalError :=
+  var source: Source
+  parse_file_loaded(in path, Map(), declared, out source, ref loaded)
+  own := module_dir(source.main)
+  check_cached(in without_unparsed(source), unparsed_names(source), has_errors(source), declared, no_tests, out q, _, signatures, ref cache)
+
+// the declarations in which the signatures differ, each by its field, its key, and the values of both, whole first
+function differences(s: Sig, t: Sig): List[Str] :=
+  differing("type_aliases", s.type_aliases, t.type_aliases) ++ differing("funs", s.funs, t.funs) ++ differing("procs", s.procs, t.procs) ++ differing("datas", s.datas, t.datas) ++ differing("members", s.members, t.members) ++ differing("constrs", s.constrs, t.constrs) ++ differing("pat_aliases", s.pat_aliases, t.pat_aliases) ++ differing("lemmas", s.lemmas, t.lemmas) ++ differing("named", s.named, t.named) ++ differing("fixed", s.fixed, t.fixed)
+
+function differing[K, V](field: Str, m: Map[K, V], n: Map[K, V]): List[Str] :=
+  example differing("f", Map(1 => 2, 3 => 4), Map(1 => 2, 3 => 5, 6 => 7)) == List("f 3: 4 / Some(5)", "f 6: None / Some(7)")
+  List(for k => v in m if get(k, n) != Some(v) yield field ++ " " ++ show(k) ++ ": " ++ show(v) ++ " / " ++ show(get(k, n))) ++ List(for k => v in n if not contains(k, m) yield field ++ " " ++ show(k) ++ ": None / " ++ show(Some(v)))

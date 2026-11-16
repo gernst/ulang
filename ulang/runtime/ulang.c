@@ -77,7 +77,8 @@ __attribute__((constructor)) static void init(void) {
   // the compiler of itself from 8.0 s to 6.2 s, with heaps of 560 MB and 1.25 GB instead of 390 MB and 850 MB; the
   // variable GC_FREE_SPACE_DIVISOR of libgc still decides where it is set
   if (!getenv("GC_FREE_SPACE_DIVISOR")) GC_set_free_space_divisor(1);
-  mp_set_memory_functions(GC_malloc, gc_realloc, gc_free);
+  // the limbs of GMP hold no pointers, so the collector does not scan them
+  mp_set_memory_functions(GC_malloc_atomic, gc_realloc, gc_free);
   for (int i = 0; i < 256; i++) {
     small_chars[i].type = &u_char_type;
     small_chars[i].num = i;

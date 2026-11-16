@@ -1,0 +1,26 @@
+// an importer of ulang/test/declared/shapes/, which ulang/test/declared/declared.u loads with its imports whole and as far
+// as it sees them
+
+import ulang.test.declared.shapes
+
+procedure main() raises Refused :=
+  var size: Size
+  measure(in Wide(2) with height := 3, out size)
+  let b := bag(List(1, 2), lambda x => x > 1)
+  match Rect(2, 1)
+    case Wide(w) =>
+      os_println(in show(w <+> size <+> area(Circle(1))))
+    case _ =>
+      skip
+  end
+  os_println(in show(picked(b)) ++ show(framed(Circle(2))))
+
+test measured() :=
+  var size: Size
+  try
+    measure(in Circle(1), out size)
+  catch
+    case Refused(_) =>
+      size := 0
+  end
+  assert size == 4

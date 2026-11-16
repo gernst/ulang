@@ -152,14 +152,19 @@ type Checks
 function no_checks(): Checks
 
 // check_all, or check_partial if partial, which takes the packages of checks instead of checking them again, but for the
-// package of the main module of source, and adds those that it checks without errors to checks
+// package of the main module of source, and adds those that it checks without errors to checks, with the signature that
+// each package shows, in load order, where declared tells whether the packages other than that of the main module are
+// loaded only as far as their importers see them (parse_file_loaded of ulang/parse/parse.u), which are then only
+// declared, and neither taken from checks nor added to it
 procedure check_cached(
   in  source: Source,
       unparsed: Set[Id],
       partial: Bool,
+      declared: Bool,
       generate: Checked -> List[(Pos, (Path, Cmd))],
   out q: Prog,
       errors: List[TypeError],
+      signatures: List[(Path, Sig)],
   ref checks: Checks
 ) raises InternalError
 
@@ -4622,19 +4627,21 @@ procedure check_proof(
 ) :=
   var steps: Buffer[At[Step]] := empty(), split: Option[At[Split]] := None
   for step in proof.steps do
-    var typed_step: Step
-    let outer := s.at
+    var typed_step: Step, errors: List[Diagnostic]
+    let outer := s.at, before := size(s.errors)
     s := s with at := step.pos
     proof_step(in outs, step.that, out typed_step, ref env, s)
-    steps := steps ++ List(AOk(step.pos, step.span, typed_step)), s := s with at := outer
+    take_errors(in step.pos, before, out errors, ref s)
+    steps := steps ++ List(checked_at(step.pos, step.span, typed_step, errors)), s := s with at := outer
   end
   match proof.split
     case Some(placed) =>
-      var typed_split: Split
-      let outer := s.at
+      var typed_split: Split, errors: List[Diagnostic]
+      let outer := s.at, before := size(s.errors)
       s := s with at := placed.pos
       proof_split(in formals, outs, placed.that, out typed_split, ref env, s)
-      split := Some(AOk(placed.pos, placed.span, typed_split)), s := s with at := outer
+      take_errors(in placed.pos, before, out errors, ref s)
+      split := Some(checked_at(placed.pos, placed.span, typed_split, errors)), s := s with at := outer
 
     case None =>
       skip
@@ -5508,7 +5515,7 @@ procedure check_all(
       errors: List[TypeError]
 ) raises InternalError :=
   var checks := no_checks()
-  check_source(in source, empty(), false, generate, out q, errors, ref checks)
+  check_source(in source, empty(), false, false, generate, out q, errors, _, ref checks)
 
 data Checks :=
   case Checks(packages: Map[Path, CheckedPackage])
@@ -5524,12 +5531,14 @@ procedure check_cached(
   in  source: Source,
       unparsed: Set[Id],
       partial: Bool,
+      declared: Bool,
       generate: Checked -> List[(Pos, (Path, Cmd))],
   out q: Prog,
       errors: List[TypeError],
+      signatures: List[(Path, Sig)],
   ref checks: Checks
 ) raises InternalError :=
-  check_source(in source, unparsed, partial, generate, out q, errors, ref checks)
+  check_source(in source, unparsed, partial, declared, generate, out q, errors, signatures, ref checks)
 
 procedure check_partial(
   in  source: Source,
@@ -5539,7 +5548,7 @@ procedure check_partial(
       errors: List[TypeError]
 ) raises InternalError :=
   var checks := no_checks()
-  check_source(in source, unparsed, true, generate, out q, errors, ref checks)
+  check_source(in source, unparsed, true, false, generate, out q, errors, _, ref checks)
 
 function is_seen(c: Checked, m: Path, d: Name): Bool :=
   is_visible(start(m, c.table) with hidden := c.hidden, d)
@@ -5547,34 +5556,39 @@ function is_seen(c: Checked, m: Path, d: Name): Bool :=
 function no_tests(c: Checked): List[(Pos, (Path, Cmd))] :=
   List()
 
-// the checked program of source, where partial tells whether it has parts that do not parse, which only then are looked for
+// the checked program of source, where partial tells whether it has parts that do not parse, which only then are looked
+// for, and declared whether the packages other than that of the main module are loaded as far as their importers see
+// them, which are then only declared, neither taken from checks nor added to it, with the signature that each package
+// shows, in their order
 procedure check_source(
   in  source: Source,
       unparsed: Set[Id],
       partial: Bool,
+      declared: Bool,
       generate: Checked -> List[(Pos, (Path, Cmd))],
   out q: Prog,
       errors: List[TypeError],
+      signatures: List[(Path, Sig)],
   ref checks: Checks
 ) raises InternalError :=
   var sig: Sig := empty(), imports: List[(Path, List[Path])] := List(), cmds: List[(Path, At[Cmd])] := List(), checked: List[(Path, At[Cmd])], shown: Sig, found: List[TypeError], loose: List[TypeError] := List(), found_loose: List[TypeError], placed: List[At[Cmd]], lines: List[(Path, At[Path])], raised := false
-  errors := List()
+  errors := List(), signatures := List()
   let own := module_dir(source.main)
   // a package after one with errors is checked against its signature, whose definitions with errors are error nodes, and
   // none after one whose check raised, which leaves no signature; only packages checked after no errors are cached
   for mods in units(source.mods, source.packages) if not raised do
     let id := package_of(mods)
     match get(id, checks.packages)
-      case Some(done) if id != own =>
-        sig := union(sig, done.shown), imports := imports ++ List(for d in mods yield (d.name, seen_modules(d, source.packages))), cmds := cmds ++ done.cmds
+      case Some(done) if id != own and not declared =>
+        signatures := signatures ++ List((id, done.shown)), sig := union(sig, done.shown), imports := imports ++ List(for d in mods yield (d.name, seen_modules(d, source.packages))), cmds := cmds ++ done.cmds
 
       case _ =>
         try
-          check_package(in mods, source.packages, sig, imports, unparsed, partial, exists(mods, lambda d => d.name == source.main), generate, out checked, shown, found, found_loose)
-          if id != own and errors == List() and found == List() and found_loose == List() and not partial then
+          check_package(in mods, source.packages, sig, imports, unparsed, partial, exists(mods, lambda d => d.name == source.main), declared and id != own, generate, out checked, shown, found, found_loose)
+          if id != own and not declared and errors == List() and found == List() and found_loose == List() and not partial then
             checks := checks with packages := put(id, CheckedPackage(checked, shown), checks.packages)
           end
-          sig := union(sig, shown), imports := imports ++ List(for d in mods yield (d.name, seen_modules(d, source.packages))), cmds := cmds ++ checked, errors := errors ++ found, loose := loose ++ found_loose
+          signatures := signatures ++ List((id, shown)), sig := union(sig, shown), imports := imports ++ List(for d in mods yield (d.name, seen_modules(d, source.packages))), cmds := cmds ++ checked, errors := errors ++ found, loose := loose ++ found_loose
         catch
           case e =>
             cmds := cmds ++ List(for d in mods for (m, c) in written_of(d.name, d.exported ++ d.implemented) yield (m, unchecked(c))), errors := errors ++ List(e), loose := loose ++ List(e), raised := true
@@ -5815,7 +5829,9 @@ function take_members(mods: List[Mod], members: List[Path]): List[Mod] :=
 // checked together after the declarations before of the modules that imports lists, where the declarations that other
 // modules keep private are unknown, since before has only their signatures, and those that members keep private are hidden
 // from the other members, and where the definitions are checked only after declarations without errors, whose uses would
-// only repeat them
+// only repeat them; declared tells whether the members are loaded only as far as their importers see them
+// (declared_tokens of ulang/parse/parse.u), whose declarations give the signature that they show, while their definitions
+// are not checked and their commands are kept as written, as error nodes without errors of their own
 procedure check_package(
   in  mods: List[Mod],
       packages: List[Package],
@@ -5824,16 +5840,17 @@ procedure check_package(
       unparsed: Set[Id],
       partial: Bool,
       judged: Bool,
+      declared: Bool,
       generate: Checked -> List[(Pos, (Path, Cmd))],
   out cmds: List[(Path, At[Cmd])],
       shown: Sig,
       errors: List[TypeError],
       loose: List[TypeError]
 ) :=
-  let own := List(for d in mods yield (d.name, seen_modules(d, packages))), members := List(for d in mods yield d.name), placed := List(for d in mods for p in decls_of(d) yield p)
-  var s: State, decls: List[(Path, Cmd)], defined: List[(Path, At[Cmd])], tested: List[(Path, At[Cmd])] := List(), enumerated: List[(Path, At[Cmd])] := List(), hidden: Set[Name] := empty(), hidden_sorts: List[Name] := List()
+  let own := List(for d in mods yield (d.name, seen_modules(d, packages))), members := List(for d in mods yield d.name), placed := List(for d in mods for p in if declared then signed_decls(d) else decls_of(d) yield p)
+  var s: State, decls: List[(Path, Cmd)], tested: List[(Path, At[Cmd])] := List(), enumerated: List[(Path, At[Cmd])] := List(), hidden: Set[Name] := empty(), hidden_sorts: List[Name] := List()
   let builtins := List(for d in mods for c in natives(d) yield c)
-  var private: Set[Name], private_sorts: List[Name], exceptions: Exceptions
+  var private: Set[Name], private_sorts: List[Name]
   for d in mods do
     private_of(in d, out private, private_sorts)
     hidden := hidden ++ private, hidden_sorts := hidden_sorts ++ private_sorts
@@ -5850,7 +5867,7 @@ procedure check_package(
   each_placed(in declare_lemmas, placed, ref s)
   declare_funs(in builtins, ref s)
   declare_procs(in builtins, ref s)
-  for d in mods do
+  for d in mods if not declared do
     try
       check_sections(in d)
     catch
@@ -5861,52 +5878,58 @@ procedure check_package(
   each_placed(in lambda in cs: List[(Path, Cmd)], ref t: State =>
     exported_aliases(in cs, hidden, t)
   end, placed, ref s)
-  for d in mods do
-    unique_tests(in d, ref s)
-  end
-  for (p, (m, name)) in List(for (p, (m, cmd)) in placed for name in contract_on_definition(placed, cmd) yield (p, (m, name))) do
-    s := s with errors := s.errors ++ List(Located(Some(m), p, ContractOnDefinition(name)))
-  end
-  let definable := not exists(s.errors, is_blocking)
-  if definable then
-    placed_commands(in with_contracts(placed_definitions(placed), placed), lambda in checked: List[Cmd] =>
-      check_orders(in checked, abstract_types(decls), hidden, hidden_sorts)
-    end, out defined, ref s)
+  if declared then
+    cmds := List(for d in mods for (m, c) in written_of(d.name, d.exported ++ d.implemented) for x in with_alias(s.sig, c) yield (m, unchecked(map_at(x, lambda cmd => declared_cmd(s.sig, cmd))))), shown := exported(restrict(s.sig, members), hidden, Set(for x in hidden_sorts)), errors := s.errors, loose := List(for (i, e) in zip(range(0, size(s.errors)), s.errors) if not contains(i, s.taken) yield e)
   else
-    defined := List()
-  end
-  // the generated tests only of a package without errors, while the examples of each definition that checks are checked
-  // with the errors of the others, since a change that breaks a definition may make an example stale, too
-  let clean := s.errors == List()
-  let generated := if clean then
-    generate(Checked(placed, defined, abstract_types(decls), s.sig, s.table, s.hidden))
-  else
-    List()
-  if definable then
-    let failed := failed_owners(defined)
+    var defined: List[(Path, At[Cmd])]
+    var exceptions: Exceptions
     for d in mods do
-      examples_placed(in d, ref s)
+      unique_tests(in d, ref s)
     end
-    example_commands(in List(for d in mods for x in example_tests(d) if not contains(x.owner, failed) yield x), out tested, ref s)
-  end
-  if clean then
-    each_placed(in declare_funs, generated, ref s)
-    placed_commands(in generated, lambda in _: List[Cmd] =>
-      skip
-    end, out enumerated, ref s)
-  end
-  // without definitions, as after an error of the declarations, the definitions as written have unresolved names, which no
-  // run may take for checked code
-  let written := List(for d in mods for (m, c) in written_of(d.name, d.exported ++ d.implemented) yield (m, if defined == List() and is_checked(m, c) then unchecked(c) else c))
-  cmds := List(for (m, c) in with_definitions(written, defined) for x in with_alias(s.sig, c) yield (m, x)) ++ tested ++ enumerated, shown := exported(restrict(s.sig, members), hidden, Set(for x in hidden_sorts)), errors := s.errors, loose := List(for (i, e) in zip(range(0, size(s.errors)), s.errors) if not contains(i, s.taken) yield e)
-  exceptions := raises_errors(List(for (_, c) in defined ++ tested if cmd_errors(c) == List() yield c.that), s.sig, hidden, List(for b in s.bounds))
-  let solving := s with sub := empty(), chosen := empty(), solved := Some(exceptions.solved)
-  errors := errors ++ exceptions.errors, cmds := List(for (m, c) in cmds yield (m, map_at(c, lambda cmd => with_inferred(if cmd_errors(c) == List() then zonk_cmd(solving, cmd) else cmd, exceptions.inferred))))
-  loose := loose ++ drop(size(s.errors), errors)
-  // only for a source that parses, since an import may be used by what does not parse, and a module may have no command
-  if judged and not partial and errors == List() then
-    let unused := unused_imports(mods, packages, cmds, s.aliased ++ alias_uses(s.sig, members))
-    errors := unused, loose := loose ++ unused
+    for (p, (m, name)) in List(for (p, (m, cmd)) in placed for name in contract_on_definition(placed, cmd) yield (p, (m, name))) do
+      s := s with errors := s.errors ++ List(Located(Some(m), p, ContractOnDefinition(name)))
+    end
+    let definable := not exists(s.errors, is_blocking)
+    if definable then
+      placed_commands(in with_contracts(placed_definitions(placed), placed), lambda in checked: List[Cmd] =>
+        check_orders(in checked, abstract_types(decls), hidden, hidden_sorts)
+      end, out defined, ref s)
+    else
+      defined := List()
+    end
+    // the generated tests only of a package without errors, while the examples of each definition that checks are checked
+    // with the errors of the others, since a change that breaks a definition may make an example stale, too
+    let clean := s.errors == List()
+    let generated := if clean then
+      generate(Checked(placed, defined, abstract_types(decls), s.sig, s.table, s.hidden))
+    else
+      List()
+    if definable then
+      let failed := failed_owners(defined)
+      for d in mods do
+        examples_placed(in d, ref s)
+      end
+      example_commands(in List(for d in mods for x in example_tests(d) if not contains(x.owner, failed) yield x), out tested, ref s)
+    end
+    if clean then
+      each_placed(in declare_funs, generated, ref s)
+      placed_commands(in generated, lambda in _: List[Cmd] =>
+        skip
+      end, out enumerated, ref s)
+    end
+    // without definitions, as after an error of the declarations, the definitions as written have unresolved names, which no
+    // run may take for checked code
+    let written := List(for d in mods for (m, c) in written_of(d.name, d.exported ++ d.implemented) yield (m, if defined == List() and is_checked(m, c) then unchecked(c) else c))
+    cmds := List(for (m, c) in with_definitions(written, defined) for x in with_alias(s.sig, c) yield (m, x)) ++ tested ++ enumerated, shown := exported(restrict(s.sig, members), hidden, Set(for x in hidden_sorts)), errors := s.errors, loose := List(for (i, e) in zip(range(0, size(s.errors)), s.errors) if not contains(i, s.taken) yield e)
+    exceptions := raises_errors(List(for (_, c) in defined ++ tested if cmd_errors(c) == List() yield c.that), s.sig, hidden, List(for b in s.bounds))
+    let solving := s with sub := empty(), chosen := empty(), solved := Some(exceptions.solved)
+    errors := errors ++ exceptions.errors, cmds := List(for (m, c) in cmds yield (m, map_at(c, lambda cmd => with_inferred(if cmd_errors(c) == List() then zonk_cmd(solving, cmd) else cmd, exceptions.inferred))))
+    loose := loose ++ drop(size(s.errors), errors)
+    // only for a source that parses, since an import may be used by what does not parse, and a module may have no command
+    if judged and not partial and errors == List() then
+      let unused := unused_imports(mods, packages, cmds, s.aliased ++ alias_uses(s.sig, members))
+      errors := unused, loose := loose ++ unused
+    end
   end
 
 // the imports of the modules mods of a package of which their checked commands cmds use nothing, by the modules of
@@ -6138,6 +6161,43 @@ function first_member(members: List[Path]): Path :=
 // the commands of module d with qualified names, with the module of each, and their positions
 function decls_of(d: Mod): List[(Pos, (Path, Cmd))] :=
   List(for c in placed_of(d) yield (c.pos, (d.name, qualify(d.name, c.that))))
+
+// decls_of of a module loaded as far as its importers see it (declared_tokens of ulang/parse/parse.u), whose exported
+// functions and procedures are declared by their signatures, as natives declares those of the builtin section, since
+// their definitions, which declare them otherwise, are not loaded
+function signed_decls(d: Mod): List[(Pos, (Path, Cmd))] :=
+  List(for c in d.exported yield (c.pos, (d.name, signed(qualify(d.name, c.that))))) ++ List(for c in d.builtins ++ d.implemented yield (c.pos, (d.name, qualify(d.name, c.that))))
+
+function signed(cmd: Cmd): Cmd :=
+  match cmd
+    case CFunSig(_, _, _, _, _) | CProcSig(_, _, _, _, _, _, _) =>
+      native(cmd)
+    case _ =>
+      cmd
+  end
+
+// a command of a module loaded as far as its importers see it, with the types that sig declares of it, which the hints
+// of its importers read (decls_of of ulang/check/hints.u), as they read the checked definitions of a module loaded whole
+function declared_cmd(sig: Sig, cmd: Cmd): Cmd :=
+  match cmd
+    case CProcSig(name, params, ins, outs, refs, _, spec) =>
+      match proc_of(sig, name)
+        case Some(proc) =>
+          CProcSig(name, params, typed_vars(ins, proc.ins), typed_vars(outs, proc.outs), typed_vars(refs, proc.refs), proc.raised, spec)
+        case None =>
+          cmd
+      end
+
+    case CData(name, params, constrs) =>
+      CData(name, params, List(for k in constrs yield map_at(k, lambda c => resolved_fields(sig, c))))
+
+    case _ =>
+      cmd
+  end
+
+// the declarations decls with the types types
+function typed_vars(decls: List[At[Var]], types: List[Type]): List[At[Var]] :=
+  retyped(decls, List(for (x, typ) in zip(vars(decls), types) yield x with typ := typ))
 
 // the contracts of the signatures of procedures of placed, by name and arity
 function declared_contracts(placed: List[(Pos, (Path, Cmd))]): Map[(Name, Int), Spec] :=

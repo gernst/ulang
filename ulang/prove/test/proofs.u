@@ -151,3 +151,11 @@ lemma absolute_by_guard(in x: Int) :=
     case _ =>
       assert x >= 0
   end
+
+// a proof cites a lemma after it, since it looks only at the statements that it cites, whatever their proofs give
+lemma cites_after(in x: Int) :=
+  ensures x == x
+  cited_after(in x)
+
+lemma cited_after(in x: Int) :=
+  ensures x == x
