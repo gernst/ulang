@@ -2033,9 +2033,21 @@ procedure patch(
       let old := unmarked(take(i, code))
       patch_block(in old, unmarked(drop(i + 1, code)), labels, out at, ref patched)
       if at == List() then
-        var context: Str
-        block_context(in path, List(for line in old yield trim(line)), lines, regions, edits, out context)
-        raise Refused("@patch: the old lines, " ++ quote(join("\n", List(for line in old yield trim(line)))) ++ ", occur in no line of the target as whole lines" ++ context)
+        let part := join("\n", List(for line in drop_blank(old) yield trim(line)))
+        let counts := List(for text in patched yield size(occurrences(text, part)))
+        if size(drop_blank(old)) == 1 and is_once_each(counts) then
+          // one old line that is a part of a line of the target patches as the line form does
+          let new := join("\n", List(for line in drop_blank(unmarked(drop(i + 1, code))) yield trim(line)))
+          patched := List(for text in patched yield substituted(text, part, new))
+        else
+          var context: Str
+          block_context(in path, List(for line in old yield trim(line)), lines, regions, edits, out context)
+          let hint := if size(drop_blank(old)) == 1 and exists(counts, lambda n => n > 0) then
+            ", and as a part of a line it occurs " ++ occurrence_text(counts, labels) ++ ", so it takes more of its line"
+          else
+            ""
+          raise Refused("@patch: the old lines, " ++ quote(join("\n", List(for line in old yield trim(line)))) ++ ", occur in no line of the target as whole lines" ++ hint ++ context)
+        end
       end
       // the definition follows the signature, and only it has nodes
       for (j, k) in take(1, reverse(at)) do
@@ -2110,22 +2122,24 @@ procedure patch(
   end
 
 // the nodes of spans, those of a declaration in new, that an edit of old to new changed: the outermost that start on the
-// lines that it changed, else the innermost around them, so that an edit of a head alone changed none
+// lines that it changed, where a node starts at the comments that format places above it, so that an edit of a comment
+// changed the node that it documents, else the innermost around them, so that an edit of a head alone changed none
 function changed_nodes(old: Array[Str], new: Array[Str], spans: List[Span]): List[Span] :=
   example changed_nodes(Array("a", "  b", "  c"), Array("a", "  b", "  d"), List(Span(Pos(2, 3), Pos(3, 4)), Span(Pos(3, 3), Pos(3, 4)))) == List(Span(Pos(3, 3), Pos(3, 4)))
   example changed_nodes(Array("a", "  b", "  c"), Array("a", "  c"), List(Span(Pos(1, 1), Pos(2, 4)), Span(Pos(2, 3), Pos(2, 4)))) == List(Span(Pos(1, 1), Pos(2, 4)))
+  example changed_nodes(Array("a", "  // x", "  b"), Array("a", "  // y", "  b"), List(Span(Pos(1, 1), Pos(3, 4)), Span(Pos(3, 3), Pos(3, 4)))) == List(Span(Pos(3, 3), Pos(3, 4)))
   let olds := List(for line in old), news := List(for line in new) in
   let shared := common_prefix(olds, news) in
   let suffix := min(common_prefix(reverse(olds), reverse(news)), min(size(olds), size(news)) - shared) in
   let first := shared + 1, final := size(news) - suffix in
-  let starting := List(for span in spans if first <= span.start.line and span.start.line <= final) in
+  let starting := List(for span in spans if first <= span.start.line and with_comments(new, Range(span.start.line, span.stop.line)).first <= final) in
   if starting != List() then
     List(for span in starting if not exists(starting, lambda other => other != span and is_inside(span, other)))
   else
     List(for span in last(List(for span in spans if span.start.line < first and span.stop.line >= max(first, final))))
 
 // the number of the elements at the start of xs and ys that they share
-function common_prefix(xs: List[Str], ys: List[Str]): Int :=
+function common_prefix[A](xs: List[A], ys: List[A]): Int :=
   example common_prefix(List("a", "b"), List("a", "c")) == 1
   match (xs, ys)
     case (List(x; xs_), List(y; ys_)) if x == y =>
@@ -2259,18 +2273,19 @@ procedure patch_line(
   ref texts: List[Str]
 ) raises Refused :=
   let full := if ends_with(line, " =>") then line ++ " " else line
-  let splits := List(for i in occurrences(full, " => ") yield (slice(full, 0, i), slice(full, i + 4, size(full))))
-  let counts := List(for (old, new) in splits yield (old, new, List(for text in texts yield size(occurrences(text, old)))))
+  let every := line_splits(full, occurrences(full, " => "), texts), coded := line_splits(full, code_arrows(full), texts)
+  // an arrow in a string or char literal of the line splits it only if none outside them leaves an old text
+  let counts := if exists(coded, lambda (_, _, ns) => is_once_each(ns)) then coded else every
   absent := None, split := None
   match reverse(List(for (old, new, ns) in counts if is_once_each(ns) yield (old, new)))
     case List((old, new); _) =>
       if old == new then
         raise Refused("@patch: fragment line " ++ show(number) ++ ", " ++ quote(line) ++ ", changes nothing")
       end
-      if size(splits) > 1 then
+      if size(counts) > 1 then
         split := Some("fragment line " ++ show(number) ++ " split at its last => that leaves an old text of the target, " ++ quote(old) ++ " => " ++ quote(new))
       end
-      texts := List(for text in texts yield foldl(occurrences(text, old), text, lambda acc, i => slice(acc, 0, i) ++ new ++ slice(acc, i + size(old), size(acc))))
+      texts := List(for text in texts yield substituted(text, old, new))
 
     case List() =>
       match counts
@@ -2287,6 +2302,44 @@ procedure patch_line(
         case _ =>
           raise Refused("@patch: no old text of " ++ quote(line) ++ " occurs in the target and at most once in each of its parts, where a line is old => new")
       end
+  end
+
+// the splits of line at the offsets of its arrows into the old and the new text, with the occurrences of the old text
+// in each of texts
+function line_splits(line: Str, arrows: List[Int], texts: List[Str]): List[(Str, Str, List[Int])] :=
+  example line_splits("a => b", List(1), List("xa", "aa")) == List(("a", "b", List(1, 2)))
+  List(for i in arrows yield (slice(line, 0, i), slice(line, i + 4, size(line)), List(for text in texts yield size(occurrences(text, slice(line, 0, i))))))
+
+// the offsets of the arrows " => " of a line of code outside its string and char literals, read from the start of
+// the line
+function code_arrows(line: Str): List[Int] :=
+  example code_arrows("f(\"a => b\") => g('\"')") == List(11)
+  example code_arrows("a => b => c") == List(1, 6)
+  let quoted := Array(for inside in in_literals(chars(line), false)) in
+  List(for i in occurrences(line, " => ") if not value_or(get(i + 1, quoted), false))
+
+// whether each of the characters cs lies in a string or char literal, where quoted says whether they start in a string
+function in_literals(cs: List[Char], quoted: Bool): List[Bool] :=
+  example in_literals(chars("a\"=\\\"\"b"), false) == List(false, true, true, true, true, true, false)
+  example in_literals(chars("'\"'x"), false) == List(true, true, true, false)
+  match cs
+    case List('\\', _; rest) if quoted =>
+      List(true, true; in_literals(rest, true))
+
+    case List('"'; rest) =>
+      List(true; in_literals(rest, not quoted))
+
+    case List('\'', '\\', _, '\''; rest) if not quoted =>
+      List(true, true, true, true; in_literals(rest, false))
+
+    case List('\'', _, '\''; rest) if not quoted =>
+      List(true, true, true; in_literals(rest, false))
+
+    case List(_; rest) =>
+      List(quoted; in_literals(rest, quoted))
+
+    case List() =>
+      List()
   end
 
 // whether counts, of the occurrences of a text in each part of a target, say that it occurs in one at least and at most
@@ -2330,11 +2383,23 @@ procedure block_context(
     if block_starts(List(for line in lines), wanted) != List() then
       context := ", but in the file outside the target, which @patch " ++ path ++ " takes, while the target is:\n" ++ join("\n", searched)
     else
+      for (n, line) in nearest_line(lines, regions, value_or(get_at(0, drop_blank(wanted)), "")) do
+        context := ", and the line of the target that starts most like the first of them is " ++ path ++ ":" ++ show(n) ++ ", " ++ quote(trim(line))
+      end
       if exists(wanted, lambda line => not is_blank(line) and contains(line, trimmed)) then
-        context := ", while some of them occur in the target, which is:\n" ++ join("\n", searched)
+        context := context ++ ", while some of them occur in the target, which is:\n" ++ join("\n", searched)
       end
     end
   end
+
+// the line of lines within regions whose start without its indentation is the longest start of wanted, by its number,
+// unless none shares a character with it, where the first of the lines wins
+function nearest_line(lines: Array[Str], regions: List[Range], wanted: Str): Option[(Int, Str)] :=
+  example nearest_line(Array("f :=", "  g(1,", "    2)"), List(Range(2, 3)), "g(1, 2)") == Some((2, "  g(1,"))
+  example nearest_line(Array("a"), List(Range(1, 1)), "b") == None
+  let scored := List(for region in regions for n in range(region.first, region.last + 1) yield (common_prefix(chars(trim(line_at(lines, n))), chars(wanted)), n)) in
+  let (score, best) := foldl(scored, (0, 0), lambda (s, n), (s_, n_) => if s_ > s then (s_, n_) else (s, n)) in
+  if score == 0 then None else Some((best, line_at(lines, best)))
 
 // the end of the refusal of a @patch of the file path whose old text the target lacks, if the file had it before the
 // script, as is_found tells of its text, and an earlier action of the script edited it: that action, else empty
@@ -2403,6 +2468,11 @@ function occurrences(text: Str, part: Str): List[Int] :=
     List()
   else
     List(for i in range(0, size(text) - size(part) + 1) if slice(text, i, i + size(part)) == part)
+
+// text with each occurrence of old replaced by new, where the occurrences do not overlap
+function substituted(text: Str, old: Str, new: Str): Str :=
+  example substituted("a + a", "a", "bc") == "bc + bc"
+  foldr(occurrences(text, old), text, lambda i, acc => slice(acc, 0, i) ++ new ++ slice(acc, i + size(old), size(acc)))
 
 // the files of a script of the journal as they were before and after it
 data Change :=
