@@ -573,4 +573,4 @@ static u_value show_window(u_value v) {
   return text_value(&t);
 }
 
-const struct u_type u_window_type = {"window.Window", compare_streams, u_equals_by_compare, show_window};
+U_PLAIN const struct u_type u_window_type = {"window.Window", compare_streams, u_equals_by_compare, show_window};

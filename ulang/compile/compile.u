@@ -1547,8 +1547,15 @@ procedure compile_prog(
       encode_object(in a, out bytes)
       os_write_bytes(in target, bytes)
     else
-      var f: CFile
+      var f: CFile, counting: Option[Str]
       compile_program(in q, q.main, entry, out f)
+      // reference counts, an experiment of ulang/compile/rc.u
+      os_env(in "ULANG_RC", out counting)
+      if counting != None then
+        var counted: CFile
+        count_refs(in f, out counted)
+        f := counted
+      end
       os_write_utf8(in target, format_file(f))
     end
   end

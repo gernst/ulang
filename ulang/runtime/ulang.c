@@ -23,7 +23,7 @@ _Static_assert(sizeof(struct u_object) == 32 && offsetof(struct u_object, type) 
 _Static_assert(offsetof(struct u_object, num) == 8 && offsetof(struct u_object, units) == 8, "u_object");
 _Static_assert(offsetof(struct u_object, length) == 16 && offsetof(struct u_object, width) == 24, "u_object");
 _Static_assert(offsetof(struct u_object, name) == 8 && offsetof(struct u_object, size) == 16, "u_object");
-_Static_assert(offsetof(struct u_object, items) == 24, "u_object");
+_Static_assert(offsetof(struct u_object, items) == 24 && offsetof(struct u_object, rc) == 20, "u_object");
 _Static_assert(sizeof(struct u_name) == 32 && offsetof(struct u_name, index) == 16, "u_name");
 _Static_assert(offsetof(struct u_name, type) == 24, "u_name");
 _Static_assert(sizeof(struct u_type) == 32, "u_type");
@@ -335,6 +335,7 @@ u_value u_from_utf8(const char *bytes, size_t n) {
 // an object with its items after it, in one allocation
 static u_value compound(const struct u_type *type, int size) {
   u_value v = small(sizeof(struct u_object) + size * sizeof(u_value));
+  U_RC_STAT(9);
   v->type = type;
   v->size = size;
   v->items = (u_value *)(v + 1);
@@ -396,7 +397,153 @@ u_value u_mk_con_3(const struct u_name *name, u_value a, u_value b, u_value c) {
 u_value u_mk_con_array(const struct u_name *name, int size, u_value *xs) {
   u_value v = compound(name->type, size);
   v->name = name;
-  for (int i = 0; i < size; i++) v->items[i] = xs[i];
+  for (int i = 0; i < size; i++) v->items[i] = u_rc ? u_dup(xs[i]) : xs[i];
+  return v;
+}
+
+int u_rc = 0;
+
+// the items of v, which a copy of them shares, each with a reference more
+static void dup_items(u_value v) {
+  for (int i = 0; i < v->size; i++) u_dup(v->items[i]);
+}
+
+#ifdef ULANG_RC_STATS
+// dups, counted dups, drops, claims, claims of a counted object, unique claims, reuses of a cell, updates in place
+long long u_rc_stats[10];
+__attribute__((destructor)) static void print_rc_stats(void) {
+  if (u_rc)
+    fprintf(stderr, "rc: dups %lld (counted %lld), drops %lld, claims %lld (counted %lld, unique %lld), reused %lld, updated in place %lld, freed %lld of %lld compound allocations\n",
+      u_rc_stats[0], u_rc_stats[1], u_rc_stats[2], u_rc_stats[3], u_rc_stats[4], u_rc_stats[5], u_rc_stats[6], u_rc_stats[7], u_rc_stats[8], u_rc_stats[9]);
+}
+#endif
+
+#ifdef ULANG_RC_CHECK
+void u_dead_read(u_value v) {
+  u_dead_use(v, "read");
+}
+#endif
+
+void u_dead_use(u_value v, const char *what) {
+  fprintf(stderr, "reference count: %s of a dead %s\n", what, u_type_of(v)->name);
+  abort();
+}
+
+// a cell without references back on the free list of its size, cleared as those of GC_malloc_many are, while the check
+// build keeps it dead, so that a use of it fails
+static void recycle(u_value v) {
+#ifndef ULANG_RC_CHECK
+  size_t k = GC_size(v) >> 4;
+  if (k >= FREE_LISTS) return;
+  U_RC_STAT(8);
+  memset(v, 0, k << 4);
+  *(void **)v = free_lists[k];
+  free_lists[k] = v;
+#else
+#endif
+}
+
+// along the last item without recursion, the tail of a list
+void u_drop_dead(u_value v) {
+  for (;;) {
+    int n = v->size;
+    v->rc = U_DEAD;
+    for (int i = 0; i < n - 1; i++) u_drop(v->items[i]);
+    u_value last = v->items[n - 1];
+    recycle(v);
+    if (!u_counted(last)) return;
+    U_RC_CHECK(last, "drop");
+    if (last->rc > 0) {
+      last->rc--;
+      return;
+    }
+    v = last;
+  }
+}
+
+u_value u_claim(u_value v, unsigned long long mask) {
+  U_RC_STAT(3);
+  if (!u_counted(v)) return NULL;
+  U_RC_STAT(4);
+  U_RC_CHECK(v, "claim");
+  if (v->rc == 0) {
+    U_RC_STAT(5);
+    // the fields of the mask go to the variables bound to them, and the cell, reused or not, holds the others no more
+    for (int i = 0; i < v->size; i++)
+      if (i >= 64 || !(mask >> i & 1)) u_drop(v->items[i]);
+    return v;
+  }
+  for (int i = 0; i < v->size && i < 64; i++)
+    if (mask >> i & 1) u_dup(v->items[i]);
+  v->rc--;
+  return NULL;
+}
+
+static u_value reused(u_value cell, const struct u_type *type, int size) {
+  if (!cell || cell->size != size) return compound(type, size);
+  U_RC_STAT(6);
+  cell->type = type;
+  cell->rc = 0;
+  cell->items = (u_value *)(cell + 1);
+  return cell;
+}
+
+u_value u_reuse_con(u_value cell, const struct u_name *name, int size, ...) {
+  va_list args;
+  va_start(args, size);
+  u_value v = fill(reused(cell, name->type, size), args);
+  v->name = name;
+  va_end(args);
+  return v;
+}
+
+u_value u_reuse_tuple(u_value cell, int size, ...) {
+  va_list args;
+  va_start(args, size);
+  u_value v = fill(reused(cell, &u_tuple_type, size), args);
+  v->name = NULL;
+  va_end(args);
+  return v;
+}
+
+u_value u_reuse_con_1(u_value cell, const struct u_name *name, u_value a) {
+  u_value v = reused(cell, name->type, 1);
+  v->name = name;
+  v->items[0] = a;
+  return v;
+}
+
+u_value u_reuse_con_2(u_value cell, const struct u_name *name, u_value a, u_value b) {
+  u_value v = reused(cell, name->type, 2);
+  v->name = name;
+  v->items[0] = a;
+  v->items[1] = b;
+  return v;
+}
+
+u_value u_reuse_con_3(u_value cell, const struct u_name *name, u_value a, u_value b, u_value c) {
+  u_value v = reused(cell, name->type, 3);
+  v->name = name;
+  v->items[0] = a;
+  v->items[1] = b;
+  v->items[2] = c;
+  return v;
+}
+
+u_value u_reuse_tuple_2(u_value cell, u_value a, u_value b) {
+  u_value v = reused(cell, &u_tuple_type, 2);
+  v->name = NULL;
+  v->items[0] = a;
+  v->items[1] = b;
+  return v;
+}
+
+u_value u_reuse_tuple_3(u_value cell, u_value a, u_value b, u_value c) {
+  u_value v = reused(cell, &u_tuple_type, 3);
+  v->name = NULL;
+  v->items[0] = a;
+  v->items[1] = b;
+  v->items[2] = c;
   return v;
 }
 
@@ -421,6 +568,29 @@ u_value u_update(u_value v, const int *ix, u_value field, u_value y) {
   if (i < 0) u_missing_field(field);
   u_value w = u_mk_con_array(v->name, v->size, v->items);
   w->items[i] = y;
+  return w;
+}
+
+u_value u_update_rc(u_value v, const int *ix, u_value field, u_value y) {
+  int i = ix[v->name->index];
+  if (i < 0) u_missing_field(field);
+  u_value w = u_mk_con_array(v->name, v->size, v->items);
+  u_drop(w->items[i]);
+  w->items[i] = y;
+  return w;
+}
+
+u_value u_update_own(u_value v, const int *ix, u_value field, u_value y) {
+  int i = ix[v->name->index];
+  if (i < 0) u_missing_field(field);
+  if (u_counted(v) && v->rc == 0) {
+    U_RC_STAT(7);
+    u_drop(v->items[i]);
+    v->items[i] = y;
+    return v;
+  }
+  u_value w = u_update_rc(v, ix, field, y);
+  u_drop(v);
   return w;
 }
 
@@ -593,6 +763,7 @@ u_value u_apply(u_value f, int n, ...) {
   u_value xs[n > 0 ? n : 1];
   for (int i = 0; i < n; i++) xs[i] = va_arg(args, u_value);
   va_end(args);
+  U_READ_CHECK(f);
   return f->fun(f->items, xs);
 }
 
@@ -605,6 +776,7 @@ void u_call_proc(u_value p, int ins, int outs, ...) {
   for (int i = 0; i < ins; i++) xs[i] = va_arg(args, u_value);
   for (int i = 0; i < outs; i++) ys[i] = va_arg(args, u_value *);
   va_end(args);
+  U_READ_CHECK(p);
   p->proc(p->items, xs, ys);
 }
 
@@ -911,6 +1083,7 @@ u_value u_array_push(u_value a, u_value x) {
     u_value b = compound(&u_array_type, (int)(2 * room + 8));
     u_memcpy(b->items, a->items, a->size * sizeof(u_value));
     b->size = a->size;
+    if (u_rc && a->rc > 0) dup_items(b);
     a = b;
   }
   a->items[a->size++] = x;
@@ -923,6 +1096,7 @@ u_value u_array_done(u_value a, int n) {
   if (a->size == n) return a;
   u_value b = compound(&u_array_type, a->size);
   u_memcpy(b->items, a->items, a->size * sizeof(u_value));
+  if (u_rc && a->rc > 0) dup_items(b);
   return b;
 }
 
@@ -934,6 +1108,7 @@ u_value u_array_start(u_value n) {
 u_value u_array_reversed(u_value a) {
   u_value b = compound(&u_array_type, a->size);
   for (int i = 0; i < a->size; i++) b->items[i] = a->items[a->size - 1 - i];
+  if (u_rc) dup_items(b);
   return b;
 }
 
@@ -943,6 +1118,7 @@ u_value u_array(u_value xs) {
   u_value a = compound(&u_array_type, n);
   int i = 0;
   for (u_value c = xs; u_is_con(c, &n_list_46_Cons); c = c->items[1]) a->items[i++] = c->items[0];
+  if (u_rc) dup_items(a);
   return a;
 }
 
@@ -962,6 +1138,7 @@ u_value u_array_put(u_value i, u_value x, u_value a) {
   u_value b = compound(&u_array_type, a->size);
   u_memcpy(b->items, a->items, a->size * sizeof(u_value));
   b->items[k] = x;
+  if (u_rc) dup_items(b);
   return b;
 }
 
@@ -972,6 +1149,7 @@ u_value u_array_slice(u_value a, u_value i, u_value j) {
   if (l > n) out_of_bounds(j, n);
   u_value b = compound(&u_array_type, (int)(l - k));
   u_memcpy(b->items, a->items + k, (l - k) * sizeof(u_value));
+  if (u_rc) dup_items(b);
   return b;
 }
 
@@ -1098,12 +1276,12 @@ static u_value show_procedure(u_value v) {
   return u_mk_lit("<procedure>");
 }
 
-const struct u_type u_int_type = {"Int", compare_ints, u_equals_by_compare, show_int};
-const struct u_type u_big_type = {"Int", compare_ints, u_equals_by_compare, show_int};
-const struct u_type u_bool_type = {"Bool", compare_nums, u_equals_by_compare, show_bool};
-const struct u_type u_char_type = {"Char", compare_nums, u_equals_by_compare, show_char};
-const struct u_type u_byte_type = {"Byte", compare_nums, u_equals_by_compare, show_byte};
-const struct u_type u_str_type = {"Str", compare_strs, equal_strs, show_str};
+U_PLAIN const struct u_type u_int_type = {"Int", compare_ints, u_equals_by_compare, show_int};
+U_PLAIN const struct u_type u_big_type = {"Int", compare_ints, u_equals_by_compare, show_int};
+U_PLAIN const struct u_type u_bool_type = {"Bool", compare_nums, u_equals_by_compare, show_bool};
+U_PLAIN const struct u_type u_char_type = {"Char", compare_nums, u_equals_by_compare, show_char};
+U_PLAIN const struct u_type u_byte_type = {"Byte", compare_nums, u_equals_by_compare, show_byte};
+U_PLAIN const struct u_type u_str_type = {"Str", compare_strs, equal_strs, show_str};
 const struct u_type u_tuple_type = {"*", compare_by_items, equal_by_items, show_tuple};
 const struct u_type u_array_type = {"array.Array", compare_by_items, equal_by_items, show_array};
 const struct u_type u_closure_type = {"->", compare_callables, compare_callables, show_function};
@@ -1925,8 +2103,8 @@ static u_value show_listener(u_value v) {
   return text_value(&t);
 }
 
-const struct u_type u_io_type = {"io.IO", compare_streams, u_equals_by_compare, show_stream};
-const struct u_type u_socket_type = {"io.IO", compare_streams, u_equals_by_compare, show_stream};
-const struct u_type u_listener_type = {"io.Listener", compare_streams, u_equals_by_compare, show_listener};
+U_PLAIN const struct u_type u_io_type = {"io.IO", compare_streams, u_equals_by_compare, show_stream};
+U_PLAIN const struct u_type u_socket_type = {"io.IO", compare_streams, u_equals_by_compare, show_stream};
+U_PLAIN const struct u_type u_listener_type = {"io.Listener", compare_streams, u_equals_by_compare, show_listener};
 
 #include "window.c"

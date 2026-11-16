@@ -97,6 +97,8 @@ struct u_object {
         proc_code proc;
       };
       int size;
+      // the references to a compound object besides one, which the code compiled with ULANG_RC counts, see u_counted
+      int rc;
       u_value *items;
     };
   };
@@ -109,7 +111,15 @@ struct u_object {
 #define U_TAG_MIN (-(1LL << 61))
 #define U_TAG_MAX ((1LL << 61) - 1)
 
+#ifdef ULANG_RC_CHECK
+void u_dead_read(u_value v);
+#define U_READ_CHECK(v) (!U_IS_TAGGED(v) && (v)->rc == -1000000 ? u_dead_read(v) : (void)0)
+#else
+#define U_READ_CHECK(v) ((void)0)
+#endif
+
 static inline const struct u_type *u_type_of(u_value v) {
+  U_READ_CHECK(v);
   return U_IS_TAGGED(v) ? &u_int_type : v->type;
 }
 
@@ -184,11 +194,14 @@ static inline int u_truth(u_value v) {
 }
 
 // v is a value of the datatype of name, which the checker guarantees
+
 static inline int u_is_con(u_value v, const struct u_name *name) {
+  U_READ_CHECK(v);
   return v->name == name;
 }
 
 static inline u_value u_field(u_value v, int i) {
+  U_READ_CHECK(v);
   return v->items[i];
 }
 
@@ -361,5 +374,78 @@ int u_has_type(struct u_handler *h, const char *type);
 u_value u_caught(struct u_handler *h);
 void u_raise(u_value v, const char *type);
 void u_reraise(struct u_handler *h);
+
+// Reference counts, an experiment, kept by the C that ulang/compile/rc.u rewrites, whose main sets u_rc, so that the runtime
+// gives its own copies of references their counts too. The collector still frees every object, so a count may be too
+// high, which only loses a reuse, but never too low: an object of count 0, rc == 0, has exactly one reference, whose holder
+// may reuse its cell. Counted are the compound objects with fields, constructors, tuples, closures, procedures, and arrays,
+// not the static ones without fields, nor those of the plain types, whose descriptors the section u_plain holds.
+extern int u_rc;
+extern const struct u_type __start_u_plain[], __stop_u_plain[];
+#define U_PLAIN __attribute__((section("u_plain")))
+
+static inline int u_counted(u_value v) {
+  return v && !U_IS_TAGGED(v) && !(v->type >= __start_u_plain && v->type < __stop_u_plain) && v->size > 0;
+}
+
+#ifdef ULANG_RC_STATS
+extern long long u_rc_stats[10];
+#define U_RC_STAT(i) (u_rc_stats[i]++)
+#else
+#define U_RC_STAT(i) ((void)0)
+#endif
+
+// the count of a cell whose last reference was dropped, which the check build of ULANG_RC_CHECK detects in every use
+#define U_DEAD (-1000000)
+void u_dead_use(u_value v, const char *what);
+#ifdef ULANG_RC_CHECK
+#define U_RC_CHECK(v, what) ((v)->rc < 0 ? u_dead_use(v, what) : (void)0)
+#else
+#define U_RC_CHECK(v, what) ((void)0)
+#endif
+
+static inline u_value u_dup(u_value v) {
+  U_RC_STAT(0);
+  if (u_counted(v)) {
+    U_RC_STAT(1);
+    U_RC_CHECK(v, "dup");
+    v->rc++;
+  }
+  return v;
+}
+
+// drops the references of the items of a cell whose last reference was dropped
+void u_drop_dead(u_value v);
+
+static inline void u_drop(u_value v) {
+  U_RC_STAT(2);
+  if (u_counted(v)) {
+    U_RC_CHECK(v, "drop");
+    if (v->rc > 0)
+      v->rc--;
+    else
+      u_drop_dead(v);
+  }
+}
+
+// v after dropping old, which v was computed before
+static inline u_value u_replace(u_value old, u_value v) {
+  u_drop(old);
+  return v;
+}
+
+// the cell of v for a construction if v is its only reference, which gives the fields of v to the variables bound to them,
+// else NULL, after giving each field of the mask a reference of its own and dropping v
+u_value u_claim(u_value v, unsigned long long mask);
+u_value u_reuse_con_1(u_value cell, const struct u_name *name, u_value a);
+u_value u_reuse_con_2(u_value cell, const struct u_name *name, u_value a, u_value b);
+u_value u_reuse_con_3(u_value cell, const struct u_name *name, u_value a, u_value b, u_value c);
+u_value u_reuse_con(u_value cell, const struct u_name *name, int size, ...);
+u_value u_reuse_tuple(u_value cell, int size, ...);
+u_value u_reuse_tuple_2(u_value cell, u_value a, u_value b);
+u_value u_reuse_tuple_3(u_value cell, u_value a, u_value b, u_value c);
+// u_update of a v that the caller gives up, which changes v itself if it is its only reference, and of one it keeps
+u_value u_update_own(u_value v, const int *ix, u_value field, u_value y);
+u_value u_update_rc(u_value v, const int *ix, u_value field, u_value y);
 
 #endif
