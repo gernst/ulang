@@ -463,7 +463,7 @@ test visible_equality() :=
 
 // a member of a package builds the abstract type of its sibling by its private constructor
 test sibling_constructor() :=
-  assert raises Located(None, Pos(8, 3), UnknownVariable(Name(List(), "Box"))) do
+  assert raises Located(None, Pos(8, 3), Hinted(UnknownVariable(Name(List(), "Box")), "Box is private to ulang.test.errors.sibling-constructor.boxes, whose export section does not declare it")) do
     check_texts(in "ulang/test/errors/sibling-constructor", List(
       ("boxes.u", List(
         "export",
@@ -532,7 +532,7 @@ test sibling_unformatted() :=
 
 // a member of a package uses the private function of its sibling
 test sibling_private() :=
-  assert raises Located(None, Pos(8, 3), UnknownVariable(Name(List(), "secret"))) do
+  assert raises Located(None, Pos(8, 3), Hinted(UnknownVariable(Name(List(), "secret")), "secret is private to ulang.test.errors.sibling-private.secrets, whose export section does not declare it")) do
     check_texts(in "ulang/test/errors/sibling-private", List(
       ("secrets.u", List(
         "export",
@@ -565,6 +565,12 @@ test sibling_private() :=
       "  secret(n)")))
   end
 
+// a member of a package names the type of its sibling without sections, which exports nothing
+test sibling_without_sections() :=
+  assert raises Located(None, Pos(1, 13), Hinted(UnknownSort(Name(List(), "Conn")), "Conn is private to ulang.test.errors.sibling-without-sections.conns, whose export section does not declare it")) do
+    check_texts(in "ulang/test/errors/sibling-without-sections", List(("conns.u", List("data Conn :=", "  case Conn(fd: Int)"))), ("sibling-without-sections.u", List("function fd(c: Conn): Int :=", "  0")))
+  end
+
 // a program sees two members of its package with functions of the same name and type
 test sibling_ambiguous() :=
   assert raises Located(None, Pos(2, 22), Ambiguous(Name(List(), "twice"), _)) do
@@ -591,7 +597,7 @@ test sibling_ambiguous() :=
 
 // a program matches by a private pattern alias of a member of its package
 test pattern_alias_private() :=
-  assert raises Located(None, Pos(3, 10), UnknownConstructor(Name(List(), "Minus"))) do
+  assert raises Located(None, Pos(3, 10), Hinted(UnknownConstructor(Name(List(), "Minus")), "Minus is private to ulang.test.errors.pattern-alias-private.aliases, whose export section does not declare it")) do
     check_texts(in "ulang/test/errors/pattern-alias-private", List(
       ("aliases.u", List(
         "export",

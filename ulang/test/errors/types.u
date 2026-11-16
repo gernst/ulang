@@ -485,7 +485,7 @@ test pair_type() :=
   end
 
 test pattern_alias_arity() :=
-  assert raises Located(None, Pos(6, 10), CountMismatch("pattern alias Pair", "arguments", 2, 1)) do
+  assert raises Located(None, Pos(6, 10), CountMismatch("pattern alias Pair", "argument", 2, 1)) do
     check_text(in "ulang/test/errors/pattern-alias-arity.u", List(
       "pattern Pair(x: Int, y: Int): (Int, Int) :=",
       "  (x, y)",
@@ -563,7 +563,7 @@ test pattern_alias_variables() :=
   end
 
 test pattern_arity() :=
-  assert raises Located(None, Pos(3, 10), CountMismatch("constructor Some", "arguments", 1, 2)) do
+  assert raises Located(None, Pos(3, 10), CountMismatch("constructor Some", "argument", 1, 2)) do
     check_text(in "ulang/test/errors/pattern-arity.u", List(
       "function f(): Int :=",
       "  match None",
@@ -658,7 +658,7 @@ test test_types() :=
   end
 
 test too_many_arguments() :=
-  assert raises Located(None, Pos(5, 3), CountMismatch("function g", "arguments", 1, 2)) do
+  assert raises Located(None, Pos(5, 3), CountMismatch("function g", "argument", 1, 2)) do
     check_text(in "ulang/test/errors/too-many-arguments.u", List(
       "function g(x: Int): Int :=",
       "  x",
@@ -752,7 +752,7 @@ test entry_raise() :=
 
 // a handler that does not cover its type lets the others of that type through
 test raise_through_handler() :=
-  assert raises Located(None, Pos(9, 5), UndeclaredRaise(Name(List("ulang", "test", "errors", "raise-through-handler"), "p"), _)) do
+  assert raises Located(None, Pos(9, 5), Hinted(UndeclaredRaise(Name(List("ulang", "test", "errors", "raise-through-handler"), "p"), _), "no handler around it catches Failed(_) of Failed")) do
     check_text(in "ulang/test/errors/raise-through-handler.u", List(
       "data Failed :=",
       "  case Failed(code: Int)",
@@ -1068,6 +1068,48 @@ test hints() :=
   assert List(for e in take(1, errors) yield located_message(e)) == List(
     "cannot unify Failed and () -> ?2; a value that is no function, such as a constructor without fields, is written without () at 8.9")
 
+// a field of a tuple, a map or filter of a list as a method, and return, each with the form to write
+test field_hints() :=
+  var errors: List[TypeError]
+  checked_text(in "ulang/test/errors/field-hints.u", List(
+    "function key(binding: (Int, Str)): Int :=",
+    "  binding.first",
+    "",
+    "function third(t: (Int, Int, Int)): Int :=",
+    "  t.third",
+    "",
+    "function doubled(xs: List[Int]): List[Int] :=",
+    "  xs.map(lambda x => 2 * x)",
+    "",
+    "function next(n: Int): Int :=",
+    "  return(n + 1)"), out _, errors)
+  assert List(for e in errors yield located_message(e)) == List(
+    "the type (Int, Str) of the value of .first has no fields; write first(…) of the pair, or take it apart by a pattern, let (a, b) := … at 2.10",
+    "the type (Int, Int, Int) of the value of .third has no fields; take the tuple apart by a pattern, let (a, b, c) := … at 5.4",
+    "unknown field map of List; write List(for x in xs yield f(x)) at 8.5",
+    "unknown variable return; write the value alone, since a function is its expression and a procedure assigns its outs at 11.3")
+
+// an exception that the handlers of its type let through names a value that none catches
+test handler_misses() :=
+  var errors: List[TypeError]
+  checked_text(in "ulang/test/errors/handler-misses.u", List(
+    "data ClientError :=",
+    "  case Refused(host: Str)",
+    "  case EmptyBody",
+    "",
+    "procedure fetch(in host: Str) raises ClientError :=",
+    "  raise EmptyBody",
+    "",
+    "procedure main() :=",
+    "  try",
+    "    fetch(in \"a\")",
+    "  catch",
+    "    case Refused(_) =>",
+    "      skip",
+    "  end"), out _, errors)
+  assert List(for e in errors yield located_message(e)) == List(
+    "main raises ClientError, which its raises omit; no handler around it catches EmptyBody of ClientError at 10.5")
+
 // a variable applied as a function hints at the functions of its name that it hides, those that the arguments fit, and
 // is not read, so that no Unassigned follows
 test hidden_function() :=
@@ -1147,7 +1189,7 @@ test claim_step() :=
   end
 
 test claim_invariants() :=
-  assert raises Located(None, Pos(7, 1), CountMismatch("the proof of p_correct", "invariants", 1, 2)) do
+  assert raises Located(None, Pos(7, 1), CountMismatch("the proof of p_correct", "invariant", 1, 2)) do
     check_text(in "ulang/test/errors/claim-invariants.u", List(
       "procedure p(out y: Int) :=",
       "  y := 0",
@@ -1334,7 +1376,7 @@ test function_arity_call() :=
   assert List(for d in diagnostics(q) yield (d.code, d.pos, d.message)) == List(
     ("CountMismatch", Pos(11, 3), "function g expects 2 arguments, got 1"),
     ("CountMismatch", Pos(14, 3), "constructor Pair expects 2 arguments, got 1"),
-    ("CountMismatch", Pos(17, 3), "pattern alias First expects 1 arguments, got 2"))
+    ("CountMismatch", Pos(17, 3), "pattern alias First expects 1 argument, got 2"))
 
 // a call of a procedure with an in where it has an out is one CallMismatch with the type of the procedure, and so is a
 // call of the old arity
@@ -1350,9 +1392,7 @@ test call_wrong_mode() :=
     "procedure r(out z: Int) :=",
     "  p(in 1, 2, 3, out z)"), out q, _)
   assert List(for d in diagnostics(q) yield (d.code, d.pos, d.message)) == List(
-    ("OutputUnassigned", Pos(4, 1), "output z of q is not assigned on every path"),
     ("CallMismatch", Pos(5, 3), "procedure p takes (in Int, out Int), but the call passes 2 ins"),
-    ("Unassigned", Pos(5, 11), "z is not assigned on every path"),
     ("CallMismatch", Pos(8, 3), "procedure p takes (in Int, out Int), but the call passes 3 ins and 1 out"))
 
 // + of a string is one mismatch with the hint of ++, without the mismatch of its result

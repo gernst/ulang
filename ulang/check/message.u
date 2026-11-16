@@ -121,8 +121,14 @@ function sort_module(typ: Type): Str :=
       "its module"
   end
 
+// n of the unit, its plural after any other number than 1
+function counted(n: Int, unit: Str): Str :=
+  example counted(1, "in") == "1 in"
+  example counted(0, "argument") == "0 arguments"
+  show(n) ++ " " ++ unit ++ (if n == 1 then "" else "s")
+
 function count_message(owner: Str, unit: Str, k: Int, actual: Int): Str :=
-  (if owner == "" then "expected " else owner ++ " expects ") ++ show(k) ++ " " ++ unit ++ ", got " ++ show(actual)
+  (if owner == "" then "expected " else owner ++ " expects ") ++ counted(k, unit) ++ ", got " ++ show(actual)
 
 // the numbers of the arguments of a call by their modes, those that it has
 function passed_text(ins: Int, outs: Int, refs: Int): Str :=
@@ -130,8 +136,8 @@ function passed_text(ins: Int, outs: Int, refs: Int): Str :=
   example passed_text(1, 1, 0) == "1 in and 1 out"
   example passed_text(0, 0, 0) == "no arguments"
   example passed_text(1, 2, 1) == "1 in, 2 outs, and 1 ref"
-  let counted := List(for (n, unit) in List((ins, "in"), (outs, "out"), (refs, "ref")) if n > 0 yield show(n) ++ " " ++ unit ++ (if n > 1 then "s" else "")) in
-  match counted
+  let counts := List(for (n, unit) in List((ins, "in"), (outs, "out"), (refs, "ref")) if n > 0 yield counted(n, unit)) in
+  match counts
     case List() =>
       "no arguments"
 
@@ -143,7 +149,7 @@ function passed_text(ins: Int, outs: Int, refs: Int): Str :=
 
     // of all three modes
     case _ =>
-      join(", ", take(2, counted)) ++ ", and " ++ join("", drop(2, counted))
+      join(", ", take(2, counts)) ++ ", and " ++ join("", drop(2, counts))
   end
 
 // the message of e with its hint
@@ -203,7 +209,7 @@ function plain_message(e: TypeError): Str :=
       "unknown type " ++ name.base
 
     case SortArity(name, expected, actual) =>
-      "type " ++ name.base ++ " expects " ++ show(expected) ++ " arguments, got " ++ show(actual)
+      count_message("type " ++ name.base, "argument", expected, actual)
 
     case SortDefined(name) =>
       "type " ++ name.base ++ " is already defined"
@@ -238,7 +244,7 @@ function plain_message(e: TypeError): Str :=
       "no declaration of " ++ name.base ++ " has the type " ++ format_type(typ) ++ candidates_text(candidates)
 
     case WrongArity(name, arity) =>
-      name.base ++ " does not take " ++ show(arity) ++ " arguments"
+      name.base ++ " does not take " ++ counted(arity, "argument")
 
     case AlreadyDefined(name) =>
       name.base ++ " is already defined"
@@ -253,7 +259,7 @@ function plain_message(e: TypeError): Str :=
       field_message(name)
 
     case UnknownFieldType(field, typ) =>
-      "the type " ++ format_type(typ) ++ " of the value of " ++ without_update(field) ++ " is not known"
+      "the type " ++ format_type(typ) ++ " of the value of " ++ without_update(field) ++ " has no fields"
 
     case UnknownFieldOwner(field) =>
       "the type of the value of " ++ without_update(field) ++ " is not known there, which an annotation can give"
@@ -417,7 +423,9 @@ test messages() :=
   assert located_message(Located(None, Pos(1, 1), CannotUnify(TParam("A"), TParam("B")))) == "cannot unify A and B at 1.1"
   assert type_message(Mismatch(TBool(), TInt(), "the condition of if")) == "expected Bool but found Int in the condition of if"
   assert type_diagnostic(Located(Some(List("m")), Pos(2, 3), Mismatch(TBool(), TInt(), "the guard"))) == Diagnostic(TypeKind, "Mismatch", Some(List("m")), Pos(2, 3), "expected Bool but found Int in the guard", List(("expected", "Bool"), ("found", "Int")))
-  assert located_message(Located(None, Pos(4, 1), CountMismatch("procedure p", "ins", 1, 2))) == "procedure p expects 1 ins, got 2 at 4.1"
+  assert located_message(Located(None, Pos(4, 1), CountMismatch("procedure p", "in", 1, 2))) == "procedure p expects 1 in, got 2 at 4.1"
+  assert located_message(Located(None, Pos(4, 1), CountMismatch("function f", "argument", 2, 1))) == "function f expects 2 arguments, got 1 at 4.1"
+  assert located_message(Located(None, Pos(7, 1), WrongArity(Name(List(), "f"), 1))) == "f does not take 1 argument at 7.1"
   assert located_message(Located(None, Pos(4, 1), CallMismatch(Name(List(), "p"), TProc(List(TInt()), List(TInt()), List(), RSet(empty())), 2, 0, 0))) == "procedure p takes (in Int, out Int), but the call passes 2 ins at 4.1"
   assert located_message(Duplicate("declaration", "a")) == "duplicate declaration a"
   assert located_message(Located(None, Pos(4, 1), HiddenLocal(Name(List(), "m")))) == "m hides a local of the same name at 4.1"
@@ -463,7 +471,7 @@ test messages() :=
   assert located_message(Located(None, Pos(4, 1), UnknownField(Owned(List("ulang", "test", "errors", "unknown-field"), List("Point"), "z")))) == "unknown field z of Point at 4.1"
   assert located_message(Located(None, Pos(1, 1), UnknownFieldOwner(".x"))) == "the type of the value of .x is not known there, which an annotation can give; ascribe the type of the value, (e: T).x at 1.1"
   assert located_message(Located(None, Pos(1, 1), UnknownFieldOwner(".x:="))) == "the type of the value of .x is not known there, which an annotation can give; ascribe the type of the value, (e: T) with x := a at 1.1"
-  assert located_message(Located(None, Pos(1, 1), UnknownFieldType(".x:=", TInt()))) == "the type Int of the value of .x is not known at 1.1"
+  assert located_message(Located(None, Pos(1, 1), UnknownFieldType(".x:=", TTuple(List(TInt(), TStr()))))) == "the type (Int, Str) of the value of .x has no fields at 1.1"
   assert located_message(Located(None, Pos(1, 1), InfiniteType(TMeta(1), TList(TMeta(1)), None))) == "infinite type ?1 = List[?1] at 1.1"
   assert located_message(Located(None, Pos(1, 1), InfiniteType(TMeta(1), TFun(List(TMeta(1)), TMeta(2)), Some(Name(List(), "x"))))) == "the type of x would contain itself, ?1 = ?1 -> ?2 at 1.1"
   assert located_message(Located(None, Pos(1, 1), NoOverload(Name(List(), "size"), TFun(List(TInt()), TInt()), List()))) == "no declaration of size has the type Int -> Int at 1.1"
