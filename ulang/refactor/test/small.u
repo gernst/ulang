@@ -39,6 +39,17 @@ test patches_nodes() :=
   assert status == 1
   assert reply == List("rejected", "no node of " ++ path ++ ":p/2 starts with \"z\"")
 
+// the reply of a @patch of a comment shows the node below it, which the comment documents, not the loop around it
+test patches_comments() :=
+  var reply: List[Str], status: Int
+  let dir := "out/test/refactor/small/comments", path := "out/test/refactor/small/comments/q.u"
+  os_write_utf8(in os_join(dir, "handles.txt"), "")
+  os_write_utf8(in path, "procedure q(out y: Int) :=\n  y := 0\n  while y < 3 do\n    // grows\n    y := y + 1\n  end\n")
+  run_script(in "@patch " ++ path ++ ":q\ngrows => grows by one\n", false, dir, unchecked, out reply, status, _)
+  assert status == 0 and take(2, drop(1, reply)) == List(
+    "patched " ++ path ++ ":q/1",
+    "          // grows by one\n#1        y := y + 1")
+
 // a file spelled with ./ or .. is the file without them, in the handles and in the edits of a script, so that both
 // spellings show the same handles, and a show after a put sees the put
 test normal_paths() :=
