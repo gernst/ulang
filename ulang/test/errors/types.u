@@ -658,7 +658,7 @@ test test_types() :=
   end
 
 test too_many_arguments() :=
-  assert raises Located(None, Pos(5, 3), CannotUnify(_, _)) do
+  assert raises Located(None, Pos(5, 3), CountMismatch("function g", "arguments", 1, 2)) do
     check_text(in "ulang/test/errors/too-many-arguments.u", List(
       "function g(x: Int): Int :=",
       "  x",
