@@ -165,6 +165,9 @@ function hint_of(e: TypeError): Str :=
     case OrVariables(name, _) =>
       "; bind " ++ name.base ++ " in every alternative, or write _ for it in each"
 
+    case QualifierLocal(_) =>
+      "; name the local by its type or its role instead"
+
     case UnknownFieldOwner(field) if ends_with(field, ":=") =>
       "; ascribe the type of the value, (e: T) with " ++ slice(without_update(field), 1, size(without_update(field))) ++ " := a"
 
@@ -418,7 +421,7 @@ test messages() :=
   assert located_message(Located(None, Pos(4, 1), CallMismatch(Name(List(), "p"), TProc(List(TInt()), List(TInt()), List(), RSet(empty())), 2, 0, 0))) == "procedure p takes (in Int, out Int), but the call passes 2 ins at 4.1"
   assert located_message(Duplicate("declaration", "a")) == "duplicate declaration a"
   assert located_message(Located(None, Pos(4, 1), HiddenLocal(Name(List(), "m")))) == "m hides a local of the same name at 4.1"
-  assert located_message(Located(None, Pos(2, 7), QualifierLocal(Name(List(), "ulang")))) == "ulang is the first name of a path that the module sees, of which ulang.x is a qualified name at 2.7"
+  assert located_message(Located(None, Pos(2, 7), QualifierLocal(Name(List(), "ulang")))) == "ulang is the first name of a path that the module sees, of which ulang.x is a qualified name; name the local by its type or its role instead at 2.7"
   assert located_message(Located(None, Pos(4, 1), MisshapenHook(Name(List("ulang", "test", "errors", "misshapen-hook"), "show"), HookShow))) == "show must take one value T[A, …] of a datatype T of its module, with distinct type parameters, and give Str at 4.1"
   assert located_message(MissingDefinition(Name(List("ulang", "test", "errors", "abstract-undefined"), "T"))) == "T is exported but not defined"
   assert located_message(Located(None, Pos(1, 1), MissingType(Name(List(), "x")))) == "missing type for x at 1.1"

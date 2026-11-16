@@ -3068,7 +3068,7 @@ procedure run_script(
       status: Int,
       tested: List[Str]
 ) :=
-  run_actions(in script, dry, Map(), state, check, lambda in paths, listed, out found =>
+  run_actions(in script, dry, Map(), state, check, lambda in _, _, out found =>
     found := Tests(List(), 0, 0, 0, Map())
   end, out reply, status, tested)
 
