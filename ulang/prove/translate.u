@@ -55,6 +55,18 @@ data CaseTerm :=
 data Translation :=
   case Translation(decls: Decls, lemmas: List[Lemma], contracts: List[Lemma])
 
+// the symbols of a checked program, which the translations of its modules share, as the files of a unit do: the
+// definitions with their ranks, the datatypes, procedures, and contracts, and the datatypes from which a function can
+// reach itself without naming itself, where without such datatypes the declarations of the definitions are direct,
+// since then they do not depend on the lemmas of a module
+type Symbols
+
+// the symbols of the checked program q
+function symbols_of(q: Prog): Symbols
+
+// the symbols of a program and the lemmas of its module m in their order
+function translate_module(s: Symbols, m: Path): Translation
+
 // the symbols of the checked program q and the lemmas of its module m in their order
 function translate(q: Prog, m: Path): Translation
 
@@ -67,6 +79,12 @@ function raise_name(): Name
 implementation
 
 function translate(q: Prog, m: Path): Translation :=
+  translate_module(symbols_of(q), m)
+
+data Symbols :=
+  case Symbols(cmds: List[Cmd], defined: List[((Name, Int), (List[Var], Term))], ranks: Map[Name, Int], decls: Decls, procs: Map[(Name, Int), Cmd], known: Set[(Name, Int)], claims: List[Lemma], sorts: Set[Name], direct: Option[Decls])
+
+function symbols_of(q: Prog): Symbols :=
   let cmds := definitions(expanded(q)) in
   let ranked := zip(range(0, size(cmds)), cmds) in
   let defined := List(for cmd in cmds for d in definition(cmd) yield d) in
@@ -76,15 +94,24 @@ function translate(q: Prog, m: Path): Translation :=
   let decls := datas_decls(datas) with abstracts := defs.abstracts, ordered := defs.abstracts ++ Set(for t => _ in defs.orders yield t) in
   let procs := Map(for cmd in cmds for (k, p) in proc_of(cmd) yield k => p) in
   let contracts := Map(for cmd in cmds for (k, c) in contract_of(cmd) yield k => c) in
-  let known := Set(for k => _ in contracts yield k) in
-  let lemmas := List(for cmd in cmds for l in lemma_of(m, procs, known, cmd) yield l) in
   let claims := List(raise_contract(); List(for _ => c in contracts yield c)) in
   let sorts := reflexive_sorts(decls) in
-  let (indirect, appliers) := if sorts == empty() then
-    (empty(), empty())
+  let direct := if sorts == empty() then
+    Some(with_defs(decls with indirect := empty(), defined, ranks, empty()))
   else
-    indirect_calls(sorts, cmds, defined, lemmas ++ claims) in
-  Translation(with_defs(decls with indirect := indirect, defined, ranks, appliers), lemmas, claims)
+    None in
+  Symbols(cmds, defined, ranks, decls, procs, Set(for k => _ in contracts yield k), claims, sorts, direct)
+
+function translate_module(s: Symbols, m: Path): Translation :=
+  let lemmas := List(for cmd in s.cmds for l in lemma_of(m, s.procs, s.known, cmd) yield l) in
+  match s.direct
+    case Some(decls) =>
+      Translation(decls, lemmas, s.claims)
+
+    case None =>
+      let (indirect, appliers) := indirect_calls(s.sorts, s.cmds, s.defined, lemmas ++ s.claims) in
+      Translation(with_defs(s.decls with indirect := indirect, s.defined, s.ranks, appliers), lemmas, s.claims)
+  end
 
 // the datatypes from which a function can reach itself without naming itself, the reflexive ones and those that reach
 // them: a datatype is reflexive if a function type in the fields of a datatype that it reaches, or of its own, names one

@@ -556,6 +556,10 @@ procedure check_unit(
       listed: List[(Str, Diagnostic)],
   out failed: List[Str]
 ) :=
+  // the interpreter and the prover of q, which the files share, and the values of the functions without parameters that
+  // the tests that passed computed
+  let run := (if phases.tests then Some(load(q) with args := args) else None), prover := if phases.proofs and not blocks_proofs(q) then Some(prover_of(q)) else None
+  var constants: Map[Name, Val] := empty()
   failed := List()
   for file in files_of(unit) do
     let m := sibling(q.main, file), names := names_of(file, unit), label := label_of(file, found), tests := test_names(q, m), lemmas := lemma_names(q, m), both := phases.tests and phases.proofs and names != List()
@@ -565,16 +569,20 @@ procedure check_unit(
       passed := false
     end
     for selected in selection(phases.tests, both, names, tests) do
-      test_module(in q, m, selected, args, phases.timeout, label, listed, out ran, falsified)
-      passed := passed and ran
+      for r in run do
+        test_module(in q, r, m, selected, phases.timeout, label, listed, out ran, falsified, ref constants)
+        passed := passed and ran
+      end
     end
     for selected in selection(phases.proofs, both, names, lemmas) do
-      // the errors fail the file already, with their status, while no lemma failed
-      if blocks_proofs(q) then
-        os_println(in label ++ "no lemma proven, since code that the lemmas may reach has errors")
-      else
-        prove_module(in q, m, file, selected, falsified, label, out proven)
-        passed := passed and proven
+      match prover
+        case Some(p) =>
+          prove_module(in p, m, file, selected, falsified, label, out proven)
+          passed := passed and proven
+
+        // the errors fail the file already, with their status, while no lemma failed
+        case None =>
+          os_println(in label ++ "no lemma proven, since code that the lemmas may reach has errors")
       end
     end
     if not passed then
@@ -909,6 +917,10 @@ procedure refactor_tests(
   end
   for unit in units do
     load_file(in first_path(unit), Map(), false, true, false, out source, q, errors, ref cache)
+    // the interpreter of q, which the tests of the files share, of no commands if the unit does not run, and the values
+    // of the functions without parameters that the tests that passed computed
+    let run := load(if is_runnable(q, errors) then q else q with cmds := List())
+    var constants: Map[Name, Val] := empty()
     for file in files_of(unit) do
       let m := sibling(source.main, file)
       let declared := List(for d in find(source.mods, lambda d => d.name == m) for name in declared_tests(d) yield name), examples := sum(List(for d in find(source.mods, lambda d => d.name == m) yield example_count(d)))
@@ -917,7 +929,7 @@ procedure refactor_tests(
         lines := lines ++ List(
           "no test of " ++ file ++ " ran, since its unit does not load far enough to run")
       else
-        test_outcomes(in q, m, List(), List(), out outcomes)
+        test_outcomes(in q, run, m, List(), out outcomes, ref constants)
         let misplaced := List(for o in outcomes if o.message != "" and exists(diagnostics(q), lambda d => d.code == "ExampleOnDefinition" and reaches(o.reached, file, d)) yield o.name)
         let names := List(for o in outcomes yield o.name), failures := List(for o in outcomes if o.message != "" and not contains(o.name, misplaced) yield failure_text(o, listed))
         let missing := List(for name in declared if not contains(name, names)), absent := examples - size(List(for name in names if index_of(".example.", name) != None yield name))
