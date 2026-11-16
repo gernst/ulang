@@ -32,8 +32,9 @@ struct u_name {
   const struct u_type *type;
 };
 
-// the built-in types, where integers that fit into a long long are of u_int_type with num, and others of u_big_type
-// with an mpz_t, such that each integer has one representation
+// the built-in types, where integers from -2^61 to 2^61 - 1 are tagged words of u_int_type, which u_type_of gives,
+// others that fit into a long long objects of u_int_type with num, and the rest of u_big_type with an mpz_t, such that
+// each integer has one representation
 extern const struct u_type u_int_type, u_big_type, u_bool_type, u_char_type, u_byte_type, u_io_type, u_socket_type,
   u_listener_type, u_window_type, u_str_type, u_tuple_type, u_closure_type, u_proc_type, u_array_type;
 
@@ -101,6 +102,25 @@ struct u_object {
   };
 };
 
+// an integer from -2^61 to 2^61 - 1 is no object but the word 2n + 1, odd, which no pointer to an object is, so that
+// arithmetic allocates nothing; other integers are objects, of u_int_type up to 64 bits and of u_big_type beyond.
+// Every read of the type or the number of a value that may be an integer goes through u_type_of and u_num_of.
+#define U_IS_TAGGED(v) (((uintptr_t)(v)) & 1)
+#define U_TAG_MIN (-(1LL << 61))
+#define U_TAG_MAX ((1LL << 61) - 1)
+
+static inline const struct u_type *u_type_of(u_value v) {
+  return U_IS_TAGGED(v) ? &u_int_type : v->type;
+}
+
+static inline long long u_num_of(u_value v) {
+  return U_IS_TAGGED(v) ? (long long)((intptr_t)(v) >> 1) : v->num;
+}
+
+static inline u_value u_tagged(long long n) {
+  return (u_value)(uintptr_t)(((unsigned long long)n << 1) | 1);
+}
+
 u_value u_mk_int(long long n);
 u_value u_mk_int_str(const char *digits);
 u_value u_mk_bool(int b);
@@ -124,8 +144,9 @@ static inline long long u_str_at(u_value s, long long i) {
 const char *u_utf8(u_value s, size_t *n);
 u_value u_from_utf8(const char *bytes, size_t n);
 
-// the cache of a function without arguments while its value is computed, which is no object
-#define U_COMPUTING ((u_value)-1)
+// the cache of a function without arguments while its value is computed, which is no object and, being even, no tagged
+// integer, as -1 would be the integer -1
+#define U_COMPUTING ((u_value)-2)
 
 // the initializer of a static object of a string literal as of u_mk_lit, which needs no allocation
 #define U_LIT(s) {.type = &u_str_type, .units = s, .length = sizeof(s) / sizeof(s[0]) - 1, .width = sizeof(s[0])}
