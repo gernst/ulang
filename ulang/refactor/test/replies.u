@@ -106,7 +106,7 @@ test tested_counts() :=
   let state := "out/test/refactor/replies/state", path := "out/test/refactor/replies/tested.u"
   os_write_utf8(in path, "function f(x: Int): Int :=\n  x\n")
   run_tested_script(in "@check test " ++ path, false, Map(), state, no_diagnostics, lambda in paths, listed, out tests =>
-    tests := Tests(List("tested " ++ join(", ", paths) ++ ": 2 passed, 1 failed, 1 not run"), 2, 1, 1)
+    tests := Tests(List("tested " ++ join(", ", paths) ++ ": 2 passed, 1 failed, 1 not run"), 2, 1, 1, Map())
   end, out reply, status)
   assert status == 3
   assert reply == List(
@@ -158,3 +158,31 @@ test refused_queries() :=
     "@outline " ++ path ++ "\n1-2 none function f/1 private  #1",
     "@show " ++ path ++ ":f \"y\": refused, no node of " ++ path ++ ":f/1 starts with \"y\"",
     path ++ ": replaced f/1")
+
+// the tests that the errors of a script left unrun are named by the next @check test of their package that does not run
+// them, until they run
+test earlier_unrun() :=
+  var reply: List[Str]
+  let state := "out/test/refactor/replies/unrun", dir := "out/test/refactor/replies/unrun_files"
+  let wire := dir ++ "/wire.u", pop := dir ++ "/pop.u"
+  let passed: (in List[Str], List[(Str, Diagnostic)], out Tests) := lambda in paths, _, out tests =>
+    tests := Tests(List(for p in (paths: List[Str]) yield "tested " ++ p ++ ": 1 passed, 0 failed"), 1, 0, 0, Map())
+  end
+  os_write_utf8(in os_join(state, "unrun.txt"), "")
+  os_write_utf8(in wire, "function f(x: Int): Int :=\n  x\n")
+  os_write_utf8(in pop, "function g(x: Int): Int :=\n  x\n")
+  run_tested_script(in "@check test " ++ wire, false, Map(), state, no_diagnostics, lambda in _, _, out tests =>
+    tests := Tests(List(), 0, 0, 1, Map(wire => "test round_trip"))
+  end, out reply, _)
+  run_tested_script(in "@check test " ++ pop, false, Map(), state, no_diagnostics, passed, out reply, _)
+  assert reply == List(
+    "applied, clean, 1 test passed",
+    "checked 1 file, unchanged",
+    "tested " ++ pop ++ ": 1 passed, 0 failed",
+    "not run since an earlier script, whose errors left them out: " ++ wire ++ ": test round_trip")
+  run_tested_script(in "@check test " ++ wire, false, Map(), state, no_diagnostics, passed, out reply, _)
+  run_tested_script(in "@check test " ++ pop, false, Map(), state, no_diagnostics, passed, out reply, _)
+  assert reply == List(
+    "applied, clean, 1 test passed",
+    "checked 1 file, unchanged",
+    "tested " ++ pop ++ ": 1 passed, 0 failed")

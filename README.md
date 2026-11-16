@@ -137,7 +137,7 @@ case Rect(width, height) => width * height
 @check test
 ```
 
-Fragments need no layout, since every edited file is printed by `format`. The first line of the reply is the state after the script, `applied, clean`, or its errors and warnings, each with how many of them the script made new if it changed a file, `applied, 2 errors (1 new), 1 warning (0 new)`, and its tests; then what each action did, with the nodes that an edit by handle placed, and the diagnostics and lints that are new (`+`) or gone (`-`) in the files that it checked, each new one with the handle of its node:
+Fragments need no layout, since every edited file is printed by `format`. The first line of the reply is the state after the script, `applied, clean`, or its errors and warnings, each with how many of them the script made new if it changed a file, `applied, 2 errors (1 new), 1 warning (0 new)`, and its tests; then what each action did, with the nodes that an edit by handle placed, and the diagnostics and lints that are new (`+`) or gone (`-`) in the files that it checked, each new one with the handle of its node. It checks the files that it changed, those of `@check`, and the importers of a changed package that name a declaration whose lines in its export or builtin section the script changed, which the line of the files checked names, `checked 2 files, with the importer b/b.u: 1 new, 0 gone`, and the first line counts, `applied, 1 error (1 new) in 2 files`:
 
 ```
 applied, clean, 1 test passed
@@ -202,7 +202,7 @@ A node N is a handle `#n`, a handle scoped by its declaration `F:name #n`, which
 | `@export T`, `@unexport T` | moves a definition's doc, contract, and examples to a new signature in `export`, with the raises that a procedure infers, or back, refused while another module uses it; a datatype or an alias moves whole |
 | `@fix T [Rule …]` | applies the edits of the lints of a file or a declaration, all or of the rules named |
 | `@undo [n]` | restores the files of a script of the journal, by default the last one |
-| `@check [test] [F]` | checks `F` too, and with `test` runs the tests of the files, whose results the reply lists, but not those of a directory that `project.u` runs only compiled, whose files it names |
+| `@check [test] [F]` | checks `F` too, and with `test` runs the tests of the files, whose results the reply lists, but not those of the importers, nor of a directory that `project.u` runs only compiled, whose files it names, and names the tests of their packages that the errors of an earlier script left out and that no script has run since, `not run since an earlier script, whose errors left them out: a/wire.u: test round_trip` |
 
 - A handle stays valid across edits of other declarations, and across the edits of the same script, also of `@patch`: an edit keeps the handles of the nodes before and after it at their places, also among identical statements. It becomes stale when its node is changed by something else, and `@show` gives a new one.
 - `@rename` finds the uses by the names that the checker resolved, not by their text, so it never renames another overload or a local. After its writes, it checks every file of the package and every importer that contains the name, and undoes the script if any use resolves differently, e.g. to a local of the new name. It lists the mentions in `CLAUDE.md`, `README.md`, and `ideas/` that it leaves to you.
@@ -210,7 +210,7 @@ A node N is a handle `#n`, a handle scoped by its declaration `F:name #n`, which
 - An error in a fragment names its line in the fragment and in the script, `fragment 2.6, script 3.6`.
 - A script edits files that parse, also with an import that fails, such as one of a package that moved, which a `@put` of the new import replaces.
 - Paths in actions are normal, `./a.u` is `a.u`, and the handles are kept by their paths from the root, so that they hold from any directory.
-- `--dry` writes nothing, but checks the texts that it would write, so its reply, `dry, 2 errors (2 new)`, lists the diagnostics that the script would leave, without handles, since their nodes are in no file, and without tests; the journal and the handles are kept in `out/refactor/` of the root, and the queries write nothing but the handles they show.
+- `--dry` writes nothing, but checks the texts that it would write, with the importers that the script would change, so its reply, `dry, 2 errors (2 new)`, lists the diagnostics that the script would leave, without handles, since their nodes are in no file, and without tests; the journal and the handles are kept in `out/refactor/` of the root, and the queries write nothing but the handles they show.
 - The actions and the checks of a script see the files that it has written so far, also a module of a new package, which another file of the same script may import.
 - `--overlay F=<path>`, repeated for several files, takes the text of the file at path as that of `F`, as an editor passes its unsaved buffers; the script writes `F` only if it changes it.
 - A query that is refused, `@show`, `@outline`, `@refs`, `@sig`, or `@resolve`, takes no other action down with it, since it writes nothing: the reply says `@show T: refused, …` in its place, its first line counts it, `applied, clean, 1 query refused`, and the status is 1, while any other action that is refused refuses the script.
