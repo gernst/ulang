@@ -1977,7 +1977,7 @@ procedure patch(
         end
 
       case None =>
-        whole := Some(source)
+        whole := Some(source), label := file
         if block == None then
           parts := file_parts(lines, main_mod(source))
         else
@@ -1985,7 +1985,7 @@ procedure patch(
         end
     end
   end
-  let regions := List(for (region, _) in parts yield region), labels := List(for (_, label) in parts yield label)
+  let regions := List(for (region, _) in parts yield region), labels := List(for (_, what) in parts yield what)
   var patched := List(for region in regions yield join("\n", lines_in(lines, region))), changed := Range(1, 0), taken: List[Str] := List()
   match block
     case Some(i) =>
