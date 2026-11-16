@@ -1,0 +1,7 @@
+// a member without sections of the package of ulang/test/declared/shapes/shapes.u, which exports nothing
+
+function note(): Str :=
+  "a note"
+
+test noted() :=
+  assert note() == "a note"

@@ -1,0 +1,87 @@
+// a package for ulang/test/declared/declared.u, which ulang/test/declared/user/ imports, with a declaration of each kind
+// that an importer sees, so that loading it only as far as its importers see it shows them the same
+
+import ulang.test.declared.inner
+
+export
+
+infix left 6 <+>
+
+// bags of elements, whose datatype in the implementation section makes the param invariant
+type Bag[A]
+
+data Shape :=
+  case Circle(radius: Int)
+  case Rect(width: Int, height: Int)
+
+data Refused :=
+  case Refused(reason: Str)
+
+type Size :=
+  Int
+
+pattern Wide(width: Int): Shape :=
+  Rect(width, 1)
+
+function <+>(a: Size, b: Size): Size
+
+function area(s: Shape): Size
+
+function bag[A](xs: List[A], pick: A -> Bool): Bag[A]
+
+function picked[A](b: Bag[A]): List[A]
+
+function framed(s: Shape): Frame
+
+procedure measure(in s: Shape, out size: Size) raises Refused
+
+implementation
+
+data Bag[A] :=
+  case Bag(items: Items[A])
+
+data Items[A] :=
+  case Items(elems: List[A], pick: A -> Bool)
+
+type Pairs :=
+  List[(Int, Int)]
+
+function <+>(a: Size, b: Size): Size :=
+  a + b
+
+function area(s: Shape): Size :=
+  match s
+    case Circle(r) =>
+      3 * r * r
+    case Rect(w, h) =>
+      w * h
+  end
+
+function bag[A](xs: List[A], pick: A -> Bool): Bag[A] :=
+  Bag(Items(xs, pick))
+
+function picked[A](b: Bag[A]): List[A] :=
+  List(for x in b.items.elems if b.items.pick(x))
+
+function framed(s: Shape): Frame :=
+  frame(area(s))
+
+function sides(s: Shape): Pairs :=
+  match s
+    case Circle(r) =>
+      List((r, r))
+    case Rect(w, h) =>
+      List((w, h))
+  end
+
+procedure measure(in s: Shape, out size: Size) raises Refused :=
+  if area(s) < 0 then
+    raise Refused("negative")
+  end
+  size := area(s) <+> size_of(sides(s))
+
+function size_of(ps: Pairs): Int :=
+  size(ps)
+
+test areas() :=
+  assert area(Wide(3)) == 3 and picked(bag(List(1, 2, 3), lambda x => x > 1)) == List(2, 3)

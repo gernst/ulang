@@ -1,0 +1,13 @@
+// a package that ulang/test/declared/shapes/shapes.u imports, whose exports its importers do not see
+
+export
+
+data Frame :=
+  case Frame(size: Int)
+
+function frame(n: Int): Frame
+
+implementation
+
+function frame(n: Int): Frame :=
+  Frame(n)
