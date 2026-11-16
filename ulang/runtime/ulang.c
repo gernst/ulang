@@ -805,9 +805,10 @@ u_value u_mk_array(int n, ...) {
   return a;
 }
 
-// the number of elements of a list or an array, the source of a comprehension
+// the number of elements of a list, an array, or a string, the source of a comprehension
 int u_count(u_value c) {
   if (c->type == &u_array_type) return c->size;
+  if (c->type == &u_str_type) return c->length;
   int n = 0;
   for (; u_is_con(c, &n_list_46_Cons); c = c->items[1]) n++;
   return n;
@@ -906,6 +907,22 @@ u_value u_array_foldr(u_value a, u_value acc, u_value f) {
 u_value u_array_foldl(u_value a, u_value acc, u_value f) {
   for (int i = 0; i < a->size; i++) acc = u_apply(f, 2, acc, a->items[i]);
   return acc;
+}
+
+// the characters of s folded from the last to the first, f(c1, f(c2, ... f(cn, acc))), and from the first to the last
+u_value u_str_foldr(u_value s, u_value acc, u_value f) {
+  for (long long i = s->length - 1; i >= 0; i--) acc = u_apply(f, 2, u_mk_char(u_str_at(s, i)), acc);
+  return acc;
+}
+
+u_value u_str_foldl(u_value s, u_value acc, u_value f) {
+  for (long long i = 0; i < s->length; i++) acc = u_apply(f, 2, acc, u_mk_char(u_str_at(s, i)));
+  return acc;
+}
+
+// the character at index i of s, from 0, which the loops of comprehensions and for statements over strings take in order
+u_value u_str_item(u_value s, long long i) {
+  return u_mk_char(u_str_at(s, i));
 }
 
 u_value u_is_digit(u_value c) {

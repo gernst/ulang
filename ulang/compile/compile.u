@@ -744,8 +744,8 @@ procedure compile_loops(
         var i: Str, item: CStmt, n: Str
         gen_name(in "n", out n, ref g)
         gen_name(in "i", out i, ref g)
-        item := declare(var_name(x.name), CeIndex(CeArrow(CeVar(l), "items"), CeVar(i)))
-        ss := cs ++ List(declare(l, rc), declare_size(n, l), declare_int(i, 0))
+        item := declare(var_name(x.name), indexed_item(f, l, i))
+        ss := cs ++ List(declare(l, rc)) ++ index_bounds(f, l, n, i)
         ss := ss ++ List(walk_array(i, n, item, body))
       end
   end
@@ -903,6 +903,23 @@ function declare_array(t: Str, n: Str): CStmt :=
 function walk_array(i: Str, n: Str, item: CStmt, body: List[CStmt]): CStmt :=
   CsWhile(CeBinary("<", CeVar(i), CeVar(n)), List(item) ++ body ++ List(set_var(i, CeBinary("+", CeVar(i), CeNum(1)))))
 
+// the item at index i of the array or the string l, by the fold f of its generator or for statement
+function indexed_item(f: Name, l: Str, i: Str): CExpr :=
+  if f == str_foldr_name() then
+    c_call("u_str_item", List(CeVar(l), CeVar(i)))
+  else
+    CeIndex(CeArrow(CeVar(l), "items"), CeVar(i))
+
+// the declarations of the number n of the items of the array or the string l and of the index i from 0, where the length
+// of a string is a long long and the size of an array an int
+function index_bounds(f: Name, l: Str, n: Str, i: Str): List[CStmt] :=
+  if f == str_foldr_name() then
+    List(
+      CsDecl(CtNamed("long long"), n, Some(CeArrow(CeVar(l), "length"))),
+      CsDecl(CtNamed("long long"), i, Some(CeNum(0))))
+  else
+    List(declare_size(n, l), declare_int(i, 0))
+
 function append_stmt(d: Str, re: CExpr): List[CStmt] :=
   List(set_var(d, c_call("u_append", List(CeVar(d), re))))
 
@@ -1024,14 +1041,16 @@ procedure compile_stmt(
     // the pattern to each item, where a pattern with alternatives is a match of the item with a case for each, and the list
     // of the items of an array is the array, which the loop walks by index
     case SFor(List(GVal(pat, over, _)), body) =>
-      var cs: List[CStmt], rc: CExpr, bs: List[CStmt], l: Str, i: Str, n: Str
-      let walked := array_items(over)
-      compile_expr(in defs, env, value_or(walked, over), out cs, rc, ref g)
+      var cs: List[CStmt], rc: CExpr, bs: List[CStmt], l: Str
+      let indexed := indexed_items(over)
+      compile_expr(in defs, env, value_or(map_option(indexed, second), over), out cs, rc, ref g)
       gen_name(in "l", out l, ref g)
-      let item := if walked == None then
-        field(CeVar(l), 0)
-      else
-        CeIndex(CeArrow(CeVar(l), "items"), CeVar(l ++ "_i"))
+      let item := match indexed
+        case Some((f, _)) =>
+          indexed_item(f, l, l ++ "_i")
+        case None =>
+          field(CeVar(l), 0)
+      end
       if has_alternatives(pat) then
         var d: Str, ms: List[CStmt]
         gen_name(in "d", out d, ref g)
@@ -1042,18 +1061,17 @@ procedure compile_stmt(
         compile_stmt(in defs, in_scope(pattern_names(pat)) ++ env, body, out ms, ref g)
         bs := pattern_binds(pat.that, item) ++ ms
       end
-      if walked == None then
-        ss := cs ++ List(
-          CsBlock(List(
-            declare(l, rc),
-            CsWhile(is_cell(l), bs ++ List(set_var(l, field(CeVar(l), 1)))))))
-      else
-        ss := cs ++ List(
-          CsBlock(List(
-            declare(l, rc),
-            declare_size(l ++ "_n", l),
-            declare_int(l ++ "_i", 0),
-            CsWhile(CeBinary("<", CeVar(l ++ "_i"), CeVar(l ++ "_n")), bs ++ List(set_var(l ++ "_i", CeBinary("+", CeVar(l ++ "_i"), CeNum(1))))))))
+      match indexed
+        case Some((f, _)) =>
+          let walk := CsWhile(CeBinary("<", CeVar(l ++ "_i"), CeVar(l ++ "_n")), bs ++ List(set_var(l ++ "_i", CeBinary("+", CeVar(l ++ "_i"), CeNum(1)))))
+          ss := cs ++ List(
+            CsBlock(List(declare(l, rc)) ++ index_bounds(f, l, l ++ "_n", l ++ "_i") ++ List(walk)))
+
+        case None =>
+          ss := cs ++ List(
+            CsBlock(List(
+              declare(l, rc),
+              CsWhile(is_cell(l), bs ++ List(set_var(l, field(CeVar(l), 1)))))))
       end
 
     // the checker gives one generator over a list

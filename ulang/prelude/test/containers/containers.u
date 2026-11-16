@@ -201,3 +201,21 @@ test out_of_bounds() :=
   assert raises OutOfBounds(2, 2) do
     let c := at(2, "ä→")
   end
+
+// the generators and for statements over a string range over its characters, as over the list of them
+test str_folds_as_chars(s: Str) :=
+  let cs := chars(s)
+  assert List(for c in s if c != 'a' yield c) == List(for c in cs if c != 'a' yield c)
+  assert List(for c in s for d in s if c < d yield (c, d)) == List(for c in cs for d in cs if c < d yield (c, d))
+  assert Set(for c in s if c != 'a') == Set(for c in cs if c != 'a')
+  assert Set(for c in s for d in s yield (d, c)) == Set(for c in cs for d in cs yield (d, c))
+  assert Map(for c in s if c != 'b' yield c => int(c)) == Map(for c in cs if c != 'b' yield c => int(c))
+  assert Map(for c in s for d in s yield (c, d) => int(c)) == Map(for c in cs for d in cs yield (c, d) => int(c))
+  assert Array(for c in s if c != 'a' yield c) == Array(for c in cs if c != 'a' yield c)
+  assert Array(for c in s for d in s if c != d yield (c, d)) == Array(for c in cs for d in cs if c != d yield (c, d))
+  var n := 0, t := ""
+  for c in s if c != 'a' do
+    n := n + 1, t := str(List(c)) ++ t
+  end
+  assert n == size(List(for c in cs if c != 'a' yield c))
+  assert t == str(reverse(List(for c in cs if c != 'a' yield c)))

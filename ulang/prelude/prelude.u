@@ -111,6 +111,15 @@ function %(a: Int, b: Int): Int
 
 function ++(a: Str, b: Str): Str
 
+// the characters of s folded from the last to the first, f(c1, f(c2, … f(cn, acc))), and from the first to the last,
+// f(… f(f(acc, c1), c2) …, cn), so that generators and for statements range over a string without the list of its
+// characters
+function foldr[R](s: Str, acc: R, f: (Char, R) -> R): R :=
+  example foldr("ab", "", lambda c, r => r ++ str(List(c))) == "ba"
+
+function foldl[R](s: Str, acc: R, f: (R, Char) -> R): R :=
+  example foldl("ab", "", lambda r, c => r ++ str(List(c))) == "ab"
+
 implementation
 
 function not(b: Bool): Bool :=

@@ -83,9 +83,9 @@ data Fused :=
 
 function fusion_of(name: Name, args: List[At[Expr]]): Option[Fused]
 
-// the array of the items of a for statement over an array, array.foldr(a, Nil, lambda x, acc => Cons(x, acc)) of items of
-// ulang/check/check.u, which the backends walk by index instead of building the list
-function array_items(over: At[Expr]): Option[At[Expr]]
+// the fold and the container of the items of a for statement over an array or a string, foldr(c, Nil, lambda x, acc =>
+// Cons(x, acc)) of items of ulang/check/check.u, which the backends walk by index instead of building the list
+function indexed_items(over: At[Expr]): Option[(Name, At[Expr])]
 
 function var_names(xs: List[Var]): List[Name]
 
@@ -238,6 +238,8 @@ function builtin_functions(): Map[Name, (Str, Int)] :=
     library_name("array", "slice") => ("u_array_slice", 3),
     library_name("array", "foldr") => ("u_array_foldr", 3),
     library_name("array", "foldl") => ("u_array_foldl", 3),
+    library_name("prelude", "foldr") => ("u_str_foldr", 3),
+    library_name("prelude", "foldl") => ("u_str_foldl", 3),
     array_start_name() => ("u_array_start", 1),
     array_push_name() => ("u_array_push", 2),
     array_reversed_name() => ("u_array_reversed", 1))
@@ -534,7 +536,7 @@ function fusion_of(name: Name, args: List[At[Expr]]): Option[Fused] :=
 // foldr(c2, acc, lambda x2, acc => ... if q then Cons(e, acc) else acc)), into which comprehensions translate, where each
 // generator is the fold of its container, the container, and the variable, and acc is free nowhere else
 function fused(f: Name, c: At[Expr], x: Var, body: At[Expr], acc: Name): Option[Fusion] :=
-  if f != list_foldr_name() and f != array_foldr_name() then
+  if f != list_foldr_name() and f != array_foldr_name() and f != str_foldr_name() then
     None
   else
     match consing(body, acc)
@@ -611,15 +613,15 @@ function pushed(body: At[Expr], acc: Var): Option[At[Expr]] :=
       end
   end
 
-function array_items(over: At[Expr]): Option[At[Expr]] :=
+function indexed_items(over: At[Expr]): Option[(Name, At[Expr])] :=
   match over.that
     case ECall(_, _, f, _, List(
       a,
       AOk(_, _, ENil(_)),
-      AOk(_, _, ELam(List(AOk(_, _, PVar(x)), AOk(_, _, PVar(acc))), body)))) if f == array_foldr_name() =>
+      AOk(_, _, ELam(List(AOk(_, _, PVar(x)), AOk(_, _, PVar(acc))), body)))) if f == array_foldr_name() or f == str_foldr_name() =>
       match consing(body, acc.name)
         case Some((None, AOk(_, _, EName(name, _)))) if name == x.name =>
-          Some(a)
+          Some((f, a))
         case _ =>
           None
       end

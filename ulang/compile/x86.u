@@ -53,6 +53,10 @@ function num_offset(): Int :=
 function size_offset(): Int :=
   16
 
+// the number of characters of a string, a long long
+function length_offset(): Int :=
+  16
+
 function slot(offset: Int): Operand :=
   OMem(Rbp, offset)
 
@@ -862,7 +866,7 @@ procedure comprehension_loops(
         emit_all(in List(IMov(OReg(Rax), slot(l)), IJmp(top)), ref e)
       else
         var n: Int, i: Int, item: Int
-        emit(in IMovslq(OMem(Rax, size_offset()), Rax), ref e)
+        emit(in indexed_size(f), ref e)
         spill(out n, ref e)
         new_slot(out i, ref e)
         emit(in IMov(OImm(0), slot(i)), ref e)
@@ -870,10 +874,8 @@ procedure comprehension_loops(
         emit_all(in List(
           IMov(slot(i), OReg(Rax)),
           ICmp(slot(n), OReg(Rax)),
-          IJcc(CondGe, done),
-          IMov(slot(l), OReg(Rcx)),
-          IMov(OMem(Rcx, items_offset()), OReg(Rcx)),
-          IMov(OIndex(Rcx, Rax, 8, 0), OReg(Rax))), ref e)
+          IJcc(CondGe, done)), ref e)
+        load_item(in f, l, i, ref e)
         spill(out item, ref e)
         comprehension_loops(in defs, List((x.name, item); env), rest, cond, elem, add, ref e)
         emit_all(in List(IAdd(OImm(1), slot(i)), IJmp(top)), ref e)
@@ -1256,11 +1258,11 @@ procedure compile_stmt(in defs: Defs, env: Slots, stmt: At[Stmt], ref e: Emit) :
     // the pattern to each item
     case SFor(List(GVal(pat, over, _)), body) =>
       var l: Int
-      match array_items(over)
-        case Some(a) =>
+      match indexed_items(over)
+        case Some((f, a)) =>
           compile_expr(in defs, env, a, ref e)
           spill(out l, ref e)
-          walk_array(in defs, env, pat, body, l, ref e)
+          walk_array(in defs, env, f, pat, body, l, ref e)
 
         case None =>
           compile_expr(in defs, env, over, ref e)
@@ -1320,6 +1322,7 @@ procedure walk_list(
 procedure walk_array(
   in  defs: Defs,
       env: Slots,
+      f: Name,
       pat: At[Pat],
       body: At[Stmt],
       l: Int,
@@ -1328,18 +1331,13 @@ procedure walk_array(
   var top: Str, done: Str, n: Int, i: Int, item: Int, binds: Slots
   new_label(out top, ref e)
   new_label(out done, ref e)
-  emit_all(in List(IMov(slot(l), OReg(Rax)), IMovslq(OMem(Rax, size_offset()), Rax)), ref e)
+  emit_all(in List(IMov(slot(l), OReg(Rax)), indexed_size(f)), ref e)
   spill(out n, ref e)
   new_slot(out i, ref e)
   emit(in IMov(OImm(0), slot(i)), ref e)
   place(in top, ref e)
-  emit_all(in List(
-    IMov(slot(i), OReg(Rax)),
-    ICmp(slot(n), OReg(Rax)),
-    IJcc(CondGe, done),
-    IMov(slot(l), OReg(Rcx)),
-    IMov(OMem(Rcx, items_offset()), OReg(Rcx)),
-    IMov(OIndex(Rcx, Rax, 8, 0), OReg(Rax))), ref e)
+  emit_all(in List(IMov(slot(i), OReg(Rax)), ICmp(slot(n), OReg(Rax)), IJcc(CondGe, done)), ref e)
+  load_item(in f, l, i, ref e)
   spill(out item, ref e)
   if has_alternatives(pat) then
     case_test(in defs, env, pat, None, true, item, done, out binds, ref e)
@@ -1349,6 +1347,25 @@ procedure walk_array(
   compile_stmt(in defs, binds ++ env, body, ref e)
   emit_all(in List(IAdd(OImm(1), slot(i)), IJmp(top)), ref e)
   place(in done, ref e)
+
+// the number of the items of the array or the string in rax, by the fold f of its generator or for statement, into rax,
+// where the size of an array is an int and the length of a string a long long
+function indexed_size(f: Name): Instr :=
+  if f == str_foldr_name() then
+    IMov(OMem(Rax, length_offset()), OReg(Rax))
+  else
+    IMovslq(OMem(Rax, size_offset()), Rax)
+
+// the item at the index in rax and in slot i of the array or the string in slot l, into rax
+procedure load_item(in f: Name, l: Int, i: Int, ref e: Emit) :=
+  if f == str_foldr_name() then
+    call_runtime(in "u_str_item", List(AVal(slot(l)), AVal(slot(i))), ref e)
+  else
+    emit_all(in List(
+      IMov(slot(l), OReg(Rcx)),
+      IMov(OMem(Rcx, items_offset()), OReg(Rcx)),
+      IMov(OIndex(Rcx, Rax, 8, 0), OReg(Rax))), ref e)
+  end
 
 // the body runs after setjmp returns 0, and the handlers after a raise jumps back, which raise again if none applies,
 // where the handlers start from the variables before the try, which their copies, unchanged since setjmp, restore; the

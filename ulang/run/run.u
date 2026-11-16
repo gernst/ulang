@@ -261,7 +261,9 @@ function builtin_names(): Set[Name] :=
     library_name("array", "at"),
     library_name("array", "slice"),
     library_name("array", "foldr"),
-    library_name("array", "foldl"))
+    library_name("array", "foldl"),
+    library_name("prelude", "foldr"),
+    library_name("prelude", "foldl"))
 
 function is_builtin(n: Name): Bool :=
   contains(n, builtin_names())
@@ -647,6 +649,22 @@ procedure apply_value(
           while k > 0 do
             k := k - 1
             apply_value(in run, g, List(at(k, values), v), out v, ref cache)
+          end
+
+        case ("prelude.prelude.foldr", List(VStr(text), acc, g)) =>
+          var k: Int
+          k := size(text), v := acc
+          while k > 0 do
+            k := k - 1
+            apply_value(in run, g, List(VChar(at(k, text)), v), out v, ref cache)
+          end
+
+        case ("prelude.prelude.foldl", List(VStr(text), acc, g)) =>
+          var k: Int
+          k := 0, v := acc
+          while k < size(text) do
+            apply_value(in run, g, List(v, VChar(at(k, text))), out v, ref cache)
+            k := k + 1
           end
 
         case ("prelude.array.foldl", List(VArr(values), acc, g)) =>

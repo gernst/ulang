@@ -223,6 +223,9 @@ u_value u_array_put(u_value i, u_value x, u_value a);
 u_value u_array_slice(u_value a, u_value i, u_value j);
 u_value u_array_foldr(u_value a, u_value acc, u_value f);
 u_value u_array_foldl(u_value a, u_value acc, u_value f);
+u_value u_str_foldr(u_value s, u_value acc, u_value f);
+u_value u_str_foldl(u_value s, u_value acc, u_value f);
+u_value u_str_item(u_value s, long long i);
 
 u_value u_is_digit(u_value c);
 u_value u_is_letter(u_value c);
