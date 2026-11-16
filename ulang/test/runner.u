@@ -129,7 +129,7 @@ procedure test_outcomes(
       args: List[Str],
   out outcomes: List[Outcome]
 ) :=
-  let run := load(q) with args := args
+  let run := load(q) with args := args, diverted := true
   var message: Str, reached: Option[Str], found: Buffer[Outcome] := empty()
   for c in definitions(q) if is_selected_test(c, m, names) do
     test_message(in run, c, out message, _, reached)

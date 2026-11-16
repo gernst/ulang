@@ -10,12 +10,14 @@ export
 // an else without its keyword, whose spans are empty
 function line_nodes(lines: Array[Str], cmd: Cmd): List[Span]
 
-// what a node is, by which an edit checks that a fragment fits the place of a node
+// what a node is, by which an edit checks that a fragment fits the place of a node, where a line of a spec is an example
+// or a contract, requires or ensures
 data NodeKind :=
   case KStatement
   case KCase
   case KExpression
   case KConstructor
+  case KSpec
 
 data Node :=
   case Node(span: Span, kind: NodeKind)
@@ -32,8 +34,12 @@ implementation
 function line_nodes(lines: Array[Str], cmd: Cmd): List[Span] :=
   List(for node in kinded_nodes(lines, cmd) yield node.span)
 
+// the nodes of cmd in the order of their starts, where those of the same start keep their order, the outer first, and a
+// line of a spec starts at its keyword
 function kinded_nodes(lines: Array[Str], cmd: Cmd): List[Node] :=
-  first_starts(List(for node in cmd_nodes(cmd) if node.span.start != node.span.stop and starts_line(lines, node.span.start) yield node), Set())
+  let placed := List(for node in cmd_nodes(cmd) yield at_keyword(lines, node)) in
+  let sorted := List(for (_, _, node) in sort(List(for (node, i) in numbered(placed) yield (node.span.start, i, node))) yield node) in
+  first_starts(List(for node in sorted if node.span.start != node.span.stop and starts_line(lines, node.span.start) yield node), Set())
 
 function kind_text(kind: NodeKind): Str :=
   match kind
@@ -48,6 +54,9 @@ function kind_text(kind: NodeKind): Str :=
 
     case KConstructor =>
       "a constructor"
+
+    case KSpec =>
+      "a line of a spec"
   end
 
 function first_starts(nodes: List[Node], seen: Set[Pos]): List[Node] :=
@@ -66,13 +75,31 @@ function first_starts(nodes: List[Node], seen: Set[Pos]): List[Node] :=
 function starts_line(lines: Array[Str], pos: Pos): Bool :=
   pos.line >= 1 and pos.line <= size(lines) and forall(chars(slice(at(pos.line - 1, lines), 0, pos.col - 1)), lambda c => c == ' ')
 
+// the node, where a line of a spec starts at the first position of its line that is no space, its keyword
+function at_keyword(lines: Array[Str], node: Node): Node :=
+  match node.kind
+    case KSpec =>
+      node with span := Span(line_start(lines, node.span.start), node.span.stop)
+    case _ =>
+      node
+  end
+
+// the first position of the line of pos that is no space
+function line_start(lines: Array[Str], pos: Pos): Pos :=
+  example line_start(Array("  requires x > 0"), Pos(1, 12)) == Pos(1, 3)
+  if pos.line >= 1 and pos.line <= size(lines) then
+    let line := at(pos.line - 1, lines) in
+    Pos(pos.line, size(line) - size(drop_while(chars(line), lambda c => c == ' ')) + 1)
+  else
+    pos
+
 function cmd_nodes(cmd: Cmd): List[Node] :=
   match cmd
-    case CFun(_, _, _, _, _, body) =>
-      expr_nodes(body)
+    case CFun(_, _, _, _, spec, body) =>
+      spec_nodes(spec) ++ expr_nodes(body)
 
-    case CProc(_, _, _, _, _, _, _, stmt) =>
-      stmt_nodes(stmt)
+    case CProc(_, _, _, _, _, _, spec, stmt) =>
+      spec_nodes(spec) ++ stmt_nodes(stmt)
 
     case CTest(_, _, stmt) =>
       stmt_nodes(stmt)
@@ -86,11 +113,11 @@ function cmd_nodes(cmd: Cmd): List[Node] :=
     case CNotation(_, _, _) =>
       List()
 
-    case CFunSig(_, _, _, _, _) =>
-      List()
+    case CFunSig(_, _, _, _, spec) =>
+      spec_nodes(spec)
 
-    case CProcSig(_, _, _, _, _, _, _) =>
-      List()
+    case CProcSig(_, _, _, _, _, _, spec) =>
+      spec_nodes(spec)
 
     case CAbstract(_, _) =>
       List()
@@ -100,6 +127,47 @@ function cmd_nodes(cmd: Cmd): List[Node] :=
 
     case CLemma(_, _, _, _, _, _) =>
       List()
+  end
+
+// the lines of a spec, its requires, whose node spans its assumptions, its ensures, and each example, with the nodes of
+// their expressions, where kinded_nodes moves the start of each line to its keyword
+function spec_nodes(spec: Spec): List[Node] :=
+  let pre := match (spec.pre, last(spec.pre))
+    case (List(first; _), Some(final)) =>
+      List(
+        Node(Span(first.span.start, final.span.stop), KSpec); flat_map(spec.pre, expr_nodes))
+
+    case _ =>
+      List()
+  end in
+  let post := List(for expr in spec.post for node in List(Node(expr.span, KSpec); expr_nodes(expr)) yield node) in
+  pre ++ post ++ flat_map(spec.examples, example_nodes)
+
+function example_nodes(x: At[Example]): List[Node] :=
+  match x
+    case AOk(_, span, that) =>
+      List(Node(span, KSpec); example_parts(that))
+
+    case AErr(_, span, that, _) =>
+      List(Node(span, KSpec); example_parts(that))
+
+    case AUnparsed(_, span, _, _) =>
+      List(Node(span, KSpec))
+  end
+
+function example_parts(x: Example): List[Node] :=
+  match x
+    case XHolds(expr) =>
+      expr_nodes(expr)
+
+    case XRaises(expr, _) =>
+      expr_nodes(expr)
+
+    case XCall(_, ins, outs, refs) =>
+      flat_map(ins ++ outs, expr_nodes) ++ flat_map(refs, lambda (before, after) => expr_nodes(before) ++ expr_nodes(after))
+
+    case XCallRaises(_, ins, _, befores, _) =>
+      flat_map(ins ++ befores, expr_nodes)
   end
 
 function stmt_nodes(stmt: At[Stmt]): List[Node] :=

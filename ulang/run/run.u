@@ -29,10 +29,11 @@ data Val :=
   case VProcClos(env: Map[Name, Val], ins: List[Var], outs: List[Var], refs: List[Var], stmt: At[Stmt])
 
 // main, the module of the loaded file, whose errors a Deferred names without their module, as the diagnostics do, and
-// the deadline of a test, after which its calls and loops raise TimedOut, and aliases the pattern aliases of the program,
-// which the expansion of a test takes
+// the deadline of a test, after which its calls and loops raise TimedOut, aliases the pattern aliases of the program,
+// which the expansion of a test takes, and diverted whether os_print writes to the error output, as the tests of a
+// refactor script print, whose reply is the output
 data Run :=
-  case Run(defs: Defs, computing: List[Name], args: List[Str], main: Path, deadline: Option[Deadline], aliases: Aliases)
+  case Run(defs: Defs, computing: List[Name], args: List[Str], main: Path, deadline: Option[Deadline], aliases: Aliases, diverted: Bool)
 
 // the time of os_clock after which a run stops, and its limit in seconds, which the error names
 data Deadline :=
@@ -212,7 +213,7 @@ procedure unordered(in run: Run, k: Name, equating: Bool) :=
   end
 
 function load(q: Prog): Run :=
-  Run(defs_of(expanded(q)), List(), List(), q.main, None, aliases_of(q))
+  Run(defs_of(expanded(q)), List(), List(), q.main, None, aliases_of(q), false)
 
 // the contents of a string, as printing and declared shows give them, and the source of any other value
 function text_of(v: Val): Str :=
@@ -1397,7 +1398,7 @@ procedure invoke(
 
     case None if format_name(n) == "prelude.os.os_print" =>
       outs := List()
-      print_all(in List(for v in ins yield text_of(v)))
+      print_all(in List(for v in ins yield text_of(v)), run.diverted)
 
     case None if format_name(n) == "prelude.os.os_args" =>
       outs := List(list_value(List(for a in run.args yield VStr(a))))
@@ -1492,9 +1493,21 @@ procedure read_outs(
     end
   end
 
-procedure print_all(in lines: List[Str]) :=
+procedure print_all(in lines: List[Str], diverted: Bool) :=
   for line in lines do
-    os_print(in line)
+    if diverted then
+      try
+        var io: IO
+        io_stderr(out io)
+        io_write_utf8(in io, line)
+      catch
+        // the error output failed, so the line goes to the output
+        case OsError(_) =>
+          os_print(in line)
+      end
+    else
+      os_print(in line)
+    end
   end
 
 // the procedures of the library os are those of the interpreter of this program, whose OsError the program can catch
