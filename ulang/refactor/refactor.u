@@ -1258,6 +1258,7 @@ procedure put_at(
   end
   note(in join(", ", List(
     done ++ label ++ (if key == place.key then "" else ", now " ++ key_text(key)); signed)), ref edits)
+  let held := handles
   for (_, cmd) in decl_of(d, key) do
     rebase(in place.path, place.key, lines, place.cmd, result_lines, cmd, region, place_word == "replace", ref handles)
     handles := rekeyed(handles, place.path, place.key, key)
@@ -1284,7 +1285,23 @@ procedure put_at(
         skip
     end
   end
+  for gone in gone_text(held, handles, List(for _ => n in marks yield n)) do
+    note(in gone, ref edits)
+  end
   edits := edits with handles := handles
+
+// the line of the reply of an edit that removed the nodes of the handles that before named and after names none, gone
+// #9 (replaced by #31), with the handles placed of the nodes that the edit placed, so that a script that held the old
+// handle learns the new one
+function gone_text(before: Handles, after: Handles, placed: List[Int]): Option[Str] :=
+  example gone_text(Handles(List(Handle(9, "a.u", Key("value", "f", 1), 2, 0)), 10, false), Handles(List(Handle(9, "a.u", Key("value", "f", 1), -1, 0)), 10, true), List(31)) == Some("gone #9 (replaced by #31)")
+  example gone_text(Handles(List(Handle(9, "a.u", Key("value", "f", 1), 2, 0)), 10, false), Handles(List(Handle(9, "a.u", Key("value", "f", 1), -1, 0)), 10, true), List()) == Some("gone #9")
+  let gone := List(for h in after.entries if h.index < 0 for b in find(before.entries, lambda e => e.number == h.number) if b.index >= 0 yield "#" ++ show(h.number)) in
+  let fresh := List(for n in placed if not contains(n, List(for h in after.entries if h.index >= 0 for b in find(before.entries, lambda e => e.number == h.number) if b.index >= 0 yield h.number)) yield "#" ++ show(n)) in
+  if gone == List() then
+    None
+  else
+    Some("gone " ++ join(", ", gone) ++ (if fresh == List() then "" else " (replaced by " ++ join(", ", fresh) ++ ")"))
 
 // handles with those of the declaration key of path moved to the declaration new_key, as a head of another arity moves
 // them
@@ -2340,6 +2357,7 @@ procedure patch(
 
     case None =>
       var shown: List[Str] := List(), marks: Map[Int, Int] := Map()
+      let held := handles
       for (_, cmd) in decl_of(main_mod(source), key) do
         for c in old_cmd do
           rebase(in path, key, lines, c, result_lines, cmd, changed, true, ref handles)
@@ -2356,6 +2374,9 @@ procedure patch(
       note(in join(", ", List("patched " ++ label; every)), ref edits)
       for text in shown do
         note(in text, ref edits)
+      end
+      for gone in gone_text(held, handles, List(for _ => n in marks yield n)) do
+        note(in gone, ref edits)
       end
   end
 
@@ -3181,8 +3202,15 @@ procedure run_actions(
     // the actions read the overlays as the texts of their files, which the script writes only if it changes them
     let base := Map(for path => text in overlays yield normal_file(here, here, path) => text)
     var edits := Edits(base, empty(), List(), handles, List(), state, List(), false), written: Map[Str, Str] := Map(), failure: Option[Str] := None
-    var refused := 0
-    let all := actions(script)
+    var refused := 0, effective := script
+    // @retry alone runs the corrected script of the last refusal, which each script that writes replaces
+    if List(for a in actions(script) yield a.words) == List(List("retry")) then
+      retried(in dir, out effective)
+    end
+    let all := actions(effective)
+    if not forall(all, is_query) then
+      os_write_utf8(in os_join(dir, "retry.txt"), "")
+    end
     for action in all if failure == None do
       if is_rename(action) then
         flush(in edits, ref written)
@@ -3191,7 +3219,15 @@ procedure run_actions(
         for message in fragment_refusal(action, find(all, lambda a => a.line > action.line)) do
           raise Refused(message)
         end
-        perform(in action with words := normal_words(here, action.words), check, ref edits)
+        var words := normal_words(here, action.words)
+        // @sig takes names and modules, never targets
+        if get_at(0, words) != Some("sig") then
+          module_words(in words, out words)
+        end
+        for message in local_refusal(words) do
+          raise Refused(message)
+        end
+        perform(in action with words := words, check, ref edits)
         if is_rename(action) then
           commit_rename(in edits, ref written)
           edits := edits with expected := List()
@@ -3203,7 +3239,11 @@ procedure run_actions(
           refused := refused + 1
 
         case Refused(message) =>
-          failure := Some(with_script_lines(message, action.line))
+          let fixes := corrections(split(action.fragment, '\n'), message)
+          failure := Some(with_script_lines(message, action.line) ++ correction_lines(fixes, action.line))
+          if fixes != List() then
+            os_write_utf8(in os_join(dir, "retry.txt"), corrected_script(effective, action.line, fixes))
+          end
 
         case OsError(message) =>
           failure := Some(action_failure(action, message))
@@ -3334,6 +3374,18 @@ procedure run_actions(
       reply := List("rejected", message), status := 1
   end
 
+// the corrected script of the last refusal, which @retry runs, in the state directory dir
+procedure retried(in dir: Str, out script: Str) raises Refused :=
+  try
+    os_read_utf8(in os_join(dir, "retry.txt"), out script)
+  catch
+    case OsError(_) =>
+      script := ""
+  end
+  if trim(script) == "" then
+    raise Refused("@retry has no corrected script, since the last script that writes was not refused with corrections")
+  end
+
 // the words of an action with the path of each target F, F:name[/n], or F:L.C by normal_file from the working directory
 // here, so that ./a.u and a.u name the same file
 function normal_words(here: Str, words: List[Str]): List[Str] :=
@@ -3344,6 +3396,64 @@ function normal_words(here: Str, words: List[Str]): List[Str] :=
     case _ =>
       word
   end)
+
+// the words of an action with each module target, m.name[/n] of a declaration, m.T.C of a constructor, and m.T.f of
+// a field, where m is a module by its path from the root or of the library, prelude.str, written as the target
+// F:name[/n], F:C, or F:T.f of its file, the longest m whose file exists, where the other words stay
+procedure module_words(
+  in  words: List[Str],
+  out written: List[Str]
+) raises Refused, OsError :=
+  written := List()
+  for word in words do
+    let pieces := split(word, '/')
+    let parts := split(value_or(get_at(0, pieces), word), '.'), selector := slice(word, size(value_or(get_at(0, pieces), word)), size(word))
+    var target := word
+    if size(parts) > 1 and forall(parts, is_plain_name) then
+      for k in reverse(range(1, size(parts))) if target == word do
+        var path: Str, text := ""
+        module_file(in join("/", take(k, parts)), out path)
+        try
+          os_read_utf8(in path, out text)
+        catch
+          case OsError(_) =>
+            text := ""
+        end
+        if text != "" then
+          match drop(k, parts)
+            case List(name) =>
+              target := path ++ ":" ++ name ++ selector
+
+            case List(sort, name) =>
+              if not is_capitalized(name) then
+                target := path ++ ":" ++ sort ++ "." ++ name ++ selector
+              else
+                if exists(split(text, '\n'), lambda line => starts_with(line, "data " ++ sort ++ " ") or starts_with(line, "data " ++ sort ++ "[")) then
+                  target := path ++ ":" ++ name ++ selector
+                else
+                  raise Refused(word ++ " names the constructor " ++ name ++ " of " ++ sort ++ ", but " ++ path ++ " declares no datatype " ++ sort)
+                end
+              end
+
+            case _ =>
+              skip
+          end
+        end
+      end
+    end
+    written := written ++ List(target)
+  end
+
+// whether name starts with a capital letter, as constructors and types do
+function is_capitalized(name: Str): Bool :=
+  example is_capitalized("Some")
+  example not is_capitalized("size")
+  match chars(name)
+    case List(c; _) =>
+      int('A') <= int(c) and int(c) <= int('Z')
+    case List() =>
+      false
+  end
 
 // whether action is a query, which writes nothing but the handles it shows
 function is_query(action: Action): Bool :=
@@ -4121,7 +4231,7 @@ function move_of(edit: Edit): Option[(Span, Span, List[(Span, Str)])] :=
 function simple_splice(source: Source, d: Mod, text: Str, lines: Array[Str], starts: Array[Int], edit: Edit): Option[Splice] :=
   match edit
     case EditExpr(span, expr) =>
-      Some(Splice(offset_of(starts, span.start), offset_of(starts, span.stop), "(" ++ format_module_expr(source, d.name, expr) ++ ")", List()))
+      Some(Splice(offset_of(starts, span.start), offset_of(starts, span.stop), "(" ++ format_module_expr(source, d.name, line_indentation(lines, span.start), expr) ++ ")", List()))
 
     case EditDrop(pos) =>
       map_option(find(placed_of(d), lambda cmd => cmd.pos == pos), lambda cmd => let range := cmd_range(lines, cmd, 0, true) in
@@ -4679,8 +4789,10 @@ function constrs_text(c: Cmd): Str :=
       "cases " ++ join(", ", List(for constr in constrs yield constr_name(constr) ++ "/" ++ show(constr_arity(constr))))
   end
 
-// the uses of the function, procedure, pattern alias, or constructor of the target file.u:name[/arity] in the files of
-// user_files, found as rename finds them, by the names that the checker resolves, each with its position, the declaration around it, the handle of the innermost node there, and its line
+// the uses of the function, procedure, pattern alias, or constructor of the target file.u:name[/arity], or of the
+// field of file.u:T.f, its accesses and updates, in the files of user_files, found as rename finds them, by the names
+// that the checker resolves, each with its position, the declaration around it, the handle of the innermost node there,
+// and its line
 procedure refs(in word: Str, ref edits: Edits) raises Refused, OsError :=
   var text: Str, source: Source, files: List[(Str, Str)]
   let (path, chosen, arity) := target_of(word)
@@ -4688,24 +4800,36 @@ procedure refs(in word: Str, ref edits: Edits) raises Refused, OsError :=
   current_text(in path, edits.files, out text)
   parsed(in path, text, edits.files, no_fragment(), out source)
   let d := main_mod(source)
-  let arities := distinct(List(for (key, _, _) in keyed(placed_of(d)) if key.kind == "value" and is_selected(key, base, arity) yield key.arity) ++ List(for (_, _, c) in keyed(placed_of(d)) for constr in constrs_of(c) if constr_name(constr) == base and forall(arity, lambda k => k == constr_arity(constr)) yield constr_arity(constr)))
-  match arities
-    case List(_) =>
-      skip
-
-    case List() =>
-      raise Refused(path ++ " declares no function, procedure, pattern alias, or constructor " ++ base ++ ", and the uses of types and fields are not found yet")
+  // the names of the uses, each with its arity if it counts, and the name of the target in the reply
+  var targets: List[(Name, Option[Int])], shown: Str, word_found: Str
+  match split(base, '.')
+    case List(sort, field) =>
+      if not exists(keyed(placed_of(d)), lambda (_, _, c) => has_field(c, sort, field)) then
+        raise Refused(path ++ " declares no datatype " ++ sort ++ " with a field " ++ field)
+      end
+      targets := List(
+        (Owned(d.name, List(sort), field), None),
+        (Owned(d.name, List(sort), field ++ ":="), None)), shown := "the field " ++ format_name(Owned(d.name, List(sort), field)), word_found := field
 
     case _ =>
-      raise Refused(path ++ " declares " ++ base ++ " of several arities, so name one, " ++ base ++ "/n")
+      let arities := distinct(List(for (key, _, _) in keyed(placed_of(d)) if key.kind == "value" and is_selected(key, base, arity) yield key.arity) ++ List(for (_, _, c) in keyed(placed_of(d)) for constr in constrs_of(c) if constr_name(constr) == base and forall(arity, lambda k => k == constr_arity(constr)) yield constr_arity(constr)))
+      match arities
+        case List(n) =>
+          targets := List((Name(d.name, base), Some(n))), shown := format_name(Name(d.name, base)) ++ "/" ++ show(n), word_found := base
+
+        case List() =>
+          raise Refused(path ++ " declares no function, procedure, pattern alias, or constructor " ++ base ++ ", and the uses of types are not found yet, while a field is named F:T.f")
+
+        case _ =>
+          raise Refused(path ++ " declares " ++ base ++ " of several arities, so name one, " ++ base ++ "/n")
+      end
   end
-  let n := value_or(get_at(0, arities), 0), target := Name(d.name, base)
-  user_files(in path, d, List(base), edits.files, out files)
+  user_files(in path, d, List(word_found), edits.files, out files)
   var handles := edits.handles, found: List[Str] := List(), touched := 0
   for (file, file_text) in files do
     var hints_found: List[Hint]
     file_hints(in file, file_text, edits.files, out hints_found)
-    let hits := List(for h in hints_found for (span, name, k) in use_of(h) if name == target and k == n yield span)
+    let hits := List(for h in hints_found for (span, name, k) in use_of(h) if exists(targets, lambda (t, a) => t == name and forall(a, lambda n => n == k)) yield span)
     if hits != List() then
       var file_source: Source
       try
@@ -4735,7 +4859,22 @@ procedure refs(in word: Str, ref edits: Edits) raises Refused, OsError :=
   end
   edits := edits with handles := handles
   note(in join("\n", List(
-    "@refs " ++ word ++ ": " ++ counted(size(found), "use") ++ " of " ++ format_name(target) ++ "/" ++ show(n) ++ " in " ++ counted(touched, "file")) ++ found), ref edits)
+    "@refs " ++ word ++ ": " ++ counted(size(found), "use") ++ " of " ++ shown ++ " in " ++ counted(touched, "file")) ++ found), ref edits)
+
+// whether c is the datatype sort, one of whose constructors has the field
+function has_field(c: Cmd, sort: Str, field: Str): Bool :=
+  match c
+    case CData(name, _, constrs) =>
+      name.base == sort and exists(constrs, lambda constr => match constr
+        case AOk(_, _, Constr(_, fields)) =>
+          exists(fields, lambda f => f.name == field)
+        case _ =>
+          false
+      end)
+
+    case _ =>
+      false
+  end
 
 // the declarations of base of every arity that the main module of source sees, by their qualified names and types as
 // written: its own, the exports of the other members of its package and of the packages it imports, and those of the
@@ -4970,7 +5109,76 @@ procedure resolve(in word: Str, ref edits: Edits) raises Refused, OsError :=
       end
 
     case None =>
-      raise Refused("@resolve takes a position F:L.C or F L.C, not " ++ word)
+      match local_target(word)
+        case Some((path, proc, local)) =>
+          resolve_local(in word, path, proc, local, ref edits)
+        case None =>
+          raise Refused("@resolve takes a position F:L.C or F L.C, or a local F:proc/local, not " ++ word)
+      end
+  end
+
+// the file, the declaration, and the local of a target F:name/local, whose selector is a name, not an arity or a kind
+function local_target(word: Str): Option[(Str, Str, Str)] :=
+  example local_target("a.u:p/label") == Some(("a.u", "p", "label"))
+  example local_target("a.u:p/2") == None
+  example local_target("a.u:p/test") == None
+  match index_of(':', chars(word))
+    case Some(i) =>
+      match split(slice(word, i + 1, size(word)), '/')
+        case List(name, local) if is_plain_name(local) and not contains(local, List("test", "lemma", "type")) =>
+          Some((slice(word, 0, i), name, local))
+        case _ =>
+          None
+      end
+
+    case None =>
+      None
+  end
+
+// the refusal of the words of an action other than @resolve that names a local, F:proc/local, which only @resolve takes
+function local_refusal(words: List[Str]): Option[Str] :=
+  example local_refusal(List("show", "a.u:p/x")) == Some("@show takes no local, while a.u:p/x names one, which @resolve takes")
+  example local_refusal(List("resolve", "a.u:p/x")) == None
+  match words
+    case List(action; rest) if action != "resolve" =>
+      map_option(find(rest, lambda w => local_target(w) != None), lambda w => "@" ++ action ++ " takes no local, while " ++ w ++ " names one, which @resolve takes")
+    case _ =>
+      None
+  end
+
+// the declarations of the local, formal, or pattern variable local in the declaration name of the file path, each with
+// its type, and the positions where it is read, by the hints of the file
+procedure resolve_local(
+  in  word: Str,
+      path: Str,
+      name: Str,
+      local: Str,
+  ref edits: Edits
+) raises Refused, OsError :=
+  var text: Str, source: Source, found: List[Hint]
+  current_text(in path, edits.files, out text)
+  parsed(in path, text, edits.files, no_fragment(), out source)
+  let lines := Array(for line in split(text, '\n'))
+  let ranges := List(for (key, cmd, _) in keyed(placed_of(main_mod(source))) if key.base == name yield cmd_range(lines, cmd, 0, false))
+  if ranges == List() then
+    raise Refused(path ++ " declares no " ++ name)
+  end
+  file_hints(in path, text, edits.files, out found)
+  let inside := lambda span: Span => exists(ranges, lambda r => r.first <= span.start.line and span.start.line <= r.last)
+  let typed := lambda typ: Type => if typ == THole then "" else ": " ++ format_type(typ)
+  let decls := List(for h in found for (span, n, typ) in declared_of(h) if n == Name(List(), local) and inside(span) yield "declaration of " ++ local ++ typed(typ) ++ " at " ++ show(span.start.line) ++ "." ++ show(span.start.col))
+  let reads := List(for h in found for (span, n, _) in use_of(h) if n == Name(List(), local) and inside(span) yield show(span.start.line) ++ "." ++ show(span.start.col))
+  if decls == List() then
+    raise Refused(path ++ ":" ++ name ++ " declares no local, formal, or pattern variable " ++ local)
+  end
+  note(in "@resolve " ++ word ++ ": " ++ join(", ", decls) ++ (if reads == List() then ", never read" else ", read at " ++ join(", ", reads)), ref edits)
+
+function declared_of(h: Hint): Option[(Span, Name, Type)] :=
+  match h
+    case HDecl(span, name, typ, _) =>
+      Some((span, name, typ))
+    case _ =>
+      None
   end
 
 // the span of a hint and what @resolve says of it, a use by its qualified name and a declared variable by its name, each

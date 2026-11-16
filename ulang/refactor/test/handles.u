@@ -193,6 +193,21 @@ test same_text() :=
     "applied",
     "@show " ++ path ++ ":p\n#1    procedure p(in x: Int, out y: Int) :=\n#2      match x\n#3        case 0 =>\n#4          y := 1\n#5          y := y + 1\n\n#6        case _ =>\n#7          y := 2\n        end")
 
+// an edit that removes nodes says which handles are gone, and the handles of the nodes that it placed instead
+test gone_handles() :=
+  var path: Str, reply: List[Str], status: Int
+  let dir := "out/test/refactor/gone"
+  sample(in dir, out path, _)
+  run_script(in "@put #3\ncase 0 =>\n  y := 9\n@drop #7\n", false, dir, no_diagnostics, out reply, status, _)
+  assert status == 0
+  assert take(6, reply) == List(
+    "applied, clean",
+    "replaced " ++ path ++ ":p/2 #3",
+    "#3        case 0 =>\n#10         y := 9",
+    "gone #4, #5 (replaced by #10)",
+    "dropped " ++ path ++ ":p/2 #7",
+    "gone #7")
+
 // a fragment at an element writes the element alone, since the text after the node on its last line stays, the comma or
 // the ) after the last one, and an element put after the last one or dropped as the last one moves the )
 test element_spans() :=

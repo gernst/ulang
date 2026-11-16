@@ -1,0 +1,374 @@
+// the corrections of the habits of other languages in a fragment that does not parse, by the errors of the parser and
+// their hints, for the habits that have a mechanical correction: an update x += e, return in a function, [ ] of a list,
+// modes out of order, a keyword as a name, and elif or else if without an end of its own
+
+export
+
+// the corrections of fragment, its lines, by the errors of message, lines fragment L.C: …, or for a @patch, the errors
+// at the lines of the file and the fragment lines of its new lines, each the number of a line of the fragment and the
+// lines that replace it, in the order of the lines, one per line
+function corrections(fragment: List[Str], message: Str): List[(Int, List[Str])] :=
+  example corrections(List("procedure p(out x: Int) :=", "  x := 1", "  x += 2"), "fragment 3.3: statement expected but x found; write x := x + e") == List((3, List("  x := x + 2")))
+  example corrections(List("  break"), "fragment 1.3: statement expected but break found") == List()
+  example corrections(List("-x := 1", "+x := 1", "+x += 2"), "@patch a.u:p writes a text that does not parse:\na.u:3.3: statement expected but x found; write x := x + e\nits new lines are fragment lines 2 to 3") == List((3, List("+x := x + 2")))
+
+// the lines of the reply that show the corrections of a fragment, each at its line of the fragment and of the script,
+// whose action is at line, where the lines after the first of a correction are added after its line
+function correction_lines(fixes: List[(Int, List[Str])], line: Int): Str :=
+  example correction_lines(List((2, List("  x := x + 1"))), 4) == "\ncorrected by the hints, which @retry applies:\n  fragment 2, script 6:   x := x + 1"
+  example correction_lines(List(), 4) == ""
+
+// script with the corrections of the fragment of its action at line, a fragment line that starts with @ escaped as @@
+function corrected_script(script: Str, line: Int, fixes: List[(Int, List[Str])]): Str :=
+  example corrected_script("@put a.u\nfunction f(): Int :=\n  return 1\n@check", 1, List((2, List("  1")))) == "@put a.u\nfunction f(): Int :=\n  1\n@check"
+
+implementation
+
+function corrections(fragment: List[Str], message: Str): List[(Int, List[Str])] :=
+  let lines := Array(for line in fragment), texts := split(message, '\n') in
+  let found := List(for text in texts for (line, col, what) in located(text) for c in corrected(lines, line, col, what) yield c) ++ patch_corrections(lines, texts) in
+  List(for line => new in Map(for (line, new) in reverse(found) yield line => new) yield (line, new))
+
+// the corrections of the new lines of a @patch, lines + text, by the errors at the lines of the file, those of texts that
+// name no fragment line, each the first new line that the correction of its habit changes
+function patch_corrections(lines: Array[Str], texts: List[Str]): List[(Int, List[Str])] :=
+  let news := List(for text in texts if starts_with(text, "its new lines are fragment lines ") for item in split(slice(text, size("its new lines are fragment lines "), size(text)), ',') for n in fragment_range(trim(item)) yield n) in
+  List(for text in texts if not starts_with(text, "fragment ") for i in index_of(".u:", text) for j in index_of(": ", slice(text, i, size(text))) for c in find_map(news, lambda n => patch_corrected(lines, n, slice(text, i + j + 2, size(text)))) yield c)
+
+// the line numbers of a range of fragment lines, L or L to M
+function fragment_range(item: Str): List[Int] :=
+  example fragment_range("2 to 4") == List(2, 3, 4)
+  example fragment_range("5") == List(5)
+  match List(for part in split(item, ' ') if part != "to" for n in number(part) yield n)
+    case List(first, last) =>
+      range(first, last + 1)
+    case found =>
+      found
+  end
+
+// the correction of the new line n of a @patch, + and text after one space, by the habit of message
+function patch_corrected(lines: Array[Str], n: Int, message: Str): Option[(Int, List[Str])] :=
+  match get(n - 1, lines)
+    case Some(line) if starts_with(line, "+") =>
+      let marker := if starts_with(line, "+ ") then "+ " else "+" in
+      map_option(inline_corrected(slice(line, size(marker), size(line)), message), lambda new => (n, List(marker ++ new)))
+
+    case _ =>
+      None
+  end
+
+// the correction of the habits that text shows on its line alone, by the hint of message
+function inline_corrected(text: Str, message: Str): Option[Str] :=
+  if index_of("; write ", message) != None and ends_with(message, " e") then
+    update_corrected(text)
+  else if index_of("; containers are forms", message) != None then
+    list_corrected(text)
+  else if index_of("; modes come in the order", message) != None then
+    modes_corrected(text)
+  else
+    None
+
+function correction_lines(fixes: List[(Int, List[Str])], line: Int): Str :=
+  if fixes == List() then
+    ""
+  else
+    "\ncorrected by the hints, which @retry applies:" ++ join("", List(for (l, new) in fixes for (text, i) in numbered(new) yield "\n  " ++ (if i == 0 then "" else "after ") ++ "fragment " ++ show(l) ++ ", script " ++ show(l + line) ++ ": " ++ text))
+
+function corrected_script(script: Str, line: Int, fixes: List[(Int, List[Str])]): Str :=
+  join("\n", List(for (text, i) in numbered(split(script, '\n')) for l in value_or(map_option(get(i + 1 - line, fixes), escaped), List(text)) yield l))
+
+// lines of a fragment as lines of a script, where a line that starts with @ is written @@
+function escaped(lines: List[Str]): List[Str] :=
+  List(for l in lines yield if starts_with(l, "@") then "@" ++ l else l)
+
+// the line, column, and message of an error at a position of a fragment
+function located(text: Str): Option[(Int, Int, Str)] :=
+  example located("fragment 3.5: statement expected") == Some((3, 5, "statement expected"))
+  example located("a.u:3.5: statement expected") == None
+  match index_of(": ", text)
+    case Some(i) if starts_with(text, "fragment ") =>
+      match split(slice(text, size("fragment "), i), '.')
+        case List(l, c) =>
+          match (number(l), number(c))
+            case (Some(line), Some(col)) =>
+              Some((line, col, slice(text, i + 2, size(text))))
+            case _ =>
+              None
+          end
+
+        case _ =>
+          None
+      end
+
+    case _ =>
+      None
+  end
+
+// the corrections of the error of message at line and col of lines, by the habit that its message names
+function corrected(lines: Array[Str], line: Int, col: Int, message: Str): List[(Int, List[Str])] :=
+  match get(line - 1, lines)
+    case Some(text) =>
+      let fixed := if starts_with(message, "keyword ") then
+        keyword_corrected(text, col, message)
+      else if starts_with(message, "declaration expected") then
+        return_corrected(lines, line, text)
+      else
+        inline_corrected(text, message) in
+      match fixed
+        case Some(new) =>
+          List((line, List(new)))
+
+        case None =>
+          if index_of("; write else, then if", message) != None or index_of("has no end", message) != None then
+            chain_corrected(lines, line, text)
+          else
+            List()
+      end
+
+    case None =>
+      List()
+  end
+
+function is_name_char(c: Char): Bool :=
+  is_letter(c) or is_digit(c) or c == '_'
+
+// the name that ends s
+function trailing_name(s: Str): Str :=
+  example trailing_name("  x") == "x"
+  example trailing_name("f(") == ""
+  str(reverse(take_while(reverse(chars(s)), is_name_char)))
+
+function indentation_of(text: Str): Int :=
+  size(take_while(chars(text), lambda c => c == ' '))
+
+// x op= e as x := x op e, with e in parentheses unless it is a name or a number
+function update_corrected(text: Str): Option[Str] :=
+  example update_corrected("  x += 2") == Some("  x := x + 2")
+  example update_corrected("  n *= a + b") == Some("  n := n * (a + b)")
+  example update_corrected("  s ++= t") == Some("  s := s ++ t")
+  example update_corrected("  x := 2") == None
+  match find_map(List("++=", "+=", "-=", "*=", "/=", "%="), lambda op => map_option(index_of(" " ++ op ++ " ", text), lambda i => (op, i)))
+    case Some((op, i)) =>
+      let target := trailing_name(slice(text, 0, i)), operand := trim(slice(text, i + size(op) + 2, size(text))) in
+      if target == "" then
+        None
+      else
+        Some(slice(text, 0, i) ++ " := " ++ target ++ " " ++ slice(op, 0, size(op) - 1) ++ " " ++ (if forall(chars(operand), is_name_char) then
+          operand
+        else
+          "(" ++ operand ++ ")"))
+
+    case None =>
+      None
+  end
+
+// each [ ] that holds no type arguments, after no name, ], or ), as the form List( )
+function list_corrected(text: Str): Option[Str] :=
+  example list_corrected("  x := [1, 2]") == Some("  x := List(1, 2)")
+  example list_corrected("    case [x, [y]] =>") == Some("    case List(x, List(y)) =>")
+  example list_corrected("  f(List[Int](), [], \"[a]\")") == Some("  f(List[Int](), List(), \"[a]\")")
+  example list_corrected("function f(): List[Int] :=") == None
+  let cs := chars(text) in
+  let written := bracketed(cs, List(), List(), false) in
+  if written == cs then None else Some(str(written))
+
+// the characters cs after done, reversed, where open tells for each [ that is open whether it became List(, outside of
+// the string literals
+function bracketed(cs: List[Char], done: List[Char], open: List[Bool], quoted: Bool): List[Char] :=
+  match cs
+    case List() =>
+      reverse(done)
+
+    case List('\\', c; rest) if quoted =>
+      bracketed(rest, List(c, '\\'; done), open, quoted)
+
+    case List('"'; rest) =>
+      bracketed(rest, List('"'; done), open, not quoted)
+
+    case List('['; rest) if not quoted =>
+      let form := is_list_start(drop_while(done, lambda c => c == ' ')) in
+      bracketed(rest, if form then reverse(chars("List(")) ++ done else List('['; done), List(form; open), quoted)
+
+    case List(']'; rest) if not quoted =>
+      match open
+        case List(form; outer) =>
+          bracketed(rest, List(if form then ')' else ']'; done), outer, quoted)
+        case List() =>
+          bracketed(rest, List(']'; done), open, quoted)
+      end
+
+    case List(c; rest) =>
+      bracketed(rest, List(c; done), open, quoted)
+  end
+
+// whether a [ after the reversed characters done starts a list, after no name, ], or ), but a keyword that an
+// expression or a pattern follows
+function is_list_start(done: List[Char]): Bool :=
+  match done
+    case List(c; _) if c == ']' or c == ')' =>
+      false
+
+    case List(c; _) if is_name_char(c) =>
+      contains(str(reverse(take_while(done, is_name_char))), List("case", "in", "then", "else", "yield", "return", "raise"))
+
+    case _ =>
+      true
+  end
+
+// the formals or arguments of each parenthesis of text that start with a mode, in the order in, out, ref, each once
+function modes_corrected(text: Str): Option[Str] :=
+  example modes_corrected("  p(out y, in x)") == Some("  p(in x, out y)")
+  example modes_corrected("procedure p(ref z: Int, in a: Int, b: Int, out y: Int) :=") == Some("procedure p(in a: Int, b: Int, out y: Int, ref z: Int) :=")
+  example modes_corrected("  p(in a, in f(b), out y)") == Some("  p(in a, f(b), out y)")
+  example modes_corrected("  p(in x, out y)") == None
+  let written := modes_from(text, 0) in
+  if written == text then None else Some(written)
+
+function modes_from(text: Str, from: Int): Str :=
+  match index_of("(", slice(text, from, size(text)))
+    case Some(k) =>
+      let i := from + k in
+      match close_index(chars(slice(text, i, size(text))), i, 0)
+        case Some(j) =>
+          let inner := slice(text, i + 1, j) in
+          if is_moded(inner) then
+            modes_from(slice(text, 0, i + 1) ++ ordered_modes(inner) ++ slice(text, j, size(text)), i + 1)
+          else
+            modes_from(text, i + 1)
+
+        case None =>
+          modes_from(text, i + 1)
+      end
+
+    case None =>
+      text
+  end
+
+function is_moded(text: Str): Bool :=
+  exists(List("in ", "out ", "ref "), lambda mode => starts_with(text, mode))
+
+// the index of the bracket that closes the one at the start of cs, at index i
+function close_index(cs: List[Char], i: Int, depth: Int): Option[Int] :=
+  match cs
+    case List() =>
+      None
+
+    case List(c; rest) =>
+      if c == '(' or c == '[' then
+        close_index(rest, i + 1, depth + 1)
+      else if c == ')' or c == ']' then
+        if depth == 1 then Some(i) else close_index(rest, i + 1, depth - 1)
+      else
+        close_index(rest, i + 1, depth)
+  end
+
+// the items of text, separated by commas outside brackets, in groups by their modes, each mode before its first item
+function ordered_modes(text: Str): Str :=
+  example ordered_modes("out y, in x, z") == "in x, z, out y"
+  let items := List(for item in top_items(chars(text), 0, List(), List()) yield trim(item)) in
+  let moded := moded_items(items, "in") in
+  join(", ", List(for mode in List("in", "out", "ref") for group in List(List(for (m, item) in moded if m == mode yield item)) if group != List() yield mode ++ " " ++ join(", ", group)))
+
+// each item with its mode, its own or that of the item before it, without the mode
+function moded_items(items: List[Str], mode: Str): List[(Str, Str)] :=
+  match items
+    case List() =>
+      List()
+
+    case List(item; rest) =>
+      match find(List("in", "out", "ref"), lambda m => starts_with(item, m ++ " "))
+        case Some(m) =>
+          List(
+            (m, trim(slice(item, size(m), size(item)))); moded_items(rest, m))
+
+        case None =>
+          List((mode, item); moded_items(rest, mode))
+      end
+  end
+
+// the texts between the commas of cs outside brackets, after done and the characters current of the item, reversed
+function top_items(cs: List[Char], depth: Int, current: List[Char], done: List[Str]): List[Str] :=
+  match cs
+    case List() =>
+      reverse(List(str(reverse(current)); done))
+
+    case List(c; rest) =>
+      if c == ',' and depth == 0 then
+        top_items(rest, depth, List(), List(str(reverse(current)); done))
+      else if c == '(' or c == '[' then
+        top_items(rest, depth + 1, List(c; current), done)
+      else if c == ')' or c == ']' then
+        top_items(rest, depth - 1, List(c; current), done)
+      else
+        top_items(rest, depth, List(c; current), done)
+  end
+
+// the keyword of message, keyword kw is not a name; write a name such as n, at col of text, as n
+function keyword_corrected(text: Str, col: Int, message: Str): Option[Str] :=
+  example keyword_corrected("  case C(type: Int)", 10, "keyword type is not a name; write a name such as typ") == Some("  case C(typ: Int)")
+  example keyword_corrected("  then", 3, "keyword then is not a name") == None
+  match (index_of(" is not a name", message), index_of("; write a name such as ", message))
+    case (Some(i), Some(j)) =>
+      let kw := slice(message, size("keyword "), i), name := slice(message, j + size("; write a name such as "), size(message)) in
+      let stop := col - 1 + size(kw) in
+      if slice(text, col - 1, stop) == kw then
+        Some(slice(text, 0, col - 1) ++ name ++ slice(text, stop, size(text)))
+      else
+        None
+
+    case _ =>
+      None
+  end
+
+// the line without its return if it is in a function, whose value is its body
+function return_corrected(lines: Array[Str], line: Int, text: Str): Option[Str] :=
+  example return_corrected(Array("function f(x: Int): Int :=", "  return x + 1"), 2, "  return x + 1") == Some("  x + 1")
+  example return_corrected(Array("procedure p(out x: Int) :=", "  return x"), 2, "  return x") == None
+  let heads := List(for (l, i) in numbered(List(for l in lines)) if i < line - 1 and (starts_with(l, "function ") or starts_with(l, "procedure ")) yield l) in
+  match (index_of("return ", text), last(heads))
+    case (Some(i), Some(head)) if trim(slice(text, 0, i)) == "" and starts_with(head, "function ") =>
+      Some(slice(text, 0, i) ++ slice(text, i + size("return "), size(text)))
+    case _ =>
+      None
+  end
+
+// an end of its own for each else if and elif of the if chain at the indentation of line, each elif written else if,
+// after the end that closes the chain
+function chain_corrected(lines: Array[Str], line: Int, text: Str): List[(Int, List[Str])] :=
+  example chain_corrected(Array("  if a then", "    s", "  elif b then", "    t", "  end"), 3, "  elif b then") == List((3, List("  else if b then")), (5, List("  end", "  end")))
+  example chain_corrected(Array("  if a then", "    s", "  else if b then", "    t", "  end"), 1, "  if a then") == List((5, List("  end", "  end")))
+  example chain_corrected(Array("  while a do", "    s", "  end"), 1, "  while a do") == List()
+  let indent := indentation_of(text), numbered_lines := List(for (l, i) in numbered(List(for l in lines)) yield (l, i + 1)) in
+  let starts := List(for (l, n) in numbered_lines if n <= line and indentation_of(l) == indent and starts_with(trim(l), "if ") yield n) in
+  match last(starts)
+    case Some(start) =>
+      chain_ends(List(for (l, n) in numbered_lines if n > start yield (l, n)), indent, 0, List())
+    case None =>
+      List()
+  end
+
+// the corrections of the lines of a chain at indent after its if, where count is the number of else if before them
+function chain_ends(lines: List[(Str, Int)], indent: Int, count: Int, edits: List[(Int, List[Str])]): List[(Int, List[Str])] :=
+  match lines
+    case List() =>
+      List()
+
+    case List((text, n); rest) =>
+      let word := trim(text), k := indentation_of(text) in
+      if word == "" or k > indent then
+        chain_ends(rest, indent, count, edits)
+      else if k < indent then
+        List()
+      else if starts_with(word, "elif ") then
+        chain_ends(rest, indent, count + 1, edits ++ List(
+          (n, List(
+            slice(text, 0, k) ++ "else if " ++ slice(word, size("elif "), size(word))))))
+      else if starts_with(word, "else if ") then
+        chain_ends(rest, indent, count + 1, edits)
+      else if word == "else" then
+        chain_ends(rest, indent, count, edits)
+      else if word == "end" and count > 0 then
+        edits ++ List((n, List(text; replicate(count, text))))
+      else
+        List()
+  end

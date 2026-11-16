@@ -56,10 +56,21 @@ data Warning :=
 // parts that repeat in a declaration, and of the definitions that repeat another
 function lints(d: Mod): List[Warning]
 
+// the start of the part that the replacement of w replaces, whose line gives the indentation at which format writes it
+function replaced_start(w: Warning): Pos
+
 implementation
 
 function lints(d: Mod): List[Warning] :=
   List(for cmd in d.exported ++ d.builtins ++ d.implemented for w in cmd_lints(cmd) ++ decided_cmd(cmd) yield w) ++ unused_privates(d) ++ List(for cmd in d.implemented for w in repeated_exprs(cmd) yield w) ++ duplicate_definitions(d)
+
+function replaced_start(w: Warning): Pos :=
+  match w.edit
+    case Some(EditExpr(span, _)) =>
+      span.start
+    case _ =>
+      w.pos
+  end
 
 function cmd_lints(cmd: At[Cmd]): List[Warning] :=
   match cmd

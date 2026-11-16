@@ -517,7 +517,7 @@ procedure check_targets(
     visit_units(in found, texts, phases.tests, not phases.tests and not phases.proofs, lambda in source, q, unit, listed, out failed =>
       failed := List()
       if phases.lints and listed == List() then
-        print_lints(in source, q, unit)
+        print_lints(in source, q, unit, texts)
       end
       if phases.tests or phases.proofs then
         check_unit(in q, unit, several, phases, args, listed, out failed)
@@ -708,21 +708,34 @@ procedure print_hints(in file: Str, overlays: List[(Str, Str)], out status: Int)
     end
   end
 
-// prints the warnings of the lints of the files of the unit, each with its code, the expression to write instead if it has
-// one, and its position
-procedure print_lints(in source: Source, q: Prog, unit: List[Target]) :=
+// prints the warnings of the lints of the files of the unit, with the texts of the overlays instead of their files,
+// each with its code, the expression to write instead if it has one, as format writes it at its place, and its position
+procedure print_lints(
+  in  source: Source,
+      q: Prog,
+      unit: List[Target],
+      texts: Map[Str, Str]
+) :=
   for file in files_of(unit) do
+    var text: Str
+    try
+      overlaid_text(in file, texts, out text)
+    catch
+      case OsError(_) =>
+        text := ""
+    end
+    let lines := Array(for line in split(text, '\n'))
     for d in find(source.mods, lambda d => d.name == sibling(q.main, file)) do
       for w in lints(d) do
-        os_println(in file ++ ": warning[" ++ show(w.lint) ++ "]: " ++ w.message ++ replacement_text(source, d.name, w) ++ at_pos(w.pos))
+        os_println(in file ++ ": warning[" ++ show(w.lint) ++ "]: " ++ w.message ++ replacement_text(source, d.name, lines, w) ++ at_pos(w.pos))
       end
     end
   end
 
-function replacement_text(source: Source, m: Path, w: Warning): Str :=
+function replacement_text(source: Source, m: Path, lines: Array[Str], w: Warning): Str :=
   match w.replacement
     case Some(r) =>
-      ", write " ++ format_module_expr(source, m, r)
+      ", write " ++ format_module_expr(source, m, line_indentation(lines, replaced_start(w)), r)
     case None =>
       ""
   end
@@ -884,7 +897,15 @@ procedure checked_diagnostics(
     end
     errors := errors ++ unformatted
   end
-  let warnings := List(for d in find(source.mods, lambda d => d.name == source.main) for w in lints(d) yield Diagnostic(FormatKind, "warning[" ++ show(w.lint) ++ "]", None, w.pos, w.message ++ replacement_text(source, d.name, w), List()))
+  var text: Str
+  try
+    overlaid_text(in file, overlays, out text)
+  catch
+    case OsError(_) =>
+      text := ""
+  end
+  let lines := Array(for line in split(text, '\n'))
+  let warnings := List(for d in find(source.mods, lambda d => d.name == source.main) for w in lints(d) yield Diagnostic(FormatKind, "warning[" ++ show(w.lint) ++ "]", None, w.pos, w.message ++ replacement_text(source, d.name, lines, w), List()))
   found := List()
   for d in errors ++ warnings do
     diagnostic_file(in file, d, out path)
