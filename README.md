@@ -199,7 +199,7 @@ A node N is a handle `#n`, a handle scoped by its declaration `F:name #n`, which
 | `@put [F] before T`, `@put [F] after T` | places the new declarations of the fragment next to the declaration `T` in its section, which the reply names, `added b/0 after a/0`, where the lines under no section go into the builtin section if `T` is a builtin, where `T` is `F:name[/n]`, so `@put F after name` is refused with the form `@put after F:name` |
 | `@put N`, `@put before N`, `@put after N`, `@put into N` | replaces the node, or inserts code next to it or as its last statement or case, at its indentation, refused for a fragment of another kind than the node, a statement, a case, an expression, a constructor, or a head, which nothing goes next to or into, or one that writes declarations; a fragment may keep the margin of `@show`, and writes the node alone, without the comma or `)` after it, which stay, while one before or after an element gets the comma between them, also after the last one, and a drop of the last element moves its `)`, where a comment at the end of a line stays with the element that it follows; a drop of the last line of the spec of a signature drops its `:=` |
 | `@drop T` | removes a declaration, with its doc and signature, saying the sections where it had more than one, or a node N |
-| `@patch T` | edits the text of a declaration, its signature and definition alike, of a node N, or of a file `F`, by hunks written as in a diff, each a run of lines that start with `-`, its old text, and the run of lines that start with `+` right after it, its new text, none for a deletion, where the marker and one space after it are stripped and the rest of each line is taken as written, `=>` and all, so that a line of a `case`, a lambda, or a map patches as any other, a blank line ends a hunk, and a line that starts with neither is refused with the form; the hunks apply in order, each to the text that those before it left, so that one may anchor on the text that one before it wrote, rather than all against the original, where two hunks of one text would conflict and a hunk would have to know which of the others moved its lines; the old lines of a hunk occur in the target and at most once in each of its parts, the signature and the definition of a declaration, or each declaration of a file and each run of its lines of no declaration, the comments at the top above the imports included, so that a text of both heads changes in both, compared without their indentation, as whole lines, or, for one old line, as a part of a line, and of several old lines that occur nowhere as whole lines the first may be the end of its line and the last the start of its line, whose rest stays around the new lines, while old lines of a file that span declarations, and so occur in none of its parts, are matched once in the whole file; a line `-...` or `-…` stands for the old lines between those before it and after it, the nearest after, and a line `+...` for where those lines go, so that a region is wrapped in a block, `+if c then` above its first line and `+end` below its last, without repeating it, which two patches cannot, since each action must leave the declaration parsing; a hunk of one line `-*`, `-* x`, replaces every occurrence of its text in the target by its one line `+`, or deletes them without one, and the reply says how often, `replaced "x" 4 times`, so an old line that starts with `*` is written `- *`; a patch whose text does not parse is refused with the action, `@patch T writes a text that does not parse`, and the fragment lines of its new lines; a patch of a file names the declarations that it changed; a hunk whose new lines are its old lines, and a patch that changes nothing once formatted, are refused, and a hunk whose old text occurs nowhere in the target or too often says so, naming the hunk by its fragment line where the patch has several, with the parts where it occurs, the hunk before it that changed it, the earlier action of the script that removed it, the declarations of the file that have one old line, for old lines outside the target the target that it searched, and else the line of the target that starts most like the first of them, by its line, as `format` laid it out; the reply shows the nodes that the patch changed, with their handles, where a changed comment counts as the node below it, which it documents, and a changed line of a `let … in` as the `let` without its body, unless the body changed too |
+| `@patch T` | edits the text of a declaration, its signature and definition alike, of a node N, or of a file `F`, by hunks written as in a diff, see Patching below |
 | `@example F:name[/n]` | adds the examples of the fragment, lines `example …`, after the spec of the function or procedure, on its signature if it has one, the place of the examples of an exported name, else on its definition, and shows them with their handles |
 | `@rename T new` | renames a function, procedure, pattern alias, or constructor at its declarations and at every use that resolves to it, several per script, with a warning where the new name meets declarations of any arity that the uses also see |
 | `@export T`, `@unexport T` | moves a definition's doc, contract, and examples to a new signature in `export`, beside the signature of the exported declaration next to the definition, with the raises that a procedure infers, or back, refused while another module uses it; a datatype or an alias moves whole |
@@ -217,6 +217,41 @@ A node N is a handle `#n`, a handle scoped by its declaration `F:name #n`, which
 - The actions and the checks of a script see the files that it has written so far, also a module of a new package, which another file of the same script may import.
 - `--overlay F=<path>`, repeated for several files, takes the text of the file at path as that of `F`, as an editor passes its unsaved buffers; the script writes `F` only if it changes it.
 - A query that is refused, `@show`, `@outline`, `@refs`, `@sig`, or `@resolve`, takes no other action down with it, since it writes nothing: the reply says `@show T: refused, …` in its place, its first line counts it, `applied, clean, 1 query refused`, and the status is 1, while any other action that is refused refuses the script.
+
+
+### Patching
+
+`@patch T` takes hunks as a diff writes them: a run of lines that start with `-` is an old text, and the run of lines that start with `+` right after it is its new text. The marker and one space after it are stripped, and the rest of each line is taken as written, `=>` and all, so a line of a `case`, a lambda, or a map patches as any other:
+
+```
+@patch shapes.u:area
+- case Circle(r) =>
++ case Circle(radius) =>
+-3 * r * r
++3 * radius * radius
+```
+
+- **Hunks.** A blank line ends a hunk, a `-` run without `+` lines deletes its text, and a line that starts with neither marker is refused with the form. The hunks apply in order, each to the text that those before it left, so a hunk may anchor on what one before it wrote; applying all against the original would make two hunks of one text conflict.
+- **Matching.** The old lines are compared without their indentation, as whole lines, or, for a hunk of one old line, as a part of a line; of several old lines that occur nowhere as whole lines, the first may be the end of its line and the last the start of its line, whose rest stays around the new lines. An old text occurs in the target, and at most once in each of its parts: the signature and the definition of a declaration, so that a text of both heads changes in both, or each declaration of a file and each run of its lines of no declaration, the comments above the imports included. Old lines of a file that span declarations are matched once in the whole file.
+- **Regions.** A line `-...` or `-…` stands for the old lines between those before it and after it, the nearest after, and a line `+...` for where they go, so a region is wrapped in a block without repeating it, which two patches cannot do, since each action must leave the declaration parsing:
+
+  ```
+  @patch shapes.u:p
+  -y := y + 2
+  -...
+  -z := y
+  +if y > 0 then
+  +  y := y + 2
+  +  ...
+  +  z := y
+  +else
+  +  z := 0
+  +end
+  ```
+
+- **Every occurrence.** A hunk of one line `-* x` replaces every occurrence of `x` in the target by its one `+` line, or deletes them without one, and the reply says how often, `replaced "x" 4 times`; an old line that starts with `*` is written `- *`.
+- **Refusals.** A hunk whose new lines are its old ones, and a patch that changes nothing once formatted, are refused. A hunk whose old text occurs nowhere or too often says so, by its fragment line where the patch has several hunks, with the parts where it occurs, the hunk before it or the earlier action of the script that changed it, the declarations of the file that have it, and else the line of the target that starts most like it. A patch whose text does not parse is refused as `@patch T writes a text that does not parse`, with the fragment lines of its new lines.
+- **Reply.** A patch of a file names the declarations that it changed. The reply shows the nodes that the patch changed, with their handles, where a changed comment counts as the node below it, which it documents, and a changed line of a `let … in` as the `let` without its body, unless the body changed too.
 
 ## Layout
 
