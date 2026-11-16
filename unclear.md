@@ -4,7 +4,6 @@ Trip-ups and unclear points met while working on ulang code, each with what was 
 documentation is fixed from them (see the working rules of `CLAUDE.md`), when they move into the items of `ideas/`.
 
 - A procedure lambda without formals, `lambda in => p(…) end`, and the type `() raises OsError` of a procedure without formals were guesses that do not parse: CLAUDE.md, Semantics, gives the forms of procedure values only with formals, and says nothing of one without.
-- **A module whose sections are all emptied becomes a file without sections**: `format` writes no empty section, so dropping every export of a module leaves only its declarations, without `export` and `implementation`, which then all count as implemented.
 - **`Var.name` is a `Name`, `Id` is `Str`**: a set of the names that an expression reads, `expr_names` of `ulang/lint/lint.u`, is of `Id`, the bases, so a `Var` compares by `x.name.base`; the error was a mismatch of `Set[Str]` and `Set[Name]`.
 - **A test file for `@fix` without an entry or exports loses its declarations**: `UnusedPrivate` fires on every function and its fix drops them, which hides the edits under test.
 - **`normal_file(here, here, root)` with the root as the working directory gives the absolute root**, not `.`, so it compares with no relative path.
