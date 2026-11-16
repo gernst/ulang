@@ -50,10 +50,12 @@ procedure parse_file(
 
 // parse_file of the overlays, the texts of files by their paths, absolute or from the working directory, which loading
 // takes instead of those files, also of files and directories that do not exist, so that the overlays in a new directory
-// are a package that the file may import, and the overlays of the library replace its files
+// are a package that the file may import, and the overlays of the library replace its files, where declared loads the
+// packages other than that of the file only as far as their importers see them, as parse_file_loaded does
 procedure parse_file_overlaid(
   in  path: Str,
       overlays: Map[Str, Str],
+      declared: Bool,
   out source: Source
 ) raises ParseError, OsError
 
@@ -3758,6 +3760,7 @@ procedure parse_file(
 procedure parse_file_overlaid(
   in  path: Str,
       overlays: Map[Str, Str],
+      declared: Bool,
   out source: Source
 ) raises ParseError, OsError :=
   var text: Str, place: Place, absolute: Map[Str, Str]
@@ -3765,7 +3768,7 @@ procedure parse_file_overlaid(
   overlaid_text(in path, overlays, out text)
   place_of(in path, out place)
   source := Source(List(), List(), place.id)
-  load_package(in Root(place.root, absolute, false), place.dir, Some((place.id, text)), List(), ref source)
+  load_package(in Root(place.root, absolute, declared), place.dir, Some((place.id, text)), List(), ref source)
 
 procedure parse_file_loaded(
   in  path: Str,

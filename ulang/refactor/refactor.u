@@ -368,7 +368,7 @@ procedure parsed(
   out source: Source
 ) raises Refused, OsError :=
   try
-    parse_file_overlaid(in path, Map(path => text; files), out source)
+    parse_file_overlaid(in path, Map(path => text; files), false, out source)
     // an import that fails is no failure of the parse here, so that a script can fix it
     require_parsed(in source with mods := List(for m in source.mods yield m with imports := List(for i in m.imports if import_failures(i) == List())))
   catch
@@ -2854,7 +2854,8 @@ procedure resolutions(
   uses := List(for h in found for use in use_of(h) yield use)
 
 // the hints of the main module of the file at path whose text is text, with the texts of files instead of their files,
-// as ulang.sh hints gives them, of a check that the errors do not stop
+// as ulang.sh hints gives them, of a check that the errors do not stop, with the packages other than that of the file
+// loaded only as far as it sees them, whose uses resolve as in the whole load
 procedure file_hints(
   in  path: Str,
       text: Str,
@@ -2864,11 +2865,12 @@ procedure file_hints(
   var q: Prog
   try
     var source: Source
-    parse_file_overlaid(in path, Map(path => text; files), out source)
+    var checks := no_checks()
+    parse_file_overlaid(in path, Map(path => text; files), true, out source)
     if has_errors(source) then
-      check_partial(in without_unparsed(source), unparsed_names(source), no_tests, out q, _)
+      check_cached(in without_unparsed(source), unparsed_names(source), true, true, no_tests, out q, _, _, ref checks)
     else
-      check_all(in source, no_tests, out q, _)
+      check_cached(in source, empty(), false, true, no_tests, out q, _, _, ref checks)
     end
   catch
     case ParseError(message, _) =>
@@ -3055,7 +3057,7 @@ procedure rename(
       var result: Str, seen_source := source
       if file != path then
         try
-          parse_file_overlaid(in file, Map(file => file_text; unrenamed), out seen_source)
+          parse_file_overlaid(in file, Map(file => file_text; unrenamed), true, out seen_source)
         catch
           case e =>
             raise Refused(file ++ ": " ++ parse_diagnostic(e).message)
@@ -3979,7 +3981,7 @@ procedure refs(in word: Str, ref edits: Edits) raises Refused, OsError :=
     if hits != List() then
       var file_source: Source
       try
-        parse_file_overlaid(in file, Map(file => file_text; edits.files), out file_source)
+        parse_file_overlaid(in file, Map(file => file_text; edits.files), true, out file_source)
       catch
         case e =>
           raise Refused(file ++ ": " ++ parse_diagnostic(e).message)

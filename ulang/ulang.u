@@ -435,7 +435,7 @@ function description(command: Str): Str :=
       "calls the procedure, main by default, which takes no parameters, where os_args gives the arguments after --"
 
     case "check" =>
-      "checks the files, also below directories, by default the project, each unit loaded once, with the errors of parsing,\n" ++ "of types, and of format, and adds the phases of the options, which run as far as the errors allow: --lint prints the\n" ++ "lints of the files that load, as warnings with the rule and, where it has one, the simpler expression to write, which\n" ++ "do not fail the check; --test runs the tests, all or the named ones, in the working directory, where the arguments\n" ++ "after -- are those of os_args, printing a line per test, each failed if it runs longer than the seconds of --timeout;\n" ++ "--prove proves the lemmas, all or the named ones, where a\n" ++ "recursive function unfolds only if the prover proves that it terminates, unless code that the lemmas may reach has\n" ++ "errors, and a lemma whose test found a counterexample is falsified; a file passes if it loads and its phases pass, and\n" ++ "with several files, check prints the files that do not pass and how many do; --overlay F=<path> takes the text of\n" ++ "the file at path as that of F, as of an unsaved buffer of an editor, and reports its errors against F"
+      "checks the files, also below directories, by default the project, each unit loaded once, without --test and --prove\n" ++ "with its imports only as far as it sees them, so without the errors of their definitions, with the errors of parsing,\n" ++ "of types, and of format, and adds the phases of the options, which run as far as the errors allow: --lint prints the\n" ++ "lints of the files that load, as warnings with the rule and, where it has one, the simpler expression to write, which\n" ++ "do not fail the check; --test runs the tests, all or the named ones, in the working directory, where the arguments\n" ++ "after -- are those of os_args, printing a line per test, each failed if it runs longer than the seconds of --timeout;\n" ++ "--prove proves the lemmas, all or the named ones, where a\n" ++ "recursive function unfolds only if the prover proves that it terminates, unless code that the lemmas may reach has\n" ++ "errors, and a lemma whose test found a counterexample is falsified; a file passes if it loads and its phases pass, and\n" ++ "with several files, check prints the files that do not pass and how many do; --overlay F=<path> takes the text of\n" ++ "the file at path as that of F, as of an unsaved buffer of an editor, and reports its errors against F"
 
     case "format" =>
       "rewrites the files, also below directories, by default the project, as format_program writes them, where check\n" ++ "reports the files that differ"
@@ -513,7 +513,7 @@ procedure check_targets(
   if status == 0 then
     var found: List[Target]
     targets_of(in targets, phases.tests, out found)
-    visit_units(in found, texts, phases.tests, lambda in source, q, unit, listed, out failed =>
+    visit_units(in found, texts, phases.tests, not phases.tests and not phases.proofs, lambda in source, q, unit, listed, out failed =>
       failed := List()
       if phases.lints and listed == List() then
         print_lints(in source, q, unit)
@@ -647,12 +647,13 @@ function is_lemma(cmd: Cmd): Bool :=
 // checks each unit of the targets once, where the error of a unit that does not load is reported at its first file, and
 // calls visit with the checked program of each unit that loads, also with errors if it is runnable, whose files then
 // fail, and the errors printed of it, each with its file, List() if it loaded without errors, which gives the files of the
-// unit that fail, where tested loads them with
+// unit that fail, where declared loads the packages that a unit imports only as far as it sees them, and tested loads them with
 // the tests of their lemmas, then prints how many files passed, where status is the exit status of the worst
 procedure visit_units(
   in  found: List[Target],
       overlays: Map[Str, Str],
       tested: Bool,
+      declared: Bool,
       visit: (in Source, Prog, List[Target], List[(Str, Diagnostic)], out List[Str]),
   out status: Int
 ) :=
@@ -660,7 +661,7 @@ procedure visit_units(
   units_of(in found, overlays, out units)
   status := 0
   for unit in units do
-    load_file(in first_path(unit), overlays, true, tested, false, out source, q, errors, ref cache)
+    load_file(in first_path(unit), overlays, true, tested, declared, out source, q, errors, ref cache)
     if errors != List() then
       report(in first_path(unit), errors, size(files_of(found)) > 1)
       failed := failed ++ files_of(unit), status := max(status, load_status(q, errors))
@@ -680,14 +681,15 @@ procedure visit_units(
   end
   summarize(in files_of(found), List(for f in failed))
 
-// prints the errors of checking file, as check does, with the texts of the overlays instead of their files, and the
+// prints the errors of checking file, as check does, with the packages that it imports only as far as it sees them,
+// with the texts of the overlays instead of their files, and the
 // findings of the check in it, hints of ulang/check/hints.u, as far as it is checked
 procedure print_hints(in file: Str, overlays: List[(Str, Str)], out status: Int) :=
   var texts: Map[Str, Str]
   overlay_texts(in overlays, out texts, status)
   if status == 0 then
     var q: Prog, errors: List[Diagnostic], cache := no_cache()
-    load_file(in file, texts, false, false, false, out _, q, errors, ref cache)
+    load_file(in file, texts, false, false, true, out _, q, errors, ref cache)
     report(in file, errors, false)
     status := load_status(q, errors)
     if q.main != List() then
@@ -862,7 +864,8 @@ procedure refactor(
       status := 1
   end
 
-// the errors of checking file, each with the file to edit, and the warnings of its lints, whose code is warning[Rule],
+// the errors of checking file, with the packages that it imports only as far as it sees them, so without the errors of
+// their definitions, each with the file to edit, and the warnings of its lints, whose code is warning[Rule],
 // where the format of each member of its unit is checked whatever its other errors, unlike load_file, so that a reply
 // compares the format before and after alike, unless a member does not parse
 procedure checked_diagnostics(
@@ -871,7 +874,7 @@ procedure checked_diagnostics(
   out found: List[(Str, Diagnostic)]
 ) :=
   var source: Source, errors: List[Diagnostic], path: Str, cache := no_cache()
-  load_file(in file, overlays, false, false, false, out source, _, errors, ref cache)
+  load_file(in file, overlays, false, false, true, out source, _, errors, ref cache)
   if source.main != List() and not has_errors(source) then
     var unformatted: List[Diagnostic]
     try
