@@ -31,10 +31,8 @@ function construction(is_tuple: Bool, k: Int): (Str, Bool) :=
   example construction(true, 3) == ("u_mk_tuple_3", false)
   example construction(false, 4) == ("u_mk_con", true)
 
-// the datatypes and constructors whose descriptors the runtime defines, of OsError, which its builtins create also in
-// programs that do not import os, while each program defines those of the prelude and its modules, which it always has
-function runtime_constructors(): Set[Name]
-
+// the datatypes whose descriptors and constructors the runtime defines itself, of OsError, which its builtins create also
+// in programs that do not import os, while each program defines those of the prelude and its modules, which it always has
 function runtime_types(): Set[Name]
 
 // the datatypes whose descriptors, of themselves, their constructors, and their values without arguments,
@@ -268,9 +266,6 @@ function array_push_name(): Name :=
 
 function array_reversed_name(): Name :=
   library_name("array", "(reversed)")
-
-function runtime_constructors(): Set[Name] :=
-  Set(os_error_name())
 
 function runtime_types(): Set[Name] :=
   Set(os_error_name())

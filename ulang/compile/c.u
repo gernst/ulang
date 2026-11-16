@@ -19,8 +19,6 @@ data CExpr :=
   case CeBinary(op: Str, left: CExpr, right: CExpr)
   case CeIndex(base: CExpr, index: CExpr)
   case CeArrow(base: CExpr, field: Str)
-  case CeCast(typ: CType, operand: CExpr)
-  case CeCond(cond: CExpr, then_expr: CExpr, else_expr: CExpr)
   case CeInit(items: List[CExpr])
 
 data CStmt :=
@@ -108,12 +106,6 @@ function format_expr(expr: CExpr): Str :=
     case CeArrow(base, field) =>
       format_operand(base) ++ "->" ++ field
 
-    case CeCast(typ, operand) =>
-      "(" ++ format_type(typ) ++ ")" ++ format_operand(operand)
-
-    case CeCond(cond, then_expr, else_expr) =>
-      format_operand(cond) ++ " ? " ++ format_operand(then_expr) ++ " : " ++ format_operand(else_expr)
-
     case CeInit(items) =>
       "{" ++ join(", ", List(for item in items yield format_expr(item))) ++ "}"
   end
@@ -154,12 +146,7 @@ function format_operand(expr: CExpr): Str :=
     case CeNum(num) if num >= 0 =>
       format_expr(expr)
 
-    case CeNum(_)
-       | CeUnary(_, _)
-       | CeBinary(_, _, _)
-       | CeCast(_, _)
-       | CeCond(_, _, _)
-       | CeInit(_) =>
+    case CeNum(_) | CeUnary(_, _) | CeBinary(_, _, _) | CeInit(_) =>
       "(" ++ format_expr(expr) ++ ")"
   end
 
