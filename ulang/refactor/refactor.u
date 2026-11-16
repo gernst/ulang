@@ -43,7 +43,8 @@ procedure run_script(
 // the tests of the files of a script: the lines of the reply, and the numbers of the tests that passed, that failed, and
 // that did not run, since the errors left them out of the program
 data Tests :=
-  case Tests(lines: List[Str], passed: Int, failed: Int, skipped: Int)
+  // unrun has the files whose tests the errors left out of the program, each with those tests
+  case Tests(lines: List[Str], passed: Int, failed: Int, skipped: Int, unrun: Map[Str, Str])
 
 // run_script, which runs the tests of the files tested by tester, given the files and the diagnostics that the reply lists,
 // so that a test that only reaches one of them is counted, not repeated, and counts them in the first line, where a test
@@ -368,7 +369,8 @@ procedure parsed(
 ) raises Refused, OsError :=
   try
     parse_file_overlaid(in path, Map(path => text; files), out source)
-    require_parsed(in source)
+    // an import that fails is no failure of the parse here, so that a script can fix it
+    require_parsed(in source with mods := List(for m in source.mods yield m with imports := List(for i in m.imports if import_failures(i) == List())))
   catch
     case ParseErrors(errors) =>
       raise Refused(join("\n", List(for e in errors yield parse_message(path, fragment, parse_diagnostic(e)))))
@@ -1198,8 +1200,40 @@ procedure put(
     edits := edits with files := Map(path => result; edits.files)
     note(in path ++ ": written from the fragment", ref edits)
   else
-    put_anchored(in path, text, code, anchor, ref edits)
+    var fixed := text
+    if exists(code, lambda line => starts_with(line, "import ")) then
+      with_fixed_imports(in path, text, code, out fixed, ref edits)
+    end
+    put_anchored(in path, fixed, code, anchor, ref edits)
   end
+
+// text with each import that fails replaced by the import of the fragment code of the same last name, as the import of a
+// package that moved is fixed
+procedure with_fixed_imports(
+  in  path: Str,
+      text: Str,
+      code: List[Str],
+  out fixed: Str,
+  ref edits: Edits
+) raises Refused, OsError :=
+  var source: Source, lines := split(text, '\n')
+  parsed(in path, text, edits.files, no_fragment(), out source)
+  for i in main_mod(source).imports if import_failures(i) != List() do
+    match find(code, lambda line => starts_with(line, "import ") and Some(imported_base(line)) == last(i.that))
+      case Some(line) =>
+        lines := take(i.pos.line - 1, lines) ++ List(trim(line)) ++ drop(i.pos.line, lines)
+        note(in path ++ ": replaced import " ++ path_text(i.that) ++ " by " ++ trim(line), ref edits)
+
+      case None =>
+        skip
+    end
+  end
+  fixed := join("\n", lines)
+
+// the last name of the path of an import line
+function imported_base(line: Str): Str :=
+  example imported_base("import ubox.box") == "box"
+  value_or(last(split(trim(slice(line, size("import "), size(line))), '.')), "")
 
 // the parts of the lines of a fragment, each line with its number in the fragment
 data Parts :=
@@ -1476,7 +1510,9 @@ procedure put_anchored(
   with_signatures(in path, replaced_keys, edits.files, ref result, done)
   with_exported_raises(in path, text, exported_keys, edits.files, ref result, done)
   edits := edits with files := Map(path => result; edits.files)
-  note(in path ++ ": " ++ join(", ", done), ref edits)
+  if done != List() then
+    note(in path ++ ": " ++ join(", ", done), ref edits)
+  end
 
 // the one element of xs, if it has one
 function sole[A](xs: List[A]): Option[A] :=
@@ -2228,7 +2264,7 @@ procedure run_script(
       tested: List[Str]
 ) :=
   run_actions(in script, dry, Map(), state, check, lambda in paths, listed, out found =>
-    found := Tests(List(), 0, 0, 0)
+    found := Tests(List(), 0, 0, 0, Map())
   end, out reply, status, tested)
 
 procedure run_tested_script(
@@ -2320,7 +2356,14 @@ procedure run_actions(
       end
     end
     let changed := List(for c in changes yield c.path)
-    let paths := distinct(changed ++ edits.checked)
+    // the importers of a changed package that name a changed declaration of its exports, whose checks it may change
+    var importers: List[Str] := List()
+    for c in changes if not contains(c.path, created) do
+      var found: List[Str]
+      importer_files(in c.path, changed_exports(c.before, c.after), edits.files, out found)
+      importers := distinct(importers ++ List(for f in found if not contains(f, changed ++ edits.checked)))
+    end
+    let paths := distinct(changed ++ edits.checked) ++ importers
     var before: List[(Str, Diagnostic)] := List(), after: List[(Str, Diagnostic)] := List(), found: List[(Str, Diagnostic)]
     var journaled: List[Str] := List()
     for path => kept in written do
@@ -2366,7 +2409,7 @@ procedure run_actions(
       List("checked " ++ counted(size(paths), "file") ++ ", unchanged")
     else
       List(
-        "checked " ++ counted(size(paths), "file") ++ ": " ++ show(size(added)) ++ " new, " ++ show(size(gone)) ++ " gone")
+        "checked " ++ counted(size(paths), "file") ++ importers_text(importers) ++ ": " ++ show(size(added)) ++ " new, " ++ show(size(gone)) ++ " gone")
     let marker := if changes == List() then "  " else "  + "
     var labels := edits.handles, lines: List[Str] := List()
     for (file, d) in listed do
@@ -2381,11 +2424,21 @@ procedure run_actions(
     if size(labels.entries) > size(edits.handles.entries) then
       save_handles(in dir, here, root, labels.entries)
     end
-    var tests := Tests(List(), 0, 0, 0)
-    // the tests run on the files, which a dry run does not write
-    tested := if edits.tests and not dry then paths else List()
+    var tests := Tests(List(), 0, 0, 0, Map())
+    // the tests run on the files, which a dry run does not write, but not on the importers
+    tested := if edits.tests and not dry then
+      distinct(changed ++ edits.checked)
+    else
+      List()
     if tested != List() then
       tester(in tested, listed, out tests)
+      var unrun: Map[Str, Str]
+      load_unrun(in dir, here, root, out unrun)
+      // the tests of the packages of the files tested that the errors of an earlier script left unrun, and which have not
+      // run since
+      let earlier := List(for f => what in unrun if not contains(f, tested) and exists(tested, lambda t => os_dirname(t) == os_dirname(f)) yield "not run since an earlier script, whose errors left them out: " ++ f ++ ": " ++ what)
+      tests := tests with lines := tests.lines ++ earlier
+      save_unrun(in dir, here, root, Map(for f => what in unrun if not contains(f, tested) yield f => what) ++ tests.unrun)
     end
     let errors := size(List(for (_, d) in after if not is_warning(d) yield d))
     // a script that changes a file says how many of each are new, so that the first line tells whether they are its own
@@ -2394,7 +2447,7 @@ procedure run_actions(
     else
       Some((size(List(for (_, d) in added if not is_warning(d) yield d)), size(List(for (_, d) in added if is_warning(d) yield d))))
     reply := List(
-      verdict(dry, paths != List(), errors, size(after) - errors, fresh, refused, tests)) ++ List(for n in edits.notes) ++ journaled ++ counts ++ lines ++ tests.lines
+      verdict(dry, paths != List(), errors, size(after) - errors, fresh, refused, tests, if importers == List() then 0 else size(paths))) ++ List(for n in edits.notes) ++ journaled ++ counts ++ lines ++ tests.lines
     status := if tests.failed > 0 then 3 else if errors > 0 or refused > 0 then 1 else 0
   catch
     case Refused(message) =>
@@ -3269,15 +3322,17 @@ function without_overlaps(splices: List[(Int, Int, Str, List[Str])], last: Int):
       List()
   end
 
-// the first line of a reply, applied or dry, which counts the errors and warnings after it, if it checked files, each with
-// how many are new if fresh has the new ones, the queries refused, and the tests
-function verdict(dry: Bool, checked: Bool, errors: Int, warnings: Int, fresh: Option[(Int, Int)], refused: Int, tests: Tests): Str :=
-  example verdict(false, true, 3, 1, None, 0, Tests(List(), 0, 0, 0)) == "applied, 3 errors, 1 warning"
-  example verdict(false, true, 3, 1, Some((1, 0)), 0, Tests(List(), 0, 0, 0)) == "applied, 3 errors (1 new), 1 warning (0 new)"
-  example verdict(false, true, 0, 0, Some((0, 0)), 0, Tests(List(), 2, 1, 4)) == "applied, clean, 2 tests passed, 1 failed, 4 not run"
-  example verdict(false, false, 0, 0, None, 0, Tests(List(), 0, 0, 0)) == "applied"
-  example verdict(false, false, 0, 0, None, 2, Tests(List(), 0, 0, 0)) == "applied, 2 queries refused"
-  example verdict(true, true, 1, 0, Some((1, 0)), 0, Tests(List(), 0, 0, 0)) == "dry, 1 error (1 new)"
+// the first line of the reply, where files, if it is not 0, is the number of files checked, which importers made more
+// than the script changed
+function verdict(dry: Bool, checked: Bool, errors: Int, warnings: Int, fresh: Option[(Int, Int)], refused: Int, tests: Tests, files: Int): Str :=
+  example verdict(false, true, 3, 1, None, 0, Tests(List(), 0, 0, 0, Map()), 0) == "applied, 3 errors, 1 warning"
+  example verdict(false, true, 3, 1, Some((1, 0)), 0, Tests(List(), 0, 0, 0, Map()), 0) == "applied, 3 errors (1 new), 1 warning (0 new)"
+  example verdict(false, true, 0, 0, Some((0, 0)), 0, Tests(List(), 2, 1, 4, Map()), 0) == "applied, clean, 2 tests passed, 1 failed, 4 not run"
+  example verdict(false, false, 0, 0, None, 0, Tests(List(), 0, 0, 0, Map()), 0) == "applied"
+  example verdict(false, false, 0, 0, None, 2, Tests(List(), 0, 0, 0, Map()), 0) == "applied, 2 queries refused"
+  example verdict(true, true, 1, 0, Some((1, 0)), 0, Tests(List(), 0, 0, 0, Map()), 0) == "dry, 1 error (1 new)"
+  example verdict(true, true, 0, 0, Some((0, 0)), 0, Tests(List(), 0, 0, 0, Map()), 2) == "dry, clean in 2 files"
+  example verdict(true, true, 1, 0, Some((1, 0)), 0, Tests(List(), 0, 0, 0, Map()), 3) == "dry, 1 error (1 new) in 3 files"
   let state := if not checked then
     List()
   else if errors == 0 and warnings == 0 then
@@ -3286,6 +3341,10 @@ function verdict(dry: Bool, checked: Bool, errors: Int, warnings: Int, fresh: Op
     List(for (n, noun, added) in List(
       (errors, "error", map_option(fresh, first)),
       (warnings, "warning", map_option(fresh, second))) if n > 0 yield counted(n, noun) ++ value_or(map_option(added, lambda k => " (" ++ show(k) ++ " new)"), "")) in
+  let placed := if files == 0 or state == List() then
+    state
+  else
+    take(size(state) - 1, state) ++ List(value_or(last(state), "") ++ " in " ++ counted(files, "file")) in
   let ran := if tests.passed + tests.failed + tests.skipped == 0 then
     List()
   else
@@ -3296,7 +3355,156 @@ function verdict(dry: Bool, checked: Bool, errors: Int, warnings: Int, fresh: Op
     List("1 query refused")
   else
     List(show(refused) ++ " queries refused") in
-  join(", ", List(if dry then "dry" else "applied") ++ state ++ queries ++ ran)
+  join(", ", List(if dry then "dry" else "applied") ++ placed ++ queries ++ ran)
+
+// the importers checked besides the files of a script, for the line that counts the files checked
+function importers_text(importers: List[Str]): Str :=
+  example importers_text(List()) == ""
+  example importers_text(List("a/a.u", "b/b.u")) == ", with the importers a/a.u, b/b.u"
+  if importers == List() then
+    ""
+  else
+    ", with the importer" ++ (if size(importers) == 1 then " " else "s ") ++ join(", ", importers)
+
+// the files of the project outside the package of the file at path that import its package and name one of words as a
+// whole word, by their normal paths, with the texts of files, those that the script has edited, and for a package that
+// the walk of the project skips, such as one below out/, the files around it
+procedure importer_files(
+  in  path: Str,
+      words: List[Str],
+      files: Map[Str, Str],
+  out found: List[Str]
+) raises OsError :=
+  found := List()
+  if words != List() then
+    var here: Str, root: Str, walked: List[Str]
+    os_cwd(out here)
+    project_root(in here, out root)
+    source_files(in root, out walked)
+    let project := List(for f in walked yield normal_file(here, here, f))
+    // a package that the walk of the project skips, such as one below out/, has its importers around it
+    var around: List[Str] := List()
+    if not contains(path, project) then
+      source_files(in os_dirname(os_dirname(path)), out around)
+    end
+    let import_line := "import " ++ path_text(dir_path(os_dirname(normal_file(here, root, path))))
+    for file in distinct(project ++ List(for f in around yield normal_file(here, here, f))) if os_dirname(file) != os_dirname(path) do
+      var text: Str
+      current_text(in file, files, out text)
+      if has_line(text, import_line) and exists(words, lambda word => has_word(text, word)) then
+        found := found ++ List(file)
+      end
+    end
+  end
+
+function has_line(text: Str, line: Str): Bool :=
+  example has_line("import a.b\nimport a.bc\n", "import a.bc")
+  example not has_line("import a.bc\n", "import a.b")
+  exists(occurrences(text, line), lambda i => (i == 0 or at(i - 1, text) == '\n') and (i + size(line) == size(text) or at(i + size(line), text) == '\n'))
+
+// the names that the export and builtin sections of the formatted texts before and after declare differently: those of
+// the declarations whose lines differ, with the constructors and fields of a datatype, which importers name
+function changed_exports(before: Str, after: Str): List[Str] :=
+  example changed_exports("export\n\nfunction f(x: Int): Int\n\nfunction g(): Int\n", "export\n\nfunction f(y: Int): Int\n\nfunction g(): Int\n") == List("f")
+  example changed_exports("export\n\ndata T :=\n  case C(name: Int)\n", "export\n\ndata T :=\n  case C(name: Int)\n  case D\n") == List("T", "C", "name", "D")
+  example changed_exports("function f(): Int :=\n  1\n", "function f(): Int :=\n  2\n") == List()
+  let old := exported_blocks(before), new := exported_blocks(after) in
+  distinct(List(for k in distinct(List(for k => _ in old yield k) ++ List(for k => _ in new yield k)) if get(k, old) != get(k, new) for word in List(
+    k; declared_parts(value_or(get(k, old), List()) ++ value_or(get(k, new), List()))) yield word))
+
+// the declarations of the export and builtin sections of a formatted text, the lines of each name without comments and
+// blank lines, where a declaration starts with a keyword at the first column and goes on in the lines below it that do
+// not
+function exported_blocks(text: Str): Map[Str, List[Str]] :=
+  example exported_blocks("export\n\n// the f\nfunction f(\n  x: Int\n): Int\n\nimplementation\n\nfunction g(): Int :=\n  1\n") == Map("f" => List("function f(", "  x: Int", "): Int"))
+  blocks_of(List(for line in split(text, '\n') if not is_blank(line) and not starts_with(trim(line), "//")), false, "", Map())
+
+function blocks_of(lines: List[Str], exporting: Bool, current: Str, found: Map[Str, List[Str]]): Map[Str, List[Str]] :=
+  match lines
+    case List(line; rest) =>
+      if line == "export" or line == "builtin" then
+        blocks_of(rest, true, "", found)
+      else if line == "implementation" then
+        found
+      else if not exporting then
+        blocks_of(rest, exporting, current, found)
+      else if is_letter(at(0, line)) then
+        let name := declared_name(line) in
+        blocks_of(rest, exporting, name, put(name, value_or(get(name, found), List()) ++ List(line), found))
+      else
+        blocks_of(rest, exporting, current, put(current, value_or(get(current, found), List()) ++ List(line), found))
+
+    case List() =>
+      found
+  end
+
+// the name that the first line of a declaration declares, the operator of a notation
+function declared_name(line: Str): Str :=
+  example declared_name("function f[A](x: A): A") == "f"
+  example declared_name("data T :=") == "T"
+  example declared_name("infix left 7 --") == "--"
+  let words := split(line, ' ') in
+  if contains(value_or(get_at(0, words), ""), List("infix", "prefix", "postfix")) then
+    value_or(last(words), "")
+  else
+    head_name(value_or(get_at(1, words), ""))
+
+// the constructors and fields that the lines of a datatype declare, in its case lines
+function declared_parts(lines: List[Str]): List[Str] :=
+  example declared_parts(List("data T :=", "  case C(name: Int, at: Map[Int, Str])", "  case D")) == List("C", "name", "at", "D")
+  List(for line in lines if starts_with(trim(line), "case ") for word in constr_words(slice(trim(line), size("case "), size(trim(line)))) yield word)
+
+function constr_words(text: Str): List[Str] :=
+  List(
+    head_name(text); List(for w in split(text, ' ') if ends_with(w, ":") yield head_name(after_paren(w))))
+
+// word after its last (, if any
+function after_paren(word: Str): Str :=
+  example after_paren("C(name:") == "name:"
+  match last(occurrences(word, "("))
+    case Some(i) =>
+      slice(word, i + 1, size(word))
+    case None =>
+      word
+  end
+
+// the start of word up to the first (, [, or :
+function head_name(word: Str): Str :=
+  example head_name("f[A](x:") == "f"
+  str(take_while(chars(word), lambda c => not contains(c, List('(', '[', ':'))))
+
+// the tests that the errors of scripts left unrun, of files by their normal paths, kept in dir with the paths from root,
+// as the handles are
+procedure load_unrun(
+  in  dir: Str,
+      here: Str,
+      root: Str,
+  out unrun: Map[Str, Str]
+) :=
+  var text := ""
+  try
+    os_read_utf8(in os_join(dir, "unrun.txt"), out text)
+  catch
+    case OsError(_) =>
+      text := ""
+  end
+  unrun := Map(for line in lines(text) for (path, what) in unrun_entry(line) yield normal_file(root, here, path) => what)
+
+function unrun_entry(line: Str): Option[(Str, Str)] :=
+  match split(line, '\t')
+    case List(path, what) =>
+      Some((path, what))
+    case _ =>
+      None
+  end
+
+procedure save_unrun(
+  in  dir: Str,
+      here: Str,
+      root: Str,
+      unrun: Map[Str, Str]
+) raises OsError :=
+  os_write_utf8(in os_join(dir, "unrun.txt"), join("", List(for path => what in unrun yield normal_file(here, root, path) ++ "\t" ++ what ++ "\n")))
 
 // the diagnostics of found without those after the first of the same file, position, and code, as the checks of two
 // members of one package both report an error of one of them, the other with its module

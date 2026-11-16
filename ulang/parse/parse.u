@@ -127,6 +127,9 @@ procedure project_root(in dir: Str, out root: Str) raises OsError
 // the absolute path without . and .. and repeated /
 function normal_path(path: Str): Str
 
+// the errors of an import that failed, which the parser keeps as an error node at its line
+function import_failures(i: At[Path]): List[Diagnostic]
+
 implementation
 
 function parse_diagnostic(e: ParseError): Diagnostic :=
@@ -178,7 +181,7 @@ procedure require_parsed(in source: Source) raises ParseError :=
   end
 
 function without_unparsed(source: Source): Source :=
-  source with mods := List(for m in source.mods yield m with exported := whole(m.exported), builtins := whole(m.builtins), implemented := whole(m.implemented))
+  source with mods := List(for m in source.mods yield m with imports := List(for i in m.imports if import_failures(i) == List()), exported := whole(m.exported), builtins := whole(m.builtins), implemented := whole(m.implemented))
 
 function unparsed_names(source: Source): Set[Id] :=
   Set(for m in source.mods for d in m.exported ++ m.builtins ++ m.implemented for x in declared_by(d) yield x)
@@ -260,8 +263,16 @@ function whole(docs: List[At[Cmd]]): List[At[Cmd]] :=
 
 // the errors of the parts of the commands of m that do not parse, by position
 function mod_errors(m: Mod): List[Diagnostic] :=
-  let errors := List(for d in m.exported ++ m.builtins ++ m.implemented for e in cmd_errors(d) yield e) in
+  let errors := List(for i in m.imports for e in import_failures(i) yield e) ++ List(for d in m.exported ++ m.builtins ++ m.implemented for e in cmd_errors(d) yield e) in
   List(for (_, e) in sort(List(for e in errors yield (e.pos, e))) yield e)
+
+function import_failures(i: At[Path]): List[Diagnostic] :=
+  match i
+    case AErr(_, _, _, errors) =>
+      errors
+    case _ =>
+      List()
+  end
 
 function type_ops(): Ops[List[Type]] :=
   Ops("type", starts_type, parse_type_atom, type_apply)
@@ -3536,9 +3547,17 @@ procedure parse_section_or_command(
       var imported: Path
       advance(ref toks)
       parse_import(out imported, ref toks)
-      import_package(in imported, root, dir, loading, pos, ref source)
-      import_notation(in package_members(imported, source.packages), source.mods, pos, ref notation)
-      imports := imports ++ List(AOk(pos, span_from(pos, toks), imported))
+      // an import that fails stays at its line with its error, so that the module keeps it where an edit or format
+      // prints it, and the failure is no failure of the parse of the other commands (import_failures)
+      try
+        import_package(in imported, root, dir, loading, pos, ref source)
+        import_notation(in package_members(imported, source.packages), source.mods, pos, ref notation)
+        imports := imports ++ List(AOk(pos, span_from(pos, toks), imported))
+      catch
+        case ParseError(message, at) =>
+          imports := imports ++ List(
+            AErr(pos, span_from(pos, toks), imported, List(parse_diagnostic(ParseError(message, at)))))
+      end
 
     case _ =>
       parse_command(in notation, out more, ref toks)

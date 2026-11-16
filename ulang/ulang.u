@@ -900,7 +900,7 @@ procedure refactor_tests(
   out tests: Tests
 ) :=
   var units: List[List[Target]], source: Source, q: Prog, errors: List[Diagnostic], outcomes: List[Outcome], cache := no_cache()
-  var lines: Buffer[Str] := empty(), passed := 0, failed := 0, skipped := 0
+  var lines: Buffer[Str] := empty(), passed := 0, failed := 0, skipped := 0, unrun: Map[Str, Str] := Map()
   try
     var found: List[Target], compiled: List[Str]
     compiled_only_files(in paths, out compiled)
@@ -922,7 +922,7 @@ procedure refactor_tests(
       let m := sibling(source.main, file)
       let declared := List(for d in find(source.mods, lambda d => d.name == m) for name in declared_tests(d) yield name), examples := sum(List(for d in find(source.mods, lambda d => d.name == m) yield example_count(d)))
       if not is_runnable(q, errors) then
-        skipped := skipped + size(declared) + examples
+        skipped := skipped + size(declared) + examples, unrun := put(file, "all its tests, since its unit does not load far enough to run", unrun)
         lines := lines ++ List(
           "no test of " ++ file ++ " ran, since its unit does not load far enough to run")
       else
@@ -952,6 +952,7 @@ procedure refactor_tests(
         let counts := show(size(outcomes) - size(failures) - size(misplaced)) ++ " passed, " ++ show(size(failures)) ++ " failed" ++ (if left == 0 then "" else ", " ++ show(left) ++ " not run")
         lines := lines ++ List("tested " ++ file ++ ": " ++ counts) ++ List(for f in failures yield "  " ++ f)
         if not_run != List() then
+          unrun := put(file, join(", ", not_run), unrun)
           lines := lines ++ List(
             "  not run, since the errors leave them out of the program: " ++ join(", ", not_run))
         end
@@ -962,7 +963,7 @@ procedure refactor_tests(
       end
     end
   end
-  tests := Tests(List(for line in lines), passed, failed, skipped)
+  tests := Tests(List(for line in lines), passed, failed, skipped, unrun)
 
 // the paths of paths below the directories that their projects run only compiled (compiled_only_of), whose tests a
 // refactor script does not run, since the interpreter takes far too long for them, as check --test does not when it walks
@@ -989,7 +990,7 @@ test misplaced_examples() :=
   refactor_tests(in List(path), List(), out tests)
   assert tests == Tests(List(
     "tested " ++ path ++ ": 0 passed, 0 failed, 1 not run",
-    "  not run, since they are examples on definitions, which belong to the signatures in export: f.example.1"), 0, 0, 1)
+    "  not run, since they are examples on definitions, which belong to the signatures in export: f.example.1"), 0, 0, 1, Map())
 
 // whether the checker generated the tests of the package of members in q, the tests of examples and of lemmas, which it
 // generates only for a package whose check finds no errors but those of raises and unused imports (check_package of
