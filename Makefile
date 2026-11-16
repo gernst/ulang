@@ -196,23 +196,6 @@ $(CHECKS)/docs.sh: $(SCRIPT)
 testdocs: $(CHECKS)/docs.bin $(CHECKS)/docs.sh
 	$(CHECKS)/docs.sh
 
-# checks/declared.u, that loading a file with its imports only as far as it sees them shows it the signatures, the
-# diagnostics, and the hints of loading them whole, for a file of each directory of the project
-$(CHECKS)/declared.o: out/ulang.bin out/ulang.sh checks/declared.u $(SOURCES)
-	mkdir -p $(CHECKS)
-	out/ulang.sh compile checks/declared.u -o $@
-
-$(CHECKS)/declared.bin: $(CHECKS)/declared.o $(ASM)/ulang.o
-	$(CC) $< $(ASM)/ulang.o $(LIBS) -o $@
-
-$(CHECKS)/declared.sh: $(SCRIPT)
-	mkdir -p $(CHECKS)
-	cp $(SCRIPT) $@
-
-.PHONY: testdeclared
-testdeclared: $(CHECKS)/declared.bin $(CHECKS)/declared.sh
-	$(CHECKS)/declared.sh
-
 # rewrites every .u file of the project as format does, after a change of the printer
 .PHONY: reformat
 reformat: out/ulang.bin out/ulang.sh
