@@ -1150,7 +1150,8 @@ procedure put_at(
   var place: Place, label: Str, result: Str, source: Source, handles := edits.handles, marks: Map[Int, Int] := Map()
   resolved_address(in address, edits, out place, label)
   // a head is only replaced, since what goes next to it or into it is no part of a head
-  for node in find(kinded_nodes(place.lines, place.cmd), lambda node => node.span == place.span) if node.kind == KHead and place_word != "replace" do
+  let is_head := exists(find(kinded_nodes(place.lines, place.cmd), lambda node => node.span == place.span), lambda node => node.kind == KHead)
+  if is_head and place_word != "replace" then
     raise Refused("@" ++ (if place_word == "drop" then "drop " else "put " ++ place_word ++ " ") ++ word ++ " takes no head, which only @put " ++ word ++ " replaces")
   end
   let lines := place.lines, start := place.span.start.line, stop := place.span.stop.line, indent := place.span.start.col - 1
@@ -1180,6 +1181,16 @@ procedure put_at(
   closed_heads(in place_word, place, edits.files, out closing)
   let text := join("\n", spliced(List(for line in lines), List((splice, written)) ++ closing))
   formatted(in place.path, text, edits.files, List((Range(region.first, region.first + size(new) - 1), 1)), out result, source)
+  // a head of another name or arity moves its declaration to the key of the head, and the signature follows a head
+  let key := if is_head then
+    value_or(map_option(find(keyed(placed_of(main_mod(source))), lambda (_, cmd, c) => not is_signature(c) and cmd.span.start.line <= start and start <= cmd.span.stop.line), lambda (k, _, _) => k), place.key)
+  else
+    place.key
+  var signed: List[Str] := List()
+  if is_head then
+    with_signatures(in place.path, List((place.key, key)), List(), edits.files, ref result, signed)
+    parsed(in place.path, result, edits.files, no_fragment(), out source)
+  end
   let d := main_mod(source), result_lines := Array(for line in split(result, '\n'))
   let verb := match place_word
     case "replace" =>
@@ -1194,6 +1205,9 @@ procedure put_at(
   if size(placed_of(d)) != place.decls then
     raise Refused(verb ++ " " ++ word ++ " writes declarations beyond its node, which @put F writes")
   end
+  if key != place.key and size(List(for (k, _, c) in keyed(placed_of(d)) if k == key and not is_signature(c) yield k)) > 1 then
+    raise Refused(verb ++ " " ++ word ++ " gives " ++ label ++ " the head of " ++ key_text(key) ++ ", which " ++ place.path ++ " declares already")
+  end
   edits := edits with files := Map(place.path => result; edits.files)
   let done := match place_word
     case "replace" =>
@@ -1205,9 +1219,11 @@ procedure put_at(
     case _ =>
       "put " ++ place_word ++ " "
   end
-  note(in done ++ label, ref edits)
-  for (_, cmd) in decl_of(d, place.key) do
+  note(in join(", ", List(
+    done ++ label ++ (if key == place.key then "" else ", now " ++ key_text(key)); signed)), ref edits)
+  for (_, cmd) in decl_of(d, key) do
     rebase(in place.path, place.key, lines, place.cmd, result_lines, cmd, region, place_word == "replace", ref handles)
+    handles := rekeyed(handles, place.path, place.key, key)
     let olds := kinded_nodes(lines, place.cmd), news := kinded_nodes(result_lines, cmd)
     let alignment := aligned(hashed(lines, List(for node in olds yield node.span)), hashed(result_lines, List(for node in news yield node.span)), region)
     let placed := match alignment
@@ -1224,7 +1240,7 @@ procedure put_at(
     match (placed, last(placed))
       case (List(first; _), Some(final)) =>
         let shown := Range(first.span.start.line, final.span.stop.line)
-        mark(in place.path, result_lines, place.key, cmd, shown, ref handles, marks)
+        mark(in place.path, result_lines, key, cmd, shown, ref handles, marks)
         note(in join("\n", rendered(result_lines, with_comments(result_lines, shown), marks)), ref edits)
 
       case _ =>
@@ -1232,6 +1248,14 @@ procedure put_at(
     end
   end
   edits := edits with handles := handles
+
+// handles with those of the declaration key of path moved to the declaration new_key, as a head of another arity moves
+// them
+function rekeyed(handles: Handles, path: Str, key: Key, new_key: Key): Handles :=
+  if key == new_key then
+    handles
+  else
+    handles with entries := List(for h in handles.entries yield if h.path == path and h.key == key then h with key := new_key else h), changed := true
 
 // the head of the signature whose last line of spec a drop of place removes, without its :=, which only a signature with
 // a spec has

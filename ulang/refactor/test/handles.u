@@ -256,6 +256,24 @@ test heads() :=
   run_script(in "@put after #1\ny := 1\n", false, dir, no_diagnostics, out reply, status, _)
   assert status == 1 and reply == List("rejected", "@put after #1 takes no head, which only @put #1 replaces")
 
+// a head of another arity moves its declaration to the key of the head, with its handles, which the reply names, and
+// the signature in export follows the head
+test heads_of_arity() :=
+  var reply: List[Str], status: Int, text: Str
+  let dir := "out/test/refactor/arity", path := "out/test/refactor/arity/p.u"
+  os_write_utf8(in os_join(dir, "handles.txt"), "")
+  os_write_utf8(in path, "export\n\nprocedure p(in a: Int, b: Int, out c: Int)\n\nimplementation\n\nprocedure p(in a: Int, b: Int, out c: Int) :=\n  c := a + b\n")
+  run_script(in "@show " ++ path ++ ":p\n@put #1\nprocedure p(in a: Int, out c: Int)\n@put #2\nc := a\n", false, dir, no_diagnostics, out reply, status, _)
+  os_read_utf8(in path, out text)
+  assert status == 0
+  assert text == "export\n\nprocedure p(in a: Int, out c: Int)\n\nimplementation\n\nprocedure p(in a: Int, out c: Int) :=\n  c := a\n"
+  assert take(5, drop(2, reply)) == List(
+    "replaced " ++ path ++ ":p/3 #1, now p/2, with the signature of p/2",
+    "#1    procedure p(in a: Int, out c: Int) :=",
+    "replaced " ++ path ++ ":p/2 #2",
+    "#2      c := a",
+    "script 1 of the journal")
+
 // the lines of a spec are nodes, an example of a signature in export a node of its definition, which @example adds to,
 // on the signature if it has one, and a drop of the last line of the spec of a signature drops its :=
 test spec_lines() :=
