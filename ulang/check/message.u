@@ -222,7 +222,10 @@ function plain_message(e: TypeError): Str :=
           "mismatch in " ++ what
       end
 
-    case InfiniteType(meta, typ) =>
+    case InfiniteType(meta, typ, Some(x)) =>
+      "the type of " ++ x.base ++ " would contain itself, " ++ join(" = ", format_types_apart(List(meta, typ)))
+
+    case InfiniteType(meta, typ, None) =>
       "infinite type " ++ join(" = ", format_types_apart(List(meta, typ)))
 
     case UnknownVariable(name) =>
@@ -458,7 +461,8 @@ test messages() :=
   assert located_message(Located(None, Pos(1, 1), UnknownFieldOwner(".x"))) == "the type of the value of .x is not known there, which an annotation can give; ascribe the type of the value, (e: T).x at 1.1"
   assert located_message(Located(None, Pos(1, 1), UnknownFieldOwner(".x:="))) == "the type of the value of .x is not known there, which an annotation can give; ascribe the type of the value, (e: T) with x := a at 1.1"
   assert located_message(Located(None, Pos(1, 1), UnknownFieldType(".x:=", TInt()))) == "the type Int of the value of .x is not known at 1.1"
-  assert located_message(Located(None, Pos(1, 1), InfiniteType(TMeta(1), TList(TMeta(1))))) == "infinite type ?1 = List[?1] at 1.1"
+  assert located_message(Located(None, Pos(1, 1), InfiniteType(TMeta(1), TList(TMeta(1)), None))) == "infinite type ?1 = List[?1] at 1.1"
+  assert located_message(Located(None, Pos(1, 1), InfiniteType(TMeta(1), TFun(List(TMeta(1)), TMeta(2)), Some(Name(List(), "x"))))) == "the type of x would contain itself, ?1 = ?1 -> ?2 at 1.1"
   assert located_message(Located(None, Pos(1, 1), NoOverload(Name(List(), "size"), TFun(List(TInt()), TInt()), List()))) == "no declaration of size has the type Int -> Int at 1.1"
   assert located_message(Located(None, Pos(1, 1), NoOverload(Name(List(), "size"), TFun(List(TInt()), TInt()), List(
     (Name(List("prelude", "list"), "size"), Scheme(List(TParam("A")), TFun(List(TList(TParam("A"))), TInt()))))))) == "no declaration of size has the type Int -> Int, among prelude.list.size: List[A] -> Int at 1.1"

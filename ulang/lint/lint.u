@@ -13,8 +13,8 @@ data Lint :=
   // an if of true and false, or of false and true, which is its condition or not of it, a comparison of a condition
   // with true or false, which is the condition or not of it, or an if of equal branches, which is that branch
   case BoolIte
-  // a match on an option that spells out value_or, map_option, exists, or forall, unless its case of Some calls the
-  // function that it defines, whose recursion would move into a lambda
+  // a match on an option that spells out value_or, or map_option, exists, or forall of a function that it applies to
+  // the value, unless that function is the one that it defines; a body that would need a lambda keeps its match
   case OptionMatch
   // a list that a generator only iterates, of the elements of a container, which is that container
   case CopiedContainer
@@ -328,27 +328,28 @@ function bool_comparison(pos: Pos, span: Span, cond: At[Expr], value: Bool): War
   else
     rewritten(BoolIte, pos, span, "a comparison with false is not of the condition", expr_app("not", List(cond)))
 
-// a match that spells out an option function of the library, but in the definition of that function, fun, and where its
-// case of Some calls fun, whose recursion would move into a lambda, while a call of fun in the argument stays where it is
+// a match that spells out an option function of the library, but in the definition of that function, fun, and where
+// the function that it applies is fun, whose recursion would move into a function value, while a call of fun in the
+// argument stays where it is
 function option_match(fun: Id, pos: Pos, span: Span, arg: At[Expr], cases: List[Branch[At[Expr]]]): List[Warning] :=
   match (option_default(cases), option_fold(cases))
     case (Some(d), _) if fun != "value_or" =>
       List(
         rewritten(OptionMatch, pos, span, "a match on an option that is value_or", expr_app("value_or", List(arg, d))))
 
-    case (_, Some((f, x, body))) if fun != f and not contains(fun, expr_names(body)) =>
+    case (_, Some((f, applied))) if fun != f and not contains(fun, expr_names(applied)) =>
       List(
-        rewritten(OptionMatch, pos, span, "a match on an option that is " ++ f, expr_app(f, List(arg, nowhere(ELam(List(x), body))))))
+        rewritten(OptionMatch, pos, span, "a match on an option that is " ++ f, expr_app(f, List(arg, applied))))
 
     case _ =>
       List()
   end
 
-// the function of the library that cases spell out over an option, with the variable of Some and the body of its lambda:
-// Some(x) => Some(e) and None => None of map_option, Some(x) => p and None => false of exists, and Some(x) => p and None
-// => true of forall, in either order and without guards, where e and p go under a lambda, which evaluates them where the
-// match does
-function option_fold(cases: List[Branch[At[Expr]]]): Option[(Id, At[Pat], At[Expr])] :=
+// the function of the library that cases spell out over an option, with the function that they apply to the variable
+// of Some: Some(x) => Some(f(x)) and None => None of map_option, Some(x) => p(x) and None => false of exists, and
+// Some(x) => p(x) and None => true of forall, in either order and without guards; a body that is no such call keeps its
+// match, which says as much as a lambda would, and shows both cases
+function option_fold(cases: List[Branch[At[Expr]]]): Option[(Id, At[Expr])] :=
   match cases
     case List(Branch(some, None, body), Branch(none, None, default)) if is_none(none) =>
       some_fold(some, body, default)
@@ -360,16 +361,16 @@ function option_fold(cases: List[Branch[At[Expr]]]): Option[(Id, At[Pat], At[Exp
       None
   end
 
-function some_fold(some: At[Pat], body: At[Expr], default: At[Expr]): Option[(Id, At[Pat], At[Expr])] :=
+function some_fold(some: At[Pat], body: At[Expr], default: At[Expr]): Option[(Id, At[Expr])] :=
   match (some_var(some), some_value(body), literal_bool(default))
     case (Some(x), Some(value), _) if is_none_expr(default) =>
-      Some(("map_option", x, value))
+      named_fold("map_option", applied_fun(x, value))
 
     case (Some(x), _, Some(false)) =>
-      Some(("exists", x, body))
+      named_fold("exists", applied_fun(x, body))
 
     case (Some(x), _, Some(true)) =>
-      Some(("forall", x, body))
+      named_fold("forall", applied_fun(x, body))
 
     case _ =>
       None
@@ -2167,4 +2168,21 @@ function measured_decls(place: Place, decls: List[(At[Pat], Option[At[Expr]])]):
       summed(List(
         measured_all(place, List(for e in init)),
         measured_decls(with_pats(place, List(pat)), more)))
+  end
+
+function named_fold(f: Id, applied: Option[At[Expr]]): Option[(Id, At[Expr])] :=
+  match applied
+    case Some(g) =>
+      Some((f, g))
+    case None =>
+      None
+  end
+
+// the function g of a call g(x) of the variable x alone, where g is a name, not a constructor, so that it is a value
+function applied_fun(x: At[Pat], expr: At[Expr]): Option[At[Expr]] :=
+  match (pat_vars(x), strip_expr(expr))
+    case (List((_, v)), AOk(_, _, ECall(_, _, name, _, List(AOk(_, _, EVar(w)))))) if w.name == Name(List(), v) and not is_capitalized(name.base) =>
+      Some(nowhere(EName(name, THole)))
+    case _ =>
+      None
   end

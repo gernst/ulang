@@ -118,7 +118,7 @@ test unassigned_after_while() :=
   end
 
 test unassigned_lambda_output() :=
-  assert raises Located(None, Pos(2, 12), OutputUnassigned(Name(List(), "y"), Name(List(), "lambda"))) do
+  assert raises Located(None, Pos(3, 5), Hinted(OutputUnassigned(Name(List(), "y"), Name(List(), "lambda")), "the if without an else leaves y unassigned")) do
     check_text(in "ulang/test/errors/unassigned-lambda-output.u", List(
       "test unassigned_lambda_output() :=",
       "  var p := lambda in x: Int, out y: Int =>",
@@ -180,3 +180,37 @@ test uninitialized() :=
   assert raises Located(None, Pos(2, 25), Unassigned(Name(List(), "x"))) do
     check_text(in "ulang/test/errors/uninitialized.u", List("test uninitialized() :=", "  var x: Int, y: Int := x"))
   end
+
+// an out that one branch leaves unassigned while another assigns it is reported at that branch, the if without an else,
+// the else, or the case, and one that no path assigns at the declaration
+test output_unassigned_branches() :=
+  var q: Prog
+  checked_text(in "ulang/test/errors/output-unassigned-branches.u", List(
+    "procedure p(in n: Int, out y: Int) :=",
+    "  if n > 0 then",
+    "    y := 1",
+    "  end",
+    "",
+    "procedure q(in n: Int, out y: Int) :=",
+    "  if n > 0 then",
+    "    y := 1",
+    "  else",
+    "    skip",
+    "  end",
+    "",
+    "procedure r(in n: Int, out y: Int) :=",
+    "  match n",
+    "    case 0 =>",
+    "      y := 1",
+    "",
+    "    case _ =>",
+    "      skip",
+    "  end",
+    "",
+    "procedure t(out y: Int) :=",
+    "  skip"), out q, _)
+  assert List(for d in diagnostics(q) yield (d.code, d.pos, d.message)) == List(
+    ("OutputUnassigned", Pos(2, 3), "output y of p is not assigned on every path; the if without an else leaves y unassigned"),
+    ("OutputUnassigned", Pos(10, 5), "output y of q is not assigned on every path; the else leaves y unassigned"),
+    ("OutputUnassigned", Pos(18, 5), "output y of r is not assigned on every path; the case leaves y unassigned"),
+    ("OutputUnassigned", Pos(22, 1), "output y of t is not assigned on every path"))

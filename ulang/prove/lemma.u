@@ -10,9 +10,10 @@ export
 data Proved :=
   case Proved(name: Name, gaps: List[Gap])
 
-// the lemmas with their goals after the proofs, and the terminations of the recursive functions that they reach
+// the lemmas with their goals after the proofs, the terminations of the recursive functions that they reach, and the
+// lemmas proven locally that are not established, each with a lemma that it rests on that is not established either
 data Proofs :=
-  case Proofs(lemmas: List[Proved], terminations: List[Termination])
+  case Proofs(lemmas: List[Proved], terminations: List[Termination], assumed: Map[Name, Name])
 
 // the targets, each on its own, by its proof, else by simplification and then induction on the first of its formals by
 // which all cases close, where the lemmas before it are facts, but the falsified ones and the claims, and the recursive
@@ -59,10 +60,11 @@ procedure prove_program(in q: Prog, m: Path) raises OpenLemma, OpenTermination
 
 // the lemmas of a module for the prover: all whose statements check, in the order of the source, of which a proof cites
 // any but the claims, also those after it and those that are open or falsified, since a proof looks only at the
-// statements that it cites; the names of the ones to prove; those that a test falsified, which are no facts; and the
-// names of the lemmas whose statements have errors, which no proof can cite
+// statements that it cites; the names of the ones to prove, to which prove_lemmas adds those that they rest on; those
+// that a test falsified, which are no facts; those whose proofs have errors, which are not proven; and the names of the
+// lemmas whose statements have errors, which no proof can cite
 data Lemmas :=
-  case Lemmas(all: List[Lemma], targets: Set[Name], falsified: Set[Name], erroneous: Set[Name])
+  case Lemmas(all: List[Lemma], targets: Set[Name], falsified: Set[Name], broken: Set[Name], erroneous: Set[Name])
 
 // the program that the prover takes of a checked one, where a lemma whose errors are only in its proof has lost the
 // proof, broken, which is not proven but citable and a fact, and a lemma whose statement has errors is left out,
@@ -75,7 +77,7 @@ function provable(q: Prog): Provable
 implementation
 
 procedure prove_program(in q: Prog, m: Path) raises OpenLemma, OpenTermination :=
-  let p := provable(q), t := translate(p.prog, m), proofs := prove_lemmas(t.decls, t.contracts, Lemmas(t.lemmas, Set(for l in t.lemmas if not contains(l.name, p.broken) yield l.name), empty(), p.erroneous))
+  let p := provable(q), t := translate(p.prog, m), proofs := prove_lemmas(t.decls, t.contracts, Lemmas(t.lemmas, Set(for l in t.lemmas if not contains(l.name, p.broken) yield l.name), empty(), p.broken, p.erroneous))
   for tm in proofs.terminations do
     match tm.open
       case List(site; _) =>
@@ -92,15 +94,23 @@ procedure prove_program(in q: Prog, m: Path) raises OpenLemma, OpenTermination :
         skip
     end
   end
+  // a lemma proven locally that rests on one that is not established, which may be one of those open
+  for l in t.lemmas do
+    for basis in get(l.name, proofs.assumed) do
+      raise OpenLemma(l.name.base, assumption_text(basis))
+    end
+  end
 
 function prove_lemmas(decls: Decls, contracts: List[Lemma], lemmas: Lemmas): Proofs :=
-  let roots := Set(for l in reached_lemmas(lemmas) ++ contracts for k in defined_in(decls, lemma_symbols(l)) yield k) in
+  let closed := lemmas with targets := needed(lemmas) in
+  let roots := Set(for l in reached_lemmas(closed) ++ contracts for k in defined_in(decls, lemma_symbols(l)) yield k) in
   let ts := terminations(decls, roots) in
   let proven := Set(for t in ts if is_terminating(t) for k in t.names yield k) in
-  Proofs(proofs(decls with terminating := proven, contracts, lemmas), ts)
+  let proved := proofs(decls with terminating := proven, contracts, closed) in
+  Proofs(proved, ts, assumptions(closed, proved))
 
 function has_errors(proofs: Proofs): Bool :=
-  exists(proofs.lemmas, lambda p => not is_proven(p)) or exists(proofs.terminations, lambda t => not is_terminating(t))
+  exists(proofs.lemmas, lambda p => not is_proven(p)) or exists(proofs.terminations, lambda t => not is_terminating(t)) or size(proofs.assumed) > 0
 
 function print_open_call(site: CallSite): Str :=
   let r := site.recursion in
@@ -151,12 +161,20 @@ function gap_diagnostic(name: Name, gap: Gap): Diagnostic :=
   end in
   Diagnostic(ProofKind, gap.code, None, gap.pos, message, List(("lemma", name.base)) ++ List(for goal in gap.goal yield ("goal", goal)))
 
+// a lemma proven locally that rests on basis, which is not established, as an error of a proof at the lemma
+function assumed_diagnostic(name: Name, basis: Name): Diagnostic :=
+  Diagnostic(ProofKind, "Assumed", None, Pos(0, 0), "lemma " ++ name.base ++ ": " ++ assumption_text(basis), List(("lemma", name.base)))
+
+// why a lemma proven locally is not established
+function assumption_text(basis: Name): Str :=
+  "it rests on the lemma " ++ basis.base ++ ", which is not established"
+
 function termination_diagnostic(m: Path, site: CallSite): Diagnostic :=
   let f := first(site.caller), call_text := print_open_call(site) in
   Diagnostic(ProofKind, "OpenTermination", if f.path == m then None else name_module(f), Pos(0, 0), "the termination of " ++ f.base ++ " is not proven, no measure decreases " ++ call_text, List(("function", f.base), ("call", call_text)))
 
 function with_proofs(q: Prog, m: Path, proofs: Proofs, names: List[Str]): Prog :=
-  let gaps := Map(for Proved(name, gaps) in proofs.lemmas if names == List() or contains(name.base, names) yield name => List(for gap in gaps yield gap_diagnostic(name, gap))) in
+  let gaps := Map(for Proved(name, gaps) in proofs.lemmas if names == List() or contains(name.base, names) yield name => List(for gap in gaps yield gap_diagnostic(name, gap)) ++ List(for basis in get(name, proofs.assumed) yield assumed_diagnostic(name, basis))) in
   let open := Map(for tm in proofs.terminations for site in take(1, tm.open) yield site.caller => site) in
   q with cmds := List(for cmd in q.cmds yield with_proof_errors(m, gaps, open, cmd))
 
@@ -267,7 +285,7 @@ function proofs(decls: Decls, contracts: List[Lemma], lemmas: Lemmas): List[Prov
 // that end, so that ensures false of a loop that does not end would prove every lemma after it, nor the falsified ones,
 // since a fact is used without being named, so that a false one would close every default proof after it unseen
 function facts_before(lemmas: Lemmas, i: Int): List[Seq] :=
-  List(for l in take(i, lemmas.all) if not l.claim and not contains(l.name, lemmas.falsified) yield l.goal)
+  List(for l in take(i, lemmas.all) if is_fact(lemmas, l) yield l.goal)
 
 function lemma_gaps(decls: Decls, contracts: List[Lemma], citations: Citations, target: Lemma): List[Gap] :=
   match target.proof
@@ -276,3 +294,91 @@ function lemma_gaps(decls: Decls, contracts: List[Lemma], citations: Citations, 
     case None =>
       default_gaps(decls, citations.facts, target.goal)
   end
+
+// the lemmas that the one at i rests on: those that its proof cites, but itself, as the hypothesis of its induction, and
+// all its facts, since the default proof uses a fact without naming it; so a lemma that cites one after it rests on that
+// one, which rests on it, a cycle, until the facts that a proof uses are known (open point 20 of ideas/verification.md)
+function foundations(lemmas: Lemmas, i: Int, l: Lemma): List[Name] :=
+  List(for p in l.proof for n in cited_by(p) if n != l.name and is_lemma(lemmas, n) yield n) ++ List(for f in take(i, lemmas.all) if is_fact(lemmas, f) yield f.name)
+
+// whether a proof that calls the name cites a lemma, not the contract of a procedure, which the proof of a claim calls
+function is_lemma(lemmas: Lemmas, name: Name): Bool :=
+  contains(name, lemmas.erroneous) or exists(lemmas.all, lambda l => l.name == name)
+
+// the lemmas that the steps of the proof call, also in the cases of its split
+function cited_by(proof: ProofTerm): List[Name] :=
+  List(for step in proof.steps for n in step_citation(step) yield n) ++ List(for split in proof.split for n in split_citations(split) yield n)
+
+function step_citation(step: StepTerm): Option[Name] :=
+  match step
+    case CallTerm(name, _, _, _) =>
+      Some(name)
+
+    case DefineTerm(_, _, _)
+       | WitnessTerm(_, _)
+       | AssignTerm(_, _, _)
+       | AssertTerm(_, _)
+       | UnsupportedTerm(_, _) =>
+      None
+  end
+
+function split_citations(split: SplitTerm): List[Name] :=
+  match split
+    case InductionTerm(_, cases, _) | MatchTerm(_, cases, _) =>
+      List(for c in cases for n in cited_by(c.proof) yield n)
+
+    case IfTerm(_, left, right, _) =>
+      cited_by(left) ++ List(for r in right for n in cited_by(r) yield n)
+
+    case InvariantTerm(_, _, _, _, body, after, _) =>
+      cited_by(body) ++ cited_by(after)
+  end
+
+// a lemma that the proofs of those after it take as a fact: neither a claim, which holds only for the runs that end, so
+// that ensures false of a loop that does not end would prove every lemma after it, nor a falsified one, since a fact is
+// used without being named, so that a false one would close every default proof after it unseen
+function is_fact(lemmas: Lemmas, l: Lemma): Bool :=
+  not l.claim and not contains(l.name, lemmas.falsified)
+
+// the targets with the lemmas that they rest on, transitively, but those that are not proven, the falsified ones and
+// those whose proofs have errors
+function needed(lemmas: Lemmas): Set[Name] :=
+  let indexed := zip(range(0, size(lemmas.all)), lemmas.all) in
+  Set(for n in closure(lemmas, indexed, List(for t in lemmas.targets yield t), empty()) if not contains(n, lemmas.falsified) and not contains(n, lemmas.broken) yield n)
+
+function closure(lemmas: Lemmas, indexed: List[(Int, Lemma)], todo: List[Name], seen: Set[Name]): Set[Name] :=
+  match todo
+    case List() =>
+      seen
+
+    case List(n; rest) =>
+      if contains(n, seen) then
+        closure(lemmas, indexed, rest, seen)
+      else
+        match find(indexed, lambda (_, l) => l.name == n)
+          case Some((i, l)) =>
+            closure(lemmas, indexed, foundations(lemmas, i, l) ++ rest, insert(n, seen))
+
+          // a lemma whose statement has errors, which is not proven
+          case None =>
+            closure(lemmas, indexed, rest, seen)
+        end
+  end
+
+// the lemmas proven locally that are not established, each with the first lemma that it rests on that is not either,
+// where the established ones are the least set of lemmas proven locally whose foundations are all established, so that a
+// cycle establishes none of its lemmas
+function assumptions(lemmas: Lemmas, proved: List[Proved]): Map[Name, Name] :=
+  let local := Set(for p in proved if is_proven(p) yield p.name) in
+  let indexed := zip(range(0, size(lemmas.all)), lemmas.all) in
+  let bases := Map(for (i, l) in indexed yield l.name => foundations(lemmas, i, l)) in
+  let established := establish(local, bases, empty()) in
+  Map(for n in local if not contains(n, established) for m in find(value_or(get(n, bases), List()), lambda d => not contains(d, established)) yield n => m)
+
+// the least fixpoint, growing from established, of the lemmas proven locally whose foundations are all established
+function establish(local: Set[Name], bases: Map[Name, List[Name]], established: Set[Name]): Set[Name] :=
+  let next := Set(for n in local if forall(value_or(get(n, bases), List()), lambda d => contains(d, established)) yield n) in
+  if size(next) == size(established) then
+    established
+  else
+    establish(local, bases, next)

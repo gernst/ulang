@@ -633,6 +633,9 @@ function owned_text(n: Name): Str :=
 
 function strip_stmt(stmt: At[Stmt]): At[Stmt]
 
+// what a part holds, if it parses
+function that_of[A](x: At[A]): Option[A]
+
 implementation
 
 function escapes(): List[(Char, Char)] :=
@@ -1924,3 +1927,11 @@ function format_name(n: Name): Str :=
 
 function owned_text(n: Name): Str :=
   join(".", n.owner ++ List(n.base))
+
+function that_of[A](x: At[A]): Option[A] :=
+  match x
+    case AOk(_, _, that) | AErr(_, _, that, _) =>
+      Some(that)
+    case AUnparsed(_, _, _, _) =>
+      None
+  end

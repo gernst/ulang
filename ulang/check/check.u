@@ -18,7 +18,8 @@ data TypeError :=
   case CannotUnify(left: Type, right: Type)
   // the type found of a part, which what names, where the type expected is another
   case Mismatch(expected_type: Type, found_type: Type, what: Str)
-  case InfiniteType(meta: Type, typ: Type)
+  // a type that would contain itself, of the local variable that has it if the part where it was found sees one
+  case InfiniteType(meta: Type, typ: Type, variable: Option[Name])
   case UnknownVariable(name: Name)
   case NoOverload(name: Name, typ: Type, candidates: List[(Name, Scheme)])
   case WrongArity(name: Name, arity: Int)
@@ -211,7 +212,9 @@ type Env :=
   List[(Name, Local)]
 
 data Local :=
-  case Local(typ: Type, assigned: Bool)
+  // where bound_lambda tells a local bound by let to a lambda, whose type is that of its first use, since a let
+  // does not generalize
+  case Local(typ: Type, assigned: Bool, bound_lambda: Bool)
 
 // a use of an overloaded name that more than one candidate fits, by the placeholder id that stands for it
 data Pending :=
@@ -635,7 +638,11 @@ function has_arity(scs: List[Scheme], k: Int): Bool :=
   exists(scs, lambda sc => arity(sc.typ) == k)
 
 function bind(xs: List[Var]): Env :=
-  List(for x in xs yield (x.name, Local(x.typ, true)))
+  List(for x in xs yield (x.name, Local(x.typ, true, false)))
+
+// the variables xs bound to value, which bound_lambda marks if it is a lambda
+function bind_value(xs: List[Var], value: At[Expr]): Env :=
+  List(for x in xs yield (x.name, Local(x.typ, true, is_lambda(value))))
 
 // no local of xs hides one of env, except those of the translations, whose names users cannot write, such as (acc) and
 // (item), which nest
@@ -706,7 +713,7 @@ function access_chain(expr: At[Expr]): Option[(Id, List[(Pos, Span, Id)])] :=
   end
 
 function unassigned(xs: List[Var]): Env :=
-  List(for x in xs yield (x.name, Local(x.typ, false)))
+  List(for x in xs yield (x.name, Local(x.typ, false, false)))
 
 // env after assignments to xs, which are the innermost variables of their names
 function assigned(env: Env, xs: List[Name]): Env :=
@@ -741,7 +748,7 @@ function unreachable(env: Env): Env :=
 
 procedure readable(in env: Env, n: Name, ref s: State) :=
   match get(n, env)
-    case Some(Local(_, false)) =>
+    case Some(Local(_, false, _)) =>
       report(in Unassigned(n), ref s)
     case _ =>
       skip
@@ -752,25 +759,162 @@ procedure readables(in env: Env, ns: List[Name], ref s: State) :=
     readable(in env, n, ref s)
   end
 
-// the outs os of procedure p must be assigned at the end of its body
-procedure outputs(in p: Name, os: List[Var], env: Env, ref s: State) :=
+// the outs os of procedure p must be assigned at the end of its body, the checked statement body, if there is
+// one, where an out that one branch of it leaves unassigned is reported at that branch
+procedure outputs(
+  in  p: Name,
+      os: List[Var],
+      env: Env,
+      body: Option[At[Stmt]],
+  ref s: State
+) :=
   match os
     case List() =>
       skip
 
     case List(o; more) =>
-      match get(o.name, env)
-        case Some(Local(_, false)) if contains(o.name, s.loop_assigned) =>
+      match (get(o.name, env), match body
+        case Some(stmt) =>
+          gap_of(stmt, o.name)
+        case None =>
+          None
+      end)
+        case (Some(Local(_, false, _)), _) if contains(o.name, s.loop_assigned) =>
           report(in Hinted(OutputUnassigned(o.name, p), "the checker assumes that a while may not run its body, so assign " ++ o.name.base ++ " also before it"), ref s)
 
-        case Some(Local(_, false)) =>
+        case (Some(Local(_, false, _)), Some((pos, what))) =>
+          report(in at_use(pos, Hinted(OutputUnassigned(o.name, p), what ++ " leaves " ++ o.name.base ++ " unassigned")), ref s)
+
+        case (Some(Local(_, false, _)), None) =>
           report(in OutputUnassigned(o.name, p), ref s)
 
         case _ =>
           skip
       end
-      outputs(in p, more, env, ref s)
+      outputs(in p, more, env, body, ref s)
   end
+
+// the branch of stmt, an if, a case, or a handler, at the end of which x is not assigned, while another branch
+// assigns it, with what names it, where stmt does not assign x on every path, and None where no branch is to
+// blame, as for a body that never assigns x
+function gap_of(stmt: At[Stmt], x: Name): Option[(Pos, Str)] :=
+  match stmt
+    case AOk(pos, _, node) | AErr(pos, _, node, _) =>
+      node_gap(pos, node, x)
+    case AUnparsed(_, _, _, _) =>
+      None
+  end
+
+function node_gap(pos: Pos, stmt: Stmt, x: Name): Option[(Pos, Str)] :=
+  match stmt
+    case SBlock(_, stmts) =>
+      match last(stmts)
+        case Some(l) =>
+          gap_of(l, x)
+        case None =>
+          None
+      end
+
+    case SIf(_, left, right) =>
+      match (assigns(left, x), assigns(right, x))
+        // the else that the parser gives an if without one, over no text
+        case (true, false) if right.span.start == right.span.stop =>
+          Some((pos, "the if without an else"))
+
+        case (true, false) =>
+          or_else(gap_of(right, x), Some((right.pos, "the else")))
+
+        case (false, true) =>
+          or_else(gap_of(left, x), Some((left.pos, "the branch after then")))
+
+        case _ =>
+          or_else(gap_of(left, x), gap_of(right, x))
+      end
+
+    case SMatch(_, cases) =>
+      let bodies := case_bodies(cases) in
+      if exists(bodies, lambda (_, b) => assigns(b, x)) then
+        branch_gap(bodies, x, "the case")
+      else
+        None
+
+    case STry(body, catches) =>
+      if not assigns(body, x) then
+        gap_of(body, x)
+      else
+        branch_gap(catch_bodies(catches), x, "the handler")
+
+    case SSkip
+       | SAssign(_)
+       | SLocal(_, _)
+       | SWhile(_, _)
+       | SCall(_, _, _, _)
+       | SAssert(_)
+       | SAssertRaises(_, _, _, _)
+       | SRaise(_, _)
+       | SFor(_, _) =>
+      None
+  end
+
+// whether every path through stmt that ends normally assigns x, where a raise ends none, and a statement that does not
+// parse may assign every variable, as the checker assumes
+function assigns(stmt: At[Stmt], x: Name): Bool :=
+  match stmt
+    case AOk(_, _, node) | AErr(_, _, node, _) =>
+      node_assigns(node, x)
+    case AUnparsed(_, _, _, _) =>
+      true
+  end
+
+function node_assigns(stmt: Stmt, x: Name): Bool :=
+  match stmt
+    case SAssign(upd) =>
+      exists(upd, lambda (v, _) => v.name == x)
+
+    case SCall(_, _, outs, _) =>
+      exists(outs, lambda o => o.name == x)
+
+    case SBlock(_, stmts) =>
+      exists(stmts, lambda y => assigns(y, x))
+
+    case SIf(_, left, right) =>
+      assigns(left, x) and assigns(right, x)
+
+    case SMatch(_, cases) =>
+      forall(case_bodies(cases), lambda (_, b) => assigns(b, x))
+
+    case STry(body, catches) =>
+      assigns(body, x) and forall(catch_bodies(catches), lambda (_, b) => assigns(b, x))
+
+    case SRaise(_, _) =>
+      true
+
+    // a loop may not run its body, and the variables after an assert raises are those before it
+    case SSkip
+       | SLocal(_, _)
+       | SWhile(_, _)
+       | SFor(_, _)
+       | SAssert(_)
+       | SAssertRaises(_, _, _, _) =>
+      false
+  end
+
+// the first of the bodies, each at the position of its case or handler, that does not assign x, where what names them
+function branch_gap(bodies: List[(Pos, At[Stmt])], x: Name, what: Str): Option[(Pos, Str)] :=
+  match List(for (pos, b) in bodies if not assigns(b, x) yield (pos, b))
+    case List((pos, b); _) =>
+      or_else(gap_of(b, x), Some((pos, what)))
+    case List() =>
+      None
+  end
+
+// the bodies of the cases that parse, each at the position of its case
+function case_bodies(cases: List[At[Branch[At[Stmt]]]]): List[(Pos, At[Stmt])] :=
+  List(for c in cases for b in that_of(c) yield (c.pos, b.body))
+
+// the bodies of the handlers that parse, each at the position of its handler
+function catch_bodies(catches: List[At[Catch]]): List[(Pos, At[Stmt])] :=
+  List(for c in catches for b in that_of(c) yield (c.pos, b.body))
 
 // the variables of before that are not assigned there but are in after, the variables after a body
 function newly_assigned(before: Env, after: Env): Set[Name] :=
@@ -1487,7 +1631,7 @@ procedure fresh_raises(out r: Raises, ref s: State) :=
 
 procedure bind_meta(in i: Int, t: Type, ref s: State) :=
   if occurs(s.sub, i, t) then
-    report(in InfiniteType(TMeta(i), zonk_type(s.sub, t)), ref s)
+    report(in InfiniteType(TMeta(i), zonk_type(s.sub, t), None), ref s)
   else
     s := s with sub := put(i, t, s.sub)
   end
@@ -2188,6 +2332,7 @@ procedure infer_expected(
       var x: Expr, errors: List[Diagnostic]
       s := s with at := pos
       infer_node(in env, pos, span, node, expected, out x, typ, ref s)
+      named_infinite(in env, before, ref s)
       take_errors(in pos, before, out errors, ref s)
       res := checked_at(pos, span, x, errors), s := s with at := outer
 
@@ -2198,6 +2343,28 @@ procedure infer_expected(
     // the checker makes error nodes of the parts that the parser read, which it checks once
     case AErr(_, _, _, _) =>
       raise Unexpected("error node")
+  end
+
+// the infinite types reported since there were before errors, each named by the innermost variable of env whose type
+// holds the unknown that would contain itself, unless a part inside named it
+procedure named_infinite(in env: Env, before: Int, ref s: State) :=
+  s := s with errors := take(before, s.errors) ++ List(for e in drop(before, s.errors) yield infinite_named(s, env, e))
+
+function infinite_named(s: State, env: Env, e: TypeError): TypeError :=
+  match e
+    case Located(m, pos, error) =>
+      Located(m, pos, infinite_named(s, env, error))
+
+    case InfiniteType(TMeta(i), typ, None) =>
+      match List(for (n, l) in env if occurs(s.sub, i, l.typ) yield n)
+        case List(n; _) =>
+          InfiniteType(TMeta(i), typ, Some(n))
+        case List() =>
+          e
+      end
+
+    case _ =>
+      e
   end
 
 // the expression expr at pos, where the translations of forms, generators, and lambdas with patterns are at pos, and
@@ -2274,7 +2441,7 @@ procedure infer_node(
       unhidden(in env, xs ++ ys ++ zs, ref s)
       inner := bind(xs) ++ unassigned(ys) ++ bind(zs) ++ env, s := s with loop_assigned := empty()
       statement(in List(for x in ys ++ zs yield x.name), stmt, out y, ref inner, s)
-      outputs(in unqualified("lambda"), ys, inner, ref s)
+      outputs(in unqualified("lambda"), ys, inner, Some(y), ref s)
       s := s with loop_assigned := loop_assigned
       fresh_raises(out r, ref s)
       res := EProc(retyped(ins, xs), retyped(outs, ys), retyped(refs, zs), r, y), typ := TProc(List(for x in xs yield x.typ), List(for x in ys yield x.typ), List(for x in zs yield x.typ), r)
@@ -2291,7 +2458,7 @@ procedure infer_node(
             formals(in "binding", List(x), out xs, ref s)
             unhidden_at(in pat.pos, inner, xs, ref s)
             checks(in inner, "the bindings", List(value), List(for y in xs yield y.typ), out typed_value_list, ref s)
-            bindings := bindings ++ zip(List(for y in xs yield pat with that := PVar(y)), typed_value_list), inner := bind(xs) ++ inner
+            bindings := bindings ++ zip(List(for y in xs yield pat with that := PVar(y)), typed_value_list), inner := bind_value(xs, value) ++ inner
 
           case _ =>
             var t: Type, typed_value: At[Expr], typed_pat: At[Pat], xs: List[Var]
@@ -3037,9 +3204,11 @@ procedure apply(
       unify(in r, TError, ref s)
 
     case (TFun(ps, res), Some((t, _))) if fitting =>
+      let before := size(s.errors)
       unify(in res, t, ref s)
       unify(in res, r, ref s)
       checks_args(in env, args, ps, out typed_args, ref s)
+      let_hinted(in env, fun, before, ref s)
 
     // a string added by + is one error, with the hint of ++, at the first string, and the result is TError, since the
     // sum meant a string, so that no follow-up reports it
@@ -3059,14 +3228,22 @@ procedure apply(
       end
       infers_lambdas(in env, args, ts, ref typed_args, s)
 
+    // a call of a local bound to a lambda whose arguments do not fit has the result TError, since the call likely
+    // meant another type, which the hint of let_hinted names
     case (TFun(ps, res), _) if size(ps) == size(args) =>
+      let before := size(s.errors)
       var ts: List[Type]
       infers_first(in env, args, out typed_args, ts, ref s)
       for ((a, p), (t, i)) in zip(zip(args, ps), numbered(ts)) do
         expect(in a.pos, "argument " ++ show(i + 1) ++ " of the call", p, t, ref s)
       end
-      unify(in res, r, ref s)
+      if size(s.errors) > before and is_bound_lambda(env, fun) then
+        unify(in r, TError, ref s)
+      else
+        unify(in res, r, ref s)
+      end
       infers_lambdas(in env, args, ts, ref typed_args, s)
+      let_hinted(in env, fun, before, ref s)
 
     // of a function of another arity, whose result is TError, so that its uses make no follow-ups
     case (TFun(ps, _), _) =>
@@ -3090,6 +3267,36 @@ procedure apply(
       end
   end
 
+// whether the callee fun is a local bound by let to a lambda
+function is_bound_lambda(env: Env, fun: At[Expr]): Bool :=
+  match fun.that
+    case EVar(x) =>
+      exists(get(x.name, env), lambda l => l.bound_lambda)
+    case _ =>
+      false
+  end
+
+// the mismatches reported since there were before errors, with the hint that a let does not generalize, if the callee
+// fun is a local bound by let to a lambda
+procedure let_hinted(in env: Env, fun: At[Expr], before: Int, ref s: State) :=
+  if is_bound_lambda(env, fun) then
+    let name := match fun.that
+      case EVar(x) =>
+        x.name.base
+      case _ =>
+        ""
+    end
+    s := s with errors := take(before, s.errors) ++ List(for e in drop(before, s.errors) yield let_hint(name, e))
+  end
+
+function let_hint(name: Id, e: TypeError): TypeError :=
+  match e
+    case Located(m, pos, Mismatch(expected_type, found_type, what)) =>
+      Located(m, pos, Hinted(Mismatch(expected_type, found_type, what), "a let does not generalize, so the lambda of " ++ name ++ " has the one type of its first use; a function declared with type parameters takes several"))
+    case _ =>
+      e
+  end
+
 // whether the callee fun is the + of the prelude, whose arguments are integers
 function is_plus(fun: At[Expr]): Bool :=
   match fun.that
@@ -3099,12 +3306,15 @@ function is_plus(fun: At[Expr]): Bool :=
       false
   end
 
-// the callee fun as a message names it, a constructor or a function by its kind and name, a variable by its name, and
-// else none
+// the callee fun as a message names it, a constructor, a pattern alias, or a function by its kind and name, a variable
+// by its name, and else none
 function callee_text(sig: Sig, fun: At[Expr]): Str :=
   match fun.that
     case EVar(x) if is_constr(sig, x.name) =>
       "constructor " ++ x.name.base
+
+    case EVar(x) if is_pat_alias(sig, x.name) =>
+      "pattern alias " ++ x.name.base
 
     case EVar(x) if is_fun(sig, x.name) =>
       "function " ++ x.name.base
@@ -4083,7 +4293,7 @@ procedure statement_node(
             formals(in "local", List(x), out xs, ref s)
             unhidden_at(in x.pos, env, xs, ref s)
             checks(in env, "the assignment", List(value), List(for z in xs yield z.typ), out typed_values, ref s)
-            typed_decls := typed_decls ++ List(for (z, e) in zip(xs, typed_values) yield (AOk(x.pos, x.span, PVar(z)), Some(e))), env := bind(xs) ++ env
+            typed_decls := typed_decls ++ List(for (z, e) in zip(xs, typed_values) yield (AOk(x.pos, x.span, PVar(z)), Some(e))), env := bind_value(xs, value) ++ env
 
           case (Some(x), None) =>
             var xs: List[Var]
@@ -4769,7 +4979,7 @@ procedure proof_step(
       untyped(in List(x), List(), ref s)
       formals(in "local", List(x), out ys, ref s)
       unhidden(in env, ys, ref s)
-      env := List(for y in ys yield (y.name, Local(y.typ, false))) ++ env, typed_step := StepLocal(map_at(x, lambda _ => at(0, from_list(ys))), None)
+      env := List(for y in ys yield (y.name, Local(y.typ, false, false))) ++ env, typed_step := StepLocal(map_at(x, lambda _ => at(0, from_list(ys))), None)
 
     case StepCall(name, ins, outs) =>
       let qualified := in_module(s.module, name)
@@ -4980,7 +5190,7 @@ procedure command(in cmd: Cmd, out typed_cmd: Cmd, ref s: State) :=
       env := bind(is) ++ unassigned(os) ++ bind(rs)
       contract(in is, os, rs, spec, out typed_spec, ref s)
       statement(in List(for x in os ++ rs yield x.name), stmt, out y, ref env, s)
-      outputs(in name, os, env, ref s)
+      outputs(in name, os, env, Some(y), ref s)
       typed_cmd := CProc(name, params, retyped(ins, is), retyped(outs, os), retyped(refs, rs), typed_raised, typed_spec, y)
 
     // a test with formals runs as the test over their enumerated values that the tester generates of it
@@ -5009,7 +5219,7 @@ procedure command(in cmd: Cmd, out typed_cmd: Cmd, ref s: State) :=
         case Some(p) =>
           var env := bind(xs) ++ unassigned(ys), q: Proof
           check_proof(in xs, List(for y in ys yield y.name), p, out q, ref env, s)
-          outputs(in name, ys, env, ref s)
+          outputs(in name, ys, env, None, ref s)
           typed_proof := Some(q)
 
         case None =>
@@ -6521,7 +6731,7 @@ test inference() :=
   assert raises Mismatch(TInt(), TBool(), "argument 1 of the call") do
     type_of(in let_id(nowhere(ELit(LBool(true)))), out t)
   end
-  assert raises InfiniteType(_, _) do
+  assert raises InfiniteType(_, _, Some(Name(List(), "f"))) do
     type_of(in lambda_at(List(Var(unqualified("f"), THole)), expr_app("f", List(expr_var("f")))), out t)
   end
   assert raises Mismatch(_, _, _) do
