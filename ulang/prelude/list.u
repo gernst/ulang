@@ -154,10 +154,15 @@ function remove[A](x: A, xs: List[A]): List[A] :=
   end
 
 function sort[A](xs: List[A]): List[A] :=
-  if size(xs) < 2 then
+  sort_sized(size(xs), xs)
+
+// xs sorted, where n is the size of xs, given so that it is not counted again at every level
+function sort_sized[A](n: Int, xs: List[A]): List[A] :=
+  if n < 2 then
     xs
   else
-    merge_sorted(sort(take(size(xs) / 2, xs)), sort(drop(size(xs) / 2, xs)))
+    let h := n / 2 in
+    merge_sorted(sort_sized(h, take(h, xs)), sort_sized(n - h, drop(h, xs)))
 
 function merge_sorted[A](xs: List[A], ys: List[A]): List[A] :=
   match (xs, ys)
