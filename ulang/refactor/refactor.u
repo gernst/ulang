@@ -2197,7 +2197,7 @@ procedure patch(
   var patched := List(for region in regions yield join("\n", lines_in(lines, region))), changed := Range(1, 0), taken: List[Str] := List(), every: List[Str] := List()
   match block
     case Some(i) =>
-      var at: List[(Int, Int)]
+      var at: List[(Int, Int, Int)]
       let old := unmarked(take(i, code))
       patch_block(in old, unmarked(drop(i + 1, code)), labels, out at, ref patched)
       if at == List() then
@@ -2218,9 +2218,9 @@ procedure patch(
         end
       end
       // the definition follows the signature, and only it has nodes
-      for (j, k) in take(1, reverse(at)) do
+      for (j, k, n) in take(1, reverse(at)) do
         let first := value_or(map_option(get_at(j, regions), lambda r => r.first), 1) + k
-        changed := Range(first, first + i - 1)
+        changed := Range(first, first + n - 1)
       end
 
     case None =>
@@ -2248,9 +2248,10 @@ procedure patch(
   try
     formatted(in path, join("\n", spliced(List(for line in lines), splices)), edits.files, no_fragment(), out result, source)
   catch
-    // a line of several => may have split where the agent did not mean it
-    case Refused(message) if taken != List() =>
-      raise Refused(message ++ "\n" ++ join("\n", taken))
+    // a line of several => may have split where the agent did not mean it, and a block takes the lines after its
+    // line => alone up to the end of the fragment as its new lines, also a line old => new
+    case Refused(message) =>
+      raise Refused("@patch " ++ word ++ " writes a text that does not parse:\n" ++ message ++ join("", List(for line in taken ++ block_note(code, block) yield "\n" ++ line)))
   end
   if result == join("\n", List(for line in lines)) then
     raise Refused("@patch " ++ word ++ " changes nothing, once formatted")
@@ -2675,12 +2676,15 @@ procedure earlier_action(
 
 // substitutes in texts, the parts of one target with their labels, the lines old by the lines new, at the indentation of
 // the first old line, where old occurs as consecutive whole lines, compared without their indentation, at most once in
-// each part, and at is the index of each part where it occurs and its line in it, from 0, empty if it occurs in none
+// each part, and else, if it occurs so in none, where its first line is the end of a line and its last the start of one,
+// whose rest stays; a line ... of the old lines stands for the lines between those before it and after it, the nearest
+// after, and one of the new lines for where they go, so that a region is wrapped without repeating it; at is the index
+// of each part where it occurs, its line in it, from 0, and the number of its lines, empty if it occurs in none
 procedure patch_block(
   in  old: List[Str],
       new: List[Str],
       labels: List[Str],
-  out at: List[(Int, Int)],
+  out at: List[(Int, Int, Int)],
   ref texts: List[Str]
 ) raises Refused :=
   let wanted := List(for line in old yield trim(line))
@@ -2690,19 +2694,170 @@ procedure patch_block(
   if wanted == List(for line in new yield trim(line)) then
     raise Refused("@patch: the lines before => and after it are the same, so the patch changes nothing")
   end
-  let found := List(for text in texts yield block_starts(split(text, '\n'), wanted))
-  if not forall(found, lambda ks => size(ks) <= 1) then
-    raise Refused("@patch: the old lines, " ++ quote(join("\n", wanted)) ++ ", occur " ++ occurrence_text(List(for ks in found yield size(ks)), labels))
+  let marks := List(for (line, i) in numbered(wanted) if is_ellipsis(line) yield i)
+  let tail := map_option(get_at(0, marks), lambda m => drop(m + 1, wanted))
+  let head := take(value_or(get_at(0, marks), size(wanted)), wanted)
+  if size(marks) > 1 then
+    raise Refused("@patch: the old lines have " ++ show(size(marks)) ++ " lines ..., while one stands for the lines between the old lines before it and after it")
   end
-  at := List(for (ks, j) in numbered(found) for k in ks yield (j, k))
+  for rest in tail do
+    if is_blank(join("", head)) or is_blank(join("", rest)) then
+      raise Refused("@patch: the line ... of the old lines stands for the lines between the old lines before it and after it, so it takes both")
+    end
+  end
+  let new_marks := size(List(for line in new if is_ellipsis(line) yield line))
+  if new_marks != size(marks) then
+    if marks == List() then
+      raise Refused("@patch: a line ... of the new lines stands for the lines that a line ... of the old lines skips, which the old lines have none of")
+    else
+      raise Refused("@patch: the line ... of the old lines stands for the lines between them, so the new lines take one line ... where those lines go, not " ++ show(new_marks))
+    end
+  end
+  let arrays := List(for text in texts yield Array(for line in split(text, '\n')))
+  let whole := List(for lines in arrays yield block_matches(lines, head, tail, false))
+  let found := if forall(whole, lambda ms => ms == List()) and size(head) + size(value_or(tail, List())) >= 2 then
+    List(for lines in arrays yield block_matches(lines, head, tail, true))
+  else
+    whole
+  if not forall(found, lambda ms => size(ms) <= 1) then
+    raise Refused("@patch: the old lines, " ++ quote(join("\n", wanted)) ++ ", occur " ++ occurrence_text(List(for ms in found yield size(ms)), labels))
+  end
+  at := List(for (ms, j) in numbered(found) for m in ms yield (j, m.start, m.count))
   texts := List(for (text, i) in numbered(texts) yield match get_at(i, found)
-    case Some(List(k)) =>
+    case Some(List(m)) =>
       let ls := split(text, '\n') in
-      join("\n", take(k, ls) ++ indented(dedented(new), indent_of(value_or(get_at(k, ls), ""))) ++ drop(k + size(old), ls))
+      join("\n", take(m.start, ls) ++ replaced_lines(new, m, indent_of(value_or(get_at(m.start, ls), ""))) ++ drop(m.start + m.count, ls))
 
     case _ =>
       text
   end)
+
+// a match of the old lines of a block in the lines of a part: its first line, from 0, the number of its lines, the text
+// before the first old line on its line and after the last on its, empty where they are whole lines, and the lines that
+// the line ... of the old lines stands for
+data BlockMatch :=
+  case BlockMatch(start: Int, count: Int, lead: Str, trail: Str, between: List[Str])
+
+// whether a line of a block is ... or …, which stands in the old lines for the lines between those before it and after
+// it, and in the new lines for where those lines go, since formatted code has no such line
+function is_ellipsis(line: Str): Bool :=
+  example is_ellipsis("  ...")
+  example not is_ellipsis("x ...")
+  let text := trim(line) in
+  text == "..." or text == "…"
+
+// the matches in lines of the old lines head, then, if tail is some, the lines of the nearest match of tail after them,
+// compared without their indentation, where with partial the first of head may be the end of its line, and the last of
+// tail, or of head without a tail, the start of its line
+function block_matches(lines: Array[Str], head: List[Str], tail: Option[List[Str]], partial: Bool): List[BlockMatch] :=
+  example block_matches(Array("a", "b", "c", "d"), List("a"), Some(List("c")), false) == List(BlockMatch(0, 3, "", "", List("b")))
+  example block_matches(Array("x a", "b c"), List("a", "b"), None, true) == List(BlockMatch(0, 2, "x ", " c", List()))
+  List(for k in range(0, size(lines)) for (lead, trail) in matched_at(lines, k, head, partial, partial and tail == None) for m in block_end(lines, k, head, tail, lead, trail, partial) yield m)
+
+// the match of the old lines head at the index k of lines, whose text before them is lead and after them trail,
+// ended by the nearest match of tail after them, if there is a tail, whose last line may be the start of its line with
+// partial
+function block_end(lines: Array[Str], k: Int, head: List[Str], tail: Option[List[Str]], lead: Str, trail: Str, partial: Bool): Option[BlockMatch] :=
+  match tail
+    case Some(rest) =>
+      let from := k + size(head) in
+      let ends := List(for j in range(from, size(lines)) for (_, after) in matched_at(lines, j, rest, false, partial) yield (j, after)) in
+      match ends
+        case List((j, after); _) =>
+          Some(BlockMatch(k, j + size(rest) - k, lead, after, List(for i in range(from, j) yield at(i, lines))))
+        case List() =>
+          None
+      end
+
+    case None =>
+      Some(BlockMatch(k, size(head), lead, trail, List()))
+  end
+
+// the text before the lines wanted at the index k of lines and after them, if they continue there, compared without
+// their indentation, where with ends the first may be the end of its line, and with starts the last the start of its line
+function matched_at(lines: Array[Str], k: Int, wanted: List[Str], ends: Bool, starts: Bool): Option[(Str, Str)] :=
+  example matched_at(Array("  let x := f(a,", "    b)"), 0, List("f(a,", "b)"), true, false) == Some(("let x := ", ""))
+  example matched_at(Array("a", "b"), 1, List("b", "c"), false, false) == None
+  let n := size(wanted) in
+  let found := List(for (w, i) in numbered(wanted) yield line_match(trim(line_at(lines, k + i + 1)), w, ends and i == 0, starts and i == n - 1)) in
+  if k + n > size(lines) or exists(found, lambda f => f == None) then
+    None
+  else
+    Some((join("", List(for f in take(1, found) for (p, _) in f yield p)), join("", List(for f in drop(n - 1, found) for (_, s) in f yield s))))
+
+// the text before w on the line t and after it, empty if they are the same, else if ends and t ends with w, or if starts
+// and t starts with w
+function line_match(t: Str, w: Str, ends: Bool, starts: Bool): Option[(Str, Str)] :=
+  example line_match("else if c then", "else if", false, true) == Some(("", " c then"))
+  example line_match("else if c then", "else if", true, false) == None
+  if t == w then
+    Some(("", ""))
+  else if ends and w != "" and ends_with(t, w) then
+    Some((slice(t, 0, size(t) - size(w)), ""))
+  else if starts and w != "" and starts_with(t, w) then
+    Some(("", slice(t, size(w), size(t))))
+  else
+    None
+
+// the new lines of a block at the indentation depth, where the lines that the line ... of the old lines of the match m
+// stands for replace the line ... of the new lines, moved to its indentation, the first line follows the text before the
+// old lines on their first line, and the last precedes the text after them on their last
+function replaced_lines(new: List[Str], m: BlockMatch, depth: Int): List[Str] :=
+  example replaced_lines(List("if c then", "  ...", "end"), BlockMatch(0, 3, "", "", List("    a", "      b")), 2) == List("  if c then", "    a", "      b", "  end")
+  let placed := indented(dedented(new), depth) in
+  let spread := List(for line in placed for l in if is_ellipsis(line) then
+    indented(dedented(m.between), indent_of(line))
+  else
+    List(line) yield l) in
+  joined_ends(spread, m.lead, m.trail, depth)
+
+// lines with lead before the first and trail after the last, at the indentation depth, a line of both if there are none
+function joined_ends(lines: List[Str], lead: Str, trail: Str, depth: Int): List[Str] :=
+  example joined_ends(List("  b", "  c"), "a ", " d", 2) == List("  a b", "  c d")
+  example joined_ends(List(), "let x := ", "", 2) == List("  let x :=")
+  if lead == "" and trail == "" then
+    lines
+  else
+    match lines
+      case List() =>
+        List(repeat(depth, " ") ++ trim(lead ++ trail))
+
+      case List(line; rest) =>
+        let first := if lead == "" then line else repeat(depth, " ") ++ lead ++ trim(line) in
+        match reverse(List(first; rest))
+          case List(last; init) =>
+            reverse(List(last ++ trail; init))
+          case List() =>
+            List()
+        end
+    end
+
+// the note of a refused block of a fragment of the lines code, whose line => alone is at the index block: the lines of
+// the fragment that it took as its new lines, which run to the end of the fragment, and those of them that read as
+// lines old => new
+function block_note(code: List[Str], block: Option[Int]): List[Str] :=
+  example block_note(List("a", "=>", "b", "c => d", ""), Some(1)) == List(
+      "its block took fragment lines 3 to 4 as its new lines, which run to the end of the fragment, also line 4, \"c => d\", which a @patch of its own takes as a line old => new")
+  example block_note(List("a => b"), None) == List()
+  match block
+    case Some(i) =>
+      let news := List(for (line, n) in numbered(code) if n > i and not is_blank(line) yield (n + 1, line)) in
+      let arrows := List(for (n, line) in news if code_arrows(line, " => ") != List() yield "line " ++ show(n) ++ ", " ++ quote(trim(line))) in
+      match (news, reverse(news))
+        case (List((first, _); _), List((last, _); _)) =>
+          List(
+            "its block took fragment lines " ++ show(first) ++ " to " ++ show(last) ++ " as its new lines, which run to the end of the fragment" ++ (if arrows == List() then
+              ""
+            else
+              ", also " ++ join(", ", arrows) ++ ", which a @patch of its own takes as a line old => new"))
+
+        case _ =>
+          List()
+      end
+
+    case None =>
+      List()
+  end
 
 // the indices, from 0, at which lines continue with the lines wanted, compared without their indentation
 function block_starts(lines: List[Str], wanted: List[Str]): List[Int] :=
