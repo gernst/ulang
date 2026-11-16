@@ -349,9 +349,89 @@ procedure block_problems(in doc: Str, out problems: List[Str]) :=
   end
   problems := List(for p in found)
 
+// the spans of a comment that write a container in a form that ulang no longer has, names of a list in brackets, of a
+// set or a map in braces, and of an array between bars, which agents would read as ulang, where brackets after a name
+// are type arguments, and one name in brackets counts only as the argument of a call, since comments also cite other
+// languages, such as the classes of regular expressions
+function old_forms(text: Str): List[Str] :=
+  example old_forms("with_bags([cmd]) and [a, b; xs]") == List("[cmd]", "[a, b; xs]")
+  example old_forms("sets {a, b} and maps {k => v; m}") == List("{a, b}", "{k => v; m}")
+  example old_forms("arrays |a, b|, not -|k| < r or ||") == List("|a, b|")
+  example old_forms("List[Int], [A, B] of a declaration, ([eE] [0-9]+), jq [0] and [-1], usage [-c] [output.html]") == List()
+  List(for i in range(0, size(text)) for close in closer(at(i, text)) for k in index_of(close, slice(text, i + 1, size(text))) if is_old_form(text, i, slice(text, i + 1, i + 1 + k)) yield slice(text, i, i + k + 2))
+
+// the character that closes a container opened by c in a form of other languages
+function closer(c: Char): Option[Str] :=
+  if c == '[' then
+    Some("]")
+  else if c == '{' then
+    Some("}")
+  else if c == '|' then
+    Some("|")
+  else
+    None
+
+// whether the container opened at index i of text, whose elements are inner, is a form that ulang does not have
+function is_old_form(text: Str, i: Int, inner: Str): Bool :=
+  let c := at(i, text) in
+  if c == '[' then
+    not (i > 0 and (is_word_char(at(i - 1, text)) or at(i - 1, text) == ']')) and (is_name_list(inner) or is_lower_name(inner) and i > 1 and at(i - 1, text) == '(' and is_word_char(at(i - 2, text)))
+  else if c == '{' then
+    contains(",", inner) or contains(";", inner) or contains("=>", inner)
+  else
+    is_name_list(inner)
+
+// whether s is a name of a variable, with spaces around it, but not of a type or a constant
+function is_lower_name(s: Str): Bool :=
+  let t := trim(s) in
+  is_ident(t) and not (int('A') <= int(at(0, t)) and int(at(0, t)) <= int('Z'))
+
+// whether s is at least two names of variables, separated by commas or semicolons
+function is_name_list(s: Str): Bool :=
+  let items := List(for part in split(s, ',') for item in split(part, ';') yield item) in
+  size(items) >= 2 and forall(items, is_lower_name)
+
+// the .u files below dir, "" for the working directory, without the hidden directories and those named out
+procedure source_files(in dir: Str, out files: List[Str]) raises OsError :=
+  var entries: List[(Str, Bool)], found: Buffer[Str] := empty()
+  os_list(in if dir == "" then "." else dir, out entries)
+  for (name, is_dir) in entries if not starts_with(name, ".") and name != "out" do
+    if is_dir then
+      var below: List[Str]
+      source_files(in os_join(dir, name), out below)
+      found := found ++ below
+    else
+      if ends_with(name, ".u") then
+        found := found ++ List(os_join(dir, name))
+      end
+    end
+  end
+  files := List(for f in found)
+
+// the comments of the .u files of the project that write containers in forms that ulang does not have, by old_forms
+procedure comment_problems(out problems: List[Str]) raises OsError :=
+  var files: List[Str], found: Buffer[Str] := empty()
+  source_files(in "", out files)
+  for file in files do
+    var text: Str
+    os_read_utf8(in file, out text)
+    try
+      var comments: List[Comment]
+      lex_all(in text, out _, comments)
+      for c in comments do
+        found := found ++ List(for form in old_forms(c.text) yield file ++ ":" ++ show(c.pos.line) ++ ": the comment writes " ++ form ++ ", a form that ulang does not have")
+      end
+    catch
+      case LexError(_, _) =>
+        skip
+    end
+  end
+  problems := List(for p in found)
+
 // prints the references of the documents that are not declared in their files, run at the root of the project, and fails
 // if there is one; the documents are CLAUDE.md, README.md, LANGUAGE.md, and those of ideas/; the keywords of the lexer that
-// LANGUAGE.md does not list as such; and the blocks of u in LANGUAGE.md that fail
+// LANGUAGE.md does not list as such; the blocks of u in LANGUAGE.md that fail; and the comments of the sources that
+// write containers in forms that ulang does not have
 procedure main() raises OsError :=
   var cache: Map[Str, Option[Decls]] := empty(), found: List[Str] := List(), entries: List[(Str, Bool)]
   os_list(in "ideas", out entries)
@@ -365,9 +445,10 @@ procedure main() raises OsError :=
   end
   var missing: List[Str]
   keyword_problems(in "LANGUAGE.md", out missing)
-  var failing: List[Str]
+  var failing: List[Str], commented: List[Str]
   block_problems(in "LANGUAGE.md", out failing)
-  found := found ++ missing ++ failing
+  comment_problems(out commented)
+  found := found ++ missing ++ failing ++ commented
   for problem in found do
     os_println(in problem)
   end

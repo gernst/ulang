@@ -6853,7 +6853,7 @@ function in_bag(n: Id): Name :=
 function in_box(n: Id): Name :=
   Name(List("box"), n)
 
-// the body of the last function of the checked program with_bags([cmd])
+// the body of the last function of the checked program with_bags(List(cmd))
 procedure body_of(in cmd: Cmd, out b: Expr) :=
   var q: Prog
   check_program(in with_bags(List(cmd)), out q)
