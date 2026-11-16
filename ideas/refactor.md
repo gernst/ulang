@@ -63,7 +63,6 @@ By priority, each the problem and the solution.
 
 ### Found by the agents of 16 November 2026
 
-54. **One change at many places of a declaration takes a script generated outside** (the same work): the handles in the expected replies of 13 tests shifted by one, since each `@show` of a declaration now numbers its head first, which took Python scripts that wrote `@put` of each test with its numbers shifted and its margins narrowed where a number gained a digit, 41 seconds for the script of 11 tests; and `@patch` of `:1.1` to `:1.36` took a block of five lines, since the text occurs three times in the test. Solution: a line `old =>* new` of `@patch` that replaces every occurrence of `old` in the target, with their count in the reply.
 56. **The head of a signature in `export` is no node** (the same work): the nodes of a declaration are those of its definition with the lines of the specs of its signatures (`decl_of` of `ulang/refactor/refactor.u`), and the `Cmd` of a signature carries no position of its head, so `head_nodes` of `ulang/refactor/nodes.u` finds only the head of the definition, above its body, and a signature is changed by `@patch` or `@put F:name`. Solution: the spans of the signatures passed with the merged definition, so that the head of each is a node of the declaration.
 
 ## Order of work

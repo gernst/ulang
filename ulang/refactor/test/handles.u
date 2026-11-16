@@ -267,12 +267,11 @@ test heads_of_arity() :=
   os_read_utf8(in path, out text)
   assert status == 0
   assert text == "export\n\nprocedure p(in a: Int, out c: Int)\n\nimplementation\n\nprocedure p(in a: Int, out c: Int) :=\n  c := a\n"
-  assert take(5, drop(2, reply)) == List(
+  assert take(4, drop(2, reply)) == List(
     "replaced " ++ path ++ ":p/3 #1, now p/2, with the signature of p/2",
     "#1    procedure p(in a: Int, out c: Int) :=",
     "replaced " ++ path ++ ":p/2 #2",
-    "#2      c := a",
-    "script 1 of the journal")
+    "#2      c := a")
 
 // the lines of a spec are nodes, an example of a signature in export a node of its definition, which @example adds to,
 // on the signature if it has one, and a drop of the last line of the spec of a signature drops its :=
