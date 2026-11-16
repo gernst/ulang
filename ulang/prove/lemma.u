@@ -57,10 +57,13 @@ data OpenTermination :=
 // function that they reach whose termination is not proven, else OpenLemma for the first lemma that is open
 procedure prove_program(in q: Prog, m: Path) raises OpenLemma, OpenTermination
 
+// q without its lemmas that have errors, which the prover does not prove
+function without_rejected_lemmas(q: Prog): Prog
+
 implementation
 
 procedure prove_program(in q: Prog, m: Path) raises OpenLemma, OpenTermination :=
-  let t := translate(q, m), proofs := prove_lemmas(t.decls, t.contracts, t.lemmas)
+  let t := translate(without_rejected_lemmas(q), m), proofs := prove_lemmas(t.decls, t.contracts, t.lemmas)
   for tm in proofs.terminations do
     match tm.open
       case List(site; _) =>
@@ -220,3 +223,14 @@ function default_proof(decls: Decls, facts: List[Seq], goal: Seq): Seq :=
 
 function is_true(decls: Decls, goal: Seq): Bool :=
   simplify(decls, goal) == TrueSeq()
+
+function without_rejected_lemmas(q: Prog): Prog :=
+  q with cmds := List(for c in q.cmds if not is_lemma(c.that) or cmd_errors(c) == List())
+
+function is_lemma(cmd: Cmd): Bool :=
+  match cmd
+    case CLemma(_, _, _, _, _, _) =>
+      true
+    case _ =>
+      false
+  end

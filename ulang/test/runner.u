@@ -186,7 +186,7 @@ procedure prove_module(
       label: Str,
   out proven: Bool
 ) :=
-  let t := translate(q, m), proofs := prove_lemmas(t.decls, t.contracts, List(for l in lemmas_upto(t.lemmas, names) if not contains(l.name.base, falsified))), ds: List[Diagnostic] := proof_diagnostics(with_proofs(q, m, proofs, names), m)
+  let provable := without_rejected_lemmas(q), t := translate(provable, m), proofs := prove_lemmas(t.decls, t.contracts, List(for l in lemmas_upto(t.lemmas, names) if not contains(l.name.base, falsified))), ds: List[Diagnostic] := proof_diagnostics(with_proofs(provable, m, proofs, names), m)
   proven := ds == List() and not exists(t.lemmas, lambda l => contains(l.name.base, falsified) and is_named(l.name.base, names))
   for n in names if not exists(t.lemmas, lambda l => l.name.base == n) do
     os_println(in label ++ error_text(RuntimeKind, "there is no lemma " ++ n))

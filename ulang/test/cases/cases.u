@@ -80,6 +80,13 @@ procedure prove_text(
       lines: List[Str]
 ) raises ParseError, TypeError, Unformatted, InternalError, OsError, OpenLemma, OpenTermination
 
+// the lemmas of the case despite its errors of types, as check --prove proves those of a unit with errors, without the
+// lemmas that have errors
+procedure prove_text_despite_errors(
+  in  path: Str,
+      lines: List[Str]
+) raises ParseError, InternalError, OsError, OpenLemma, OpenTermination
+
 // load_text of several modules: the members of the package of the directory dir from the root, each its name and lines,
 // and main, the name and lines of the main file, which is one of them or a program in dir, each of them formatted
 procedure load_texts(
@@ -226,6 +233,14 @@ procedure prove_text(
   var main: Path, q: Prog
   load_text(in path, lines, out main, q)
   prove_program(in q, main)
+
+procedure prove_text_despite_errors(
+  in  path: Str,
+      lines: List[Str]
+) raises ParseError, InternalError, OsError, OpenLemma, OpenTermination :=
+  var q: Prog
+  checked_text(in path, lines, out q, _)
+  prove_program(in q, q.main)
 
 procedure load_texts(
   in  dir: Str,

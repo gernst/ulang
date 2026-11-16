@@ -573,7 +573,7 @@ procedure check_unit(
       if blocks_proofs(q) then
         os_println(in label ++ "no lemma proven, since code that the lemmas may reach has errors")
       else
-        prove_module(in without_rejected_lemmas(q), m, file, selected, falsified, label, out proven)
+        prove_module(in q, m, file, selected, falsified, label, out proven)
         passed := passed and proven
       end
     end
@@ -631,18 +631,6 @@ function blocks_proofs(q: Prog): Bool :=
 // q without its lemmas and tests that have errors, which compile_target leaves out of the program
 function without_rejected_proofs(q: Prog): Prog :=
   q with cmds := List(for c in q.cmds if not is_lemma_or_test(c.that) or cmd_errors(c) == List())
-
-// q without its lemmas that have errors, which the prover does not prove
-function without_rejected_lemmas(q: Prog): Prog :=
-  q with cmds := List(for c in q.cmds if not is_lemma(c.that) or cmd_errors(c) == List())
-
-function is_lemma(cmd: Cmd): Bool :=
-  match cmd
-    case CLemma(_, _, _, _, _, _) =>
-      true
-    case _ =>
-      false
-  end
 
 // checks each unit of the targets once, where the error of a unit that does not load is reported at its first file, and
 // calls visit with the checked program of each unit that loads, also with errors if it is runnable, whose files then
