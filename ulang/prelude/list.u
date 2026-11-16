@@ -61,6 +61,8 @@ function remove[A](x: A, xs: List[A]): List[A]
 // xs in ascending order of compare, where equal elements keep their order
 function sort[A](xs: List[A]): List[A]
 
+// the elements of xs without those that occurred before, in their order, in n log n steps by a set of those seen,
+// which orders them by compare, so that it raises Unordered for an abstract type that declares only ==
 function distinct[A](xs: List[A]): List[A]
 
 // the last element, if any
@@ -246,11 +248,19 @@ function foldl[A, R](xs: List[A], acc: R, f: (R, A) -> R): R :=
   end
 
 function distinct[A](xs: List[A]): List[A] :=
+  unseen(xs, empty())
+
+// the elements of xs that are neither in seen nor occurred before
+function unseen[A](xs: List[A], seen: Set[A]): List[A] :=
   match xs
     case List() =>
       List()
+
     case List(y; ys) =>
-      List(y; distinct(List(for z in ys if z != y)))
+      if contains(y, seen) then
+        unseen(ys, seen)
+      else
+        List(y; unseen(ys, insert(y, seen)))
   end
 
 function last[A](xs: List[A]): Option[A] :=

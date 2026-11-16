@@ -87,10 +87,11 @@ test abstract_constructors() :=
     prove_text(in "ulang/test/errors/abstract-constructors.u", List("lemma abstract_constructors() :=", "  ensures Set(1, 2) != Set(2, 1)"))
   end
 
-// the recursive functions of the library whose termination the prover does not prove: distinct recurses on a
-// comprehension, sort on take and drop of half its list, and separated on joined_pairs, which need lemmas of their
-// sizes, and list_count and list_values of the enumeration, which load_text loads with the library, count n down to
-// n == 0, so they do not terminate for a negative n, while gcd terminates by the absolute value of its divisor
+// the recursive functions of the library whose termination the prover does not prove: index_from and stands_at
+// count an index up to the size of a string, sort recurses on take and drop of half its list, and separated on
+// joined_pairs, which need lemmas of their sizes, and list_count and list_values of the enumeration, which load_text
+// loads with the library, count n down to n == 0, so they do not terminate for a negative n, while gcd terminates by
+// the absolute value of its divisor
 test library_terminates() :=
   var main: Path, q: Prog, open: List[Str] := List()
   load_text(in "ulang/test/errors/library-terminates.u", List("lemma trivial() :=", "  ensures true"), out main, q)
@@ -98,7 +99,13 @@ test library_terminates() :=
     case Translation(decls, _, _) =>
       open := List(for t in terminations(decls, Set(for k => d in decls.defs if d.recursive yield k)) if not is_terminating(t) for (n, _) in t.names yield n.base)
   end
-  assert Set(for n in open) == Set("distinct", "separated", "sort", "list_count", "list_values")
+  assert Set(for n in open) == Set(
+    "index_from",
+    "stands_at",
+    "separated",
+    "sort",
+    "list_count",
+    "list_values")
 
 // a function that does not terminate is open, one that counts down to a guard terminates by its Int measure
 test terminations_of_program() :=
