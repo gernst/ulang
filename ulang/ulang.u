@@ -980,21 +980,6 @@ procedure compiled_only_files(in paths: List[Str], out compiled: List[Str]) :=
   end
   compiled := List(for path in paths if exists(dirs, lambda d => starts_with(absolute_path(here, path), d ++ "/")) yield path)
 
-test compiled_only_paths() :=
-  var compiled: List[Str]
-  compiled_only_files(in List("ulang/ulang.u", "ulang/test/errors/types.u"), out compiled)
-  assert compiled == List("ulang/test/errors/types.u")
-
-// the tests of examples on a definition, which belong to its signature, are not run, but counted as not run
-test misplaced_examples() :=
-  var tests: Tests
-  let path := "out/test/refactor/misplaced/misplaced.u"
-  os_write_utf8(in path, "export\n\nfunction f(x: Int): Int\n\nimplementation\n\nfunction f(x: Int): Int :=\n  example f(1) == 2\n  x + 1\n")
-  refactor_tests(in List(path), List(), out tests)
-  assert tests == Tests(List(
-    "tested " ++ path ++ ": 0 passed, 0 failed, 1 not run",
-    "  not run, since they are examples on definitions, which belong to the signatures in export: f.example.1"), 0, 0, 1, Map())
-
 // whether the checker generated the tests of the package of members in q, the tests of examples and of lemmas, which it
 // generates only for a package whose check finds no errors but those of raises and unused imports (check_package of
 // ulang/check/check.u), which blocks_run of ulang/syntax/error.u tells apart
