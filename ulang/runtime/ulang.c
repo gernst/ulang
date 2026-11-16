@@ -364,6 +364,32 @@ u_value u_mk_con(const struct u_name *name, int size, ...) {
   return v;
 }
 
+// the constructions of 1 to 3 fields and tuples of 2 and 3, which the backends call by construction of
+// ulang/compile/lower.u without the variable arguments of u_mk_con and u_mk_tuple
+u_value u_mk_con_1(const struct u_name *name, u_value a) {
+  u_value v = compound(name->type, 1);
+  v->name = name;
+  v->items[0] = a;
+  return v;
+}
+
+u_value u_mk_con_2(const struct u_name *name, u_value a, u_value b) {
+  u_value v = compound(name->type, 2);
+  v->name = name;
+  v->items[0] = a;
+  v->items[1] = b;
+  return v;
+}
+
+u_value u_mk_con_3(const struct u_name *name, u_value a, u_value b, u_value c) {
+  u_value v = compound(name->type, 3);
+  v->name = name;
+  v->items[0] = a;
+  v->items[1] = b;
+  v->items[2] = c;
+  return v;
+}
+
 u_value u_mk_con_array(const struct u_name *name, int size, u_value *xs) {
   u_value v = compound(name->type, size);
   v->name = name;
@@ -400,6 +426,21 @@ u_value u_mk_tuple(int size, ...) {
   va_start(args, size);
   u_value v = fill(compound(&u_tuple_type, size), args);
   va_end(args);
+  return v;
+}
+
+u_value u_mk_tuple_2(u_value a, u_value b) {
+  u_value v = compound(&u_tuple_type, 2);
+  v->items[0] = a;
+  v->items[1] = b;
+  return v;
+}
+
+u_value u_mk_tuple_3(u_value a, u_value b, u_value c) {
+  u_value v = compound(&u_tuple_type, 3);
+  v->items[0] = a;
+  v->items[1] = b;
+  v->items[2] = c;
   return v;
 }
 
