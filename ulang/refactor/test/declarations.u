@@ -35,7 +35,8 @@ test replaces_other_type() :=
     "applied, clean",
     path ++ ": replaced lower/1, of another type, replaced id/1")
 
-// @put after and before a declaration place the new declarations next to it, in its section
+// @put after and before a declaration place the new declarations next to it, in its section, and a bare name as the
+// anchor is refused with the form that it takes
 test puts_next_to() :=
   var reply: List[Str], status: Int, text: Str
   let state := "out/test/refactor/declarations/next", path := "out/test/refactor/declarations/next.u"
@@ -46,6 +47,10 @@ test puts_next_to() :=
   assert text == "export\n\nfunction b(): Int\n\nfunction c(): Int\n\nimplementation\n\nfunction z(): Int :=\n  0\n\nfunction a(): Int :=\n  1\n\nfunction b(): Int :=\n  2\n\n// the third\nfunction c(): Int :=\n  3\n"
   run_script(in "@put " ++ path ++ " after other.u:a\nfunction y(): Int := 0\n", false, state, no_diagnostics, out reply, status, _)
   assert status == 1
+  run_script(in "@put " ++ path ++ " after a\nfunction y(): Int := 0\n", false, state, no_diagnostics, out reply, status, _)
+  assert status == 1 and reply == List(
+    "rejected",
+    "@put " ++ path ++ " after takes a declaration of " ++ path ++ ", not a, so write @put after " ++ path ++ ":a")
   run_script(in "@put after " ++ path ++ ":q\nfunction y(): Int := 0\n", false, state, no_diagnostics, out reply, status, _)
   assert status == 1 and reply == List("rejected", path ++ " declares no q")
 
@@ -91,3 +96,40 @@ test patches_keep_handles() :=
   assert text == "function f(x: Int): Int :=\n  match x\n    case 1 =>\n      2\n    case _ =>\n      x\n  end\n\nprocedure p(out y: Int) :=\n  y := 1\n  y := y + 1\n"
   run_script(in "@patch " ++ path ++ ":p\ny := 2\n=>\ny := 3\n", false, state, no_diagnostics, out reply, status, _)
   assert status == 1
+
+// a test, also one with formals, has no arity, since tests are not overloaded, so that the reply names it alone and a
+// target selects it by its name
+test puts_tests() :=
+  var reply: List[Str], status: Int, text: Str
+  let state := "out/test/refactor/declarations/tests", path := "out/test/refactor/declarations/tests.u"
+  os_write_utf8(in path, "function f(x: Int): Int :=\n  x + 1\n")
+  run_script(in "@put " ++ path ++ "\ntest grows(n: Int) :=\n  assert f(n) > n\n", false, state, no_diagnostics, out reply, status, _)
+  assert status == 0 and take(2, reply) == List("applied, clean", path ++ ": added grows")
+  run_script(in "@drop " ++ path ++ ":grows\n", false, state, no_diagnostics, out reply, status, _)
+  os_read_utf8(in path, out text)
+  assert status == 0 and text == "function f(x: Int): Int :=\n  x + 1\n"
+
+// a refused @patch says whether its old text occurs nowhere, then with the declarations of the file that have it, or
+// several times, and a second line => alone is refused at its line of the script; a line old => deletes old, as old =>
+// with a space does
+test patch_refusals() :=
+  var reply: List[Str], status: Int, text: Str
+  let state := "out/test/refactor/declarations/refusals", path := "out/test/refactor/declarations/refusals.u"
+  os_write_utf8(in os_join(state, "handles.txt"), "")
+  os_write_utf8(in path, "function f(x: Int): Int :=\n  x + 1\n\nfunction g(x: Int): Int :=\n  f(x) + f(x) + 1\n\nprocedure p(out y: Int) :=\n  y := 1\n  y := y + 2\n")
+  run_script(in "@patch " ++ path ++ ":f\ny := 1 => y := 3\n", false, state, no_diagnostics, out reply, status, _)
+  assert status == 1 and reply == List(
+    "rejected",
+    "@patch: the old text \"y := 1\" occurs nowhere in the target, but in " ++ path ++ ":p/1")
+  run_script(in "@patch " ++ path ++ ":g\nf(x) => f(x + 1)\n", false, state, no_diagnostics, out reply, status, _)
+  assert status == 1 and reply == List(
+    "rejected",
+    "@patch: the old text \"f(x)\" occurs 2 times in the target, its signature and definition alike, so it takes more of its line")
+  run_script(in "@patch " ++ path ++ ":p\ny := 1\n=>\ny := 3\ny := y + 2\n=>\ny := y + 4\n", false, state, no_diagnostics, out reply, status, _)
+  assert status == 1 and reply == List(
+    "rejected",
+    "fragment 5, script 6: a second line => alone, while a @patch takes one block, so each block takes a @patch of its own")
+  run_script(in "@patch " ++ path ++ ":g\n + 1 =>\n@patch " ++ path ++ ":f\n + 1 => \n", false, state, no_diagnostics, out reply, status, _)
+  os_read_utf8(in path, out text)
+  assert status == 0
+  assert text == "function f(x: Int): Int :=\n  x\n\nfunction g(x: Int): Int :=\n  f(x) + f(x)\n\nprocedure p(out y: Int) :=\n  y := 1\n  y := y + 2\n"

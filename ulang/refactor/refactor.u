@@ -65,8 +65,8 @@ implementation
 data Refused :=
   case Refused(message: Str)
 
-// what a declaration is known by in its module, its kind of name, base name, and arity, -1 for types, which are not
-// overloaded
+// what a declaration is known by in its module, its kind of name, base name, and arity, -1 for types, tests, and
+// lemmas, which are not overloaded, so that a test with formals is not of arity 0 and is selected by its name alone
 data Key :=
   case Key(kind: Str, base: Str, arity: Int)
 
@@ -171,6 +171,18 @@ function target_of(word: Str): (Str, Option[Str], Option[Int]) :=
       (word, None, None)
   end
 
+// the form of @put place file:name that names the declaration of word in file
+function anchored_form(file: Str, place: Str, word: Str): Str :=
+  example anchored_form("a.u", "after", "f/2") == "@put after a.u:f/2"
+  example anchored_form("a.u", "before", "b.u:f") == "@put before a.u:f"
+  let name := match index_of(':', chars(word))
+    case Some(i) =>
+      slice(word, i + 1, size(word))
+    case None =>
+      word
+  end in
+  "@put " ++ place ++ " " ++ file ++ ":" ++ name
+
 function key_of(cmd: Cmd): Option[Key] :=
   match cmd
     case CSort(name, _, _) =>
@@ -198,10 +210,10 @@ function key_of(cmd: Cmd): Option[Key] :=
       Some(Key("value", name.base, size(formals)))
 
     case CTest(name, _, _) =>
-      Some(Key("test", name.base, 0))
+      Some(Key("test", name.base, -1))
 
     case CLemma(name, _, _, _, _, _) =>
-      Some(Key("lemma", name.base, 0))
+      Some(Key("lemma", name.base, -1))
 
     case CNotation(_, _, _) =>
       None
@@ -430,7 +442,7 @@ procedure perform(
     case List("put", file, place, word) if contains(place, List("before", "after")) =>
       let (path, name, arity) := target_of(word)
       if path != file then
-        raise Refused("@put " ++ file ++ " " ++ place ++ " takes a declaration of " ++ file ++ ", not " ++ word)
+        raise Refused("@put " ++ file ++ " " ++ place ++ " takes a declaration of " ++ file ++ ", not " ++ word ++ ", so write " ++ anchored_form(file, place, word))
       end
       put(in path, action.fragment, Anchor(place, value_or(name, ""), arity), ref edits)
 
@@ -1651,6 +1663,10 @@ procedure patch(
   end
   var patched := List(for region in regions yield join("\n", lines_in(lines, region))), changed := Range(1, 0)
   let code := split(fragment, '\n')
+  let arrows := List(for (line, i) in numbered(code) if trim(line) == "=>" yield i + 1)
+  if size(arrows) > 1 then
+    raise Refused("fragment " ++ show(value_or(get_at(1, arrows), 0)) ++ ": a second line => alone, while a @patch takes one block, so each block takes a @patch of its own")
+  end
   match index_of("=>", List(for line in code yield trim(line)))
     case Some(i) =>
       var at: (Int, Int)
@@ -1660,7 +1676,14 @@ procedure patch(
 
     case None =>
       for (line, i) in numbered(code) if not is_blank(line) do
-        patch_line(in line, i + 1, ref patched)
+        var absent: Option[Str]
+        patch_line(in line, i + 1, out absent, ref patched)
+        for old in absent do
+          var text: Str, whole: Source
+          current_text(in path, edits.files, out text)
+          parsed(in path, text, edits.files, no_fragment(), out whole)
+          raise Refused(nowhere_text(path, old, lines, main_mod(whole)))
+        end
       end
   end
   let splices := List(for (region, text) in zip(regions, patched) yield (region, split(text, '\n')))
@@ -1677,15 +1700,20 @@ procedure patch(
   note(in path ++ ": patched " ++ word, ref edits)
 
 // substitutes in texts, the regions of one target, the line old => new, the line number of the fragment, where old
-// occurs exactly once in all of them, split at the => after which it does, since => also occurs in code
+// occurs exactly once in all of them, split at the => after which it does, since => also occurs in code, and a line
+// old => with nothing after deletes old, as old => with a space does; absent is the old text of a line that splits at
+// one => only, if it occurs nowhere, so that the refusal can name the declarations of the file that have it
 procedure patch_line(
   in  line: Str,
       number: Int,
+  out absent: Option[Str],
   ref texts: List[Str]
 ) raises Refused :=
-  let splits := List(for i in occurrences(line, " => ") yield (slice(line, 0, i), slice(line, i + 4, size(line))))
-  let fitting := List(for (old, new) in splits if foldl(texts, 0, lambda n, text => n + size(occurrences(text, old))) == 1 yield (old, new))
-  match fitting
+  let full := if ends_with(line, " =>") then line ++ " " else line
+  let splits := List(for i in occurrences(full, " => ") yield (slice(full, 0, i), slice(full, i + 4, size(full))))
+  let counts := List(for (old, new) in splits yield (old, new, foldl(texts, 0, lambda n, text => n + size(occurrences(text, old)))))
+  absent := None
+  match List(for (old, new, n) in counts if n == 1 yield (old, new))
     case List((old, new)) =>
       if old == new then
         raise Refused("@patch: fragment line " ++ show(number) ++ ", " ++ quote(line) ++ ", changes nothing")
@@ -1693,11 +1721,29 @@ procedure patch_line(
       texts := List(for text in texts yield foldl(occurrences(text, old), text, lambda acc, i => slice(acc, 0, i) ++ new ++ slice(acc, i + size(old), size(acc))))
 
     case List() =>
-      raise Refused("@patch: no old text of " ++ quote(line) ++ " occurs exactly once in the target, its signature and definition alike, where a line is old => new")
+      match counts
+        case List((old, _, 0)) =>
+          absent := Some(old)
+
+        case List((old, _, n)) =>
+          raise Refused("@patch: the old text " ++ quote(old) ++ " occurs " ++ show(n) ++ " times in the target, its signature and definition alike, so it takes more of its line")
+
+        case List() =>
+          raise Refused("@patch: fragment line " ++ show(number) ++ ", " ++ quote(line) ++ ", is no line old => new")
+
+        case _ =>
+          raise Refused("@patch: no old text of " ++ quote(line) ++ " occurs exactly once in the target, its signature and definition alike, where a line is old => new")
+      end
 
     case _ =>
       raise Refused("@patch: " ++ quote(line) ++ " splits at several =>")
   end
+
+// the refusal of a @patch whose old text occurs nowhere in its target, with the declarations of the file of lines,
+// whose module is d, that have it
+function nowhere_text(path: Str, old: Str, lines: Array[Str], d: Mod): Str :=
+  let holders := distinct(List(for (key, cmd, _) in keyed(placed_of(d)) if index_of(old, join("\n", lines_in(lines, cmd_range(lines, cmd, 0, true)))) != None yield path ++ ":" ++ key_text(key))) in
+  "@patch: the old text " ++ quote(old) ++ " occurs nowhere in the target" ++ (if holders == List() then "" else ", but in " ++ join(", ", holders))
 
 // substitutes in texts, the regions of one target, the lines old by the lines new, at the indentation of the first old
 // line, where old occurs exactly once as consecutive whole lines, compared without their indentation, and at is the index
@@ -2403,6 +2449,8 @@ procedure rename(
   os_cwd(out here)
   project_root(in here, out root)
   user_files(in path, d, List(base, new), edits.files, out files)
+  // the texts before the rename, by which the declarations that the uses of new also see leave out those it writes
+  let unrenamed := edits.files
   var count := 0, touched := 0, also: List[Str] := List()
   var expected: List[(Str, List[Name])] := List()
   for (file, file_text) in files do
@@ -2420,7 +2468,7 @@ procedure rename(
       var result: Str, seen_source := source
       if file != path then
         try
-          parse_file_overlaid(in file, Map(file => file_text; edits.files), out seen_source)
+          parse_file_overlaid(in file, Map(file => file_text; unrenamed), out seen_source)
         catch
           case e =>
             raise Refused(file ++ ": " ++ parse_diagnostic(e).message)
