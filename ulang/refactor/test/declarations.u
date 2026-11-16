@@ -156,7 +156,7 @@ test patches_keep_handles() :=
   run_script(in "@show " ++ path ++ ":f", false, state, no_diagnostics, out reply, status, _)
   run_script(in "@patch " ++ path ++ ":f\ncase 0 => case 1\n", false, state, no_diagnostics, out reply, status, _)
   assert status == 0
-  run_script(in "@put #3\n2\n", false, state, no_diagnostics, out reply, status, _)
+  run_script(in "@put #4\n2\n", false, state, no_diagnostics, out reply, status, _)
   assert status == 0
   run_script(in "@patch " ++ path ++ ":f\ncase 1 => case 1\n", false, state, no_diagnostics, out reply, status, _)
   assert status == 1 and reply == List(

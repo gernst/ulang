@@ -1115,6 +1115,10 @@ procedure put_at(
   end
   var place: Place, label: Str, result: Str, source: Source, handles := edits.handles, marks: Map[Int, Int] := Map()
   resolved_address(in address, edits, out place, label)
+  // a head is only replaced, since what goes next to it or into it is no part of a head
+  for node in find(kinded_nodes(place.lines, place.cmd), lambda node => node.span == place.span) if node.kind == KHead and place_word != "replace" do
+    raise Refused("@" ++ (if place_word == "drop" then "drop " else "put " ++ place_word ++ " ") ++ word ++ " takes no head, which only @put " ++ word ++ " replaces")
+  end
   let lines := place.lines, start := place.span.start.line, stop := place.span.stop.line, indent := place.span.start.col - 1
   let inner := indent + 2, last_line := str(drop_spaces(chars(line_at(lines, stop))))
   let (region, depth) := match place_word
@@ -3919,8 +3923,8 @@ procedure outline(in path: Str, ref edits: Edits) raises Refused, OsError :=
               "private"
             var handle := ""
             for (own, merged) in decl_of(d, key) if own.span == cmd.span do
-              // the handle of a declaration is its first node that is no line of its spec, the body of a function
-              for (node, i) in find(numbered(kinded_nodes(lines, merged)), lambda (node, _) => node.kind != KSpec and is_within(node.span.start, own.span)) do
+              // the handle of a declaration is its first node that is no line of its spec and no head, the body of a function
+              for (node, i) in find(numbered(kinded_nodes(lines, merged)), lambda (node, _) => node.kind != KSpec and node.kind != KHead and is_within(node.span.start, own.span)) do
                 let span := node.span
                 handle_for(in path, key, i, hash_of(node_text(lines, span)), out number, ref handles)
                 handle := "#" ++ show(number)

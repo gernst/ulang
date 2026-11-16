@@ -107,19 +107,19 @@ make test                                 # runs all tests
 
 `out/ulang.sh refactor` edits sources by their meaning, as `format` edits their layout. It runs a script, from a file, from stdin, or as actions on the command line, a line of the script from each word that starts with `@`, `out/ulang.sh refactor @show shapes.u:area @refs shapes.u:area`, where the last one, if it is a `@put` or `@patch`, takes its fragment from stdin. Each action is a line that starts with `@`, which ulang never uses. Its fragment is the lines up to the next action, taken verbatim. A script writes all its files or, if one action is refused, none.
 
-`@show` prints code with handles, `#n` in a margin beside each line that starts a node: a statement, a case, a constructor, or an expression that starts its line, the body of a function, the body of a `let` after `in`, a branch of an `if` spread over lines, an element or argument of a form or call spread one per line, or a line of a spec, an example, `requires`, or `ensures`, where those of a signature in `export` are nodes of its definition. A node is its text from its first token to its last, so what follows it on its last line, such as the comma after an element or the `)` after the last one, stays where an edit replaces it; `@show` of a node and the echo of an edit also print the comments that `format` places above it, which an edit of the node keeps.
+`@show` prints code with handles, `#n` in a margin beside each line that starts a node: a statement, a case, a constructor, or an expression that starts its line, the body of a function, the body of a `let` after `in`, a branch of an `if` spread over lines, an element or argument of a form or call spread one per line, or a line of a spec, an example, `requires`, or `ensures`, where those of a signature in `export` are nodes of its definition, and the head of the definition of a function or procedure, up to its `:=`, which a diagnostic at the head, such as `SignatureMismatch`, names, and which only `@put N` replaces. A node is its text from its first token to its last, so what follows it on its last line, such as the comma after an element or the `)` after the last one, stays where an edit replaces it; `@show` of a node and the echo of an edit also print the comments that `format` places above it, which an edit of the node keeps.
 
 ```
 $ out/ulang.sh refactor @show shapes.u:area
 applied
 @show shapes.u:area
       // the area, rounded
-      function area(s: Shape): Int :=
-#1      match s
-#2        case Circle(r) =>
-#3          3 * r * r
-#4        case Square(side) =>
-#5          side * side
+#1    function area(s: Shape): Int :=
+#2      match s
+#3        case Circle(r) =>
+#4          3 * r * r
+#5        case Square(side) =>
+#6          side * side
         end
 ```
 
@@ -131,7 +131,7 @@ data Shape :=
   case Circle(r: Int)
   case Square(side: Int)
   case Rect(width: Int, height: Int)
-@put into #1
+@put into #2
 case Rect(width, height) => width * height
 @fix shapes.u
 @check test
@@ -142,9 +142,9 @@ Fragments need no layout, since every edited file is printed by `format`. The fi
 ```
 applied, clean, 1 test passed
 shapes.u: replaced Shape
-put into shapes.u:area/1 #1
-#6        case Rect(width, height) =>
-#7          width * height
+put into shapes.u:area/1 #2
+#7        case Rect(width, height) =>
+#8          width * height
 shapes.u: fixed BoolIte at 20.3
 script 1 of the journal
 checked 1 file: 0 new, 1 gone
@@ -152,7 +152,7 @@ checked 1 file: 0 new, 1 gone
 tested shapes.u: 1 passed, 0 failed
 ```
 
-Without the `@put into #1`, the reply would have listed the match that the new constructor leaves open as a new diagnostic, so the follow-ups of a change are a list of work, not a search. The status is 0 if the files are clean or have warnings only, 1 if errors remain or the script is refused (`rejected`, with the message of the refusal, and for an error of the system, such as a file that cannot be read, the line and the action of the script), and 3 if a test failed. A test that fails by reaching an error of the reply says so instead of repeating it, and the tests and examples that errors keep out of the program are counted as not run, as are the examples on a definition that belong to its signature, while the lemmas whose tests they keep out are named.
+Without the `@put into #2`, the reply would have listed the match that the new constructor leaves open as a new diagnostic, so the follow-ups of a change are a list of work, not a search. The status is 0 if the files are clean or have warnings only, 1 if errors remain or the script is refused (`rejected`, with the message of the refusal, and for an error of the system, such as a file that cannot be read, the line and the action of the script), and 3 if a test failed. A test that fails by reaching an error of the reply says so instead of repeating it, and the tests and examples that errors keep out of the program are counted as not run, as are the examples on a definition that belong to its signature, while the lemmas whose tests they keep out are named.
 
 Four queries tell what a module offers, what a name is, and who uses it, before an edit:
 
@@ -160,15 +160,15 @@ Four queries tell what a module offers, what a name is, and who uses it, before 
 $ out/ulang.sh refactor @outline shapes.u
 applied
 @outline shapes.u
-1-4   none data     Shape    private  #8 cases Circle/1, Square/1, Rect/2
-7-17  none function area/1   private  #1
-19-20 none function is_big/1 private  #9
-22-23 none test     areas    private  #10
+1-4   none data     Shape    private  #9 cases Circle/1, Square/1, Rect/2
+7-17  none function area/1   private  #2
+19-20 none function is_big/1 private  #10
+22-23 none test     areas    private  #11
 $ out/ulang.sh refactor @refs shapes.u:area
 applied
 @refs shapes.u:area: 2 uses of shapes.area/1 in 1 file
-  shapes.u:20.3 in is_big/1 #9: area(s) > 100
-  shapes.u:23.10 in areas/0 #10: assert area(Square(3)) == 9 and not is_big(Circle(2))
+  shapes.u:20.3 in is_big/1 #10: area(s) > 100
+  shapes.u:23.10 in areas/0 #11: assert area(Square(3)) == 9 and not is_big(Circle(2))
 $ out/ulang.sh refactor @sig lines
 applied
 @sig lines: 1 declaration in 1 module
@@ -195,7 +195,7 @@ A node N is a handle `#n`, a handle scoped by its declaration `F:name #n`, which
 | `@put F` | writes the declarations of the fragment into `F`, each replacing the one of its name and arity where it stands, whatever section the fragment names, or added, which the reply says with its section, naming each declaration once, and says `of another type` where a replacement's types differ; a missing or empty `F` is the fragment, header, imports, and sections, in a directory made if missing; into a file, the `import` lines join its imports and the declarations after `export` or `builtin` go into that section, which is made if missing; an import of the fragment replaces an import of the file of the same last name that fails, as of a package that moved, a declaration keeps its doc unless the fragment writes one, the signature in `export` follows the head of its definition and takes its doc if the fragment writes no signature, a private procedure that the fragment exports gets the raises of its signature or else those that the check inferred in both heads, as `@export` does, and a comment of no declaration is refused |
 | `@put F:name[/n]` | the declaration of that name in the fragment replaces the target at its place, whatever its arity, with its signature, and the others follow it; a fragment of one declaration of another name, of the target's kind, replaces it so too, while the uses keep the old name, which `@rename` changes |
 | `@put [F] before T`, `@put [F] after T` | places the new declarations of the fragment next to the declaration `T` in its section, where the lines under no section go into the builtin section if `T` is a builtin, where `T` is `F:name[/n]`, so `@put F after name` is refused with the form `@put after F:name` |
-| `@put N`, `@put before N`, `@put after N`, `@put into N` | replaces the node, or inserts code next to it or as its last statement or case, at its indentation, refused for a fragment of another kind than the node, a statement, a case, an expression, or a constructor, or one that writes declarations; a fragment may keep the margin of `@show`, and writes the node alone, without the comma or `)` after it, which stay, while one before or after an element gets the comma between them, also after the last one, and a drop of the last element moves its `)`, where a comment at the end of a line stays with the element that it follows; a drop of the last line of the spec of a signature drops its `:=` |
+| `@put N`, `@put before N`, `@put after N`, `@put into N` | replaces the node, or inserts code next to it or as its last statement or case, at its indentation, refused for a fragment of another kind than the node, a statement, a case, an expression, a constructor, or a head, which nothing goes next to or into, or one that writes declarations; a fragment may keep the margin of `@show`, and writes the node alone, without the comma or `)` after it, which stay, while one before or after an element gets the comma between them, also after the last one, and a drop of the last element moves its `)`, where a comment at the end of a line stays with the element that it follows; a drop of the last line of the spec of a signature drops its `:=` |
 | `@drop T` | removes a declaration, with its doc and signature, saying the sections where it had more than one, or a node N |
 | `@patch T` | lines `old => new` within the text of a declaration, its signature and definition alike, of a node N, or of a file `F`, each `old` occurring in the target and at most once in each of its parts, the signature and the definition of a declaration, or each declaration of a file and each run of its lines of no declaration, the comments at the top above the imports included, so that a text of both heads changes in both, and a line of several `=>` splits at the last one that leaves such an `old`, as for a line of a `case`, a lambda, or a map, where a refusal of a split that does not parse names it; a line `old =>`, with or without a space after the arrow, deletes `old`; or a block, the old lines, a line `=>` alone, and the new lines, at most once in each part of a declaration and once in a file, where nothing after the `=>` deletes the old lines, and a second line `=>` alone is refused at its line of the script, since a `@patch` takes one block; a patch of a file names the declarations that it changed; a patch that changes nothing is refused, and one whose `old` occurs nowhere in the target or too often says so, with the parts where it occurs, naming for none the declarations of the file that have it, or the earlier action of the script that removed it, and for old lines outside the target the target that it; the reply shows the nodes that the patch changed, with their handles searched |
 | `@example F:name[/n]` | adds the examples of the fragment, lines `example …`, after the spec of the function or procedure, on its signature if it has one, the place of the examples of an exported name, else on its definition, and shows them with their handles |
