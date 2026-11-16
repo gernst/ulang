@@ -1149,6 +1149,10 @@ procedure put_at(
   end
   var place: Place, label: Str, result: Str, source: Source, handles := edits.handles, marks: Map[Int, Int] := Map()
   resolved_address(in address, edits, out place, label)
+  // a head is only replaced, since what goes next to it or into it is no part of a head
+  for node in find(kinded_nodes(place.lines, place.cmd), lambda node => node.span == place.span) if node.kind == KHead and place_word != "replace" do
+    raise Refused("@" ++ (if place_word == "drop" then "drop " else "put " ++ place_word ++ " ") ++ word ++ " takes no head, which only @put " ++ word ++ " replaces")
+  end
   let lines := place.lines, start := place.span.start.line, stop := place.span.stop.line, indent := place.span.start.col - 1
   let inner := indent + 2, last_line := str(drop_spaces(chars(line_at(lines, stop))))
   let (region, depth) := match place_word
@@ -1256,15 +1260,19 @@ procedure closed_heads(
 // the lines that replace it, given new, the lines of the fragment at the depth of the edit: the text after the node on
 // its last line, such as the comma after an element or the ) after the last one, stays after what replaces the node,
 // so that a fragment writes the node alone, and an element placed before or after another, or dropped, writes or takes
-// the comma between them, where a fragment that writes the comma itself is taken as well
+// the comma between them, where a fragment that writes the comma itself is taken as well, while a comment at the end of
+// a line stays with the element that it follows, and a dropped element takes its own
 function span_splice(place_word: Str, lines: Array[Str], span: Span, region: Range, new: List[Str]): (Range, List[Str]) :=
   example span_splice("replace", Array("f(", "  a,", "  b)"), Span(Pos(3, 3), Pos(3, 4)), Range(3, 3), List("  c")) == (Range(3, 3), List("  c)"))
   example span_splice("before", Array("f(", "  a,", "  b)"), Span(Pos(3, 3), Pos(3, 4)), Range(3, 2), List("  c")) == (Range(3, 2), List("  c,"))
   example span_splice("after", Array("f(", "  a,", "  b)"), Span(Pos(3, 3), Pos(3, 4)), Range(4, 3), List("  c")) == (Range(3, 3), List("  b,", "  c)"))
+  example span_splice("after", Array("f(", "  a,", "  b) // b"), Span(Pos(3, 3), Pos(3, 4)), Range(4, 3), List("  c")) == (Range(3, 3), List("  b, // b", "  c)"))
   example span_splice("after", Array("f(", "  a,", "  b)"), Span(Pos(2, 3), Pos(2, 4)), Range(3, 2), List("  c,")) == (Range(3, 2), List("  c,"))
   example span_splice("drop", Array("f(", "  a,", "  b)"), Span(Pos(3, 3), Pos(3, 4)), Range(3, 3), List()) == (Range(2, 3), List("  a)"))
+  example span_splice("drop", Array("f(", "  a, // a", "  b) // b"), Span(Pos(3, 3), Pos(3, 4)), Range(3, 3), List()) == (Range(2, 3), List("  a) // a"))
   let stop_line := line_at(lines, span.stop.line) in
   let head := slice(stop_line, 0, span.stop.col - 1), tail := slice(stop_line, span.stop.col - 1, size(stop_line)) in
+  let (code, note) := commented(tail) in
   let parted := starts_with(tail, ","), closed := starts_with(tail, ")") in
   match place_word
     case "replace" =>
@@ -1277,19 +1285,47 @@ function span_splice(place_word: Str, lines: Array[Str], span: Span, region: Ran
       if parted then
         (region, with_tail(without_comma(new), ","))
       else if closed then
-        (Range(span.stop.line, span.stop.line), List(head ++ ","; with_tail(without_comma(new), tail)))
+        (Range(span.stop.line, span.stop.line), List(head ++ "," ++ note; with_tail(without_comma(new), code)))
       else
         (region, new)
 
     case "drop" =>
-      let previous := line_at(lines, region.first - 1) in
+      let (previous, previous_note) := commented(line_at(lines, region.first - 1)) in
       if closed and ends_with(previous, ",") then
-        (Range(region.first - 1, region.last), List(slice(previous, 0, size(previous) - 1) ++ tail))
+        (Range(region.first - 1, region.last), List(slice(previous, 0, size(previous) - 1) ++ code ++ previous_note))
       else
         (region, List())
 
     case _ =>
       (region, new)
+  end
+
+// the code of a line, or of the rest of one, without the spaces at its end, and the comment at its end with the spaces
+// before it, from the first // outside the literals of strings and characters
+function commented(line: Str): (Str, Str) :=
+  example commented("  b, // b \"c\"") == ("  b,", " // b \"c\"")
+  example commented("  \"a//b\"") == ("  \"a//b\"", "")
+  let code := slice(line, 0, comment_index(chars(line), 0, None)) in
+  let kept := size(code) - size(drop_spaces(reverse(chars(code)))) in
+  (slice(line, 0, size(code) - kept), slice(line, size(code) - kept, size(line)))
+
+function comment_index(cs: List[Char], i: Int, quote: Option[Char]): Int :=
+  example comment_index(chars("'/' // c"), 0, None) == 4
+  match (cs, quote)
+    case (List('\\', _; rest), Some(_)) =>
+      comment_index(rest, i + 2, quote)
+
+    case (List(c; rest), Some(q)) =>
+      comment_index(rest, i + 1, if c == q then None else quote)
+
+    case (List('/', '/'; _), None) =>
+      i
+
+    case (List(c; rest), None) =>
+      comment_index(rest, i + 1, if c == '"' or c == '\'' then Some(c) else None)
+
+    case (List(), _) =>
+      i
   end
 
 // lines with tail after the last one
@@ -3865,9 +3901,32 @@ function script_position(item: Str, line: Int): Option[Str] :=
       None
   end
 
-// whether two diagnostics are the same but for their positions, which edits move
+// whether two diagnostics are the same but for their positions, which edits move, and the numbers of the unknowns in
+// their messages, which depend on what the checker checked before
 function is_same(file: Str, d: Diagnostic, other: Str, e: Diagnostic): Bool :=
-  file == other and d.code == e.code and d.message == e.message
+  file == other and d.code == e.code and renumbered(d.message) == renumbered(e.message)
+
+// text with the unknowns ?N numbered in the order of their first occurrences, ?1, ?2
+function renumbered(text: Str): Str :=
+  example renumbered("the type ?18 of ?19, not ?18?") == "the type ?1 of ?2, not ?1?"
+  str(renumbered_chars(chars(text), Map()))
+
+function renumbered_chars(cs: List[Char], seen: Map[Str, Int]): List[Char] :=
+  match cs
+    case List('?'; rest) =>
+      let digits := take_while(rest, is_digit) in
+      if digits == List() then
+        List('?'; renumbered_chars(rest, seen))
+      else
+        let n := value_or(get(str(digits), seen), size(seen) + 1) in
+        chars("?" ++ show(n)) ++ renumbered_chars(drop_while(rest, is_digit), Map(str(digits) => n; seen))
+
+    case List(c; rest) =>
+      List(c; renumbered_chars(rest, seen))
+
+    case List() =>
+      List()
+  end
 
 // the handle of the innermost node around the position of d in file, with a space after it, or nothing if no node of a
 // definition holds it
@@ -3978,8 +4037,8 @@ procedure outline(in path: Str, ref edits: Edits) raises Refused, OsError :=
               "private"
             var handle := ""
             for (own, merged) in decl_of(d, key) if own.span == cmd.span do
-              // the handle of a declaration is its first node that is no line of its spec, the body of a function
-              for (node, i) in find(numbered(kinded_nodes(lines, merged)), lambda (node, _) => node.kind != KSpec and is_within(node.span.start, own.span)) do
+              // the handle of a declaration is its first node that is no line of its spec and no head, the body of a function
+              for (node, i) in find(numbered(kinded_nodes(lines, merged)), lambda (node, _) => node.kind != KSpec and node.kind != KHead and is_within(node.span.start, own.span)) do
                 let span := node.span
                 handle_for(in path, key, i, hash_of(node_text(lines, span)), out number, ref handles)
                 handle := "#" ++ show(number)

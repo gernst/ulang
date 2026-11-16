@@ -45,9 +45,9 @@ test handles() :=
   os_write_utf8(in os_join(state, "handles.txt"), "")
   os_write_utf8(in path, original)
   run_script(in "@show " ++ path ++ ":f", false, state, nothing_found, out reply, status, _)
-  let shown := "      function f(x: Int): Int :=\n#1      match x\n#2        case 0 =>\n#3          1\n#4        case _ =>\n#5          x\n        end"
+  let shown := "#1    function f(x: Int): Int :=\n#2      match x\n#3        case 0 =>\n#4          1\n#5        case _ =>\n#6          x\n        end"
   assert reply == List("applied", "@show " ++ path ++ ":f\n" ++ shown)
-  run_script(in "@put #3\n2\n@put before #4\n      case 1 =>\n        3\n@patch #5\nx => x + 1\n", false, state, nothing_found, out reply, status, _)
+  run_script(in "@put #4\n2\n@put before #5\n      case 1 =>\n        3\n@patch #6\nx => x + 1\n", false, state, nothing_found, out reply, status, _)
   os_read_utf8(in path, out text)
   assert status == 0
   assert text == "function f(x: Int): Int :=\n  match x\n    case 0 =>\n      2\n\n    case 1 =>\n      3\n\n    case _ =>\n      x + 1\n  end\n"
