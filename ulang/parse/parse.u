@@ -1438,7 +1438,7 @@ procedure parse_form(
   ref toks: Tokens
 ) :=
   let form := value_or(form_at(toks), FList), pos := head_pos(toks)
-  var rest: Option[At[Expr]]
+  var rest: Option[At[Expr]], that: Expr
   advance(ref toks)
   expect(in TKw("("), ref toks)
   if at_kw(toks, "for") then
@@ -1456,7 +1456,7 @@ procedure parse_form(
       end
     end
     parse_optional(in notation, params, TKw(";"), parse_expr, out rest, ref toks)
-    expr := AOk(pos, span_from(pos, toks), EFor(form, gens, elem, rest))
+    that := EFor(form, gens, elem, rest)
   else
     var elems: List[Yield]
     if at_kw(toks, ")") then
@@ -1467,12 +1467,14 @@ procedure parse_form(
       end, at_comma, out elems, ref toks)
       parse_optional(in notation, params, TKw(";"), parse_expr, out rest, ref toks)
     end
-    expr := AOk(pos, span_from(pos, toks), EForm(form, elems, rest))
+    that := EForm(form, elems, rest)
   end
   if form == FArray and rest != None then
     raise ParseError("arrays have no rest", pos)
   end
+  // the span ends after the ), so that an edit at the form replaces it whole
   expect(in TKw(")"), ref toks)
+  expr := AOk(pos, span_from(pos, toks), that)
 
 // an element e, or an entry k => v of a map
 procedure parse_elem(
