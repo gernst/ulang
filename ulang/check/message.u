@@ -103,6 +103,13 @@ function candidate_text(c: (Name, Scheme)): Str :=
         format_name(m) ++ ": " ++ format_type(sc.typ)
   end
 
+// the candidates of a use that none fits, after its message, none if there are none
+function candidates_text(candidates: List[(Name, Scheme)]): Str :=
+  if candidates == List() then
+    ""
+  else
+    ", among " ++ join(", ", List(for c in candidates yield candidate_text(c)))
+
 function container_message(typ: Type): Str :=
   "the type " ++ format_type(typ) ++ " of the container of a generator is not known there, which an annotation can give"
 
@@ -116,6 +123,28 @@ function sort_module(typ: Type): Str :=
 
 function count_message(owner: Str, unit: Str, k: Int, actual: Int): Str :=
   (if owner == "" then "expected " else owner ++ " expects ") ++ show(k) ++ " " ++ unit ++ ", got " ++ show(actual)
+
+// the numbers of the arguments of a call by their modes, those that it has
+function passed_text(ins: Int, outs: Int, refs: Int): Str :=
+  example passed_text(2, 0, 0) == "2 ins"
+  example passed_text(1, 1, 0) == "1 in and 1 out"
+  example passed_text(0, 0, 0) == "no arguments"
+  example passed_text(1, 2, 1) == "1 in, 2 outs, and 1 ref"
+  let counted := List(for (n, unit) in List((ins, "in"), (outs, "out"), (refs, "ref")) if n > 0 yield show(n) ++ " " ++ unit ++ (if n > 1 then "s" else "")) in
+  match counted
+    case List() =>
+      "no arguments"
+
+    case List(c) =>
+      c
+
+    case List(a, b) =>
+      a ++ " and " ++ b
+
+    // of all three modes
+    case _ =>
+      join(", ", take(2, counted)) ++ ", and " ++ join("", drop(2, counted))
+  end
 
 // the message of e with its hint
 function type_message(e: TypeError): Str :=
@@ -199,8 +228,8 @@ function plain_message(e: TypeError): Str :=
     case UnknownVariable(name) =>
       "unknown variable " ++ name.base
 
-    case NoOverload(name, typ) =>
-      "no declaration of " ++ name.base ++ " has the type " ++ format_type(typ)
+    case NoOverload(name, typ, candidates) =>
+      "no declaration of " ++ name.base ++ " has the type " ++ format_type(typ) ++ candidates_text(candidates)
 
     case WrongArity(name, arity) =>
       name.base ++ " does not take " ++ show(arity) ++ " arguments"
@@ -231,6 +260,9 @@ function plain_message(e: TypeError): Str :=
 
     case CountMismatch(owner, unit, k, actual) =>
       count_message(owner, unit, k, actual)
+
+    case CallMismatch(proc, typ, ins, outs, refs) =>
+      "procedure " ++ proc.base ++ " takes " ++ format_type(typ) ++ ", but the call passes " ++ passed_text(ins, outs, refs)
 
     case UnknownConstructor(name) =>
       "unknown constructor " ++ name.base
@@ -380,6 +412,7 @@ test messages() :=
   assert type_message(Mismatch(TBool(), TInt(), "the condition of if")) == "expected Bool but found Int in the condition of if"
   assert type_diagnostic(Located(Some(List("m")), Pos(2, 3), Mismatch(TBool(), TInt(), "the guard"))) == Diagnostic(TypeKind, "Mismatch", Some(List("m")), Pos(2, 3), "expected Bool but found Int in the guard", List(("expected", "Bool"), ("found", "Int")))
   assert located_message(Located(None, Pos(4, 1), CountMismatch("procedure p", "ins", 1, 2))) == "procedure p expects 1 ins, got 2 at 4.1"
+  assert located_message(Located(None, Pos(4, 1), CallMismatch(Name(List(), "p"), TProc(List(TInt()), List(TInt()), List(), RSet(empty())), 2, 0, 0))) == "procedure p takes (in Int, out Int), but the call passes 2 ins at 4.1"
   assert located_message(Duplicate("declaration", "a")) == "duplicate declaration a"
   assert located_message(Located(None, Pos(4, 1), HiddenLocal(Name(List(), "m")))) == "m hides a local of the same name at 4.1"
   assert located_message(Located(None, Pos(2, 7), QualifierLocal(Name(List(), "ulang")))) == "ulang is the first name of a path that the module sees, of which ulang.x is a qualified name at 2.7"
@@ -426,7 +459,9 @@ test messages() :=
   assert located_message(Located(None, Pos(1, 1), UnknownFieldOwner(".x:="))) == "the type of the value of .x is not known there, which an annotation can give; ascribe the type of the value, (e: T) with x := a at 1.1"
   assert located_message(Located(None, Pos(1, 1), UnknownFieldType(".x:=", TInt()))) == "the type Int of the value of .x is not known at 1.1"
   assert located_message(Located(None, Pos(1, 1), InfiniteType(TMeta(1), TList(TMeta(1))))) == "infinite type ?1 = List[?1] at 1.1"
-  assert located_message(Located(None, Pos(1, 1), NoOverload(Name(List(), "size"), TFun(List(TInt()), TInt())))) == "no declaration of size has the type Int -> Int at 1.1"
+  assert located_message(Located(None, Pos(1, 1), NoOverload(Name(List(), "size"), TFun(List(TInt()), TInt()), List()))) == "no declaration of size has the type Int -> Int at 1.1"
+  assert located_message(Located(None, Pos(1, 1), NoOverload(Name(List(), "size"), TFun(List(TInt()), TInt()), List(
+    (Name(List("prelude", "list"), "size"), Scheme(List(TParam("A")), TFun(List(TList(TParam("A"))), TInt()))))))) == "no declaration of size has the type Int -> Int, among prelude.list.size: List[A] -> Int at 1.1"
   assert located_message(Located(None, Pos(1, 1), UnknownContainer(TMeta(1)))) == "the type ?1 of the container of a generator is not known there, which an annotation can give at 1.1"
   assert located_message(Located(None, Pos(1, 1), UnparsedDeclaration(Name(List(), "x")))) == "the declaration of x does not parse at 1.1"
   assert located_message(Located(None, Pos(1, 1), SortDefined(Name(List("m"), "T")))) == "type T is already defined at 1.1"

@@ -23,7 +23,7 @@ test ascription_part() :=
   end
 
 test call_arity() :=
-  assert raises Located(None, Pos(5, 3), CountMismatch("procedure p", "ins", 1, 2)) do
+  assert raises Located(None, Pos(5, 3), CallMismatch(Name(List("ulang", "test", "errors", "call-arity"), "p"), _, 2, 1, 0)) do
     check_text(in "ulang/test/errors/call-arity.u", List(
       "procedure p(in x: Int, out y: Int) :=",
       "  y := x",
