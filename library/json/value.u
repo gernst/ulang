@@ -81,10 +81,12 @@ function format_number(m: Int, e: Int): Str :=
     sign ++ digits ++ repeat(e, "0")
   else if e < 0 and -e < size(digits) then
     sign ++ slice(digits, 0, size(digits) + e) ++ "." ++ slice(digits, size(digits) + e, size(digits))
-  else if e < 0 and -e - size(digits) < 6 then
-    sign ++ "0." ++ repeat(-e - size(digits), "0") ++ digits
   else
-    sign ++ slice(digits, 0, 1) ++ (if size(digits) > 1 then "." ++ slice(digits, 1, size(digits)) else "") ++ "e" ++ show(e + size(digits) - 1)
+    let zeros := -e - size(digits) in
+    if e < 0 and zeros < 6 then
+      sign ++ "0." ++ repeat(zeros, "0") ++ digits
+    else
+      sign ++ slice(digits, 0, 1) ++ (if size(digits) > 1 then "." ++ slice(digits, 1, size(digits)) else "") ++ "e" ++ show(e + size(digits) - 1)
 
 function json_quote(s: Str): Str :=
   "\"" ++ join("", List(for c in s yield escape(c))) ++ "\""

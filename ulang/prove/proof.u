@@ -260,11 +260,11 @@ function split_gaps(w: Walk, scope: Scope, split: SplitTerm): List[Gap] :=
 function invariant_gaps(w: Walk, scope: Scope, vars: List[Int], havoc: List[Var], inv: Term, cond: Term, body: ProofTerm, after: ProofTerm, pos: Pos): List[Gap] :=
   let around := List(for l in reverse(scope.env) yield ELevel(l)) in
   let before := List(for i in vars yield ELevel(at(i, from_list(scope.env)))) in
-  let k := size(scope.vars), n := size(havoc) in
-  let fresh := List(for l in range(k, k + n) yield ELevel(l)), next := List(for l in range(k + n, k + 2 * n) yield ELevel(l)) in
+  let k := size(scope.vars), n := size(havoc), nexts := range(k + n, k + 2 * n) in
+  let fresh := List(for l in range(k, k + n) yield ELevel(l)), next := List(for l in nexts yield ELevel(l)) in
   let holds := Atom(beta(around ++ fresh, inv)), guard := beta(around ++ fresh, cond) in
   let loop := scope with vars := scope.vars ++ havoc, env := reverse(range(k, k + n)) ++ scope.env in
-  let step := loop with vars := loop.vars ++ List(for x in havoc yield x with name := Name(List(), "(next)" ++ x.name.base)), env := reverse(range(k + n, k + 2 * n)) ++ loop.env, facts := scope.facts ++ List(holds, Atom(guard)), goal := beta(around ++ next, inv), outs := range(k + n, k + 2 * n), arounds := List() in
+  let step := loop with vars := loop.vars ++ List(for x in havoc yield x with name := Name(List(), "(next)" ++ x.name.base)), env := reverse(nexts) ++ loop.env, facts := scope.facts ++ List(holds, Atom(guard)), goal := beta(around ++ next, inv), outs := nexts, arounds := List() in
   let exit := loop with facts := scope.facts ++ List(holds, Negated(Atom(guard))) in
   closing(w, scope, beta(around ++ before, inv), pos) ++ block_gaps(w, step, body) ++ block_gaps(w, exit, after)
 

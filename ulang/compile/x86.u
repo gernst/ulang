@@ -1631,10 +1631,11 @@ procedure compile_cmd(in defs: Defs, tests: Bool, cmd: Cmd, ref e: Emit) :=
       var outer: (Buffer[Line], Int)
       begin_function(out outer, ref e)
       formal_slots(in k + size(outs ++ refs), out fs, ref e)
-      ps := zip(var_names(vars(outs ++ refs)), drop(k, fs))
+      let out_names := var_names(vars(outs ++ refs))
+      ps := zip(out_names, drop(k, fs))
       copy_in(in var_names(vars(outs)), var_names(vars(refs)), ps, out vs, ref e)
       compile_stmt(in defs, zip(var_names(vars(ins)), take(k, fs)) ++ vs, stmt, ref e)
-      copy_out(in var_names(vars(outs ++ refs)), ps, vs, ref e)
+      copy_out(in out_names, ps, vs, ref e)
       end_function(in proc_name(name), false, outer, ref e)
 
     // a test with formals runs as the test that the tester generates of it

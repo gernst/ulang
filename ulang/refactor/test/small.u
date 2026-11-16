@@ -23,7 +23,7 @@ test patches_nodes() :=
   var path: Str, reply: List[Str], status: Int, text: Str
   let dir := "out/test/refactor/small/patch"
   branches(in dir, out path)
-  run_script(in "@show " ++ path ++ ":p\n@patch " ++ path ++ ":p \"y := 1\"\n1 => 3\n@patch " ++ path ++ ":5.5\n2 => 4\n@patch " ++ path ++ ":p #2\nx > 0 => x > 1\n@patch " ++ path ++ ":p\n) := => ) raises Str :=\n", false, dir, unchecked, out reply, status, _)
+  run_script(in "@show " ++ path ++ ":p\n@patch " ++ path ++ ":p \"y := 1\"\n-1\n+3\n@patch " ++ path ++ ":5.5\n-2\n+4\n@patch " ++ path ++ ":p #2\n-x > 0\n+x > 1\n@patch " ++ path ++ ":p\n-) :=\n+) raises Str :=\n", false, dir, unchecked, out reply, status, _)
   os_read_utf8(in path, out text)
   assert status == 0
   assert text == "procedure p(in x: Int, out y: Int) raises Str :=\n  if x > 1 then\n    y := 3\n  else\n    y := 4\n  end\n"
@@ -35,7 +35,7 @@ test patches_nodes() :=
     "patched " ++ path ++ ":p/2 #2",
     "#2      if x > 1 then\n#3        y := 3\n        else\n#4        y := 4\n        end",
     "patched " ++ path ++ ":p/2")
-  run_script(in "@patch " ++ path ++ ":p \"z\"\nz => w\n", false, dir, unchecked, out reply, status, _)
+  run_script(in "@patch " ++ path ++ ":p \"z\"\n-z\n+w\n", false, dir, unchecked, out reply, status, _)
   assert status == 1
   assert reply == List("rejected", "no node of " ++ path ++ ":p/2 starts with \"z\"")
 
@@ -45,7 +45,7 @@ test patches_comments() :=
   let dir := "out/test/refactor/small/comments", path := "out/test/refactor/small/comments/q.u"
   os_write_utf8(in os_join(dir, "handles.txt"), "")
   os_write_utf8(in path, "procedure q(out y: Int) :=\n  y := 0\n  while y < 3 do\n    // grows\n    y := y + 1\n  end\n")
-  run_script(in "@patch " ++ path ++ ":q\ngrows => grows by one\n", false, dir, unchecked, out reply, status, _)
+  run_script(in "@patch " ++ path ++ ":q\n-grows\n+grows by one\n", false, dir, unchecked, out reply, status, _)
   assert status == 0 and take(2, drop(1, reply)) == List(
     "patched " ++ path ++ ":q/1",
     "          // grows by one\n#1        y := y + 1")
@@ -57,27 +57,28 @@ test patches_lets() :=
   let dir := "out/test/refactor/small/lets", path := "out/test/refactor/small/lets/f.u"
   os_write_utf8(in os_join(dir, "handles.txt"), "")
   os_write_utf8(in path, "function f(x: Int): Int :=\n  let a := x + 1 in\n  let b := a * 2 in\n  a + b\n")
-  run_script(in "@patch " ++ path ++ ":f\nx + 1 => x + 2\n@patch " ++ path ++ ":f\nlet b := a * 2 in\n  a + b\n=>\nlet b := a * 3 in\n  a - b\n", false, dir, unchecked, out reply, status, _)
+  run_script(in "@patch " ++ path ++ ":f\n-x + 1\n+x + 2\n@patch " ++ path ++ ":f\n-let b := a * 2 in\n-  a + b\n+let b := a * 3 in\n+  a - b\n", false, dir, unchecked, out reply, status, _)
   assert status == 0 and take(4, drop(1, reply)) == List(
     "patched " ++ path ++ ":f/1",
     "#1      let a := x + 2 in",
     "patched " ++ path ++ ":f/1",
     "#2      let b := a * 3 in\n#3      a - b")
 
-// a line old =>* new of @patch replaces every occurrence of old in the target, in its head and body alike, and says how
-// often, a line old =>* deletes them, an =>* in a literal is no such arrow, and an old text that occurs nowhere is refused
+// a hunk -* of @patch replaces every occurrence of its text in the target, in its head and body alike, and says how
+// often, one without a line + deletes them, its text is taken as written, and one that occurs nowhere is refused
 test patches_every() :=
   var reply: List[Str], status: Int, text: Str
   let dir := "out/test/refactor/small/every", path := "out/test/refactor/small/every/f.u"
   os_write_utf8(in os_join(dir, "handles.txt"), "")
   os_write_utf8(in path, "function f(x: Int): Str :=\n  if x + x * x > 0 then \" =>* \" else \"\"\n")
-  run_script(in "@patch " ++ path ++ ":f\nx =>* y\n@patch " ++ path ++ ":f\n * y =>*\n@patch " ++ path ++ ":f\n\" =>* \" => \"=\"\n", false, dir, unchecked, out reply, status, _)
+  run_script(in "@patch " ++ path ++ ":f\n-*x\n+y\n@patch " ++ path ++ ":f\n-*  * y\n@patch " ++ path ++ ":f\n-* \" =>* \"\n+ \"=\"\n", false, dir, unchecked, out reply, status, _)
   os_read_utf8(in path, out text)
   assert status == 0
   assert text == "function f(y: Int): Str :=\n  if y + y > 0 then \"=\" else \"\"\n"
   assert contains("patched " ++ path ++ ":f/1, replaced \"x\" 4 times", reply)
   assert contains("patched " ++ path ++ ":f/1, replaced \" * y\" 1 time", reply)
-  run_script(in "@patch " ++ path ++ ":f\nz =>* w\n", false, dir, unchecked, out reply, status, _)
+  assert contains("patched " ++ path ++ ":f/1, replaced \"\\\" =>* \\\"\" 1 time", reply)
+  run_script(in "@patch " ++ path ++ ":f\n-*z\n+w\n", false, dir, unchecked, out reply, status, _)
   assert status == 1 and reply == List("rejected", "@patch: the old text \"z\" occurs nowhere in the target")
 
 // a file spelled with ./ or .. is the file without them, in the handles and in the edits of a script, so that both

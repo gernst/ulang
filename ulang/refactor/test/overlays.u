@@ -96,7 +96,7 @@ test failed_import() :=
   let path := dir ++ "/a/a.u", header := "export\n\nfunction f(x: Int): Int\n\nimplementation\n\nfunction f(x: Int): Int :=\n"
   os_write_utf8(in dir ++ "/box/box.u", "export\n\nfunction g(x: Int): Int\n\nimplementation\n\nfunction g(x: Int): Int :=\n  x * 2\n")
   os_write_utf8(in path, "import box\n\n" ++ header ++ "  g(x) + 1\n")
-  run_script(in "@patch " ++ path ++ ":f\ng(x) + 1 => g(x) + 2\n", false, state, checked, out reply, status, _)
+  run_script(in "@patch " ++ path ++ ":f\n-g(x) + 1\n+g(x) + 2\n", false, state, checked, out reply, status, _)
   os_read_utf8(in path, out text)
   assert status == 1 and take(2, reply) == List("applied, 1 error (0 new)", "patched " ++ path ++ ":f/1")
   assert text == "import box\n\n" ++ header ++ "  g(x) + 2\n"
@@ -124,7 +124,7 @@ test importers() :=
     "would write " ++ lib,
     "checked 1 file: 0 new, 0 gone",
     lib ++ ": the exports f changed, whose importers are not checked")
-  run_script(in "@patch " ++ lib ++ ":f\nx + 1 => x + 2\n", true, state, checked, out reply, status, _)
+  run_script(in "@patch " ++ lib ++ ":f\n-x + 1\n+x + 2\n", true, state, checked, out reply, status, _)
   assert status == 0 and not exists(reply, lambda line => index_of("whose importers are not checked", line) != None)
   os_remove_all(in dir)
 
@@ -135,9 +135,9 @@ test changed_fields() :=
   let state := "out/test/refactor/overlays/state", dir := "out/test/refactor/overlays/fields"
   let lib := dir ++ "/lib/lib.u"
   os_write_utf8(in lib, "export\n\ndata Loaded :=\n  case Loaded(root: Str, source: Int)\n  case Empty\n")
-  run_script(in "@patch " ++ lib ++ ":Loaded\nsource: Int) => source: Int, declared: Bool)\n", true, state, checked, out reply, status, _)
+  run_script(in "@patch " ++ lib ++ ":Loaded\n-source: Int)\n+source: Int, declared: Bool)\n", true, state, checked, out reply, status, _)
   assert status == 0 and contains(lib ++ ": the exports Loaded, declared changed, whose importers are not checked", reply)
-  run_script(in "@patch " ++ lib ++ ":Loaded\nroot: Str, => root: Str, declared: Bool,\n", true, state, checked, out reply, status, _)
+  run_script(in "@patch " ++ lib ++ ":Loaded\n-root: Str,\n+root: Str, declared: Bool,\n", true, state, checked, out reply, status, _)
   assert status == 0 and contains(lib ++ ": the exports Loaded, source, declared changed, whose importers are not checked", reply)
   os_remove_all(in dir)
 
@@ -149,8 +149,8 @@ test broken_imports() :=
   let lib := dir ++ "/lib/lib.u", user := dir ++ "/user/user.u"
   os_write_utf8(in lib, "export\n\nfunction f(x: Int): Int\n\nimplementation\n\nfunction f(x: Int): Int :=\n  true\n")
   os_write_utf8(in user, "import out.test.refactor.overlays.broken.lib\n\nfunction h(): Int :=\n  f(1)\n")
-  run_script(in "@patch " ++ user ++ ":h\nf(1) => f(2)\n", true, state, checked, out reply, status, _)
+  run_script(in "@patch " ++ user ++ ":h\n-f(1)\n+f(2)\n", true, state, checked, out reply, status, _)
   assert status == 0 and take(1, reply) == List("dry, clean")
-  run_script(in "@patch " ++ lib ++ ":f\ntrue => false\n", true, state, checked, out reply, status, _)
+  run_script(in "@patch " ++ lib ++ ":f\n-true\n+false\n", true, state, checked, out reply, status, _)
   assert status == 1 and take(1, reply) == List("dry, 1 error (0 new)")
   os_remove_all(in dir)
