@@ -97,7 +97,7 @@ test replaces_by_other_name() :=
 
 // a signature put into export without its definition gives the definition its head, also of another arity by @put
 // F:name and of a private definition that it exports, and the reply says so
-test signature_heads() :=
+test definition_heads() :=
   var reply: List[Str], status: Int, text: Str
   let state := "out/test/refactor/declarations/heads", path := "out/test/refactor/declarations/heads.u"
   os_write_utf8(in path, "export\n\nfunction f(x: Int): Int\n\nprocedure p(in x: Int, out y: Int) :=\n  example p(in 1, out 1)\n\nimplementation\n\nfunction f(x: Int): Int :=\n  0\n\nprocedure p(in x: Int, out y: Int) :=\n  y := x\n\nfunction g(x: Int): Int :=\n  0\n")
