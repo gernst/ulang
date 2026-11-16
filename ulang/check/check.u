@@ -4627,19 +4627,21 @@ procedure check_proof(
 ) :=
   var steps: Buffer[At[Step]] := empty(), split: Option[At[Split]] := None
   for step in proof.steps do
-    var typed_step: Step
-    let outer := s.at
+    var typed_step: Step, errors: List[Diagnostic]
+    let outer := s.at, before := size(s.errors)
     s := s with at := step.pos
     proof_step(in outs, step.that, out typed_step, ref env, s)
-    steps := steps ++ List(AOk(step.pos, step.span, typed_step)), s := s with at := outer
+    take_errors(in step.pos, before, out errors, ref s)
+    steps := steps ++ List(checked_at(step.pos, step.span, typed_step, errors)), s := s with at := outer
   end
   match proof.split
     case Some(placed) =>
-      var typed_split: Split
-      let outer := s.at
+      var typed_split: Split, errors: List[Diagnostic]
+      let outer := s.at, before := size(s.errors)
       s := s with at := placed.pos
       proof_split(in formals, outs, placed.that, out typed_split, ref env, s)
-      split := Some(AOk(placed.pos, placed.span, typed_split)), s := s with at := outer
+      take_errors(in placed.pos, before, out errors, ref s)
+      split := Some(checked_at(placed.pos, placed.span, typed_split, errors)), s := s with at := outer
 
     case None =>
       skip

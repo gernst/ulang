@@ -13,6 +13,59 @@ test append_commutes() :=
       "  ensures xs ++ ys == ys ++ xs"))
   end
 
+// a lemma whose proof cites a lemma whose statement has errors, which the prover leaves out, is not proven, also where
+// the cited lemma has outs that the proof binds
+test cites_rejected() :=
+  assert raises OpenLemma("good", "the statement of the lemma bad has errors at 10.3") do
+    prove_text_despite_errors(in "ulang/test/errors/cites-rejected.u", List(
+      "function double(n: Int): Int :=",
+      "  n + n",
+      "",
+      "lemma bad(in n: Int, out m: Int) :=",
+      "  ensures m == true",
+      "",
+      "lemma good(in n: Int) :=",
+      "  ensures double(n) == 2 * n",
+      "  var m: Int",
+      "  bad(in n, out m)"))
+  end
+
+// a proof looks only at the statements of the lemmas that it cites, so good is proved from the statement of later, a
+// lemma after it, whatever the proof of later gives, and the run fails with later alone
+test cites_later() :=
+  assert raises OpenLemma("later", "forall n => false") do
+    prove_text_despite_errors(in "ulang/test/errors/cites-later.u", List(
+      "function double(n: Int): Int :=",
+      "  n + n",
+      "",
+      "lemma good(in n: Int) :=",
+      "  ensures double(n) == 2 * n + 1",
+      "  later(in n)",
+      "",
+      "lemma later(in n: Int) :=",
+      "  ensures double(n) == 2 * n + 1"))
+  end
+
+// a lemma whose errors are only in its proof is not proven, but its statement is cited and a fact, so good is proved,
+// and the run fails with last alone
+test cites_broken() :=
+  assert raises OpenLemma("last", "forall n => false") do
+    prove_text_despite_errors(in "ulang/test/errors/cites-broken.u", List(
+      "function double(n: Int): Int :=",
+      "  n + n",
+      "",
+      "lemma half(in n: Int) :=",
+      "  ensures double(n) == 2 * n + 1",
+      "  assert true + 1",
+      "",
+      "lemma good(in n: Int) :=",
+      "  ensures double(n) == 2 * n + 1",
+      "  half(in n)",
+      "",
+      "lemma last(in n: Int) :=",
+      "  ensures n == n + 1"))
+  end
+
 test falsified() :=
   assert raises Uncaught("Falsified(\"xs = List(1, 0), ys = List()\")") do
     run_text(in "ulang/test/errors/falsified.u", List(
@@ -232,18 +285,6 @@ test proof_self_call() :=
       "lemma self_call(in x: Int) :=",
       "  ensures x == x",
       "  self_call(in x)"))
-  end
-
-// a call of a lemma that comes after the one that calls it
-test proof_later_call() :=
-  assert raises OpenLemma("early", "the lemma late is not proven before this one at 3.3") do
-    prove_text(in "ulang/test/errors/proof-later-call.u", List(
-      "lemma early(in x: Int) :=",
-      "  ensures x == x",
-      "  late(in x)",
-      "",
-      "lemma late(in x: Int) :=",
-      "  ensures x == x"))
   end
 
 // a case of an induction that is not written must close by simplification
