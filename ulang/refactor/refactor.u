@@ -97,7 +97,7 @@ data Handle :=
 
 // a node that a handle names, in the current text of its file, with the number of the declarations of its module
 data Place :=
-  case Place(path: Str, lines: Array[Str], key: Key, cmd: Cmd, span: Span, decls: Int)
+  case Place(path: Str, lines: Array[Str], key: Key, cmd: Decl, span: Span, decls: Int)
 
 function actions(script: Str): List[Action] :=
   actions_of(List(for (line, i) in numbered(split(script, '\n')) yield (line, i + 1)))
@@ -389,7 +389,7 @@ procedure parsed(
   out source: Source
 ) raises Refused, OsError :=
   try
-    parse_file_overlaid(in path, Map(path => text; files), false, out source)
+    parse_file_overlaid(in path, Map(path => text; files), true, out source)
     // an import that fails is no failure of the parse here, so that a script can fix it
     require_parsed(in source with mods := List(for m in source.mods yield m with imports := List(for i in m.imports if import_failures(i) == List())))
   catch
@@ -545,15 +545,17 @@ procedure perform(
   end
 
 // the definition of key in d, with the lines of the specs of its signatures as its own, for its nodes, so that the
-// handles of the examples of a signature in export are nodes of the definition, or the declaration of key if it has no
-// definition
-function decl_of(d: Mod, key: Key): Option[(At[Cmd], Cmd)] :=
+// handles of the examples of a signature in export are nodes of the definition, and with the spans of the signatures,
+// whose heads are nodes of it, or the declaration of key if it has no definition
+function decl_of(d: Mod, key: Key): Option[(At[Cmd], Decl)] :=
   let decls := List(for (k, cmd, c) in keyed(placed_of(d)) if k == key yield (cmd, c)) in
   match find(decls, lambda (_, c) => not is_signature(c))
     case Some((cmd, c)) =>
-      Some((cmd, with_specs(c, List(for (_, s) in decls if is_signature(s) yield spec_of(s)))))
+      let signatures := List(for (s, sc) in decls if is_signature(sc) yield (s, sc)) in
+      Some((cmd, Decl(with_specs(c, List(for (_, sc) in signatures yield spec_of(sc))), List(for (s, _) in signatures yield s.span))))
+
     case None =>
-      find(decls, lambda _ => true)
+      map_option(find(decls, lambda _ => true), lambda (cmd, c) => (cmd, Decl(c, List())))
   end
 
 // the spec of a function or procedure, its signature or definition
@@ -668,7 +670,7 @@ procedure mark(
   in  path: Str,
       lines: Array[Str],
       key: Key,
-      cmd: Cmd,
+      cmd: Decl,
       region: Range,
   ref handles: Handles,
       marks: Map[Int, Int]
@@ -930,7 +932,7 @@ function some_number(n: Int): Option[Int] :=
   Some(n)
 
 // the node of h among the nodes of cmd in lines: the one with its hash, at its index if that has it
-function node_of(h: Handle, lines: Array[Str], cmd: Cmd): Option[Span] :=
+function node_of(h: Handle, lines: Array[Str], cmd: Decl): Option[Span] :=
   let fitting := List(for (span, i) in numbered(line_nodes(lines, cmd)) if h.index >= 0 and hash_of(node_text(lines, span)) == h.hash yield (span, i)) in
   match (find(fitting, lambda (_, i) => i == h.index), fitting)
     case (Some((span, _)), _) =>
@@ -992,9 +994,9 @@ procedure rebase(
   in  path: Str,
       key: Key,
       old: Array[Str],
-      old_cmd: Cmd,
+      old_cmd: Decl,
       new: Array[Str],
-      new_cmd: Cmd,
+      new_cmd: Decl,
       region: Range,
       keep: Bool,
   ref handles: Handles
@@ -1122,7 +1124,7 @@ procedure show_target(in word: Str, ref edits: Edits) raises Refused, OsError :=
   for (key, cmd, c) in selected do
     let region := cmd_range(lines, cmd, 0, true)
     // the nodes of a signature are those of its definition, which take in its spec
-    let nodes := value_or(map_option(decl_of(main_mod(source), key), lambda (_, merged) => merged), c)
+    let nodes := value_or(map_option(decl_of(main_mod(source), key), lambda (_, merged) => merged), Decl(c, List()))
     mark(in path, lines, key, nodes, region, ref handles, marks)
     shown := shown ++ List(join("\n", rendered(lines, region, marks)))
   end
@@ -1150,7 +1152,8 @@ procedure put_at(
   var place: Place, label: Str, result: Str, source: Source, handles := edits.handles, marks: Map[Int, Int] := Map()
   resolved_address(in address, edits, out place, label)
   // a head is only replaced, since what goes next to it or into it is no part of a head
-  for node in find(kinded_nodes(place.lines, place.cmd), lambda node => node.span == place.span) if node.kind == KHead and place_word != "replace" do
+  let is_head := exists(find(kinded_nodes(place.lines, place.cmd), lambda node => node.span == place.span), lambda node => node.kind == KHead)
+  if is_head and place_word != "replace" then
     raise Refused("@" ++ (if place_word == "drop" then "drop " else "put " ++ place_word ++ " ") ++ word ++ " takes no head, which only @put " ++ word ++ " replaces")
   end
   let lines := place.lines, start := place.span.start.line, stop := place.span.stop.line, indent := place.span.start.col - 1
@@ -1180,6 +1183,18 @@ procedure put_at(
   closed_heads(in place_word, place, edits.files, out closing)
   let text := join("\n", spliced(List(for line in lines), List((splice, written)) ++ closing))
   formatted(in place.path, text, edits.files, List((Range(region.first, region.first + size(new) - 1), 1)), out result, source)
+  // the head of a definition of another name or arity moves its declaration to the key of the head, and the signature
+  // follows the head of a definition, while that of a signature is replaced alone
+  let headed := if is_head then
+    find(keyed(placed_of(main_mod(source))), lambda (_, cmd, c) => not is_signature(c) and cmd.span.start.line <= start and start <= cmd.span.stop.line)
+  else
+    None
+  let key := value_or(map_option(headed, lambda (k, _, _) => k), place.key)
+  var signed: List[Str] := List()
+  if headed != None then
+    with_signatures(in place.path, List((place.key, key)), List(), edits.files, ref result, signed)
+    parsed(in place.path, result, edits.files, no_fragment(), out source)
+  end
   let d := main_mod(source), result_lines := Array(for line in split(result, '\n'))
   let verb := match place_word
     case "replace" =>
@@ -1194,6 +1209,9 @@ procedure put_at(
   if size(placed_of(d)) != place.decls then
     raise Refused(verb ++ " " ++ word ++ " writes declarations beyond its node, which @put F writes")
   end
+  if key != place.key and size(List(for (k, _, c) in keyed(placed_of(d)) if k == key and not is_signature(c) yield k)) > 1 then
+    raise Refused(verb ++ " " ++ word ++ " gives " ++ label ++ " the head of " ++ key_text(key) ++ ", which " ++ place.path ++ " declares already")
+  end
   edits := edits with files := Map(place.path => result; edits.files)
   let done := match place_word
     case "replace" =>
@@ -1205,9 +1223,11 @@ procedure put_at(
     case _ =>
       "put " ++ place_word ++ " "
   end
-  note(in done ++ label, ref edits)
-  for (_, cmd) in decl_of(d, place.key) do
+  note(in join(", ", List(
+    done ++ label ++ (if key == place.key then "" else ", now " ++ key_text(key)); signed)), ref edits)
+  for (_, cmd) in decl_of(d, key) do
     rebase(in place.path, place.key, lines, place.cmd, result_lines, cmd, region, place_word == "replace", ref handles)
+    handles := rekeyed(handles, place.path, place.key, key)
     let olds := kinded_nodes(lines, place.cmd), news := kinded_nodes(result_lines, cmd)
     let alignment := aligned(hashed(lines, List(for node in olds yield node.span)), hashed(result_lines, List(for node in news yield node.span)), region)
     let placed := match alignment
@@ -1224,7 +1244,7 @@ procedure put_at(
     match (placed, last(placed))
       case (List(first; _), Some(final)) =>
         let shown := Range(first.span.start.line, final.span.stop.line)
-        mark(in place.path, result_lines, place.key, cmd, shown, ref handles, marks)
+        mark(in place.path, result_lines, key, cmd, shown, ref handles, marks)
         note(in join("\n", rendered(result_lines, with_comments(result_lines, shown), marks)), ref edits)
 
       case _ =>
@@ -1232,6 +1252,14 @@ procedure put_at(
     end
   end
   edits := edits with handles := handles
+
+// handles with those of the declaration key of path moved to the declaration new_key, as a head of another arity moves
+// them
+function rekeyed(handles: Handles, path: Str, key: Key, new_key: Key): Handles :=
+  if key == new_key then
+    handles
+  else
+    handles with entries := List(for h in handles.entries yield if h.path == path and h.key == key then h with key := new_key else h), changed := true
 
 // the head of the signature whose last line of spec a drop of place removes, without its :=, which only a signature with
 // a spec has
@@ -1640,8 +1668,8 @@ procedure put_anchored(
     else
       ", but " ++ join(", ", List(for k in fragment_keys yield key_text(k))) ++ ", while a declaration of another name replaces it only as the one declaration of the fragment, of its kind"))
   end
-  var splices: List[(Range, List[Str])] := List(), entries: List[(Str, Str, Str, Str)] := List(), replaced_keys: List[(Key, Key)] := List()
-  var exported_keys: List[Key] := List()
+  var splices: List[(Range, List[Str])] := List(), entries: List[(Str, Str, Str, Str, Str)] := List(), replaced_keys: List[(Key, Key)] := List()
+  var exported_keys: List[Key] := List(), spec_keys: List[Key] := List()
   let section_cmds := lambda role: Str => if role == "export" then
     all.exported
   else if role == "builtin" then
@@ -1654,6 +1682,29 @@ procedure put_anchored(
     "builtin"
   else
     "implementation"
+  // where a declaration added to a section stands, as the reply says: the first next to the anchor in that section, after
+  // the declaration that replaced it if the fragment replaces it, and each other one after the one added before it
+  let anchor_now := if anchor.side == "instead" then
+    value_or(map_option(find(added, lambda (cmd, _, _) => instead(cmd)), lambda (cmd, _, _) => cmd_key(cmd)), None)
+  else
+    anchor_key
+  let section_anchor := lambda role: Str => if role == "export" then
+    export_anchor
+  else if role == "builtin" then
+    builtin_anchor
+  else
+    impl_anchor
+  let place_of := lambda role: Str, before: Option[Key] => match (anchor_now, section_anchor(role), before)
+    case (_, Some(_), Some(k)) =>
+      " after " ++ key_text(k)
+
+    case (Some(k), Some(_), None) =>
+      (if anchor.side == "before" then " before " else " after ") ++ key_text(k)
+
+    case _ =>
+      ""
+  end
+  var last_added: Map[Str, Key] := Map()
   for (cmd, r, role) in added do
     let range := cmd_range(all_lines, cmd, r.first - 1, true)
     let has_doc := range.first < cmd.span.start.line, new_key := cmd_key(cmd)
@@ -1663,8 +1714,11 @@ procedure put_anchored(
     end
     let is_old := lambda c: At[Cmd] => contains(c, olds) and cmd_key(c) == wanted and is_signature_at(c) == is_signature_at(cmd)
     let old := or_else(find(section_cmds(role), is_old), find(olds, is_old))
-    // the signature in export that takes the doc of a definition that the fragment writes without the signature
-    let doc_signature := if has_doc and wanted != None and not is_signature_at(cmd) and not exists(added, lambda (c, _, other) => other == "export" and cmd_key(c) == new_key) then
+    let writes_signature := exists(added, lambda (c, _, other) => other == "export" and cmd_key(c) == new_key)
+    let has_own_doc := exists(old, lambda o => cmd_range(all_lines, o, 0, true).first < o.span.start.line)
+    // the signature in export that takes the doc of a definition that the fragment writes without the signature, unless
+    // the definition has a doc of its own, which the doc of the fragment replaces
+    let doc_signature := if has_doc and wanted != None and not is_signature_at(cmd) and not writes_signature and not has_own_doc then
       find(all.exported, lambda c => contains(c, olds) and cmd_key(c) == wanted and is_signature_at(c))
     else
       None
@@ -1695,8 +1749,9 @@ procedure put_anchored(
           ("replaced " ++ value_or(map_option(new_key, key_text), "a notation"), ", of another type" ++ moved)
         else
           ("replaced " ++ value_or(map_option(new_key, key_text), "a notation"), moved)
-        entries := entries ++ List((first(entry), second(entry), section, role))
+        entries := entries ++ List((first(entry), second(entry), section, role, ""))
         replaced_keys := replaced_keys ++ List(for k in new_key for o_k in old_key if section == "implementation" yield (o_k, k))
+        spec_keys := spec_keys ++ List(for k in new_key if section == "implementation" and not is_signature_at(cmd) and not writes_signature yield k)
 
       case None =>
         if doc_signature != None then
@@ -1704,13 +1759,14 @@ procedure put_anchored(
         end
         exported_keys := exported_keys ++ List(for k in new_key if role == "export" yield k)
         entries := entries ++ List(
-          ("added " ++ value_or(map_option(new_key, key_text), "a notation"), moved ++ beside_text(new_key, olds), role, role))
+          ("added " ++ value_or(map_option(new_key, key_text), "a notation"), moved ++ beside_text(new_key, olds), role, role, place_of(role, get(role, last_added))))
+        last_added := Map(for k in new_key yield role => k; last_added)
     end
   end
   let plain := not (has_sections or has_exports or has_builtins)
-  var done := List(for line in imports yield "added " ++ line) ++ List(for (what, suffix) in distinct(List(for (w, s, _, _) in entries yield (w, s))) for line in Some(done_text(what, suffix, entries, plain)) if line != "" yield line)
+  var done := List(for line in imports yield "added " ++ line) ++ List(for (what, suffix) in distinct(List(for (w, s, _, _, _) in entries yield (w, s))) for line in Some(done_text(what, suffix, entries, plain)) if line != "" yield line)
   formatted(in path, join("\n", spliced(all_lines_list, splices)), edits.files, no_fragment(), out result, source)
-  with_signatures(in path, replaced_keys, edits.files, ref result, done)
+  with_signatures(in path, replaced_keys, spec_keys, edits.files, ref result, done)
   with_exported_raises(in path, text, exported_keys, edits.files, ref result, done)
   edits := edits with files := Map(path => result; edits.files)
   if done != List() then
@@ -1738,14 +1794,18 @@ function sole[A](xs: List[A]): Option[A] :=
 // did, the rest of its text, the section of the part, and the section that the fragment named, where plain tells a file
 // without sections, whose additions name none, and a part that is unchanged beside one replaced is named by that one, so
 // that its text is empty
-function done_text(what: Str, suffix: Str, entries: List[(Str, Str, Str, Str)], plain: Bool): Str :=
-  let parts := List(for (w, s, section, role) in entries if w == what and s == suffix yield (section, role)) in
+function done_text(what: Str, suffix: Str, entries: List[(Str, Str, Str, Str, Str)], plain: Bool): Str :=
+  let parts := List(for (w, s, section, role, _) in entries if w == what and s == suffix yield (section, role)) in
+  let place := value_or(sole(distinct(List(for (w, s, _, _, p) in entries if w == what and s == suffix yield p))), "") in
   let sections := firsts(parts) in
-  let sections_of := lambda verb: Str, key: Str => List(for (w, _, section, _) in entries if w == verb ++ key yield section) in
+  let sections_of := lambda verb: Str, key: Str => List(for (w, _, section, _, _) in entries if w == verb ++ key yield section) in
   if starts_with(what, "added ") then
     match sections
       case List("export") =>
-        "exported " ++ slice(what, 6, size(what)) ++ suffix
+        "exported " ++ slice(what, 6, size(what)) ++ place ++ suffix
+
+      case List(_) if place != "" =>
+        what ++ place ++ suffix
 
       case List("implementation") =>
         what ++ (if plain then "" else " to implementation") ++ suffix
@@ -1754,7 +1814,7 @@ function done_text(what: Str, suffix: Str, entries: List[(Str, Str, Str, Str)], 
         what ++ " to " ++ section ++ suffix
 
       case _ =>
-        what ++ sections_text(sections) ++ suffix
+        what ++ place ++ sections_text(sections) ++ suffix
     end
   else if starts_with(what, "unchanged ") and sections_of("replaced ", slice(what, 10, size(what))) != List() then
     ""
@@ -1822,10 +1882,13 @@ function ranges_of(inserts: List[Insert], first: Int): List[(Range, Insert)] :=
   end
 
 // gives the signature in export of each of keys, the key that a definition replaced and its own, which differ if its
-// arity changed, the head of the definition, in text, which is formatted, so that each head ends in :=
+// arity changed, the head of the definition, in text, which is formatted, so that each head ends in :=, and moves the
+// spec of the definition of each of specs to its signature, in place of the spec there, since the examples and contracts
+// of an exported name stand on its signature
 procedure with_signatures(
   in  path: Str,
       keys: List[(Key, Key)],
+      specs: List[Key],
       files: Map[Str, Str],
   ref text: Str,
       done: List[Str]
@@ -1838,12 +1901,30 @@ procedure with_signatures(
     let signatures := List(for (k, sig, c) in keyed(d.exported) if is_signature(c) and not is_abstract(c) yield (k, sig, c))
     let signature := or_else(find(signatures, lambda (k, _, _) => k == old), find(signatures, lambda (k, _, _) => k == key))
     match (definition, signature)
-      case (Some((_, def, _)), Some((_, sig, c))) =>
+      case (Some((_, def, def_c)), Some((_, sig, c))) =>
         let head := head_range(lines, sig), new_head := head_lines(lines_in(lines, cmd_range(lines, def, 0, false)))
-        let written := if has_spec(c) then with_assign(new_head) else new_head
-        if written != lines_in(lines, head) then
-          splices := splices ++ List((head, written))
+        let moved := if contains(key, specs) then spec_range(lines, def, def_c) else None
+        let written := if has_spec(c) or moved != None then with_assign(new_head) else new_head
+        // the head changed if it differs by more than the := that the spec moved to it needs
+        if (if has_spec(c) then with_assign(new_head) else new_head) != lines_in(lines, head) then
           done := done ++ List("with the signature of " ++ key_text(key))
+        end
+        match (moved, spec_range(lines, sig, c))
+          case (Some(range), Some(old_spec)) =>
+            splices := splices ++ List(
+              (head, written),
+              (old_spec, lines_in(lines, range)),
+              (range, List()))
+
+          case (Some(range), None) =>
+            splices := splices ++ List((head, written ++ lines_in(lines, range)), (range, List()))
+
+          case (None, _) =>
+            splices := splices ++ List((head, written))
+        end
+        if moved != None then
+          done := done ++ List(
+            "the " ++ spec_word(def_c) ++ " of " ++ key_text(key) ++ " on its signature")
         end
 
       case _ =>
@@ -1852,6 +1933,19 @@ procedure with_signatures(
   end
   if splices != List() then
     formatted(in path, join("\n", spliced(List(for line in lines), splices)), files, no_fragment(), out text, source)
+  end
+
+// what the spec of a definition holds, as the reply names it when it moves
+function spec_word(cmd: Cmd): Str :=
+  match cmd
+    case CFun(_, _, _, _, spec, _) =>
+      if spec.pre == List() and spec.post == None then "examples" else "spec"
+
+    case CProc(_, _, _, _, _, _, spec, _) =>
+      if spec.pre == List() and spec.post == None then "examples" else "spec"
+
+    case _ =>
+      "spec"
   end
 
 // writes the raises of each procedure of keys that the fragment exported, whose definition writes none, into the head of
@@ -2012,7 +2106,7 @@ procedure patch(
       fragment: Str,
   ref edits: Edits
 ) raises Refused, OsError :=
-  var path: Str, lines: Array[Str], parts: List[(Range, Str)], source: Source, result: Str, key := Key("", "", -1), old_cmd: Option[Cmd] := None, whole: Option[Source] := None, label: Str, handles := edits.handles
+  var path: Str, lines: Array[Str], parts: List[(Range, Str)], source: Source, result: Str, key := Key("", "", -1), old_cmd: Option[Decl] := None, whole: Option[Source] := None, label: Str, handles := edits.handles
   let word := join(" ", address)
   if is_blank(fragment) then
     raise Refused("@patch " ++ word ++ " takes a fragment of lines old => new, or old lines, a line => alone, and new lines")
@@ -2062,7 +2156,7 @@ procedure patch(
     end
   end
   let regions := List(for (region, _) in parts yield region), labels := List(for (_, what) in parts yield what)
-  var patched := List(for region in regions yield join("\n", lines_in(lines, region))), changed := Range(1, 0), taken: List[Str] := List()
+  var patched := List(for region in regions yield join("\n", lines_in(lines, region))), changed := Range(1, 0), taken: List[Str] := List(), every: List[Str] := List()
   match block
     case Some(i) =>
       var at: List[(Int, Int)]
@@ -2093,9 +2187,16 @@ procedure patch(
 
     case None =>
       for (line, i) in numbered(code) if not is_blank(line) do
-        var absent: Option[Str], split: Option[Str]
-        patch_line(in line, i + 1, labels, out absent, split, ref patched)
+        var absent: Option[Str], split: Option[Str], replaced: Option[Str]
+        if code_arrows(line ++ " ", " =>* ") != List() then
+          patch_every(in line, i + 1, out absent, replaced, ref patched)
+          split := None
+        else
+          patch_line(in line, i + 1, labels, out absent, split, ref patched)
+          replaced := None
+        end
         taken := taken ++ List(for s in split)
+        every := every ++ List(for s in replaced)
         for old in absent do
           var text: Str, current: Source, earlier: Str
           current_text(in path, edits.files, out text)
@@ -2134,7 +2235,7 @@ procedure patch(
       else
         List("the lines of no declaration")
       edits := edits with files := Map(path => result; edits.files), handles := handles
-      note(in path ++ ": patched " ++ join(", ", List(for k in touched yield key_text(k)) ++ outside), ref edits)
+      note(in path ++ ": patched " ++ join(", ", List(for k in touched yield key_text(k)) ++ outside ++ every), ref edits)
 
     case None =>
       var shown: List[Str] := List(), marks: Map[Int, Int] := Map()
@@ -2142,7 +2243,7 @@ procedure patch(
         for c in old_cmd do
           rebase(in path, key, lines, c, result_lines, cmd, changed, true, ref handles)
           // the reply shows the nodes that the patch changed with their handles
-          for span in changed_nodes(lines, result_lines, line_nodes(result_lines, cmd)) do
+          for span in changed_nodes(lines, result_lines, counted_nodes(result_lines, kinded_nodes(result_lines, cmd))) do
             let region := Range(span.start.line, span.stop.line)
             mark(in path, result_lines, key, cmd, region, ref handles, marks)
             shown := shown ++ List(
@@ -2151,28 +2252,65 @@ procedure patch(
         end
       end
       edits := edits with files := Map(path => result; edits.files), handles := handles
-      note(in "patched " ++ label, ref edits)
+      note(in join(", ", List("patched " ++ label; every)), ref edits)
       for text in shown do
         note(in text, ref edits)
       end
   end
 
-// the nodes of spans, those of a declaration in new, that an edit of old to new changed: the outermost that start on the
-// lines that it changed, where a node starts at the comments that format places above it, so that an edit of a comment
-// changed the node that it documents, else the innermost around them, so that an edit of a head alone changed none
-function changed_nodes(old: Array[Str], new: Array[Str], spans: List[Span]): List[Span] :=
-  example changed_nodes(Array("a", "  b", "  c"), Array("a", "  b", "  d"), List(Span(Pos(2, 3), Pos(3, 4)), Span(Pos(3, 3), Pos(3, 4)))) == List(Span(Pos(3, 3), Pos(3, 4)))
-  example changed_nodes(Array("a", "  b", "  c"), Array("a", "  c"), List(Span(Pos(1, 1), Pos(2, 4)), Span(Pos(2, 3), Pos(2, 4)))) == List(Span(Pos(1, 1), Pos(2, 4)))
-  example changed_nodes(Array("a", "  // x", "  b"), Array("a", "  // y", "  b"), List(Span(Pos(1, 1), Pos(3, 4)), Span(Pos(3, 3), Pos(3, 4)))) == List(Span(Pos(3, 3), Pos(3, 4)))
+// the nodes of a declaration in new that an edit of old to new changed, each a span and the part of it that counts, of
+// nodes: the outermost that start on the lines that it changed, where a node starts at the comments that format places
+// above it, so that an edit of a comment changed the node that it documents, and a node contains those inside the part
+// that counts, so that an edit of the line of a let … in changed the let alone, shown whole only if a node of its body
+// changed too, else the innermost around them, so that an edit of a head alone changed none
+function changed_nodes(old: Array[Str], new: Array[Str], nodes: List[(Span, Span)]): List[Span] :=
+  example changed_nodes(Array("a", "  b", "  c"), Array("a", "  b", "  d"), List(
+      (Span(Pos(2, 3), Pos(3, 4)), Span(Pos(2, 3), Pos(3, 4))),
+      (Span(Pos(3, 3), Pos(3, 4)), Span(Pos(3, 3), Pos(3, 4))))) == List(Span(Pos(3, 3), Pos(3, 4)))
+  example changed_nodes(Array("a", "  b", "  c"), Array("a", "  c"), List(
+      (Span(Pos(1, 1), Pos(2, 4)), Span(Pos(1, 1), Pos(2, 4))),
+      (Span(Pos(2, 3), Pos(2, 4)), Span(Pos(2, 3), Pos(2, 4))))) == List(Span(Pos(1, 1), Pos(2, 4)))
+  example changed_nodes(Array("a", "  // x", "  b"), Array("a", "  // y", "  b"), List(
+      (Span(Pos(1, 1), Pos(3, 4)), Span(Pos(1, 1), Pos(3, 4))),
+      (Span(Pos(3, 3), Pos(3, 4)), Span(Pos(3, 3), Pos(3, 4))))) == List(Span(Pos(3, 3), Pos(3, 4)))
+  example changed_nodes(Array("let a := 1 in", "a"), Array("let a := 2 in", "a"), List(
+      (Span(Pos(1, 1), Pos(2, 2)), Span(Pos(1, 1), Pos(1, 14))),
+      (Span(Pos(2, 1), Pos(2, 2)), Span(Pos(2, 1), Pos(2, 2))))) == List(Span(Pos(1, 1), Pos(1, 14)))
+  example changed_nodes(Array("let a := 1 in", "a"), Array("let a := 2 in", "b"), List(
+      (Span(Pos(1, 1), Pos(2, 2)), Span(Pos(1, 1), Pos(1, 14))),
+      (Span(Pos(2, 1), Pos(2, 2)), Span(Pos(2, 1), Pos(2, 2))))) == List(Span(Pos(1, 1), Pos(2, 2)))
   let olds := List(for line in old), news := List(for line in new) in
   let shared := common_prefix(olds, news) in
   let suffix := min(common_prefix(reverse(olds), reverse(news)), min(size(olds), size(news)) - shared) in
   let first := shared + 1, final := size(news) - suffix in
-  let starting := List(for span in spans if first <= span.start.line and with_comments(new, Range(span.start.line, span.stop.line)).first <= final) in
-  if starting != List() then
-    List(for span in starting if not exists(starting, lambda other => other != span and is_inside(span, other)))
+  let starting := List(for (span, counted) in nodes if first <= span.start.line and with_comments(new, Range(span.start.line, span.stop.line)).first <= final yield (span, counted)) in
+  let shown := List(for (span, counted) in starting yield if exists(starting, lambda (other, _) => other != span and is_inside(other, span) and not is_inside(other, counted)) then
+    span
   else
-    List(for span in last(List(for span in spans if span.start.line < first and span.stop.line >= max(first, final))))
+    counted) in
+  if shown != List() then
+    List(for span in shown if not exists(shown, lambda other => other != span and is_inside(span, other)))
+  else
+    List(for span in last(List(for (span, _) in nodes if span.start.line < first and span.stop.line >= max(first, final) yield span)))
+
+// each node with the part of it that an edit of its lines changes, of a let … in its bindings, the lines before its body,
+// which is a node of its own, else the node whole
+function counted_nodes(lines: Array[Str], nodes: List[Node]): List[(Span, Span)] :=
+  example counted_nodes(Array("function f(): Int :=", "  let a := 1 in", "  a + 1"), List(
+      Node(Span(Pos(2, 3), Pos(3, 8)), KExpression),
+      Node(Span(Pos(3, 3), Pos(3, 8)), KExpression))) == List(
+      (Span(Pos(2, 3), Pos(3, 8)), Span(Pos(2, 3), Pos(2, 16))),
+      (Span(Pos(3, 3), Pos(3, 8)), Span(Pos(3, 3), Pos(3, 8))))
+  List(for node in nodes yield (node.span, counted_span(lines, node, nodes)))
+
+function counted_span(lines: Array[Str], node: Node, nodes: List[Node]): Span :=
+  let span := node.span in
+  match find(nodes, lambda other => other.span.stop == span.stop and other.span.start.line > span.start.line)
+    case Some(body) if node.kind == KExpression and starts_with(trim(line_at(lines, span.start.line)), "let ") =>
+      Span(span.start, Pos(body.span.start.line - 1, size(line_at(lines, body.span.start.line - 1)) + 1))
+    case _ =>
+      span
+  end
 
 // the number of the elements at the start of xs and ys that they share
 function common_prefix[A](xs: List[A], ys: List[A]): Int :=
@@ -2309,7 +2447,7 @@ procedure patch_line(
   ref texts: List[Str]
 ) raises Refused :=
   let full := if ends_with(line, " =>") then line ++ " " else line
-  let every := line_splits(full, occurrences(full, " => "), texts), coded := line_splits(full, code_arrows(full), texts)
+  let every := line_splits(full, occurrences(full, " => "), texts), coded := line_splits(full, code_arrows(full, " => "), texts)
   // an arrow in a string or char literal of the line splits it only if none outside them leaves an old text
   let counts := if exists(coded, lambda (_, _, ns) => is_once_each(ns)) then coded else every
   absent := None, split := None
@@ -2340,19 +2478,55 @@ procedure patch_line(
       end
   end
 
+// substitutes in texts, the parts of one target, the line old =>* new, the line number of the fragment, at every
+// occurrence of old, split at its one =>* outside the literals of the line, where a line old =>* with nothing after
+// deletes every old, and replaced says how often; absent is old if it occurs nowhere, so that the refusal can name the
+// declarations of the file that have it
+procedure patch_every(
+  in  line: Str,
+      number: Int,
+  out absent: Option[Str],
+      replaced: Option[Str],
+  ref texts: List[Str]
+) raises Refused :=
+  let full := line ++ " "
+  absent := None, replaced := None
+  match code_arrows(full, " =>* ")
+    case List(i) =>
+      let old := slice(full, 0, i), new := trim(slice(full, i + 5, size(full)))
+      let count := foldl(List(for text in texts yield size(occurrences(text, old))), 0, lambda a, b => a + b)
+      if is_blank(old) then
+        raise Refused("@patch: fragment line " ++ show(number) ++ ", " ++ quote(line) ++ ", is no line old =>* new")
+      end
+      if old == new then
+        raise Refused("@patch: fragment line " ++ show(number) ++ ", " ++ quote(line) ++ ", changes nothing")
+      end
+      if count == 0 then
+        absent := Some(old)
+      else
+        texts := List(for text in texts yield substituted(text, old, new))
+        replaced := Some("replaced " ++ quote(old) ++ " " ++ counted(count, "time"))
+      end
+
+    case _ =>
+      raise Refused("@patch: fragment line " ++ show(number) ++ ", " ++ quote(line) ++ ", has several =>* outside its literals, while a line old =>* new replaces every old by new")
+  end
+
 // the splits of line at the offsets of its arrows into the old and the new text, with the occurrences of the old text
 // in each of texts
 function line_splits(line: Str, arrows: List[Int], texts: List[Str]): List[(Str, Str, List[Int])] :=
   example line_splits("a => b", List(1), List("xa", "aa")) == List(("a", "b", List(1, 2)))
   List(for i in arrows yield (slice(line, 0, i), slice(line, i + 4, size(line)), List(for text in texts yield size(occurrences(text, slice(line, 0, i))))))
 
-// the offsets of the arrows " => " of a line of code outside its string and char literals, read from the start of
-// the line
-function code_arrows(line: Str): List[Int] :=
-  example code_arrows("f(\"a => b\") => g('\"')") == List(11)
-  example code_arrows("a => b => c") == List(1, 6)
+// the offsets of the arrows of a line of code outside its string and char literals, read from the start of the line,
+// where an arrow is " => " or " =>* " with its spaces
+function code_arrows(line: Str, arrow: Str): List[Int] :=
+  example code_arrows("f(\"a => b\") => g('\"')", " => ") == List(11)
+  example code_arrows("a => b => c", " => ") == List(1, 6)
+  example code_arrows("a =>* b", " => ") == List()
+  example code_arrows("\" =>* \" =>* b", " =>* ") == List(7)
   let quoted := Array(for inside in in_literals(chars(line), false)) in
-  List(for i in occurrences(line, " => ") if not value_or(get(i + 1, quoted), false))
+  List(for i in occurrences(line, arrow) if not value_or(get(i + 1, quoted), false))
 
 // whether each of the characters cs lies in a string or char literal, where quoted says whether they start in a string
 function in_literals(cs: List[Char], quoted: Bool): List[Bool] :=
@@ -2977,7 +3151,7 @@ function first_difference(found: List[(Pos, Str, Name)], expected: List[Name]): 
 function resolved_text(name: Name): Str :=
   example resolved_text(Name(List(), "x")) == "the local x"
   example resolved_text(Name(List(), "show")) == "show"
-  if name.path == List() and not contains(name.base, List("<", "==", "compare", "show", "and", "or")) then
+  if name.path == List() and not contains(name.base, List("==", "compare", "show", "and", "or")) then
     "the local " ++ name.base
   else
     format_name(name)

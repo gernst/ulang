@@ -631,6 +631,8 @@ function owned_text(n: Name): Str :=
   example owned_text(Owned(List("m"), List("l"), "lemma")) == "l.lemma"
   example owned_text(Name(List("m"), "f")) == "f"
 
+function strip_stmt(stmt: At[Stmt]): At[Stmt]
+
 implementation
 
 function escapes(): List[(Char, Char)] :=

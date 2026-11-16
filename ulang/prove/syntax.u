@@ -95,7 +95,7 @@ pattern Eq(a: Term, b: Term): Term :=
 
 // on integers only
 pattern Less(a: Term, b: Term): Term :=
-  EApp(EFun(Name(List(), "<")), List(a, b))
+  EApp(EFun(Name(List("prelude", "prelude"), "<")), List(a, b))
 
 pattern LessEq(a: Term, b: Term): Term :=
   EApp(EFun(Name(List("prelude", "prelude"), "<=")), List(a, b))

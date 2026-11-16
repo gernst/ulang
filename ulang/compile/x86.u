@@ -998,7 +998,7 @@ procedure compile_named(
       var as: List[Arg]
       let k := size(args)
       compile_args(in defs, env, args, out as, ref e)
-      if is_global_fun(defs, n, k) and arity(ty) == k then
+      if is_global_fun(defs, n, k) and arity(ty) == k and not is_runtime_call(n, k) then
         emit_call(in ICall(fun_name(n, k)), as, false, ref e)
       else
         if contains((n, k), defs.fields) then
