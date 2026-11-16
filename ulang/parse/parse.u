@@ -2508,7 +2508,7 @@ procedure parse_field(
   parse_name(out name, ref toks)
   advance(ref toks)
   parse_type(in notation, params, out typ, ref toks)
-  placed := (pos, Field(name, typ))
+  placed := (pos, Field(name, typ, span_from(pos, toks)))
 
 // data T[A] := case C(f: A) case D, with at least one constructor, as the cases of a match over T, whose fields the
 // checker gives the accessors T.f and the updaters T.f:=

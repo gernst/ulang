@@ -25,8 +25,8 @@ function lists(): List[Mod] :=
       CData(unqualified("List"), List("A"), List(
         nowhere(Constr(unqualified("Nil"), List())),
         nowhere(Constr(unqualified("Cons"), List(
-          Field("head", TParam("A")),
-          Field("tail", type_plain_list(TParam("A")))))))))), List(), List(), List()))
+          unplaced_field("head", TParam("A")),
+          unplaced_field("tail", type_plain_list(TParam("A")))))))))), List(), List(), List()))
 
 // the program of the commands cmds after len of the module main, which imports lists
 function with_lists(cmds: List[Cmd]): Source :=

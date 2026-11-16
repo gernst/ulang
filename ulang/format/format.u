@@ -524,7 +524,8 @@ function node_out(notation: Notation, notes: List[Comment], indent: Str, expr: A
 
 // the body on the next line, at the indentation of the let
 function let_text(notation: Notation, notes: List[Comment], indent: Str, bindings: List[(At[Pat], At[Expr])], body: At[Expr]): Str :=
-  "let " ++ bindings_text(notation, notes, indent, bindings) ++ " in" ++ lined_text(from_pos(notes, bindings_stop(bindings, body)), indent, List(Item(body.span, format_expr(notation, notes, indent, body))), true)
+  let stop := bindings_stop(bindings, body) in
+  decls_lines(before_pos(notes, stop), indent, "let", lambda inner => binding_parts(notation, notes, inner, bindings), " in") ++ lined_text(from_pos(notes, stop), indent, List(Item(body.span, format_expr(notation, notes, indent, body))), true)
 
 // the stop of the last binding, or the start of the body if there is none
 function bindings_stop(bindings: List[(At[Pat], At[Expr])], body: At[Expr]): Pos :=
@@ -535,17 +536,43 @@ function bindings_stop(bindings: List[(At[Pat], At[Expr])], body: At[Expr]): Pos
       body.span.start
   end
 
-// the bindings of a let, where each but the last is closed, since a comma would continue it
-function bindings_text(notation: Notation, notes: List[Comment], indent: Str, bindings: List[(At[Pat], At[Expr])]): Str :=
+// the bindings of a let, each with its span, where each but the last is closed, since a comma would continue it
+function binding_parts(notation: Notation, notes: List[Comment], indent: Str, bindings: List[(At[Pat], At[Expr])]): List[(Span, Str)] :=
   match bindings
     case List() =>
-      ""
+      List()
 
     case List((p, a)) =>
-      format_pattern(notation, indent, p) ++ " := " ++ format_expr(notation, notes, indent, a)
+      List(
+        (Span(p.span.start, a.span.stop), format_pattern(notation, indent, p) ++ " := " ++ format_expr(notation, notes, indent, a)))
 
     case List((p, a); more) =>
-      format_pattern(notation, indent, p) ++ " := " ++ closed_expr(notation, notes, indent, a) ++ ", " ++ bindings_text(notation, notes, indent, more)
+      List(
+        (Span(p.span.start, a.span.stop), format_pattern(notation, indent, p) ++ " := " ++ closed_expr(notation, notes, indent, a)); binding_parts(notation, notes, indent, more))
+  end
+
+// keyword and the declarations of a let or var, after a space on one line, if there is one or if they fit in 80
+// columns and place their comments, else each on a line of its own, one deeper, each but the last before a comma, the
+// last before close, where parts gives the text of each declaration at an indentation, with its span
+function decls_lines(notes: List[Comment], indent: Str, keyword: Str, parts: Str -> List[(Span, Str)], close: Str): Str :=
+  let flat_parts := parts(indent) in
+  let flat := keyword ++ " " ++ join(", ", List(for (_, text) in flat_parts yield text)) ++ close in
+  if size(flat_parts) < 2 or size(indent) + printed_size(notes, flat) <= 80 and not contains('\n', flat) and missing(notes, flat) == List() then
+    flat
+  else
+    keyword ++ lined_text(notes, deeper(indent), separated(parts(deeper(indent)), close), true)
+
+// the parts on lines of their own, each but the last before a comma, and the last before close
+function separated(parts: List[(Span, Str)], close: Str): List[Item] :=
+  match parts
+    case List() =>
+      List()
+
+    case List((span, text)) =>
+      List(Item(span, text ++ close))
+
+    case List((span, text); more) =>
+      List(Item(span, text ++ ","); separated(more, close))
   end
 
 // on one line if it fits in 80 columns, as a display does
@@ -656,7 +683,22 @@ function gen_text(notation: Notation, notes: List[Comment], indent: Str, g: Gen)
 function in_text(notation: Notation, notes: List[Comment], indent: Str, c: At[Expr]): Str :=
   " in " ++ format_expr(notation, notes, indent, c)
 
+// an infix operator applied to two operands as the chain of operators that it heads, else the application
 function app_out(notation: Notation, notes: List[Comment], indent: Str, f: At[Expr], args: List[At[Expr]]): Out :=
+  match (f.that, args)
+    case (EName(name, _), List(l, r)) =>
+      match infix_of(notation, name.base)
+        case Some((fixity, prec)) =>
+          chain_out(notation, notes, indent, fixity, prec, chain_of(notation, fixity, prec, l, name.base, r))
+        case None =>
+          applied_out(notation, notes, indent, f, args)
+      end
+
+    case _ =>
+      applied_out(notation, notes, indent, f, args)
+  end
+
+function applied_out(notation: Notation, notes: List[Comment], indent: Str, f: At[Expr], args: List[At[Expr]]): Out :=
   let parts := List(for a in args yield expr_out(notation, notes, indent, a)) in
   match f.that
     case EName(name, _) =>
@@ -670,6 +712,82 @@ function app_out(notation: Notation, notes: List[Comment], indent: Str, f: At[Ex
     case _ =>
       Out(args_text(notation, notes, indent, atom_text(expr_out(notation, notes, indent, f)), args, parts), Atom)
   end
+
+// the first operand of the chain of op applied to l and r, and the others, each after its operator, where an operand
+// that applies an operator of the fixity and the precedence of op on the side to which they associate is a part of the
+// chain, which binds without parentheses
+function chain_of(notation: Notation, fixity: Fixity, prec: Int, l: At[Expr], op: Id, r: At[Expr]): (At[Expr], List[(Id, At[Expr])]) :=
+  match (fixity, chained(notation, fixity, prec, l), chained(notation, fixity, prec, r))
+    case (FLeft, Some((op_, l_, r_)), _) =>
+      let (first, rest) := chain_of(notation, fixity, prec, l_, op_, r_) in
+      (first, rest ++ List((op, r)))
+
+    case (FRight, _, Some((op_, l_, r_))) =>
+      let (first, rest) := chain_of(notation, fixity, prec, l_, op_, r_) in
+      (l, List((op, first); rest))
+
+    case _ =>
+      (l, List((op, r)))
+  end
+
+// the operator and the operands of expr, if it applies an infix operator of the fixity and the precedence
+function chained(notation: Notation, fixity: Fixity, prec: Int, expr: At[Expr]): Option[(Id, At[Expr], At[Expr])] :=
+  match expr
+    case AOk(_, _, EApp(AOk(_, _, EName(name, _)), List(l, r))) if infix_of(notation, name.base) == Some((fixity, prec)) =>
+      Some((name.base, l, r))
+    case _ =>
+      None
+  end
+
+// a chain of infix operators on one line if the lines on which its operators stand fit in 80 columns and no comment
+// stands between its operands, else each operand after the first on a line of its own, one deeper, after its operator
+function chain_out(notation: Notation, notes: List[Comment], indent: Str, fixity: Fixity, prec: Int, chain: (At[Expr], List[(Id, At[Expr])])): Out :=
+  let (first, rest) := chain in
+  let (text, texts) := chain_texts(notation, notes, indent, fixity, prec, first, rest) in
+  if joint_width(start_width(indent, text), texts) > 80 or has_comment_between(notes, List(first; List(for (_, e) in rest yield e))) then
+    Out(spread_chain(notation, notes, indent, fixity, prec, first, rest), Operator(fixity, prec))
+  else
+    Out(text ++ join("", List(for (op, t) in texts yield " " ++ op ++ " " ++ t)), Operator(fixity, prec))
+
+function spread_chain(notation: Notation, notes: List[Comment], indent: Str, fixity: Fixity, prec: Int, first: At[Expr], rest: List[(Id, At[Expr])]): Str :=
+  let inner := deeper(indent) in
+  let (text, texts) := chain_texts(notation, notes, inner, fixity, prec, first, rest) in
+  text ++ lined_text(from_pos(notes, first.span.stop), inner, List(for ((op, t), (_, e)) in zip(texts, rest) yield Item(e.span, op ++ " " ++ t)), true)
+
+// the texts of the operands of a chain, each parenthesized as its side needs: the first is a left operand, and the
+// others are right operands in a chain to the left, and left operands but the last in a chain to the right
+function chain_texts(notation: Notation, notes: List[Comment], indent: Str, fixity: Fixity, prec: Int, first: At[Expr], rest: List[(Id, At[Expr])]): (Str, List[(Id, Str)]) :=
+  let last := size(rest) - 1 in
+  (infix_operand(expr_out(notation, notes, indent, first), fixity, prec, FLeft), List(for (i, (op, e)) in zip(range(0, size(rest)), rest) yield (op, infix_operand(expr_out(notation, notes, indent, e), fixity, prec, if fixity == FRight and i < last then FLeft else FRight))))
+
+// the width of the line on which text ends, which starts after indent if it is one line
+function start_width(indent: Str, text: Str): Int :=
+  example start_width("  ", "ab") == 4
+  example start_width("  ", "List(\n  a)") == 4
+  let lines := split(text, '\n') in
+  if size(lines) == 1 then
+    size(indent) + size(text)
+  else
+    size(value_or(last(lines), ""))
+
+// the widest of the lines on which the operators of a chain stand, from the width of the line before the first, where
+// each operand is after its operator and a space, and the line of an operand of several lines ends at its last
+function joint_width(width: Int, texts: List[(Id, Str)]): Int :=
+  example joint_width(4, List(("++", "\"ab\""), ("++", "x"))) == 17
+  example joint_width(10, List(("==", "List(\n  a)"), ("++", "b"))) == 19
+  match texts
+    case List() =>
+      0
+
+    case List((op, text); more) =>
+      let lines := split(text, '\n') in
+      let joint := width + size(op) + 2 + size(value_or(get_at(0, lines), "")) in
+      max(joint, joint_width(if size(lines) == 1 then joint else size(value_or(last(lines), "")), more))
+  end
+
+// whether a comment of notes stands outside the operands
+function has_comment_between(notes: List[Comment], operands: List[At[Expr]]): Bool :=
+  exists(notes, lambda c => not exists(operands, lambda e => not c.pos < e.span.start and c.pos < e.span.stop))
 
 // the application of the function text fun to the arguments, which parts are on one line, unless they have comments that
 // it cannot place there, which puts each argument on a line of its own
@@ -960,7 +1078,7 @@ function format_stmt_node(notation: Notation, notes: List[Comment], indent: Str,
       "skip" ++ format_body(notation, notes, indent, stmt)
 
     case SLocal(mutable, decls) =>
-      (if mutable then "var " else "let ") ++ decls_text(notation, notes, indent, decls)
+      decls_lines(notes, indent, if mutable then "var" else "let", lambda inner => decl_parts(notation, notes, inner, decls), "")
 
     case SFor(gens, body) =>
       end_text(indent, gens_text(notation, notes, indent, gens) ++ " do" ++ format_body(notation, from_pos(notes, gens_stop(gens, body)), deeper(indent), body))
@@ -1049,17 +1167,28 @@ function body_items(notation: Notation, notes: List[Comment], indent: Str, body:
 function stmt_items(notation: Notation, notes: List[Comment], indent: Str, ss: List[At[Stmt]]): List[Item] :=
   List(for s in ss yield Item(s.span, format_stmt(notation, notes, indent, s)))
 
-// the declarations of a local, where a value that a declaration follows is closed, as in assignments
-function decls_text(notation: Notation, notes: List[Comment], indent: Str, decls: List[(At[Pat], Option[At[Expr]])]): Str :=
+// the declarations of a local, each with its span, where a value that a declaration follows is closed, as in
+// assignments
+function decl_parts(notation: Notation, notes: List[Comment], indent: Str, decls: List[(At[Pat], Option[At[Expr]])]): List[(Span, Str)] :=
   match decls
     case List() =>
-      ""
+      List()
 
     case List((pat, init)) =>
-      format_pattern(notation, indent, pat) ++ init_text(init, lambda e => format_expr(notation, notes, indent, e))
+      List(
+        (decl_span(pat, init), format_pattern(notation, indent, pat) ++ init_text(init, lambda e => format_expr(notation, notes, indent, e))))
 
     case List((pat, init); more) =>
-      format_pattern(notation, indent, pat) ++ init_text(init, lambda e => closed_expr(notation, notes, indent, e)) ++ ", " ++ decls_text(notation, notes, indent, more)
+      List(
+        (decl_span(pat, init), format_pattern(notation, indent, pat) ++ init_text(init, lambda e => closed_expr(notation, notes, indent, e))); decl_parts(notation, notes, indent, more))
+  end
+
+function decl_span(pat: At[Pat], init: Option[At[Expr]]): Span :=
+  match init
+    case Some(e) =>
+      Span(pat.span.start, e.span.stop)
+    case None =>
+      pat.span
   end
 
 function init_text(init: Option[At[Expr]], text: At[Expr] -> Str): Str :=
@@ -1346,7 +1475,7 @@ function alias_pattern_text(notation: Notation, notes: List[Comment], pat: At[Pa
   end
 
 function data_text(notes: List[Comment], name: Name, params: List[Id], constrs: List[At[Constr]]): Str :=
-  "data " ++ name.base ++ params_text(params) ++ " :=" ++ lined_text(notes, "  ", List(for c in constrs yield Item(c.span, "case " ++ constr_text(c.that))), false)
+  "data " ++ name.base ++ params_text(params) ++ " :=" ++ lined_text(notes, "  ", List(for c in constrs yield Item(c.span, "case " ++ constr_text(within(notes, c.span), c.that))), false)
 
 // the head of a procedure or a lemma, by its keyword, where one wider than the line has one formal on each line, the modes
 // in front of the first of their group
@@ -1395,14 +1524,23 @@ function fixity_text(f: Fixity): Str :=
       "infix right"
   end
 
-// C(f: T, g: U)
-function constr_text(c: Constr): Str :=
+// C(f: T, g: U) on one line if it fits in 80 columns and no comment stands inside it, else each field on a line of its
+// own, with the comments of notes above the fields that they precede
+function constr_text(notes: List[Comment], c: Constr): Str :=
   match c
     case Constr(name, List()) =>
       name.base
+
     case Constr(name, fields) =>
-      name.base ++ "(" ++ join(", ", List(for f in fields yield f.name ++ ": " ++ written_type(f.typ))) ++ ")"
+      let flat := name.base ++ "(" ++ join(", ", List(for f in fields yield field_text(f))) ++ ")" in
+      if size("  case ") + size(flat) <= 80 and notes == List() then
+        flat
+      else
+        name.base ++ "(" ++ lined_text(notes, "    ", separated(List(for f in fields yield (f.span, field_text(f))), ")"), true)
   end
+
+function field_text(f: Field): Str :=
+  f.name ++ ": " ++ written_type(f.typ)
 
 function test_operators(): Notation :=
   with_notation(empty_notation(), List(
