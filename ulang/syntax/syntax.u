@@ -233,8 +233,8 @@ data Constr :=
   case Constr(name: Name, fields: List[Field])
 
 data Field :=
-  // a field f: A
-  case Field(name: Id, typ: Type)
+  // a field f: A, at its span in the source, by which the printer places the comments of the fields of a constructor
+  case Field(name: Id, typ: Type, span: Span)
 
 data Fixity :=
   // prefix n op …, e.g. prefix 5 not
@@ -557,6 +557,9 @@ function vars(xs: List[At[Var]]): List[Var]
 // variables of code that the parser did not read, as declarations at no position
 function unplaced_vars(xs: List[Var]): List[At[Var]]
 
+// a field of code that the parser did not read, at no position
+function unplaced_field(name: Id, typ: Type): Field
+
 // the modules that module name imports without saying so, of packages: for a module of a project the members of the
 // library, the package prelude, and none for a module of the library, which sees the others as the members of its package
 function implicit_imports(name: Path, packages: List[Package]): List[Path]
@@ -847,6 +850,9 @@ function vars(xs: List[At[Var]]): List[Var] :=
 
 function unplaced_vars(xs: List[Var]): List[At[Var]] :=
   List(for x in xs yield nowhere(x))
+
+function unplaced_field(name: Id, typ: Type): Field :=
+  Field(name, typ, span_at(Pos(0, 0)))
 
 function strip_vars(xs: List[At[Var]]): List[At[Var]] :=
   unplaced_vars(vars(xs))
@@ -1247,7 +1253,7 @@ function strip_cmd(cmd: Cmd): Cmd :=
       CLemma(name, params, strip_vars(ins), strip_vars(outs), strip_claim(claim), map_option(proof, strip_proof))
 
     case CData(name, params, constrs) =>
-      CData(name, params, List(for c in constrs yield stripped(c, lambda x => x)))
+      CData(name, params, List(for c in constrs yield stripped(c, strip_constr)))
 
     case CSort(_, _, _) =>
       cmd
@@ -1264,6 +1270,9 @@ function strip_cmd(cmd: Cmd): Cmd :=
     case CAbstract(_, _) =>
       cmd
   end
+
+function strip_constr(constr: Constr): Constr :=
+  constr with fields := List(for f in constr.fields yield f with span := span_at(Pos(0, 0)))
 
 function strip_spec(spec: Spec): Spec :=
   Spec(List(for a in spec.pre yield strip_expr(a)), map_option(spec.post, strip_expr), List(for x in spec.examples yield stripped(x, strip_example)))

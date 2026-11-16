@@ -75,8 +75,77 @@ test formatted_comments() :=
 // a comment that the layout of its part has no place for stands above the line of the part, from where it stays
 test moved_comments() :=
   var p: Source
-  let text := "infix left 9 +\n\nprocedure main() :=\n  x := 1 + // inner\n  2\n", moved := "infix left 9 +\n\nprocedure main() :=\n  // inner\n  x := 1 + 2\n"
+  let
+    text := "procedure main() :=\n  let (a, // inner\n  b) := (1, 2)\n  assert a == b\n",
+    moved := "procedure main() :=\n  // inner\n  let (a, b) := (1, 2)\n  assert a == b\n"
   parse_text_recovering(in text, out p)
   assert format_program(p) == moved
   parse_text_recovering(in moved, out p)
   assert format_program(p) == moved
+
+// a comment inside a constructor, between the operands of a chain, or between the declarations of a let spreads them,
+// so that it stays above the field, operand, or declaration that it precedes, or at the end of the line of the one
+// before
+test comments_of_spread_parts() :=
+  var p: Source, q: Source
+  let
+    text := join("\n", List(
+      "infix right 8 ++",
+      "",
+      "data T :=",
+      "  case Noted(",
+      "    // the name",
+      "    name: Str, size: Int)",
+      "",
+      "function k(a: Str, b: Str): Str :=",
+      "  a ++ // after a",
+      "  b ++",
+      "  // above c",
+      "  \"c\"",
+      "",
+      "function l(a: Str): Str :=",
+      "  let p := a, // after p",
+      "  // above q",
+      "  q := a in",
+      "  p ++ q",
+      "",
+      "procedure n(in a: Str, out b: Str) :=",
+      "  let first := a, // after first",
+      "  // above second",
+      "  second := a",
+      "  b := first ++ second",
+      "")),
+    spread := join("\n", List(
+      "infix right 8 ++",
+      "",
+      "data T :=",
+      "  case Noted(",
+      "    // the name",
+      "    name: Str,",
+      "    size: Int)",
+      "",
+      "function k(a: Str, b: Str): Str :=",
+      "  a // after a",
+      "    ++ b",
+      "    // above c",
+      "    ++ \"c\"",
+      "",
+      "function l(a: Str): Str :=",
+      "  let",
+      "    p := a, // after p",
+      "    // above q",
+      "    q := a in",
+      "  p ++ q",
+      "",
+      "procedure n(in a: Str, out b: Str) :=",
+      "  let",
+      "    first := a, // after first",
+      "    // above second",
+      "    second := a",
+      "  b := first ++ second",
+      ""))
+  parse_text_recovering(in text, out p)
+  assert parse_errors(p) == List()
+  assert format_program(p) == spread
+  parse_text_recovering(in spread, out q)
+  assert format_program(q) == spread

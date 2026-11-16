@@ -4381,14 +4381,38 @@ function changed_parts(old: List[Str], new: List[Str]): List[Str] :=
   let fields := List(for (_, text) in before ++ after for (field, _) in fields_of(text) if field_places(field, before) != field_places(field, after) yield field) in
   distinct(constrs ++ fields)
 
-// the constructors of the lines of a datatype, each by its name and the text of its case line, none of other lines
+// the constructors of the lines of a datatype, each by its name and its text, from its case line through the lines of
+// its fields, which format puts one on each line past 80 columns, without comments, none of other lines
 function case_lines(lines: List[Str]): List[(Str, Str)] :=
   example case_lines(List("data T :=", "  case C(a: Int)", "  case D")) == List(("C", "C(a: Int)"), ("D", "D"))
+  example case_lines(List(
+      "data T :=",
+      "  case C(",
+      "    // the a",
+      "    a: Int,",
+      "    b: Str)",
+      "  case D")) == List(("C", "C(a: Int, b: Str)"), ("D", "D"))
   if not starts_with(value_or(get_at(0, lines), ""), "data ") then
     List()
   else
-    List(for line in lines if starts_with(trim(line), "case ") yield let text := slice(trim(line), size("case "), size(trim(line))) in
-    (head_name(text), text))
+    List(for text in constr_texts(List(for line in drop(1, lines) if trim(line) != "" and not starts_with(trim(line), "//") yield trim(line))) yield (head_name(text), text))
+
+// the texts of the constructors of the trimmed lines of a datatype after its head, each from its case line through the
+// lines of its fields, which a space joins after the first
+function constr_texts(lines: List[Str]): List[Str] :=
+  example constr_texts(List("case C(", "a: Int,", "b: Str)", "case D")) == List("C(a: Int, b: Str)", "D")
+  match lines
+    case List(line; rest) if starts_with(line, "case ") =>
+      let (fields, more) := span(rest, lambda l => not starts_with(l, "case ")) in
+      List(
+        slice(line, size("case "), size(line)) ++ join(" ", fields); constr_texts(more))
+
+    case List(_; rest) =>
+      constr_texts(rest)
+
+    case List() =>
+      List()
+  end
 
 // the constructor, the position, and the type of each field of the name among constrs
 function field_places(field: Str, constrs: List[(Str, Str)]): List[(Str, Int, Str)] :=

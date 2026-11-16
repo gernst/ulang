@@ -6980,17 +6980,17 @@ function bags(): List[Mod] :=
   List(
     sectioned(List("bag"), List(
       CData(unqualified("Bag"), List(), List(
-        constr_at("Bag", List(Field("n", TInt()))),
-        constr_at("Leaf", List(Field("n", TInt()))))),
-      CData(unqualified("Pt"), List(), List(constr_at("Pt", List(Field("x", TInt()))))),
+        constr_at("Bag", List(unplaced_field("n", TInt()))),
+        constr_at("Leaf", List(unplaced_field("n", TInt()))))),
+      CData(unqualified("Pt"), List(), List(constr_at("Pt", List(unplaced_field("x", TInt()))))),
       fun_cmd("size", List(var_of("b", tsort("Bag"))), TInt(), expr_int(1)),
       fun_cmd("compare", List(var_of("a", tsort("Bag")), var_of("b", tsort("Bag"))), TInt(), expr_int(0)),
       CProc(unqualified("fill"), List(), List(), unplaced_vars(List(var_of("b", tsort("Bag")))), List(), List(), no_spec(), nowhere(SAssign(List((var_of("b", THole), expr_app("Bag", List(expr_int(0)))))))))),
     sectioned(List("box"), List(
       CData(unqualified("Box"), List(), List(
-        constr_at("Box", List(Field("s", TStr()))),
-        constr_at("Leaf", List(Field("s", TStr()))))),
-      CData(unqualified("Qt"), List(), List(constr_at("Qt", List(Field("x", TStr()))))),
+        constr_at("Box", List(unplaced_field("s", TStr()))),
+        constr_at("Leaf", List(unplaced_field("s", TStr()))))),
+      CData(unqualified("Qt"), List(), List(constr_at("Qt", List(unplaced_field("x", TStr()))))),
       fun_cmd("size", List(var_of("b", tsort("Box"))), TInt(), expr_int(2)),
       CProc(unqualified("fill"), List(), List(), unplaced_vars(List(var_of("b", tsort("Box")))), List(), List(), no_spec(), nowhere(SAssign(List((var_of("b", THole), expr_app("Box", List(nowhere(ELit(LStr("")))))))))))))
 

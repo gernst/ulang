@@ -1841,7 +1841,8 @@ test expressions() :=
 // procedure sum(in n: Int, out s: Int) with a loop, and procedure size(ref k: Int) raising Fail after an increment
 function procedures(): List[Cmd] :=
   List(
-    CData(unqualified("Fail"), List(), List(nowhere(Constr(unqualified("Fail"), List(Field("code", TInt())))))),
+    CData(unqualified("Fail"), List(), List(
+      nowhere(Constr(unqualified("Fail"), List(unplaced_field("code", TInt())))))),
     CProc(unqualified("sum"), List(), unplaced_vars(List(Var(unqualified("n"), TInt()))), unplaced_vars(List(Var(unqualified("s"), TInt()))), List(), List(), no_spec(), block(List(Var(unqualified("i"), TInt())), List(
       SAssign(List(
         (Var(unqualified("s"), THole), expr_int(0)),
