@@ -117,6 +117,10 @@ function equals_symbol(t: Name, defs: Defs): Str
 
 function symbol_of_show(t: Name, defs: Defs): Str
 
+// whether a call of n with k arguments is a call of the runtime, also of the comparisons that the prelude defines, which
+// the runtime computes as their definitions do, by a test of small integers first
+function is_runtime_call(n: Name, k: Int): Bool
+
 implementation
 
 // the C text of n with each character other than a letter, a digit, or _ as _ and its code point and _, by the runs of the
@@ -213,8 +217,11 @@ function builtin_functions(): Map[Name, (Str, Int)] :=
     library_name("prelude", "*") => ("u_mul", 2),
     library_name("prelude", "/") => ("u_div", 2),
     library_name("prelude", "%") => ("u_mod", 2),
-    unqualified("<") => ("u_lt", 2),
     unqualified("==") => ("u_eq", 2),
+    library_name("prelude", "<") => ("u_lt", 2),
+    library_name("prelude", "<=") => ("u_le", 2),
+    library_name("prelude", ">") => ("u_gt", 2),
+    library_name("prelude", ">=") => ("u_ge", 2),
     unqualified("compare") => ("u_compare", 2),
     unqualified("show") => ("u_show", 1),
     library_name("str", "chars") => ("u_chars", 1),
@@ -755,4 +762,12 @@ function declared_or(f: Option[Name], n: Int, default: Str): Str :=
       fun_name(g, n)
     case None =>
       default
+  end
+
+function is_runtime_call(n: Name, k: Int): Bool :=
+  match get(n, builtin_functions())
+    case Some((_, j)) =>
+      j == k
+    case None =>
+      false
   end

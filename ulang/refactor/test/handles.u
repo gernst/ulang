@@ -256,6 +256,47 @@ test heads() :=
   run_script(in "@put after #1\ny := 1\n", false, dir, no_diagnostics, out reply, status, _)
   assert status == 1 and reply == List("rejected", "@put after #1 takes no head, which only @put #1 replaces")
 
+// a head of another arity moves its declaration to the key of the head, with its handles, which the reply names, and
+// the signature in export follows the head
+test heads_of_arity() :=
+  var reply: List[Str], status: Int, text: Str
+  let dir := "out/test/refactor/arity", path := "out/test/refactor/arity/p.u"
+  os_write_utf8(in os_join(dir, "handles.txt"), "")
+  os_write_utf8(in path, "export\n\nprocedure p(in a: Int, b: Int, out c: Int)\n\nimplementation\n\nprocedure p(in a: Int, b: Int, out c: Int) :=\n  c := a + b\n")
+  run_script(in "@show " ++ path ++ ":p\n@put #2\nprocedure p(in a: Int, out c: Int)\n@put #3\nc := a\n", false, dir, no_diagnostics, out reply, status, _)
+  os_read_utf8(in path, out text)
+  assert status == 0
+  assert text == "export\n\nprocedure p(in a: Int, out c: Int)\n\nimplementation\n\nprocedure p(in a: Int, out c: Int) :=\n  c := a\n"
+  assert take(4, drop(2, reply)) == List(
+    "replaced " ++ path ++ ":p/3 #2, now p/2, with the signature of p/2",
+    "#2    procedure p(in a: Int, out c: Int) :=",
+    "replaced " ++ path ++ ":p/2 #3",
+    "#3      c := a")
+
+// the head of a signature in export is a node of its declaration, before those of the definition, which a diagnostic at
+// it names and @put replaces alone
+test signature_heads() :=
+  var reply: List[Str], status: Int, text: Str
+  let dir := "out/test/refactor/signatures", path := "out/test/refactor/signatures/s.u"
+  os_write_utf8(in os_join(dir, "handles.txt"), "")
+  os_write_utf8(in path, "export\n\nfunction f(x: Int): Int\n\nimplementation\n\nfunction f(x: Int): Int :=\n  x\n")
+  run_script(in "@show " ++ path ++ ":f\n@check " ++ path, false, dir, lambda in file, _, out found =>
+    found := List(
+      (file, Diagnostic(TypeKind, "SignatureMismatch", None, Pos(3, 1), "the signature of f differs from its definition", List())))
+  end, out reply, status, _)
+  assert take(3, drop(1, reply)) == List(
+    "@show " ++ path ++ ":f\n#1    function f(x: Int): Int\n\n#2    function f(x: Int): Int :=\n#3      x",
+    "checked 1 file, unchanged",
+    "  #1 " ++ path ++ ":3.1: SignatureMismatch: the signature of f differs from its definition")
+  run_script(in "@put #1\nfunction f(y: Int): Int\n", false, dir, no_diagnostics, out reply, status, _)
+  os_read_utf8(in path, out text)
+  assert status == 0
+  assert text == "export\n\nfunction f(y: Int): Int\n\nimplementation\n\nfunction f(x: Int): Int :=\n  x\n"
+  assert take(3, reply) == List(
+    "applied, clean",
+    "replaced " ++ path ++ ":f/1 #1",
+    "#1    function f(y: Int): Int")
+
 // the lines of a spec are nodes, an example of a signature in export a node of its definition, which @example adds to,
 // on the signature if it has one, and a drop of the last line of the spec of a signature drops its :=
 test spec_lines() :=
@@ -268,40 +309,40 @@ test spec_lines() :=
   assert drop(1, split(at(1, reply), '\n')) == List(
     "      export",
     "",
-    "      function f(x: Int): Int :=",
-    "#1      example f(1) == 2",
+    "#1    function f(x: Int): Int :=",
+    "#2      example f(1) == 2",
     "",
-    "      function g(x: Int): Int",
+    "#3    function g(x: Int): Int",
     "",
     "      implementation",
     "",
-    "#2    function f(x: Int): Int :=",
-    "#3      x + 1",
+    "#4    function f(x: Int): Int :=",
+    "#5      x + 1",
     "",
-    "#4    function g(x: Int): Int :=",
-    "#5      x",
+    "#6    function g(x: Int): Int :=",
+    "#7      x",
     "",
-    "#6    procedure p(in x: Int, out y: Int) :=",
-    "#7      requires x > 0",
-    "#8      ensures  y > x",
-    "#9      example p(in 1, out 2)",
-    "#10     y := x + 1")
-  run_script(in "@example " ++ path ++ ":g\nexample g(2) == 2\n@example " ++ path ++ ":p\nexample p(in 2, out 3)\n@put after #9\nexample p(in 3, out 4)\n@drop #1\n@put #7\nrequires x > 1\n@show " ++ path ++ ":p\n", false, dir, no_diagnostics, out reply, status, _)
+    "#8    procedure p(in x: Int, out y: Int) :=",
+    "#9      requires x > 0",
+    "#10     ensures  y > x",
+    "#11     example p(in 1, out 2)",
+    "#12     y := x + 1")
+  run_script(in "@example " ++ path ++ ":g\nexample g(2) == 2\n@example " ++ path ++ ":p\nexample p(in 2, out 3)\n@put after #11\nexample p(in 3, out 4)\n@drop #2\n@put #9\nrequires x > 1\n@show " ++ path ++ ":p\n", false, dir, no_diagnostics, out reply, status, _)
   os_read_utf8(in path, out text)
   assert status == 0
   assert text == "export\n\nfunction f(x: Int): Int\n\nfunction g(x: Int): Int :=\n  example g(2) == 2\n\nimplementation\n\nfunction f(x: Int): Int :=\n  x + 1\n\nfunction g(x: Int): Int :=\n  x\n\nprocedure p(in x: Int, out y: Int) :=\n  requires x > 1\n  ensures  y > x\n  example p(in 1, out 2)\n  example p(in 3, out 4)\n  example p(in 2, out 3)\n  y := x + 1\n"
   assert take(11, reply) == List(
     "applied, clean",
     path ++ ":g/1: added 1 example to its signature",
-    "#11     example g(2) == 2",
+    "#13     example g(2) == 2",
     path ++ ":p/2: added 1 example to its definition",
-    "#12     example p(in 2, out 3)",
-    "put after " ++ path ++ ":p/2 #9",
-    "#13     example p(in 3, out 4)",
-    "dropped " ++ path ++ ":f/1 #1",
-    "replaced " ++ path ++ ":p/2 #7",
-    "#7      requires x > 1",
-    "@show " ++ path ++ ":p\n#6    procedure p(in x: Int, out y: Int) :=\n#7      requires x > 1\n#8      ensures  y > x\n#9      example p(in 1, out 2)\n#13     example p(in 3, out 4)\n#12     example p(in 2, out 3)\n#10     y := x + 1")
+    "#14     example p(in 2, out 3)",
+    "put after " ++ path ++ ":p/2 #11",
+    "#15     example p(in 3, out 4)",
+    "dropped " ++ path ++ ":f/1 #2",
+    "replaced " ++ path ++ ":p/2 #9",
+    "#9      requires x > 1",
+    "@show " ++ path ++ ":p\n#8    procedure p(in x: Int, out y: Int) :=\n#9      requires x > 1\n#10     ensures  y > x\n#11     example p(in 1, out 2)\n#15     example p(in 3, out 4)\n#14     example p(in 2, out 3)\n#12     y := x + 1")
   run_script(in "@example " ++ path ++ ":g\nx + 2\n", false, dir, no_diagnostics, out reply, status, _)
   assert status == 1 and reply == List(
     "rejected",

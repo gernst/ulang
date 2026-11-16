@@ -122,6 +122,14 @@ static inline u_value u_tagged(long long n) {
 }
 
 u_value u_mk_int(long long n);
+
+// a small integer without a call in the C of programs, while the runtime and the assembly call u_mk_int
+static inline u_value u_mk_int_inline(long long n) {
+  return n >= U_TAG_MIN && n <= U_TAG_MAX ? u_tagged(n) : u_mk_int(n);
+}
+#ifndef U_RUNTIME
+#define u_mk_int(n) u_mk_int_inline(n)
+#endif
 u_value u_mk_int_str(const char *digits);
 u_value u_mk_bool(int b);
 u_value u_mk_char(long long c);
@@ -207,6 +215,9 @@ u_value u_mul(u_value a, u_value b);
 u_value u_div(u_value a, u_value b);
 u_value u_mod(u_value a, u_value b);
 u_value u_lt(u_value a, u_value b);
+u_value u_le(u_value a, u_value b);
+u_value u_gt(u_value a, u_value b);
+u_value u_ge(u_value a, u_value b);
 u_value u_eq(u_value a, u_value b);
 u_value u_chars(u_value s);
 u_value u_string(u_value cs);

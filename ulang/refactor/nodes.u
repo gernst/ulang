@@ -1,14 +1,15 @@
 // the nodes of a declaration that handles name: the parts that start their lines in formatted text, statements, cases,
-// constructors, elements spread one per line, the body of a function, and the head of a definition, by their spans
+// constructors, elements spread one per line, the body of a function, and the heads of a definition and its signatures,
+// by their spans
 
 import ulang.syntax
 
 export
 
-// the spans of the parts of cmd that start their lines in lines, the text of its file, outer before inner, without
+// the spans of the parts of decl that start their lines in lines, the text of its file, outer before inner, without
 // repeated starts, so that each line has at most one node, and without the parts that the source does not write, such as
 // an else without its keyword, whose spans are empty
-function line_nodes(lines: Array[Str], cmd: Cmd): List[Span]
+function line_nodes(lines: Array[Str], decl: Decl): List[Span]
 
 // what a node is, by which an edit checks that a fragment fits the place of a node, where a line of a spec is an example
 // or a contract, requires or ensures, and a head is that of the definition of a function or procedure, which its
@@ -25,22 +26,27 @@ data Node :=
   case Node(span: Span, kind: NodeKind)
 
 // the nodes of line_nodes with their kinds, where the cases of a match and the handlers of a try are cases, and the head
-// of the definition of a function or procedure is a node of its own
-function kinded_nodes(lines: Array[Str], cmd: Cmd): List[Node]
+// of the definition of a function or procedure and of each of its signatures is a node of its own
+function kinded_nodes(lines: Array[Str], decl: Decl): List[Node]
 
 // the kind with its article, as messages name it
 function kind_text(kind: NodeKind): Str :=
   example kind_text(KCase) == "a case"
 
+// a declaration as its nodes see it: its definition, with the specs of its signatures in its spec, and the spans of its
+// signatures in export, whose heads are nodes of it, as the head of the definition is
+data Decl :=
+  case Decl(cmd: Cmd, signatures: List[Span])
+
 implementation
 
-function line_nodes(lines: Array[Str], cmd: Cmd): List[Span] :=
-  List(for node in kinded_nodes(lines, cmd) yield node.span)
+function line_nodes(lines: Array[Str], decl: Decl): List[Span] :=
+  List(for node in kinded_nodes(lines, decl) yield node.span)
 
 // the nodes of cmd in the order of their starts, where those of the same start keep their order, the outer first, and a
 // line of a spec starts at its keyword
-function kinded_nodes(lines: Array[Str], cmd: Cmd): List[Node] :=
-  let placed := List(for node in head_nodes(lines, cmd) ++ cmd_nodes(cmd) yield at_keyword(lines, node)) in
+function kinded_nodes(lines: Array[Str], decl: Decl): List[Node] :=
+  let placed := List(for node in head_nodes(lines, decl.cmd) ++ signature_heads(lines, decl.signatures) ++ cmd_nodes(decl.cmd) yield at_keyword(lines, node)) in
   let sorted := List(for (_, _, node) in sort(List(for (node, i) in numbered(placed) yield (node.span.start, i, node))) yield node) in
   first_starts(List(for node in sorted if node.span.start != node.span.stop and starts_line(lines, node.span.start) yield node), Set())
 
@@ -58,6 +64,33 @@ function head_nodes(lines: Array[Str], cmd: Cmd): List[Node] :=
     case _ =>
       List()
   end
+
+// the head of each signature at the spans of signatures, from its keyword to the line that ends in :=, without the :=,
+// which only a signature with a spec has, else to its end
+function signature_heads(lines: Array[Str], signatures: List[Span]): List[Node] :=
+  example signature_heads(Array(
+      "function f(x: Int): Int :=",
+      "  example f(1) == 1",
+      "function g(",
+      "  x: Int",
+      "): Int"), List(Span(Pos(1, 1), Pos(2, 20)), Span(Pos(3, 1), Pos(5, 7)))) == List(
+      Node(Span(Pos(1, 1), Pos(1, 24)), KHead),
+      Node(Span(Pos(3, 1), Pos(5, 7)), KHead))
+  List(for span in signatures for line in head_end(lines, span.start.line, span.stop.line) yield Node(Span(span.start, head_stop(lines, line, span)), KHead))
+
+// the last line of a head that starts at line and ends at stop at the latest, the first that ends in :=, else stop
+function head_end(lines: Array[Str], line: Int, stop: Int): Option[Int] :=
+  if line < 1 or line > size(lines) or line > stop then
+    None
+  else if line == stop or ends_with(at(line - 1, lines), " :=") then
+    Some(line)
+  else
+    head_end(lines, line + 1, stop)
+
+// the end of a head whose last line is line, before its := if it has one, else at the end of span
+function head_stop(lines: Array[Str], line: Int, span: Span): Pos :=
+  let text := at(line - 1, lines) in
+  if ends_with(text, " :=") then Pos(line, size(text) - 2) else span.stop
 
 function spec_spans(spec: Spec): List[Span] :=
   List(for expr in spec.pre yield expr.span) ++ List(for expr in spec.post yield expr.span) ++ List(for x in spec.examples yield x.span)
