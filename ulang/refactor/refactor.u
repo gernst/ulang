@@ -1640,7 +1640,7 @@ procedure put_anchored(
     else
       ", but " ++ join(", ", List(for k in fragment_keys yield key_text(k))) ++ ", while a declaration of another name replaces it only as the one declaration of the fragment, of its kind"))
   end
-  var splices: List[(Range, List[Str])] := List(), entries: List[(Str, Str, Str, Str)] := List(), replaced_keys: List[(Key, Key)] := List()
+  var splices: List[(Range, List[Str])] := List(), entries: List[(Str, Str, Str, Str, Str)] := List(), replaced_keys: List[(Key, Key)] := List()
   var exported_keys: List[Key] := List()
   let section_cmds := lambda role: Str => if role == "export" then
     all.exported
@@ -1654,6 +1654,24 @@ procedure put_anchored(
     "builtin"
   else
     "implementation"
+  // where a declaration added to a section stands, next to the anchor in that section, after the declaration that
+  // replaced it if the fragment replaces it, as the reply says
+  let anchor_now := if anchor.side == "instead" then
+    value_or(map_option(find(added, lambda (cmd, _, _) => instead(cmd)), lambda (cmd, _, _) => cmd_key(cmd)), None)
+  else
+    anchor_key
+  let section_anchor := lambda role: Str => if role == "export" then
+    export_anchor
+  else if role == "builtin" then
+    builtin_anchor
+  else
+    impl_anchor
+  let place_of := lambda role: Str => match (anchor_now, section_anchor(role))
+    case (Some(k), Some(_)) =>
+      (if anchor.side == "before" then " before " else " after ") ++ key_text(k)
+    case _ =>
+      ""
+  end
   for (cmd, r, role) in added do
     let range := cmd_range(all_lines, cmd, r.first - 1, true)
     let has_doc := range.first < cmd.span.start.line, new_key := cmd_key(cmd)
@@ -1695,7 +1713,7 @@ procedure put_anchored(
           ("replaced " ++ value_or(map_option(new_key, key_text), "a notation"), ", of another type" ++ moved)
         else
           ("replaced " ++ value_or(map_option(new_key, key_text), "a notation"), moved)
-        entries := entries ++ List((first(entry), second(entry), section, role))
+        entries := entries ++ List((first(entry), second(entry), section, role, ""))
         replaced_keys := replaced_keys ++ List(for k in new_key for o_k in old_key if section == "implementation" yield (o_k, k))
 
       case None =>
@@ -1704,11 +1722,11 @@ procedure put_anchored(
         end
         exported_keys := exported_keys ++ List(for k in new_key if role == "export" yield k)
         entries := entries ++ List(
-          ("added " ++ value_or(map_option(new_key, key_text), "a notation"), moved ++ beside_text(new_key, olds), role, role))
+          ("added " ++ value_or(map_option(new_key, key_text), "a notation"), moved ++ beside_text(new_key, olds), role, role, place_of(role)))
     end
   end
   let plain := not (has_sections or has_exports or has_builtins)
-  var done := List(for line in imports yield "added " ++ line) ++ List(for (what, suffix) in distinct(List(for (w, s, _, _) in entries yield (w, s))) for line in Some(done_text(what, suffix, entries, plain)) if line != "" yield line)
+  var done := List(for line in imports yield "added " ++ line) ++ List(for (what, suffix) in distinct(List(for (w, s, _, _, _) in entries yield (w, s))) for line in Some(done_text(what, suffix, entries, plain)) if line != "" yield line)
   formatted(in path, join("\n", spliced(all_lines_list, splices)), edits.files, no_fragment(), out result, source)
   with_signatures(in path, replaced_keys, edits.files, ref result, done)
   with_exported_raises(in path, text, exported_keys, edits.files, ref result, done)
@@ -1738,14 +1756,18 @@ function sole[A](xs: List[A]): Option[A] :=
 // did, the rest of its text, the section of the part, and the section that the fragment named, where plain tells a file
 // without sections, whose additions name none, and a part that is unchanged beside one replaced is named by that one, so
 // that its text is empty
-function done_text(what: Str, suffix: Str, entries: List[(Str, Str, Str, Str)], plain: Bool): Str :=
-  let parts := List(for (w, s, section, role) in entries if w == what and s == suffix yield (section, role)) in
+function done_text(what: Str, suffix: Str, entries: List[(Str, Str, Str, Str, Str)], plain: Bool): Str :=
+  let parts := List(for (w, s, section, role, _) in entries if w == what and s == suffix yield (section, role)) in
+  let place := value_or(sole(distinct(List(for (w, s, _, _, p) in entries if w == what and s == suffix yield p))), "") in
   let sections := firsts(parts) in
-  let sections_of := lambda verb: Str, key: Str => List(for (w, _, section, _) in entries if w == verb ++ key yield section) in
+  let sections_of := lambda verb: Str, key: Str => List(for (w, _, section, _, _) in entries if w == verb ++ key yield section) in
   if starts_with(what, "added ") then
     match sections
       case List("export") =>
-        "exported " ++ slice(what, 6, size(what)) ++ suffix
+        "exported " ++ slice(what, 6, size(what)) ++ place ++ suffix
+
+      case List(_) if place != "" =>
+        what ++ place ++ suffix
 
       case List("implementation") =>
         what ++ (if plain then "" else " to implementation") ++ suffix
@@ -1754,7 +1776,7 @@ function done_text(what: Str, suffix: Str, entries: List[(Str, Str, Str, Str)], 
         what ++ " to " ++ section ++ suffix
 
       case _ =>
-        what ++ sections_text(sections) ++ suffix
+        what ++ place ++ sections_text(sections) ++ suffix
     end
   else if starts_with(what, "unchanged ") and sections_of("replaced ", slice(what, 10, size(what))) != List() then
     ""

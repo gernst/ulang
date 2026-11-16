@@ -45,6 +45,11 @@ test puts_next_to() :=
   os_read_utf8(in path, out text)
   assert status == 0
   assert text == "export\n\nfunction b(): Int\n\nfunction c(): Int\n\nimplementation\n\nfunction z(): Int :=\n  0\n\nfunction a(): Int :=\n  1\n\nfunction b(): Int :=\n  2\n\n// the third\nfunction c(): Int :=\n  3\n"
+  assert take(4, reply) == List(
+    "applied, clean",
+    path ++ ": added b/0 after a/0",
+    path ++ ": added z/0 before a/0",
+    path ++ ": exported b/0 before c/0")
   run_script(in "@put " ++ path ++ " after other.u:a\nfunction y(): Int := 0\n", false, state, no_diagnostics, out reply, status, _)
   assert status == 1
   run_script(in "@put " ++ path ++ " after a\nfunction y(): Int := 0\n", false, state, no_diagnostics, out reply, status, _)
@@ -66,7 +71,7 @@ test replaces_arity() :=
   assert text == "export\n\n// sends\nfunction f(x: Int, y: Int): Int\n\nfunction g(): Int\n\nimplementation\n\nfunction f(x: Int, y: Int): Int :=\n  x + y\n\nfunction k(): Int :=\n  0\n\nfunction g(): Int :=\n  f(1)\n\nfunction h(x: Int, y: Int): Int :=\n  x\n\nfunction h(x: Int): Int :=\n  x\n"
   assert take(2, reply) == List(
     "applied, clean",
-    path ++ ": replaced f/1 by f/2, added k/0 to implementation, with the signature of f/2")
+    path ++ ": replaced f/1 by f/2, added k/0 after f/2, with the signature of f/2")
   run_script(in "@put " ++ path ++ ":g\nfunction h(): Int := 1\nfunction k(): Int := 1\n", false, state, no_diagnostics, out reply, status, _)
   assert status == 1 and reply == List(
     "rejected",
@@ -120,8 +125,8 @@ test puts_builtins() :=
   assert status == 0
   assert take(5, reply) == List(
     "applied, clean",
-    path ++ ": added h/1 to builtin",
-    path ++ ": added a/1 to builtin",
+    path ++ ": added h/1 after g/1",
+    path ++ ": added a/1 before g/1",
     path ++ ": replaced h/1 by h/2",
     plain ++ ": added b/1 to builtin")
   assert text == "export\n\nfunction f(x: Int): Int\n\nbuiltin\n\nfunction a(x: Int): Int\n\nfunction g(x: Int): Int\n\nfunction h(x: Int, y: Int): Int\n\nimplementation\n\nfunction f(x: Int): Int :=\n  g(x)\n"
@@ -140,8 +145,8 @@ test puts_beside_signatures() :=
   assert take(6, reply) == List(
     "applied, clean",
     path ++ ": replaced f/1, its doc on its signature",
-    path ++ ": added q/1 to implementation",
-    path ++ ": exported q/1",
+    path ++ ": added q/1 after f/1",
+    path ++ ": exported q/1 after f/1",
     path ++ ": replaced g/1, unchanged in export",
     path ++ ": replaced g/1 (export and implementation)")
   assert text == "export\n\n// the doc of f\nfunction f(x: Int): Int\n\nfunction q(x: Int): Int\n\n// the doc of g\nfunction g(x: Int): Int\n\nimplementation\n\nfunction f(x: Int): Int :=\n  x + 1\n\nfunction q(x: Int): Int :=\n  x\n\nfunction g(x: Int): Int :=\n  f(x) + 2\n"
@@ -318,4 +323,4 @@ test puts_several() :=
   assert text == "function f(x: Int, y: Int): Int :=\n  x + y\n\nfunction g(): Int :=\n  2\n\nfunction k(): Int :=\n  3\n\nfunction g(x: Int): Int :=\n  x\n\nfunction h(): Int :=\n  1\n"
   assert take(2, reply) == List(
     "applied, clean",
-    path ++ ": replaced f/1 by f/2, replaced h/0, added g/0, beside g/1, added k/0")
+    path ++ ": replaced f/1 by f/2, replaced h/0, added g/0 after f/2, beside g/1, added k/0 after f/2")
