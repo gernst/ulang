@@ -1654,8 +1654,8 @@ procedure put_anchored(
     "builtin"
   else
     "implementation"
-  // where a declaration added to a section stands, next to the anchor in that section, after the declaration that
-  // replaced it if the fragment replaces it, as the reply says
+  // where a declaration added to a section stands, as the reply says: the first next to the anchor in that section, after
+  // the declaration that replaced it if the fragment replaces it, and each other one after the one added before it
   let anchor_now := if anchor.side == "instead" then
     value_or(map_option(find(added, lambda (cmd, _, _) => instead(cmd)), lambda (cmd, _, _) => cmd_key(cmd)), None)
   else
@@ -1666,12 +1666,17 @@ procedure put_anchored(
     builtin_anchor
   else
     impl_anchor
-  let place_of := lambda role: Str => match (anchor_now, section_anchor(role))
-    case (Some(k), Some(_)) =>
+  let place_of := lambda role: Str, before: Option[Key] => match (anchor_now, section_anchor(role), before)
+    case (_, Some(_), Some(k)) =>
+      " after " ++ key_text(k)
+
+    case (Some(k), Some(_), None) =>
       (if anchor.side == "before" then " before " else " after ") ++ key_text(k)
+
     case _ =>
       ""
   end
+  var last_added: Map[Str, Key] := Map()
   for (cmd, r, role) in added do
     let range := cmd_range(all_lines, cmd, r.first - 1, true)
     let has_doc := range.first < cmd.span.start.line, new_key := cmd_key(cmd)
@@ -1722,7 +1727,8 @@ procedure put_anchored(
         end
         exported_keys := exported_keys ++ List(for k in new_key if role == "export" yield k)
         entries := entries ++ List(
-          ("added " ++ value_or(map_option(new_key, key_text), "a notation"), moved ++ beside_text(new_key, olds), role, role, place_of(role)))
+          ("added " ++ value_or(map_option(new_key, key_text), "a notation"), moved ++ beside_text(new_key, olds), role, role, place_of(role, get(role, last_added))))
+        last_added := Map(for k in new_key yield role => k; last_added)
     end
   end
   let plain := not (has_sections or has_exports or has_builtins)
@@ -2164,7 +2170,7 @@ procedure patch(
         for c in old_cmd do
           rebase(in path, key, lines, c, result_lines, cmd, changed, true, ref handles)
           // the reply shows the nodes that the patch changed with their handles
-          for span in changed_nodes(lines, result_lines, line_nodes(result_lines, cmd)) do
+          for span in changed_nodes(lines, result_lines, counted_nodes(result_lines, kinded_nodes(result_lines, cmd))) do
             let region := Range(span.start.line, span.stop.line)
             mark(in path, result_lines, key, cmd, region, ref handles, marks)
             shown := shown ++ List(
@@ -2179,22 +2185,59 @@ procedure patch(
       end
   end
 
-// the nodes of spans, those of a declaration in new, that an edit of old to new changed: the outermost that start on the
-// lines that it changed, where a node starts at the comments that format places above it, so that an edit of a comment
-// changed the node that it documents, else the innermost around them, so that an edit of a head alone changed none
-function changed_nodes(old: Array[Str], new: Array[Str], spans: List[Span]): List[Span] :=
-  example changed_nodes(Array("a", "  b", "  c"), Array("a", "  b", "  d"), List(Span(Pos(2, 3), Pos(3, 4)), Span(Pos(3, 3), Pos(3, 4)))) == List(Span(Pos(3, 3), Pos(3, 4)))
-  example changed_nodes(Array("a", "  b", "  c"), Array("a", "  c"), List(Span(Pos(1, 1), Pos(2, 4)), Span(Pos(2, 3), Pos(2, 4)))) == List(Span(Pos(1, 1), Pos(2, 4)))
-  example changed_nodes(Array("a", "  // x", "  b"), Array("a", "  // y", "  b"), List(Span(Pos(1, 1), Pos(3, 4)), Span(Pos(3, 3), Pos(3, 4)))) == List(Span(Pos(3, 3), Pos(3, 4)))
+// the nodes of a declaration in new that an edit of old to new changed, each a span and the part of it that counts, of
+// nodes: the outermost that start on the lines that it changed, where a node starts at the comments that format places
+// above it, so that an edit of a comment changed the node that it documents, and a node contains those inside the part
+// that counts, so that an edit of the line of a let … in changed the let alone, shown whole only if a node of its body
+// changed too, else the innermost around them, so that an edit of a head alone changed none
+function changed_nodes(old: Array[Str], new: Array[Str], nodes: List[(Span, Span)]): List[Span] :=
+  example changed_nodes(Array("a", "  b", "  c"), Array("a", "  b", "  d"), List(
+      (Span(Pos(2, 3), Pos(3, 4)), Span(Pos(2, 3), Pos(3, 4))),
+      (Span(Pos(3, 3), Pos(3, 4)), Span(Pos(3, 3), Pos(3, 4))))) == List(Span(Pos(3, 3), Pos(3, 4)))
+  example changed_nodes(Array("a", "  b", "  c"), Array("a", "  c"), List(
+      (Span(Pos(1, 1), Pos(2, 4)), Span(Pos(1, 1), Pos(2, 4))),
+      (Span(Pos(2, 3), Pos(2, 4)), Span(Pos(2, 3), Pos(2, 4))))) == List(Span(Pos(1, 1), Pos(2, 4)))
+  example changed_nodes(Array("a", "  // x", "  b"), Array("a", "  // y", "  b"), List(
+      (Span(Pos(1, 1), Pos(3, 4)), Span(Pos(1, 1), Pos(3, 4))),
+      (Span(Pos(3, 3), Pos(3, 4)), Span(Pos(3, 3), Pos(3, 4))))) == List(Span(Pos(3, 3), Pos(3, 4)))
+  example changed_nodes(Array("let a := 1 in", "a"), Array("let a := 2 in", "a"), List(
+      (Span(Pos(1, 1), Pos(2, 2)), Span(Pos(1, 1), Pos(1, 14))),
+      (Span(Pos(2, 1), Pos(2, 2)), Span(Pos(2, 1), Pos(2, 2))))) == List(Span(Pos(1, 1), Pos(1, 14)))
+  example changed_nodes(Array("let a := 1 in", "a"), Array("let a := 2 in", "b"), List(
+      (Span(Pos(1, 1), Pos(2, 2)), Span(Pos(1, 1), Pos(1, 14))),
+      (Span(Pos(2, 1), Pos(2, 2)), Span(Pos(2, 1), Pos(2, 2))))) == List(Span(Pos(1, 1), Pos(2, 2)))
   let olds := List(for line in old), news := List(for line in new) in
   let shared := common_prefix(olds, news) in
   let suffix := min(common_prefix(reverse(olds), reverse(news)), min(size(olds), size(news)) - shared) in
   let first := shared + 1, final := size(news) - suffix in
-  let starting := List(for span in spans if first <= span.start.line and with_comments(new, Range(span.start.line, span.stop.line)).first <= final) in
-  if starting != List() then
-    List(for span in starting if not exists(starting, lambda other => other != span and is_inside(span, other)))
+  let starting := List(for (span, counted) in nodes if first <= span.start.line and with_comments(new, Range(span.start.line, span.stop.line)).first <= final yield (span, counted)) in
+  let shown := List(for (span, counted) in starting yield if exists(starting, lambda (other, _) => other != span and is_inside(other, span) and not is_inside(other, counted)) then
+    span
   else
-    List(for span in last(List(for span in spans if span.start.line < first and span.stop.line >= max(first, final))))
+    counted) in
+  if shown != List() then
+    List(for span in shown if not exists(shown, lambda other => other != span and is_inside(span, other)))
+  else
+    List(for span in last(List(for (span, _) in nodes if span.start.line < first and span.stop.line >= max(first, final) yield span)))
+
+// each node with the part of it that an edit of its lines changes, of a let … in its bindings, the lines before its body,
+// which is a node of its own, else the node whole
+function counted_nodes(lines: Array[Str], nodes: List[Node]): List[(Span, Span)] :=
+  example counted_nodes(Array("function f(): Int :=", "  let a := 1 in", "  a + 1"), List(
+      Node(Span(Pos(2, 3), Pos(3, 8)), KExpression),
+      Node(Span(Pos(3, 3), Pos(3, 8)), KExpression))) == List(
+      (Span(Pos(2, 3), Pos(3, 8)), Span(Pos(2, 3), Pos(2, 16))),
+      (Span(Pos(3, 3), Pos(3, 8)), Span(Pos(3, 3), Pos(3, 8))))
+  List(for node in nodes yield (node.span, counted_span(lines, node, nodes)))
+
+function counted_span(lines: Array[Str], node: Node, nodes: List[Node]): Span :=
+  let span := node.span in
+  match find(nodes, lambda other => other.span.stop == span.stop and other.span.start.line > span.start.line)
+    case Some(body) if node.kind == KExpression and starts_with(trim(line_at(lines, span.start.line)), "let ") =>
+      Span(span.start, Pos(body.span.start.line - 1, size(line_at(lines, body.span.start.line - 1)) + 1))
+    case _ =>
+      span
+  end
 
 // the number of the elements at the start of xs and ys that they share
 function common_prefix[A](xs: List[A], ys: List[A]): Int :=

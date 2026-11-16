@@ -323,4 +323,4 @@ test puts_several() :=
   assert text == "function f(x: Int, y: Int): Int :=\n  x + y\n\nfunction g(): Int :=\n  2\n\nfunction k(): Int :=\n  3\n\nfunction g(x: Int): Int :=\n  x\n\nfunction h(): Int :=\n  1\n"
   assert take(2, reply) == List(
     "applied, clean",
-    path ++ ": replaced f/1 by f/2, replaced h/0, added g/0 after f/2, beside g/1, added k/0 after f/2")
+    path ++ ": replaced f/1 by f/2, replaced h/0, added g/0 after f/2, beside g/1, added k/0 after g/0")
