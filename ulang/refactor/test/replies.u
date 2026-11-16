@@ -41,6 +41,18 @@ test first_lines() :=
   run_script(in "@put " ++ path ++ "\nfunction f(x: Int): Int := x +\n", false, state, no_diagnostics, out reply, status, _)
   assert status == 1 and take(1, reply) == List("rejected")
 
+// a comment line of an edit longer than 120 columns, which format keeps as written, is named in the reply, while one
+// that the file had before is not
+test long_comments() :=
+  var reply: List[Str], status: Int
+  let state := "out/test/refactor/replies/state", path := "out/test/refactor/replies/long.u"
+  let long := "// " ++ join(" ", List(for _ in range(0, 30) yield "word"))
+  os_write_utf8(in path, long ++ "\nfunction f(x: Int): Int :=\n  x\n")
+  run_script(in "@put " ++ path ++ "\n" ++ long ++ " again\nfunction f(x: Int): Int := x + 1\n", false, state, no_diagnostics, out reply, status, _)
+  assert status == 0 and contains(path ++ ":1: a comment line of 158 characters, longer than 120, which format does not wrap", reply)
+  run_script(in "@patch " ++ path ++ ":f\nx + 1 => x + 2\n", false, state, no_diagnostics, out reply, status, _)
+  assert status == 0 and not exists(reply, lambda line => index_of("which format does not wrap", line) != None)
+
 // the first line counts the errors and warnings that the script made new, apart, if it changed a file
 test new_counts() :=
   var reply: List[Str], status: Int
