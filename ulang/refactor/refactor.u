@@ -1641,7 +1641,7 @@ procedure put_anchored(
       ", but " ++ join(", ", List(for k in fragment_keys yield key_text(k))) ++ ", while a declaration of another name replaces it only as the one declaration of the fragment, of its kind"))
   end
   var splices: List[(Range, List[Str])] := List(), entries: List[(Str, Str, Str, Str, Str)] := List(), replaced_keys: List[(Key, Key)] := List()
-  var exported_keys: List[Key] := List()
+  var exported_keys: List[Key] := List(), spec_keys: List[Key] := List()
   let section_cmds := lambda role: Str => if role == "export" then
     all.exported
   else if role == "builtin" then
@@ -1686,8 +1686,11 @@ procedure put_anchored(
     end
     let is_old := lambda c: At[Cmd] => contains(c, olds) and cmd_key(c) == wanted and is_signature_at(c) == is_signature_at(cmd)
     let old := or_else(find(section_cmds(role), is_old), find(olds, is_old))
-    // the signature in export that takes the doc of a definition that the fragment writes without the signature
-    let doc_signature := if has_doc and wanted != None and not is_signature_at(cmd) and not exists(added, lambda (c, _, other) => other == "export" and cmd_key(c) == new_key) then
+    let writes_signature := exists(added, lambda (c, _, other) => other == "export" and cmd_key(c) == new_key)
+    let has_own_doc := exists(old, lambda o => cmd_range(all_lines, o, 0, true).first < o.span.start.line)
+    // the signature in export that takes the doc of a definition that the fragment writes without the signature, unless
+    // the definition has a doc of its own, which the doc of the fragment replaces
+    let doc_signature := if has_doc and wanted != None and not is_signature_at(cmd) and not writes_signature and not has_own_doc then
       find(all.exported, lambda c => contains(c, olds) and cmd_key(c) == wanted and is_signature_at(c))
     else
       None
@@ -1720,6 +1723,7 @@ procedure put_anchored(
           ("replaced " ++ value_or(map_option(new_key, key_text), "a notation"), moved)
         entries := entries ++ List((first(entry), second(entry), section, role, ""))
         replaced_keys := replaced_keys ++ List(for k in new_key for o_k in old_key if section == "implementation" yield (o_k, k))
+        spec_keys := spec_keys ++ List(for k in new_key if section == "implementation" and not is_signature_at(cmd) and not writes_signature yield k)
 
       case None =>
         if doc_signature != None then
@@ -1734,7 +1738,7 @@ procedure put_anchored(
   let plain := not (has_sections or has_exports or has_builtins)
   var done := List(for line in imports yield "added " ++ line) ++ List(for (what, suffix) in distinct(List(for (w, s, _, _, _) in entries yield (w, s))) for line in Some(done_text(what, suffix, entries, plain)) if line != "" yield line)
   formatted(in path, join("\n", spliced(all_lines_list, splices)), edits.files, no_fragment(), out result, source)
-  with_signatures(in path, replaced_keys, edits.files, ref result, done)
+  with_signatures(in path, replaced_keys, spec_keys, edits.files, ref result, done)
   with_exported_raises(in path, text, exported_keys, edits.files, ref result, done)
   edits := edits with files := Map(path => result; edits.files)
   if done != List() then
@@ -1850,10 +1854,13 @@ function ranges_of(inserts: List[Insert], first: Int): List[(Range, Insert)] :=
   end
 
 // gives the signature in export of each of keys, the key that a definition replaced and its own, which differ if its
-// arity changed, the head of the definition, in text, which is formatted, so that each head ends in :=
+// arity changed, the head of the definition, in text, which is formatted, so that each head ends in :=, and moves the
+// spec of the definition of each of specs to its signature, in place of the spec there, since the examples and contracts
+// of an exported name stand on its signature
 procedure with_signatures(
   in  path: Str,
       keys: List[(Key, Key)],
+      specs: List[Key],
       files: Map[Str, Str],
   ref text: Str,
       done: List[Str]
@@ -1866,12 +1873,30 @@ procedure with_signatures(
     let signatures := List(for (k, sig, c) in keyed(d.exported) if is_signature(c) and not is_abstract(c) yield (k, sig, c))
     let signature := or_else(find(signatures, lambda (k, _, _) => k == old), find(signatures, lambda (k, _, _) => k == key))
     match (definition, signature)
-      case (Some((_, def, _)), Some((_, sig, c))) =>
+      case (Some((_, def, def_c)), Some((_, sig, c))) =>
         let head := head_range(lines, sig), new_head := head_lines(lines_in(lines, cmd_range(lines, def, 0, false)))
-        let written := if has_spec(c) then with_assign(new_head) else new_head
-        if written != lines_in(lines, head) then
-          splices := splices ++ List((head, written))
+        let moved := if contains(key, specs) then spec_range(lines, def, def_c) else None
+        let written := if has_spec(c) or moved != None then with_assign(new_head) else new_head
+        // the head changed if it differs by more than the := that the spec moved to it needs
+        if (if has_spec(c) then with_assign(new_head) else new_head) != lines_in(lines, head) then
           done := done ++ List("with the signature of " ++ key_text(key))
+        end
+        match (moved, spec_range(lines, sig, c))
+          case (Some(range), Some(old_spec)) =>
+            splices := splices ++ List(
+              (head, written),
+              (old_spec, lines_in(lines, range)),
+              (range, List()))
+
+          case (Some(range), None) =>
+            splices := splices ++ List((head, written ++ lines_in(lines, range)), (range, List()))
+
+          case (None, _) =>
+            splices := splices ++ List((head, written))
+        end
+        if moved != None then
+          done := done ++ List(
+            "the " ++ spec_word(def_c) ++ " of " ++ key_text(key) ++ " on its signature")
         end
 
       case _ =>
@@ -1880,6 +1905,19 @@ procedure with_signatures(
   end
   if splices != List() then
     formatted(in path, join("\n", spliced(List(for line in lines), splices)), files, no_fragment(), out text, source)
+  end
+
+// what the spec of a definition holds, as the reply names it when it moves
+function spec_word(cmd: Cmd): Str :=
+  match cmd
+    case CFun(_, _, _, _, spec, _) =>
+      if spec.pre == List() and spec.post == None then "examples" else "spec"
+
+    case CProc(_, _, _, _, _, _, spec, _) =>
+      if spec.pre == List() and spec.post == None then "examples" else "spec"
+
+    case _ =>
+      "spec"
   end
 
 // writes the raises of each procedure of keys that the fragment exported, whose definition writes none, into the head of

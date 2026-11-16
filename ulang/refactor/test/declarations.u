@@ -151,6 +151,21 @@ test puts_beside_signatures() :=
     path ++ ": replaced g/1 (export and implementation)")
   assert text == "export\n\n// the doc of f\nfunction f(x: Int): Int\n\nfunction q(x: Int): Int\n\n// the doc of g\nfunction g(x: Int): Int\n\nimplementation\n\nfunction f(x: Int): Int :=\n  x + 1\n\nfunction q(x: Int): Int :=\n  x\n\nfunction g(x: Int): Int :=\n  f(x) + 2\n"
 
+// the examples of a definition of an exported name go to its signature, in place of those there, also to a signature
+// without a spec, while a definition with a doc of its own keeps the doc of the fragment
+test puts_specs_on_signatures() :=
+  var reply: List[Str], status: Int, text: Str
+  let state := "out/test/refactor/declarations/specs", path := "out/test/refactor/declarations/specs.u"
+  os_write_utf8(in path, "export\n\n// the first\nfunction f(x: Int): Int :=\n  example f(1) == 1\n\nfunction g(x: Int): Int\n\nimplementation\n\nfunction f(x: Int): Int :=\n  x\n\n// the own doc of g\nfunction g(x: Int): Int :=\n  x\n")
+  run_script(in "@put " ++ path ++ ":f\nfunction f(x: Int): Int :=\n  example f(2) == 2\n  x\n@put " ++ path ++ ":g\n// a new doc of g\nfunction g(x: Int): Int := example g(3) == 3 x + 0\n", false, state, no_diagnostics, out reply, status, _)
+  os_read_utf8(in path, out text)
+  assert status == 0
+  assert take(3, reply) == List(
+    "applied, clean",
+    path ++ ": replaced f/1, the examples of f/1 on its signature",
+    path ++ ": replaced g/1, the examples of g/1 on its signature")
+  assert text == "export\n\n// the first\nfunction f(x: Int): Int :=\n  example f(2) == 2\n\nfunction g(x: Int): Int :=\n  example g(3) == 3\n\nimplementation\n\nfunction f(x: Int): Int :=\n  x\n\n// a new doc of g\nfunction g(x: Int): Int :=\n  x + 0\n"
+
 // @patch of a declaration keeps the handles of its nodes, refuses a patch that changes nothing, and adds lines by its
 // form of several lines, the old lines, a line => alone, and the new lines
 test patches_keep_handles() :=
