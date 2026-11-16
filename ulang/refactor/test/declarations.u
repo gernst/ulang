@@ -283,6 +283,29 @@ test patches_parts_of_lines() :=
     "rejected",
     "@patch: the old lines, \"x +\", occur in no line of the target as whole lines, and as a part of a line it occurs 2 times in the target, so it takes more of its line, and the line of the target that starts most like the first of them is " ++ path ++ ":5, \"x + x + 2 * y\"")
 
+// a line ... of the old lines of a block stands for the lines between those before it and after it, which a line ... of
+// the new lines places, so that a region is wrapped in a block without repeating it; a first old line may be the end of
+// its line and a last the start of its line, whose rest stays; and a block whose text does not parse is refused with the
+// action and the lines that it took as its new lines, up to the end of the fragment
+test patches_regions() :=
+  var reply: List[Str], status: Int, text: Str
+  let state := "out/test/refactor/declarations/regions", path := "out/test/refactor/declarations/regions.u"
+  os_write_utf8(in path, "procedure p(out y: Int) :=\n  y := 1\n  y := y + 2\n  y := y + 3\n  if y > 3 then\n    y := 0\n  end\n")
+  run_script(in "@patch " ++ path ++ ":p\ny := y + 2\n...\nif y > 3 then\n=>\nif y > 0 then\n  y := y + 2\n  ...\nend\nif y > 4 then\n", false, state, no_diagnostics, out _, status, _)
+  os_read_utf8(in path, out text)
+  assert status == 0 and text == "procedure p(out y: Int) :=\n  y := 1\n  if y > 0 then\n    y := y + 2\n    y := y + 3\n  end\n  if y > 4 then\n    y := 0\n  end\n"
+  run_script(in "@patch " ++ path ++ ":p\n:= y + 3\nend\nif y >\n=>\n:= y + 5\nend\nif 2 * y >\n", false, state, no_diagnostics, out _, status, _)
+  os_read_utf8(in path, out text)
+  assert status == 0 and text == "procedure p(out y: Int) :=\n  y := 1\n  if y > 0 then\n    y := y + 2\n    y := y + 5\n  end\n  if 2 * y > 4 then\n    y := 0\n  end\n"
+  run_script(in "@patch " ++ path ++ ":p\ny := 1\n...\nend\n=>\nskip\n", false, state, no_diagnostics, out reply, status, _)
+  assert status == 1 and reply == List(
+    "rejected",
+    "@patch: the line ... of the old lines stands for the lines between them, so the new lines take one line ... where those lines go, not 0")
+  run_script(in "@patch " ++ path ++ ":p\ny := 1\n=>\nif true then\ny := 1\ny := y + 2 => y := y + 6\n", false, state, no_diagnostics, out reply, status, _)
+  assert status == 1 and reply == List(
+    "rejected",
+    "@patch " ++ path ++ ":p writes a text that does not parse:\n" ++ path ++ ":2.3: the if, or a construct inside it, has no end: end expected but end of input found\nits block took fragment lines 3 to 5 as its new lines, which run to the end of the fragment, also line 5, \"y := y + 2 => y := y + 6\", which a @patch of its own takes as a line old => new")
+
 // @patch of a file patches each declaration that has the old text once, and the lines of no declaration, the header
 // above the imports included, naming what it changed, while a block of old lines may span declarations
 test patches_files() :=
