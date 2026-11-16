@@ -516,7 +516,7 @@ function dedented(lines: List[Str]): List[Str] :=
   List(for line in lines yield if is_blank(line) then "" else slice(line, least, size(line)))
 
 function indented(lines: List[Str], depth: Int): List[Str] :=
-  List(for line in lines yield if is_blank(line) then "" else repeat(" ", depth) ++ line)
+  List(for line in lines yield if is_blank(line) then "" else repeat(depth, " ") ++ line)
 
 function node_text(lines: Array[Str], span: Span): Str :=
   join("\n", dedented(lines_in(lines, Range(span.start.line, span.stop.line))))
@@ -562,10 +562,10 @@ function margin(number: Option[Int], width: Int): Str :=
   match number
     case Some(n) =>
       let text := "#" ++ show(n) in
-      text ++ repeat(" ", width - size(text))
+      text ++ repeat(width - size(text), " ")
 
     case None =>
-      repeat(" ", width)
+      repeat(width, " ")
   end
 
 // the number of the handle of the node, a new one if the table has none
@@ -2885,7 +2885,7 @@ function local_splices(text: Str, lines: Array[Str], starts: Array[Int], local: 
     Splice(first, last, kept, List()) in
   let bodies := distinct(List(for (_, spans) in moves for body in spans yield body)) in
   List(
-    removal; List(for body in bodies yield Splice(line_offset(starts, body.start.line), line_offset(starts, body.start.line), repeat(" ", body.start.col - 1) ++ "var " ++ join(", ", declared_in(body, moves, decl_texts)) ++ "\n", List())))
+    removal; List(for body in bodies yield Splice(line_offset(starts, body.start.line), line_offset(starts, body.start.line), repeat(body.start.col - 1, " ") ++ "var " ++ join(", ", declared_in(body, moves, decl_texts)) ++ "\n", List())))
 
 // the texts of the declarations of moves that move into body
 function declared_in(body: Span, moves: List[(Span, List[Span])], decl_texts: List[Str]): List[Str] :=
@@ -3125,7 +3125,7 @@ procedure outline(in path: Str, ref edits: Edits) raises Refused, OsError :=
 
 function padded(text: Str, width: Int): Str :=
   example padded("ab", 4) == "ab  "
-  text ++ repeat(" ", width - size(text))
+  text ++ repeat(width - size(text), " ")
 
 function trim_end(text: Str): Str :=
   example trim_end("ab  ") == "ab"

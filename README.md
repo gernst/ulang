@@ -105,7 +105,7 @@ make test                                 # runs all tests
 
 ## Refactoring
 
-`out/ulang.sh refactor` edits sources by their meaning, as `format` edits their layout. It runs a script, from a file, from stdin, or as one action on the command line, `out/ulang.sh refactor @show shapes.u:area`. Each action is a line that starts with `@`, which ulang never uses. Its fragment is the lines up to the next action, taken verbatim. A script writes all its files or, if one action is refused, none.
+`out/ulang.sh refactor` edits sources by their meaning, as `format` edits their layout. It runs a script, from a file or from stdin; the command line takes exactly one action, `out/ulang.sh refactor @show shapes.u:area`, so several actions go in a script, `out/ulang.sh refactor script.txt` or a script piped to `out/ulang.sh refactor`. Each action is a line that starts with `@`, which ulang never uses. Its fragment is the lines up to the next action, taken verbatim. A script writes all its files or, if one action is refused, none.
 
 `@show` prints code with handles, `#n` in a margin beside each line that starts a node: a statement, a case, a constructor, or an expression that starts its line, the body of a function, the body of a `let` after `in`, a branch of an `if` spread over lines, or an element or argument of a form or call spread one per line. A node is the lines from its first to its last, with what follows it on its last line, such as the comma after an element or the `)` after the last one; `@show` of a node and the echo of an edit also print the comments that `format` places above it, which an edit of the node keeps.
 
