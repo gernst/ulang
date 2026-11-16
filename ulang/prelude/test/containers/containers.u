@@ -202,6 +202,34 @@ test out_of_bounds() :=
     let c := at(2, "ä→")
   end
 
+test distinct_keeps_the_first(xs: List[Int]) :=
+  let ys := distinct(xs)
+  assert forall(xs, lambda x => contains(x, ys)) and repeated(ys) == None
+  assert ys == List(for (x, i) in numbered(xs) if not contains(x, take(i, xs)) yield x)
+
+test index_of_finds_the_first(a: Str, part: Str, b: Str) :=
+  match index_of(part, a ++ part ++ b)
+    case None =>
+      assert false
+
+    case Some(i) =>
+      assert i <= size(a) and slice(a ++ part ++ b, i, i + size(part)) == part
+      assert forall(range(0, i), lambda j => slice(a ++ part ++ b, j, j + size(part)) != part)
+  end
+
+test index_of_none(part: Str, s: Str) :=
+  assert index_of(part, s) != None or forall(range(0, size(s) - size(part) + 1), lambda j => slice(s, j, j + size(part)) != part)
+
+test trim_as_by_lists(s: Str) :=
+  let padded := " \t" ++ s ++ "\n ", kept := drop_while(chars(padded), is_space)
+  assert trim(padded) == str(reverse(drop_while(reverse(kept), is_space)))
+  assert trim(s) == trim(trim(s))
+
+test starts_and_ends(a: Str, b: Str) :=
+  assert starts_with(a ++ b, a) and ends_with(a ++ b, b)
+  assert starts_with(a, b) == (size(b) <= size(a) and slice(a, 0, size(b)) == b)
+  assert ends_with(a, b) == (size(b) <= size(a) and slice(a, size(a) - size(b), size(a)) == b)
+
 // the generators and for statements over a string range over its characters, as over the list of them
 test str_folds_as_chars(s: Str) :=
   let cs := chars(s)

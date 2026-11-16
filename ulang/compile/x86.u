@@ -1565,7 +1565,7 @@ procedure stmt_cases(
   end
 
 // the body of a function without arguments, whose value is computed once, as cached of ulang/compile/compile.u describes:
-// the cache is -1, U_COMPUTING, while the value is computed, and an exception that leaves the computation resets it
+// the cache is -2, U_COMPUTING, while the value is computed, and an exception that leaves the computation resets it
 procedure cached_body(
   in  defs: Defs,
       name: Name,
@@ -1582,13 +1582,13 @@ procedure cached_body(
   new_label(out start, ref e)
   emit_all(in List(
     IMov(ORip(cache), OReg(Rax)),
-    ICmp(OImm(-1), OReg(Rax)),
+    ICmp(OImm(-2), OReg(Rax)),
     IJcc(CondNe, fresh)), ref e)
   call_runtime(in "u_fail", List(AAddr(ORip(message))), ref e)
   place(in fresh, ref e)
   emit_all(in List(ITest(OReg(Rax), OReg(Rax)), IJcc(CondE, missing), ILeave, IRet), ref e)
   place(in missing, ref e)
-  emit(in IMov(OImm(-1), ORip(cache)), ref e)
+  emit(in IMov(OImm(-2), ORip(cache)), ref e)
   call_runtime(in "u_push_cache", List(AAddr(ORip(cache))), ref e)
   spill(out h, ref e)
   emit_all(in List(
