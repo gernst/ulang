@@ -63,7 +63,6 @@ By priority, each the problem and the solution.
 
 ### Found by the agents of 16 November 2026
 
-56. **The head of a signature in `export` is no node** (the same work): the nodes of a declaration are those of its definition with the lines of the specs of its signatures (`decl_of` of `ulang/refactor/refactor.u`), and the `Cmd` of a signature carries no position of its head, so `head_nodes` of `ulang/refactor/nodes.u` finds only the head of the definition, above its body, and a signature is changed by `@patch` or `@put F:name`. Solution: the spans of the signatures passed with the merged definition, so that the head of each is a node of the declaration.
 
 ## Order of work
 
