@@ -97,7 +97,7 @@ procedure prove_program(in q: Prog, m: Path) raises OpenLemma, OpenTermination :
   // a lemma proven locally that rests on one that is not established, which may be one of those open
   for l in t.lemmas do
     for basis in get(l.name, proofs.assumed) do
-      raise OpenLemma(l.name.base, "it rests on the lemma " ++ basis.base ++ ", which is not established")
+      raise OpenLemma(l.name.base, assumption_text(basis))
     end
   end
 
@@ -161,12 +161,20 @@ function gap_diagnostic(name: Name, gap: Gap): Diagnostic :=
   end in
   Diagnostic(ProofKind, gap.code, None, gap.pos, message, List(("lemma", name.base)) ++ List(for goal in gap.goal yield ("goal", goal)))
 
+// a lemma proven locally that rests on basis, which is not established, as an error of a proof at the lemma
+function assumed_diagnostic(name: Name, basis: Name): Diagnostic :=
+  Diagnostic(ProofKind, "Assumed", None, Pos(0, 0), "lemma " ++ name.base ++ ": " ++ assumption_text(basis), List(("lemma", name.base)))
+
+// why a lemma proven locally is not established
+function assumption_text(basis: Name): Str :=
+  "it rests on the lemma " ++ basis.base ++ ", which is not established"
+
 function termination_diagnostic(m: Path, site: CallSite): Diagnostic :=
   let f := first(site.caller), call_text := print_open_call(site) in
   Diagnostic(ProofKind, "OpenTermination", if f.path == m then None else name_module(f), Pos(0, 0), "the termination of " ++ f.base ++ " is not proven, no measure decreases " ++ call_text, List(("function", f.base), ("call", call_text)))
 
 function with_proofs(q: Prog, m: Path, proofs: Proofs, names: List[Str]): Prog :=
-  let gaps := Map(for Proved(name, gaps) in proofs.lemmas if names == List() or contains(name.base, names) yield name => List(for gap in gaps yield gap_diagnostic(name, gap))) in
+  let gaps := Map(for Proved(name, gaps) in proofs.lemmas if names == List() or contains(name.base, names) yield name => List(for gap in gaps yield gap_diagnostic(name, gap)) ++ List(for basis in get(name, proofs.assumed) yield assumed_diagnostic(name, basis))) in
   let open := Map(for tm in proofs.terminations for site in take(1, tm.open) yield site.caller => site) in
   q with cmds := List(for cmd in q.cmds yield with_proof_errors(m, gaps, open, cmd))
 

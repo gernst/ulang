@@ -189,6 +189,9 @@ procedure prove_module(
         match get(name, proofs.assumed)
           case Some(basis) =>
             os_println(in label ++ "lemma " ++ name.base ++ " proved, assuming " ++ basis.base ++ ", which is not established")
+            for d in ds if get("lemma", d.details) == Some(name.base) do
+              os_println(in format_diagnostic(file, d))
+            end
             proven := false
 
           case None =>
