@@ -208,6 +208,9 @@ function gen_lints(fun: Id, g: Gen): List[Warning] :=
 
     case GIf(cond) =>
       expr_lints(fun, cond)
+
+    case GLet(_, bound) =>
+      expr_lints(fun, bound)
   end
 
 function stmt_lints(fun: Id, stmt: At[Stmt]): List[Warning] :=
@@ -460,6 +463,9 @@ function gen_over(g: Gen): At[Expr] :=
 
     case GIf(cond) =>
       cond
+
+    case GLet(_, bound) =>
+      bound
   end
 
 // the default d of cases Some(x) => x and None => d, in either order, without guards, where d is a plain value, so that
@@ -906,6 +912,9 @@ function gen_exprs(g: Gen): List[At[Expr]] :=
 
     case GIf(cond) =>
       List(cond)
+
+    case GLet(_, bound) =>
+      List(bound)
   end
 
 // the warnings of DecidedCondition in stmt, where known holds the facts of the ifs and guards around it that hold in stmt,
@@ -1155,6 +1164,9 @@ function gen_pats(g: Gen): List[At[Pat]] :=
 
     case GIf(_) =>
       List()
+
+    case GLet(pat, _) =>
+      List(pat)
   end
 
 // the warnings of the names of the formals xs of a declaration at pos, each at the formal
@@ -1430,6 +1442,9 @@ function gen_names(g: Gen): Set[Id] :=
 
     case GIf(cond) =>
       expr_names(cond)
+
+    case GLet(pat, bound) =>
+      pat_names(pat) ++ expr_names(bound)
   end
 
 // the constructors and aliases that pat names, without the variables that it binds
@@ -1854,6 +1869,9 @@ function canon_gen(env: Map[Id, Id], level: Int, inner: Map[Id, Id], g: Gen): Ge
 
     case GIf(cond) =>
       GIf(canon_expr(env, level, cond))
+
+    case GLet(pat, bound) =>
+      GLet(canon_pat(inner, pat), canon_expr(env, level, bound))
   end
 
 function canon_case[A](env: Map[Id, Id], level: Int, c: At[Branch[A]], canon_body: (Map[Id, Id], Int, A) -> A): At[Branch[A]] :=

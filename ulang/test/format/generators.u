@@ -1,0 +1,23 @@
+// the round trip of format over generators, over texts parsed without the library, which declare the operators they use
+import ulang.syntax
+import ulang.parse
+import ulang.format
+
+// a step let p := e stands between the generators and guards as written, in forms and in for statements
+test formatted_lets() :=
+  var p: Source
+  let text := join("\n", List(
+    "infix 6 >",
+    "",
+    "function f(cs: List[(Int, List[Int])]): List[Int] :=",
+    "  List(for (n, t) in cs let (a, b) := (n, t) for x in b let y := x if y > a yield y)",
+    "",
+    "procedure g(in xs: List[Int], out n: Int) :=",
+    "  n := 0",
+    "  for x in xs let y := x if y > 0 let z := y do",
+    "    n := z",
+    "  end",
+    ""))
+  parse_text_recovering(in text, out p)
+  assert parse_errors(p) == List()
+  assert format_program(p) == text

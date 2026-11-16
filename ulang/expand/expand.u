@@ -277,6 +277,9 @@ function expanded_gen(aliases: Aliases, g: Gen): Gen :=
 
     case GIf(cond) =>
       GIf(expanded_expr(aliases, cond))
+
+    case GLet(pat, bound) =>
+      GLet(dealiased(aliases, pat), expanded_expr(aliases, bound))
   end
 
 function expanded_stmt(aliases: Aliases, stmt: At[Stmt]): At[Stmt] :=
@@ -420,7 +423,8 @@ function scrutinee(pos: Pos, span: Span, xs: List[Var]): At[Expr] :=
   end
 
 // a for statement over a list is one over the list, and over another container one over the list of its items, which
-// List(for (item) in c) builds, with the pair of key and value as the pattern over a map, and the guard as an if in the body
+// List(for (item) in c) builds, with the pair of key and value as the pattern over a map, and the guards and lets after
+// it as ifs and blocks of locals around the body
 function loop_expansion(pos: Pos, span: Span, gens: List[Gen], body: At[Stmt]): Stmt :=
   match gens
     case List(GVal(pat, over, typ); more) =>
@@ -444,11 +448,22 @@ function items_of(pos: Pos, span: Span, c: At[Expr], typ: Type): At[Expr] :=
       AOk(pos, span, for_expansion(pos, span, FList, List(GVal(AOk(pos, span, PVar(item)), c, typ)), YVal(AOk(pos, span, EVar(item))), None))
   end
 
+// the guards and lets after the generator of a for statement around its body, a guard as an if and a let as a block of
+// its local
 function guarded_body(gens: List[Gen], body: At[Stmt]): At[Stmt] :=
   match gens
-    case List(GIf(cond)) =>
-      AOk(body.pos, body.span, SIf(cond, body, AOk(body.pos, span_at(body.span.stop), SSkip)))
-    case _ =>
+    case List() =>
+      body
+
+    case List(GIf(cond); more) =>
+      AOk(body.pos, body.span, SIf(cond, guarded_body(more, body), AOk(body.pos, span_at(body.span.stop), SSkip)))
+
+    case List(GLet(pat, bound); more) =>
+      let local := AOk(pat.pos, Span(pat.span.start, bound.span.stop), SLocal(false, List((pat, Some(bound))))) in
+      AOk(body.pos, body.span, block_expansion(List(), List(local, guarded_body(more, body))))
+
+    // the parser takes one generator in a for statement (is_loop of ulang/parse/parse.u)
+    case List(GVal(_, _, _) | GPair(_, _, _, _); _) =>
       body
   end
 
@@ -466,7 +481,7 @@ function form_expansion(pos: Pos, span: Span, form: Form, elems: List[Yield], re
 
 // a form with generators is the fold of the module of the type of the container of the first, applied to the container,
 // the base of the form, and the function of a step, whose body adds the elements of the generators after it, where a
-// guard is an if, and an array is from_list of a list
+// guard is an if, a let is a let around the rest, and an array is from_list of a list
 function for_expansion(pos: Pos, span: Span, form: Form, gens: List[Gen], elem: Yield, rest: Option[At[Expr]]): Expr :=
   match (form, gens)
     case (FArray, _) if rest == None =>
@@ -477,6 +492,9 @@ function for_expansion(pos: Pos, span: Span, form: Form, gens: List[Gen], elem: 
 
     case (_, List(GIf(cond); more)) =>
       EIte(cond, AOk(pos, span, for_expansion(pos, span, form, more, elem, rest)), base_expansion(pos, span, form, rest))
+
+    case (_, List(GLet(pat, bound); more)) =>
+      ELet(List((pat, bound)), AOk(pos, span, for_expansion(pos, span, form, more, elem, rest)))
 
     case (_, List(g; more)) =>
       let body := AOk(pos, span, for_expansion(pos, span, form, more, elem, Some(AOk(pos, span, EVar(form_acc()))))) in
@@ -499,7 +517,7 @@ function gen_type(g: Gen): Type :=
     case GPair(_, _, _, typ) =>
       typ
 
-    case GIf(_) =>
+    case GIf(_) | GLet(_, _) =>
       TError
   end
 
@@ -513,6 +531,9 @@ function gen_over(g: Gen): At[Expr] :=
 
     case GIf(cond) =>
       cond
+
+    case GLet(_, bound) =>
+      bound
   end
 
 function fold_expansion(pos: Pos, span: Span, form: Form, m: Path, targs: List[Type], g: Gen, body: At[Expr], base: At[Expr], is_var: At[Pat] -> Bool): At[Expr] :=
@@ -552,7 +573,7 @@ function fold_expansion(pos: Pos, span: Span, form: Form, m: Path, targs: List[T
         else
           List(acc, formal_at(p, x)), matched_body(pos, span, matched_pairs(List((x, p)), is_var), body)))))
 
-    case GIf(_) =>
+    case GIf(_) | GLet(_, _) =>
       body
   end
 

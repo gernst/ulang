@@ -708,7 +708,8 @@ procedure expr_cases(
   end
 
 // the loops of the generators gs, nested, in a scope with the local variables env, where the innermost adds the element e
-// by add if the condition holds, and a list is walked by its cells and an array by its indices
+// by add if the condition holds, and a list is walked by its cells and an array by its indices, while a let between the
+// generators declares its variable in the loop around it
 procedure compile_loops(
   in  defs: Defs,
       env: Vars,
@@ -733,6 +734,12 @@ procedure compile_loops(
         case None =>
           skip
       end
+
+    case List((f, c, x); rest) if f == let_fold_name() =>
+      var cs: List[CStmt], rc: CExpr, body: List[CStmt]
+      compile_expr(in defs, env, c, out cs, rc, ref g)
+      compile_loops(in defs, in_scope(List(x.name)) ++ env, rest, cond, e, add, out body, ref g)
+      ss := cs ++ List(declare(var_name(x.name), rc)) ++ body
 
     case List((f, c, x); rest) =>
       var cs: List[CStmt], rc: CExpr, body: List[CStmt], l: Str

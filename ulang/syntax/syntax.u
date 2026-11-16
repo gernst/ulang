@@ -136,6 +136,9 @@ data Gen :=
   case GPair(key: At[Pat], value: At[Pat], over: At[Expr], typ: Type)
   // a guard if q after a generator
   case GIf(cond: At[Expr])
+  // a step let p := e between the generators, whose irrefutable pattern binds its variables for the generators, guards,
+  // and the yield after it
+  case GLet(pat: At[Pat], bound: At[Expr])
 
 data Pat :=
   // the wildcard _
@@ -1408,6 +1411,9 @@ function strip_gen(g: Gen): Gen :=
 
     case GIf(cond) =>
       GIf(strip_expr(cond))
+
+    case GLet(pat, bound) =>
+      GLet(strip_pat(pat), strip_expr(bound))
   end
 
 function strip_case[A](d: At[Branch[A]], strip_body: A -> A): At[Branch[A]] :=
@@ -1804,6 +1810,9 @@ function generated(g: Gen): List[At[Expr]] :=
 
     case GIf(cond) =>
       List(cond)
+
+    case GLet(_, bound) =>
+      List(bound)
   end
 
 function errors_in_proof(proof: Proof): List[Diagnostic] :=

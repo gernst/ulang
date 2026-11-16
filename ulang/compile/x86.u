@@ -827,7 +827,7 @@ procedure add_elem(in add: Adder, ref e: Emit) :=
   end
 
 // the nested loops of the generators gs over lists and arrays, as compile_loops of ulang/compile/compile.u writes them,
-// whose innermost body adds the element where the condition holds
+// whose innermost body adds the element where the condition holds, and where a let between them binds its variable
 procedure comprehension_loops(
   in  defs: Defs,
       env: Slots,
@@ -845,6 +845,12 @@ procedure comprehension_loops(
       compile_expr(in defs, env, elem, ref e)
       add_elem(in add, ref e)
       place(in next, ref e)
+
+    case List((f, c, x); rest) if f == let_fold_name() =>
+      var item: Int
+      compile_expr(in defs, env, c, ref e)
+      spill(out item, ref e)
+      comprehension_loops(in defs, List((x.name, item); env), rest, cond, elem, add, ref e)
 
     case List((f, c, x); rest) =>
       var l: Int, top: Str, done: Str

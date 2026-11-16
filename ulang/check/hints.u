@@ -300,6 +300,9 @@ function gen_hints(lines: Array[Str], decls: Decls, g: Gen): List[Hint] :=
 
     case GIf(cond) =>
       expr_hints(lines, decls, cond)
+
+    case GLet(pat, bound) =>
+      pat_hints(lines, decls, pat) ++ expr_hints(lines, decls, bound)
   end
 
 function stmts_hints(lines: Array[Str], decls: Decls, stmts: List[At[Stmt]]): List[Hint] :=

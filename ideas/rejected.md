@@ -13,7 +13,7 @@
 - **Guards that bind**, such as `if let`, for code that tests `!= None` and then matches again: rejected; such code is one `match` over a function that classifies the case once, as `fusion_of` of `ulang/compile/lower.u` does for the calls that compile to loops.
 - **User-defined notations** stay, although parsing depends on the imports.
 - **`++` of arrays** is deferred, since arrays are built by forms.
-- For the forms: no **`Seq` type** or comprehensions without a form, since the form says what is built; no **choice of the result by the expected type**, the problem of Scala's `CanBuildFrom`, which violates locality; and no **`let` between generators** until code needs it.
+- For the forms: no **`Seq` type** or comprehensions without a form, since the form says what is built; no **choice of the result by the expected type**, the problem of Scala's `CanBuildFrom`, which violates locality.
 - **Chains of conditions**, by `elif` or by a `when` with arms `if c => …`, tried and removed: `if` always nests, and an `if` after `else` is an `if` in its body, with its own `end`.
 - **`Char`** stays a type of its own.
 - **Functions may raise**, where `requires` states their domain (Verification 1).

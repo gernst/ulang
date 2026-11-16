@@ -1498,7 +1498,8 @@ procedure parse_elem(
     elem := YVal(k)
   end
 
-// generators for p in c and for k => v in m, and guards if q, from left to right, starting with a generator
+// generators for p in c and for k => v in m, guards if q, and steps let p := e, from left to right, starting with a
+// generator
 procedure parse_gens(
   in  notation: Notation,
       params: List[Id],
@@ -1506,7 +1507,7 @@ procedure parse_gens(
   ref toks: Tokens
 ) :=
   var found: Buffer[Gen] := empty(), p: At[Pat], v: At[Pat], c: At[Expr]
-  while at_kw(toks, "for") or size(found) > 0 and at_kw(toks, "if") do
+  while at_kw(toks, "for") or size(found) > 0 and (at_kw(toks, "if") or at_kw(toks, "let")) do
     if at_kw(toks, "for") then
       advance(ref toks)
       parse_pattern(in notation, params, out p, ref toks)
@@ -1522,9 +1523,17 @@ procedure parse_gens(
         found := found ++ List(GVal(p, c, THole))
       end
     else
-      advance(ref toks)
-      parse_expr(in notation, params, out c, ref toks)
-      found := found ++ List(GIf(c))
+      if at_kw(toks, "let") then
+        advance(ref toks)
+        parse_pattern(in notation, params, out p, ref toks)
+        expect(in TKw(":="), ref toks)
+        parse_expr(in notation, params, out c, ref toks)
+        found := found ++ List(GLet(p, c))
+      else
+        advance(ref toks)
+        parse_expr(in notation, params, out c, ref toks)
+        found := found ++ List(GIf(c))
+      end
     end
   end
   gens := List(for g in found)
@@ -1957,7 +1966,7 @@ procedure parse_local(
       decl := (x, List())
   end
 
-// for p in c if q do body end, or for k => v in m do body end, of one generator and an optional guard
+// for p in c if q do body end, or for k => v in m do body end, of one generator and then guards and steps let p := e
 procedure parse_for(
   in  notation: Notation,
       params: List[Id],
@@ -1968,26 +1977,27 @@ procedure parse_for(
   var gens: List[Gen], body: At[Stmt]
   parse_gens(in notation, params, out gens, ref toks)
   if not is_loop(gens) then
-    raise ParseError("for takes one generator and an optional condition", pos)
+    raise ParseError("for takes one generator, then conditions and lets", pos)
   end
   expect(in TKw("do"), ref toks)
   parse_body(in notation, params, out body, ref toks)
   expect_end(in "for", pos, ref toks)
   stmt := SFor(gens, body)
 
-// whether gens are one generator and an optional guard, which a for statement takes
+// whether gens are one generator and then guards and steps let, which a for statement takes
 function is_loop(gens: List[Gen]): Bool :=
   match gens
-    case List(GIf(_); _) =>
-      false
-
-    case List(_) =>
-      true
-
-    case List(_, GIf(_)) =>
-      true
-
+    case List(GVal(_, _, _); rest) | List(GPair(_, _, _, _); rest) =>
+      forall(rest, is_loop_step)
     case _ =>
+      false
+  end
+
+function is_loop_step(g: Gen): Bool :=
+  match g
+    case GIf(_) | GLet(_, _) =>
+      true
+    case GVal(_, _, _) | GPair(_, _, _, _) =>
       false
   end
 
@@ -4218,6 +4228,20 @@ test parsed_forms() :=
   assert expr == nowhere(EFor(FArray, List(GVal(pat_var("x"), a, THole), GIf(expr_var("x"))), YVal(b), None))
   parsed(in "Map(for k => v in a)", out expr)
   assert expr == nowhere(EFor(FMap, List(GPair(pat_var("k"), pat_var("v"), a, THole)), YPair(expr_var("k"), expr_var("v")), None))
+  parsed(in "List(for x in a let y := b if y yield c)", out expr)
+  assert expr == nowhere(EFor(FList, List(GVal(pat_var("x"), a, THole), GLet(pat_var("y"), b), GIf(expr_var("y"))), YVal(c), None))
+  assert raises ParseError(text, _) if text == "yield is needed after several generators, or after a generator whose pattern is no value" do
+    parsed(in "List(for x in a let y := b)", out expr)
+  end
+
+test parsed_loop_lets() :=
+  let gens := List(
+    GVal(pat_var("x"), expr_var("a"), THole),
+    GLet(pat_var("y"), expr_var("b")),
+    GIf(expr_var("y")))
+  assert is_loop(gens)
+  assert not is_loop(List(GLet(pat_var("y"), expr_var("b"))))
+  assert not is_loop(gens ++ gens)
 
 test code_free_parse_errors_of_lemmas() :=
   var source: Source

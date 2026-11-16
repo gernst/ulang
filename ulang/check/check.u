@@ -1179,6 +1179,9 @@ function zonk_gen(s: State, g: Gen): Gen :=
 
     case GIf(cond) =>
       GIf(zonk_expr(s, cond))
+
+    case GLet(pat, bound) =>
+      GLet(zonk_pat(s, pat), zonk_expr(s, bound))
   end
 
 function zonk_handler(s: State, h: Catch): Catch :=
@@ -2657,8 +2660,9 @@ procedure form_rest(
   end
 
 // the generators gens of a form and its element elem, of the type a, in the scope of their patterns, where the folds of
-// the generators build a container of the type acc, and a guard is a condition; a generator whose container has no fold
-// stands for the form, and the generators after it stay as written, which its error blocks from a run
+// the generators build a container of the type acc, a guard is a condition, and a step let binds its irrefutable
+// pattern; a generator whose container has no fold stands for the form, and the generators after it stay as written,
+// which its error blocks from a run
 procedure generators(
   in  env: Env,
       form: Form,
@@ -2688,6 +2692,14 @@ procedure generators(
       generators(in env, form, more, elem, a, acc, out gs, typed_elem, ref s)
       typed_gens := List(GIf(c); gs)
 
+    case List(GLet(pat, bound); more) =>
+      var typed_pat: At[Pat], typed_bound: At[Expr], t: Type, xs: List[Var], gs: List[Gen]
+      let_step(in env, pat, bound, out typed_pat, typed_bound, t, xs, ref s)
+      generators(in bind(xs) ++ env, form, more, elem, a, acc, out gs, typed_elem, ref s)
+      solve(ref s)
+      covered_at(in pat, typed_pat, t, ref s)
+      typed_gens := List(GLet(typed_pat, typed_bound); gs)
+
     case List(g; more) =>
       var c: At[Expr], u: Type, item: Option[Type]
       infer(in env, gen_container(g), out c, u, ref s)
@@ -2708,6 +2720,23 @@ procedure generators(
       end
   end
 
+// a step let p := e among generators, its value checked in env against the type t of its pattern, whose variables xs
+// hide no local, while the caller checks its coverage, after the uses of the variables
+procedure let_step(
+  in  env: Env,
+      pat: At[Pat],
+      bound: At[Expr],
+  out typed_pat: At[Pat],
+      typed_bound: At[Expr],
+      t: Type,
+      xs: List[Var],
+  ref s: State
+) :=
+  fresh(out t, ref s)
+  check(in env, bound, t, "the let", out typed_bound, ref s)
+  typed_pattern(in pat, t, out typed_pat, xs, ref s)
+  unhidden_at(in pat.pos, env, xs, ref s)
+
 // the pattern of a generator, a pair of key and value of k => v
 function gen_pattern(g: Gen): At[Pat] :=
   match g
@@ -2719,6 +2748,9 @@ function gen_pattern(g: Gen): At[Pat] :=
 
     case GIf(cond) =>
       AOk(cond.pos, cond.span, PWild)
+
+    case GLet(pat, _) =>
+      pat
   end
 
 // g with its checked pattern pat over the checked container c of the type u
@@ -2739,7 +2771,7 @@ function with_over(g: Gen, c: At[Expr], typ: Type): Gen :=
     case GPair(k, v, _, _) =>
       GPair(k, v, c, typ)
 
-    case GIf(_) =>
+    case GIf(_) | GLet(_, _) =>
       g
   end
 
@@ -3003,6 +3035,9 @@ function gen_container(g: Gen): At[Expr] :=
       c
 
     case GIf(c) =>
+      c
+
+    case GLet(_, c) =>
       c
   end
 
@@ -4389,26 +4424,19 @@ procedure statement_node(
       y := STry(l, hs), env := joined(env, other)
 
     // the pattern over each item, irrefutable, whose variables the body sees, which may not run, as of a while, and which
-    // the checked program keeps with the type of the container, with the guard checked in the scope of the body
+    // the checked program keeps with the type of the container, with the guards and lets after it checked in the scope
+    // of the body
     case SFor(gens, body) =>
-      var over: At[Expr], t: Type, u: Type, typed_pat: At[Pat], xs: List[Var], typed_body: At[Stmt], inner: Env, typed_guard: Option[At[Expr]]
+      var over: At[Expr], t: Type, u: Type, typed_pat: At[Pat], xs: List[Var], typed_body: At[Stmt], inner: Env, typed_steps: List[Gen], bound: List[Var]
       items(in env, loop_container(pos, span, gens), out over, t, u, ref s)
       typed_pattern(in loop_pattern(pos, span, gens), t, out typed_pat, xs, ref s)
       solve(ref s)
       coverage(in t, List((typed_pat, true)), List(loop_pattern(pos, span, gens)), ref s)
       unhidden(in env, xs, ref s)
       inner := bind(xs) ++ env
-      match loop_guard(gens)
-        case Some(cond) =>
-          var c: At[Expr]
-          check(in inner, cond, TBool(), "the condition of if", out c, ref s)
-          typed_guard := Some(c)
-
-        case None =>
-          typed_guard := None
-      end
-      statement(in assignable -- List(for x in xs yield x.name), body, out typed_body, ref inner, s)
-      y := SFor(loop_gens(gens, typed_pat, over, u) ++ List(for c in typed_guard yield GIf(c)), typed_body)
+      loop_steps(in drop(1, gens), out typed_steps, bound, ref inner, s)
+      statement(in assignable -- List(for x in xs ++ bound yield x.name), body, out typed_body, ref inner, s)
+      y := SFor(loop_gens(gens, typed_pat, over, u) ++ typed_steps, typed_body)
   end
 
 // the checked container c, of the type u, whose items are of the type t, its elements if it is a list, and else those of
@@ -4445,14 +4473,36 @@ procedure items(
       end
   end
 
-// the guard of the generator of a for statement
-function loop_guard(gens: List[Gen]): Option[At[Expr]] :=
-  match gens
-    case List(_, GIf(cond)) =>
-      Some(cond)
-    case _ =>
-      None
+// the guards and steps let after the generator of a for statement, checked one after another, each in the scope of the
+// lets before it, whose variables are bound
+procedure loop_steps(
+  in  steps: List[Gen],
+  out typed_steps: List[Gen],
+      bound: List[Var],
+  ref env: Env,
+      s: State
+) :=
+  var found: Buffer[Gen] := empty(), names: Buffer[Var] := empty()
+  for g in steps do
+    match g
+      case GIf(cond) =>
+        var c: At[Expr]
+        check(in env, cond, TBool(), "the condition of if", out c, ref s)
+        found := found ++ List(GIf(c))
+
+      case GLet(pat, value) =>
+        var typed_pat: At[Pat], typed_bound: At[Expr], t: Type, xs: List[Var]
+        let_step(in env, pat, value, out typed_pat, typed_bound, t, xs, ref s)
+        solve(ref s)
+        covered_at(in pat, typed_pat, t, ref s)
+        env := bind(xs) ++ env, found := found ++ List(GLet(typed_pat, typed_bound)), names := names ++ xs
+
+      // the parser takes one generator in a for statement (is_loop of ulang/parse/parse.u)
+      case GVal(_, _, _) | GPair(_, _, _, _) =>
+        raise Unexpected("generator after the first of a for statement")
+    end
   end
+  typed_steps := List(for g in found), bound := List(for x in names)
 
 // the generator of a for statement over the checked container over of the type u, with its checked pattern pat, a pair of
 // key and value over a map

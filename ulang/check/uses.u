@@ -239,6 +239,9 @@ function gen_modules(g: Gen): Set[Path] :=
 
     case GIf(cond) =>
       expr_modules(cond)
+
+    case GLet(pat, bound) =>
+      pat_modules(pat) ++ expr_modules(bound)
   end
 
 function pats_modules(pats: List[At[Pat]]): Set[Path] :=

@@ -121,6 +121,10 @@ function symbol_of_show(t: Name, defs: Defs): Str
 // the runtime computes as their definitions do, by a test of small integers first
 function is_runtime_call(n: Name, k: Int): Bool
 
+// the generators of a fusion are the folds, the containers, and the variables of its loops, outermost first, where a
+// step let x := e between them, of a variable, has this name as its fold and e as its container
+function let_fold_name(): Name
+
 implementation
 
 // the C text of n with each character other than a letter, a digit, or _ as _ and its code point and _, by the runs of the
@@ -551,30 +555,36 @@ function fusion_of(name: Name, args: List[At[Expr]]): Option[Fused] :=
 
 // the generators, the condition, and the element of a comprehension over lists and arrays, foldr(c1, init, lambda x1, acc =>
 // foldr(c2, acc, lambda x2, acc => ... if q then Cons(e, acc) else acc)), into which comprehensions translate, where each
-// generator is the fold of its container, the container, and the variable, and acc is free nowhere else
+// generator is the fold of its container, the container, and the variable, a let of a variable between them, let x := e
+// in …, a generator of the fold let_fold_name, and acc is free nowhere else
 function fused(f: Name, c: At[Expr], x: Var, body: At[Expr], acc: Name): Option[Fusion] :=
   if f != list_foldr_name() and f != array_foldr_name() and f != str_foldr_name() then
     None
   else
-    match consing(body, acc)
-      case Some((q, e)) =>
-        Some((List((f, c, x)), q, e))
-      case None =>
-        fused_inner(f, c, x, body, acc)
-    end
+    nested(f, c, x, fused_body(body, acc))
 
-function fused_inner(f: Name, c: At[Expr], x: Var, body: At[Expr], acc: Name): Option[Fusion] :=
-  match body.that
-    case ECall(_, _, f_, _, List(c_, AOk(_, _, EName(a, _)), lam)) if a == acc and is_unused(acc, c_, lam) =>
-      match lam.that
-        case ELam(List(AOk(_, _, PVar(x_)), AOk(_, _, PVar(acc_))), inner) =>
-          nested(f, c, x, fused(f_, c_, x_, inner, acc_.name))
+// the generators, the condition, and the element of the body of a fold of a comprehension, inside its outer generators
+function fused_body(body: At[Expr], acc: Name): Option[Fusion] :=
+  match consing(body, acc)
+    case Some((q, e)) =>
+      Some((List(), q, e))
+
+    case None =>
+      match body.that
+        case ECall(_, _, f, _, List(c, AOk(_, _, EName(a, _)), lam)) if a == acc and is_unused(acc, c, lam) =>
+          match lam.that
+            case ELam(List(AOk(_, _, PVar(x)), AOk(_, _, PVar(acc_))), inner) =>
+              fused(f, c, x, inner, acc_.name)
+            case _ =>
+              None
+          end
+
+        case ELet(List((AOk(_, _, PVar(x)), bound)), inner) if not contains(acc, free_vars(bound, List())) =>
+          nested(let_fold_name(), bound, x, fused_body(inner, acc))
+
         case _ =>
           None
       end
-
-    case _ =>
-      None
   end
 
 function is_unused(acc: Name, c: At[Expr], lam: At[Expr]): Bool :=
@@ -625,6 +635,11 @@ function pushed(body: At[Expr], acc: Var): Option[At[Expr]] :=
       match body.that
         case ECall(p, s, f, typ, List(c, AOk(pa, sa, EName(name, t)), lam)) if name == acc.name and is_unused(acc.name, c, lam) =>
           map_option(pushing(lam), lambda lam_ => AOk(pos, span, ECall(p, s, f, typ, List(c, AOk(pa, sa, EName(name, t)), lam_))))
+
+        // a let between the generators, as for_expansion of ulang/expand/expand.u writes it
+        case ELet(List((pat, bound)), inner) if not contains(acc.name, free_vars(bound, List())) =>
+          map_option(pushed(inner, acc), lambda inner_ => AOk(pos, span, ELet(List((pat, bound)), inner_)))
+
         case _ =>
           None
       end
@@ -771,3 +786,6 @@ function is_runtime_call(n: Name, k: Int): Bool :=
     case None =>
       false
   end
+
+function let_fold_name(): Name :=
+  unqualified("(let)")

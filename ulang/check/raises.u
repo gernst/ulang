@@ -369,7 +369,8 @@ function branch_flow(scope: Scope, pat: At[Pat], guard: Option[At[Expr]], body: 
   let inner := bound(scope, pattern_variables(pat)) in
   with_expr(stmt_flow(inner, body), flows(List(for g in guard yield expr_flow(inner, g))))
 
-// the flow of the body of generators, in the scope of what they bind, after the errors of their containers and guards
+// the flow of the body of generators, in the scope of what they bind, after the errors of their containers, guards, and
+// lets
 function gens_flow(scope: Scope, gens: List[Gen], body: Scope -> Flow): Flow :=
   match gens
     case List() =>
@@ -383,6 +384,9 @@ function gens_flow(scope: Scope, gens: List[Gen], body: Scope -> Flow): Flow :=
 
     case List(GIf(cond); rest) =>
       with_expr(gens_flow(scope, rest, body), expr_flow(scope, cond))
+
+    case List(GLet(pat, value); rest) =>
+      with_expr(gens_flow(bound(scope, pattern_variables(pat)), rest, body), expr_flow(scope, value))
   end
 
 // what the body of a try raises that its handlers do not catch, where the unguarded handlers of a type that cover it catch

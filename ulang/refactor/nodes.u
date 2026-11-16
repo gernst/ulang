@@ -362,6 +362,9 @@ function gen_nodes(gen: Gen): List[Node] :=
 
     case GIf(cond) =>
       expr_nodes(cond)
+
+    case GLet(_, bound) =>
+      expr_nodes(bound)
   end
 
 function expr_nodes(expr: At[Expr]): List[Node] :=

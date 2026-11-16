@@ -68,7 +68,7 @@ Other declarations: a type alias, `type Pairs := List[(Str, Int)]`; an operator,
 
 A procedure has formals of the modes `in`, `out`, and `ref`, where a mode covers the formals after it up to the next mode, `in a: Int, b: Int, out q: Int, r: Int`. The arguments of a call go by mode in the same order, `divmod(in 7, 2, out q, r)`, and `out _` drops an out that nothing needs. A procedure works on copies of its outs and refs, which reach the caller only when it returns.
 
-Statements: `let` and `var`, assignments, calls, `if`, `while`, `for x in c if guard do … end` over any container, `match`, `try`, `raise e`, `assert`, and `skip`. A variable is read only where every path assigned it, and every path that does not raise assigns the outs. A `var` without a type gets it from its value, or as an out of the call right after it, `var q, r`, so locals that are outs of several calls are each declared right before their call or with their types.
+Statements: `let` and `var`, assignments, calls, `if`, `while`, `for x in c if guard do … end` over any container, with guards and lets after its one generator, `for x in xs let y := f(x) if p(y) do … end`, `match`, `try`, `raise e`, `assert`, and `skip`. A variable is read only where every path assigned it, and every path that does not raise assigns the outs. A `var` without a type gets it from its value, or as an out of the call right after it, `var q, r`, so locals that are outs of several calls are each declared right before their call or with their types.
 
 ```u
 procedure divmod(in a: Int, b: Int, out q: Int, r: Int) :=
@@ -160,7 +160,7 @@ test exceptions() :=
 
 ## Containers and the library
 
-Every module sees the whole library without imports. The forms build containers, and generators map and filter them, `for p in c` over lists, sets, arrays, options, and buffers, `for k => v in m` over maps, with guards `if q`, from left to right, several in one form, `List(for x in xs for y in ys yield (x, y))`. After exactly one generator `yield` may be omitted, which yields what its pattern binds. A form also converts, `Set(for x in xs)`, `List(for k => v in m yield (k, v))`, `Array(for x in xs)`.
+Every module sees the whole library without imports. The forms build containers, and generators map and filter them, `for p in c` over lists, sets, arrays, options, and buffers, `for k => v in m` over maps, with guards `if q` and lets `let p := e`, whose irrefutable pattern the generators, guards, and yield after it see, from left to right, several in one form, `List(for x in xs for y in ys yield (x, y))`, `List(for (n, t) in cs let fs := f(t) for x in fs yield x)`. After exactly one generator and no let `yield` may be omitted, which yields what its pattern binds. A form also converts, `Set(for x in xs)`, `List(for k => v in m yield (k, v))`, `Array(for x in xs)`.
 
 ```u
 test containers() :=
@@ -171,13 +171,17 @@ test containers() :=
   let m := Map("a" => 1, "b" => 2)
   assert get("a", m) == Some(1) and get("c", m) == None
   assert Map(for k => v in m yield k => v + 1) == Map("a" => 2, "b" => 3)
+  assert List(for x in xs let y := x * x if y > 4 yield y) == List(9, 16)
   assert at(1, xs) == 2 and get(1, List((1, "one"))) == Some("one")
   assert lines("a\nb\n") == List("a", "b") and split("a\nb\n", '\n') == List("a", "b", "")
   var sum := 0
   for x in xs if x > 1 do
     sum := sum + x
   end
-  assert sum == 9
+  for x in xs let y := x * 10 if y > 30 do
+    sum := sum + y
+  end
+  assert sum == 49
 ```
 
 The containers share names and the order of their arguments, the element or key first, the container after it:

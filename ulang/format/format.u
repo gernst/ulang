@@ -621,7 +621,7 @@ function elem_text(notation: Notation, notes: List[Comment], indent: Str, elem: 
       format_expr(notation, notes, indent, k) ++ " => " ++ format_expr(notation, notes, indent, v)
   end
 
-// for p in c, for k => v in m, or if q
+// for p in c, for k => v in m, if q, or let p := e
 function gen_text(notation: Notation, notes: List[Comment], indent: Str, g: Gen): Str :=
   match g
     case GVal(p, c, _) =>
@@ -632,6 +632,9 @@ function gen_text(notation: Notation, notes: List[Comment], indent: Str, g: Gen)
 
     case GIf(q) =>
       "if " ++ format_expr(notation, notes, indent, q)
+
+    case GLet(p, e) =>
+      "let " ++ format_pattern(notation, indent, p) ++ " := " ++ format_expr(notation, notes, indent, e)
   end
 
 function in_text(notation: Notation, notes: List[Comment], indent: Str, c: At[Expr]): Str :=
@@ -972,6 +975,9 @@ function gens_stop(gens: List[Gen], body: At[Stmt]): Pos :=
 
     case List(GIf(q); _) =>
       q.span.stop
+
+    case List(GLet(_, e); _) =>
+      e.span.stop
 
     case List() =>
       body.span.start

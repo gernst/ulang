@@ -62,6 +62,10 @@ lemma evaluation_range() :=
 lemma identity_comprehension(in xs: List[Int]) :=
   ensures List(for y in xs yield y) == xs
 
+// a let between the generators is a let around the rest of the fold, also of a pattern
+lemma let_comprehension(in xs: List[Int]) :=
+  ensures size(List(for x in xs let (a, b) := (x, x + 1) yield a + b)) == size(xs)
+
 // by splits on xs and on its tail, where the unfolding of take and drop is stuck
 lemma excluded_constructor(in xs: List[Int]) :=
   requires xs != List()

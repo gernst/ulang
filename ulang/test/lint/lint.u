@@ -335,6 +335,24 @@ test lints_of_collecting_loops() :=
     "  end"), out found)
   assert found == List((Pos(6, 3), "List(for x in xs if x > 0 yield x + 1)"))
 
+// a let between the generators binds a variable as a generator does, and a loop of lets collects as one without
+test lints_of_generator_lets() :=
+  var found: List[(Pos, Str)]
+  linted(in List(UnusedVariable, CollectingLoop), List(
+    "infix left 9 +",
+    "infix left 10 *",
+    "infix right 8 ++",
+    "function f(xs: List[Int]): List[Int] :=",
+    "  List(for x in xs let y := x + 1 let z := y yield x * y)",
+    "procedure p(in xs: List[Int], out ys: List[Int]) :=",
+    "  ys := List()",
+    "  for x in xs let y := x * 2 do",
+    "    ys := ys ++ List(y)",
+    "  end"), out found)
+  assert found == List(
+    (Pos(5, 39), "the variable z is never read, write _"),
+    (Pos(8, 3), "List(for x in xs let y := x * 2 yield y)"))
+
 test lints_of_handlers() :=
   var found: List[(Pos, Str)]
   linted(in List(SwallowedException), List(

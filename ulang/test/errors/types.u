@@ -199,6 +199,23 @@ test for_refutable() :=
       "  end"))
   end
 
+// the pattern of a let between generators is irrefutable, in a form and after the generator of a for
+test generator_let_refutable() :=
+  assert raises Located(None, Pos(2, 24), NotExhaustive(PApp(Name(List("prelude", "option"), "None"), List()))) do
+    check_text(in "ulang/test/errors/generator-let-refutable.u", List(
+      "function f(xs: List[Option[Int]]): List[Int] :=",
+      "  List(for o in xs let Some(x) := o yield x)"))
+  end
+
+test for_let_refutable() :=
+  assert raises Located(None, Pos(2, 24), NotExhaustive(PApp(Name(List("prelude", "list"), "Nil"), List()))) do
+    check_text(in "ulang/test/errors/for-let-refutable.u", List(
+      "test refutable() :=",
+      "  for x in List(1) let List(y; _) := List(x) do",
+      "    assert y == x",
+      "  end"))
+  end
+
 test generator_no_fold() :=
   assert raises Located(None, Pos(6, 3), NoFold(_, "foldr")) do
     check_text(in "ulang/test/errors/generator-no-fold.u", List(
@@ -261,6 +278,13 @@ test hidden_generator() :=
     check_text(in "ulang/test/errors/hidden-generator.u", List(
       "function f(x: Int, xs: List[Int]): List[Int] :=",
       "  List(for x in xs yield x + 1)"))
+  end
+
+test hidden_generator_let() :=
+  assert raises Located(None, Pos(2, 24), HiddenLocal(Name(List(), "y"))) do
+    check_text(in "ulang/test/errors/hidden-generator-let.u", List(
+      "function f(y: Int, xs: List[Int]): List[Int] :=",
+      "  List(for x in xs let y := x yield y)"))
   end
 
 test hidden_lambda() :=

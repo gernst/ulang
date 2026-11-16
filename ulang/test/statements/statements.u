@@ -432,6 +432,24 @@ test for_nested() :=
   end
   assert pairs == List((2, 6), (2, 5), (1, 6), (1, 5))
 
+// guards and lets after the generator of a for, each in the scope of the lets before it, over a list, a set, and an
+// array, with a pattern, and a let that a body assigning around it reads
+test for_lets() :=
+  var sum := 0, text := ""
+  for x in List(1, 2, 3) let y := x * x if y > 1 do
+    sum := sum + y
+  end
+  for x in Set(2, 1) if x > 1 let (a, b) := (x, x + 1) let c := a * b do
+    sum := sum + c
+  end
+  for c in Array('a', 'b') let s := str(List(c, c)) do
+    text := text ++ s
+  end
+  for k => v in Map(1 => 10) let w := k + v + sum do
+    sum := w
+  end
+  assert sum == 1 + 10 + 13 + 6 and text == "aabb"
+
 data Token :=
   case Num(num: Int)
   case Sym(op: Str)
