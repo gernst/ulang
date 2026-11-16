@@ -101,8 +101,8 @@ bootstrap: bootstrap/ulang.bin
 
 # every .u file of the project, also of the library and of the tests of the packages in their subfolders test/, but those of
 # ulang/test/errors/, which project.u declares to run only compiled, run by out/ulang.bin with all its tests in the
-# working directory, the root, must succeed; interpreted only, so that nothing is compiled but the tool, while testerrors,
-# testc, testelf, and testdocs compile tests or checks of their own
+# working directory, the root, must succeed; interpreted only, so that nothing is compiled but the tool, while testc,
+# testelf, and testdocs compile tests or checks of their own
 .PHONY: test
 test: out/ulang.bin out/ulang.sh
 	out/ulang.sh check --test --prove
@@ -124,27 +124,8 @@ $(SUITE)/suite.sh: $(SCRIPT)
 	mkdir -p $(SUITE)
 	cp $(SCRIPT) $@
 
-# the tests of the errors of the phases in ulang/test/errors/, whose cases each load the library, which the interpreted
-# parser and checker do too slowly, so they run only compiled, into a binary of that directory alone, by compile --tests of
-# it, which is smaller than the suite of the whole project
-ERRORS = out/errors
-
-$(ERRORS)/errors.c: out/ulang.bin out/ulang.sh $(PROJECT_SOURCES)
-	mkdir -p $(ERRORS)
-	out/ulang.sh compile --tests ulang/test/errors -o $@
-
-$(ERRORS)/errors.bin: $(ERRORS)/errors.c $(RUNTIME) Makefile
-	$(CC) $(subst -O2,-O1,$(CFLAGS)) $< ulang/runtime/ulang.c $(LIBS) -o $@
-
-$(ERRORS)/errors.sh: $(SCRIPT)
-	mkdir -p $(ERRORS)
-	cp $(SCRIPT) $@
-
-.PHONY: testerrors
-testerrors: $(ERRORS)/errors.bin $(ERRORS)/errors.sh
-	$(ERRORS)/errors.sh ulang/test/errors
-
-# all tests of the project compiled, which have the same outcome as interpreted, but without lemmas
+# all tests of the project compiled, which have the same outcome as interpreted, but without lemmas, also those of
+# ulang/test/errors/, which out/suite/suite.sh ulang/test/errors runs alone
 .PHONY: testc
 testc: $(SUITE)/suite.bin $(SUITE)/suite.sh
 	$(SUITE)/suite.sh
