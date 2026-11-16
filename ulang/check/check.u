@@ -401,22 +401,23 @@ function edit_cells(prev: List[Int], c: Char, bs: List[Char], left: Int): List[I
       List()
   end
 
-// whether the module sees the declaration d, which is its own, or of a module that it sees and not private to it
+// whether the module sees the value d, which is its own, or of a module that it sees and not private to it
 function is_visible(s: State, d: Name): Bool :=
+  is_visible_among(s, s.hidden, d)
+
+// whether the module sees the declaration d, which is its own, or of a module that it sees and not among the hidden
+// declarations of the other members of its package
+function is_visible_among(s: State, hidden: Set[Name], d: Name): Bool :=
   match name_module(d)
     case Some(m) =>
-      m == s.module or contains(m, s.visible) and not contains(d, s.hidden)
+      m == s.module or contains(m, s.visible) and not contains(d, hidden)
     case None =>
       false
   end
 
+// whether the module sees the type d, as is_visible of values
 function is_visible_sort(s: State, d: Name): Bool :=
-  match name_module(d)
-    case Some(m) =>
-      m == s.module or contains(m, s.visible) and not contains(d, s.hidden_sorts)
-    case None =>
-      false
-  end
+  is_visible_among(s, s.hidden_sorts, d)
 
 function params(ps: List[Id]): List[Type] :=
   List(for p in ps yield TParam(p))
@@ -831,14 +832,17 @@ function zonk_type(su: Subst, t: Type): Type :=
       u
   end
 
+// the module of the placeholder names of the pending uses of overloaded names, which no path names, until the end of
+// the command chooses their declarations
+function pending_module(): Path :=
+  List("?")
+
 // the declaration chosen for an overloaded name, which stands for it until the end of the command
 function settled(s: State, n: Name): Name :=
-  match name_module(n)
-    case Some(List("?")) =>
-      value_or(get(n, s.chosen), n)
-    case _ =>
-      n
-  end
+  if name_module(n) == Some(pending_module()) then
+    value_or(get(n, s.chosen), n)
+  else
+    n
 
 function zonk_var(s: State, x: Var): Var :=
   Var(settled(s, x.name), zonked(s, x.typ))
@@ -2083,7 +2087,7 @@ procedure choose(
       m := m_, s := s_
 
     case _ =>
-      m := Name(List("?"), show(s.count + 1))
+      m := Name(pending_module(), show(s.count + 1))
       s := s with count := s.count + 1, pending := s.pending ++ List(Pending(m, n, firsts(ok), w, s.at))
   end
 
@@ -2167,31 +2171,14 @@ procedure infer(
       typ: Type,
   ref s: State
 ) :=
-  match expr
-    case AOk(pos, span, node) =>
-      let outer := s.at, before := size(s.errors)
-      var x: Expr, errors: List[Diagnostic]
-      s := s with at := pos
-      infer_node(in env, pos, span, node, None, out x, typ, ref s)
-      take_errors(in pos, before, out errors, ref s)
-      res := checked_at(pos, span, x, errors), s := s with at := outer
+  infer_expected(in env, expr, None, out res, typ, ref s)
 
-    // reported by the parser, of any type
-    case AUnparsed(_, _, _, _) =>
-      res := expr, typ := TError
-
-    // the checker makes error nodes of the parts that the parser read, which it checks once
-    case AErr(_, _, _, _) =>
-      raise Unexpected("error node")
-  end
-
-// expr against the type that what names, t, which it passes down to its parts, so that a part of the wrong type is
-// reported at the part, and then expects of the whole
-procedure infer_against(
+// expr as infer does, against the type t that what names if expected is Some((t, what)), which it passes down to its
+// parts, so that a part of the wrong type is reported at the part, and which the caller then expects of the whole
+procedure infer_expected(
   in  env: Env,
       expr: At[Expr],
-      t: Type,
-      what: Str,
+      expected: Option[(Type, Str)],
   out res: At[Expr],
       typ: Type,
   ref s: State
@@ -2201,7 +2188,7 @@ procedure infer_against(
       let outer := s.at, before := size(s.errors)
       var x: Expr, errors: List[Diagnostic]
       s := s with at := pos
-      infer_node(in env, pos, span, node, Some((t, what)), out x, typ, ref s)
+      infer_node(in env, pos, span, node, expected, out x, typ, ref s)
       take_errors(in pos, before, out errors, ref s)
       res := checked_at(pos, span, x, errors), s := s with at := outer
 
@@ -3276,7 +3263,7 @@ procedure check(
     infer_lambda(in env, expr, t, out typed_expr, ref s)
   else
     var u: Type
-    infer_against(in env, expr, t, what, out typed_expr, u, ref s)
+    infer_expected(in env, expr, Some((t, what)), out typed_expr, u, ref s)
     expect(in expr.pos, what, t, u, ref s)
   end
 
