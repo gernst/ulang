@@ -4627,17 +4627,21 @@ function diagnostic_text(file: Str, d: Diagnostic): Str :=
     "" in
   file ++ at ++ ": " ++ d.code ++ ": " ++ d.message
 
-// the lines of CLAUDE.md, README.md, and the files of ideas/ below root that write the name in backticks, as file:line
+// the lines of CLAUDE.md, README.md, and the files of doc/ and ideas/ below root that write the name in backticks, as
+// file:line
 procedure doc_references(in root: Str, name: Str, out found: List[Str]) :=
-  var entries: List[(Str, Bool)] := List()
-  try
-    os_list(in os_join(root, "ideas"), out entries)
-  catch
-    case OsError(_) =>
-      entries := List()
+  var docs := List("CLAUDE.md", "README.md")
+  for dir in List("doc", "ideas") do
+    var entries: List[(Str, Bool)] := List()
+    try
+      os_list(in os_join(root, dir), out entries)
+    catch
+      case OsError(_) =>
+        entries := List()
+    end
+    docs := docs ++ List(for (entry, is_dir) in entries if not is_dir and ends_with(entry, ".md") yield dir ++ "/" ++ entry)
   end
   found := List()
-  let docs := List("CLAUDE.md", "README.md") ++ List(for (entry, is_dir) in entries if not is_dir and ends_with(entry, ".md") yield "ideas/" ++ entry)
   for doc in docs do
     var text: Str
     try

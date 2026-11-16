@@ -256,7 +256,8 @@ test checked() :=
   assert is_declared("T.f:=", DModule(Set("T"), Map("T" => Set("f")))) and is_declared("T.compare", DModule(Set("T"), Map()))
   assert not is_declared("T.g", DModule(Set("T"), Map("T" => Set("f")))) and is_declared("u_*", DWords(Set("u_text")))
 
-// the start of the line of LANGUAGE.md that lists the keywords, in backticks after this, up to the one before a semicolon
+// the start of the line of doc/language.md that lists the keywords, in backticks after this, up to the one before a
+// semicolon
 function keywords_start(): Str :=
   "- Keywords are no names,"
 
@@ -429,24 +430,24 @@ procedure comment_problems(out problems: List[Str]) raises OsError :=
   problems := List(for p in found)
 
 // prints the references of the documents that are not declared in their files, run at the root of the project, and fails
-// if there is one; the documents are CLAUDE.md, README.md, LANGUAGE.md, and those of ideas/; the keywords of the lexer that
-// LANGUAGE.md does not list as such; the blocks of u in LANGUAGE.md that fail; and the comments of the sources that
-// write containers in forms that ulang does not have
+// if there is one; the documents are CLAUDE.md, README.md, and those of doc/ and ideas/; the keywords of the lexer
+// that doc/language.md does not list as such; the blocks of u in doc/language.md that fail; and the comments of the
+// sources that write containers in forms that ulang does not have
 procedure main() raises OsError :=
-  var cache: Map[Str, Option[Decls]] := empty(), found: List[Str] := List(), entries: List[(Str, Bool)]
+  var cache: Map[Str, Option[Decls]] := empty(), found: List[Str] := List(), entries: List[(Str, Bool)], docs: List[(Str, Bool)]
   os_list(in "ideas", out entries)
+  os_list(in "doc", out docs)
   for doc in List(
     "CLAUDE.md",
-    "README.md",
-    "LANGUAGE.md"; List(for (name, is_dir) in entries if not is_dir and ends_with(name, ".md") yield "ideas/" ++ name)) do
+    "README.md"; List(for (name, is_dir) in docs if not is_dir and ends_with(name, ".md") yield "doc/" ++ name) ++ List(for (name, is_dir) in entries if not is_dir and ends_with(name, ".md") yield "ideas/" ++ name)) do
     var problems: List[Str]
     problems_of(in doc, out problems, ref cache)
     found := found ++ problems
   end
   var missing: List[Str]
-  keyword_problems(in "LANGUAGE.md", out missing)
+  keyword_problems(in "doc/language.md", out missing)
   var failing: List[Str], commented: List[Str]
-  block_problems(in "LANGUAGE.md", out failing)
+  block_problems(in "doc/language.md", out failing)
   comment_problems(out commented)
   found := found ++ missing ++ failing ++ commented
   for problem in found do

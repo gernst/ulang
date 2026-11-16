@@ -1,6 +1,6 @@
 # Lint on the e-graph of the prover
 
-A plan: the rules of `ulang.sh check --lint` that need the e-graph of the prover, `ulang/prove/egraph.u` (`ideas/verification.md`, section 5), so that each rewrite is an equality that the prover establishes. The walks of the syntax are done in `ulang/lint/lint.u`, described in `CLAUDE.md`, and those still open, with the suppression of warnings, are Diagnostics 5; edits are applied by `refactor @fix` (Refactoring of `README.md`), never by lint. When this work is done, what holds goes into `CLAUDE.md`, what stays open into the items of `ideas/`, and this file is deleted. Its background is the sketch `ideas/properties.md`: structural quality as the cost of verifying a unit and a change to it.
+A plan: the rules of `ulang.sh check --lint` that need the e-graph of the prover, `ulang/prove/egraph.u` (`ideas/verification.md`, section 5), so that each rewrite is an equality that the prover establishes. The walks of the syntax are done in `ulang/lint/lint.u`, described in `CLAUDE.md`, and those still open, with the suppression of warnings, are Diagnostics 5; edits are applied by `refactor @fix` (Refactoring of `doc/tool.md`), never by lint. When this work is done, what holds goes into `CLAUDE.md`, what stays open into the items of `ideas/`, and this file is deleted. Its background is the sketch `ideas/properties.md`: structural quality as the cost of verifying a unit and a change to it.
 
 ## 1. Why an e-graph
 
