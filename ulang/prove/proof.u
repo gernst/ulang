@@ -3,8 +3,9 @@
 // The state of a block is its fixed variables as levels, the first ones the formals, the facts and the goal over them,
 // and the levels of the variables that the terms of the proof have as indices, the innermost first, which a translated
 // term is opened at; a split has a case per leaf of the patterns of its cases (ulang/prove/patterns.u), which adds the
-// variables of the leaf, also those that no pattern names, and checks each case that matches the leaf. Every step is simplified with the lemmas proven before as facts, which it may also call; the lemma itself is
-// called only as an induction hypothesis, at a recursive field of the case.
+// variables of the leaf, also those that no pattern names, and checks each case that matches the leaf. Every step is simplified with the lemmas before it as facts, but the falsified ones, and may call
+// any lemma whose statement checks, also an open one or one after it, since a proof looks only at the statements that it
+// cites; the lemma itself is called only as an induction hypothesis, at a recursive field of the case.
 
 import ulang.syntax
 
@@ -16,16 +17,22 @@ export
 data Gap :=
   case Gap(pos: Pos, code: Str, message: Str, goal: Option[Str])
 
-// the gaps of the proof of the lemma target, none if it proves it, where proven are the lemmas proven before and
-// contracts those of the procedures, which the proof of a claim calls at the calls of its procedure
-function check_proof(decls: Decls, proven: List[Lemma], contracts: List[Lemma], target: Lemma, proof: ProofTerm): List[Gap]
+// the gaps of the proof of the lemma target, none if it proves it, from the citations, where contracts are those of the
+// procedures, which the proof of a claim calls at the calls of its procedure
+function check_proof(decls: Decls, citations: Citations, contracts: List[Lemma], target: Lemma, proof: ProofTerm): List[Gap]
+
+// what the proof of a lemma may use of the others: the statements that it may cite, those of all lemmas of the module
+// whose statements check but the claims, whatever their proofs give, also of those after it, the facts of its
+// simplification, and the names of the lemmas whose statements have errors, which a call names in its gap
+data Citations :=
+  case Citations(statements: List[Lemma], facts: List[Seq], erroneous: Set[Name])
 
 implementation
 
-// what a proof works with: the declarations, the lemmas proven before, the contracts of the procedures, the lemma
-// being proven, and the order of its formals by their first induction in the proof (inductions)
+// what a proof works with: the declarations, the citations, the contracts of the procedures, the lemma being proven, and
+// the order of its formals by their first induction in the proof (inductions)
 data Walk :=
-  case Walk(decls: Decls, proven: List[Lemma], contracts: Map[Name, Seq], target: Lemma, order: List[Int])
+  case Walk(decls: Decls, citations: Citations, contracts: Map[Name, Seq], target: Lemma, order: List[Int])
 
 // the induction around a block: the position of its formal, the values of it at which the hypothesis holds, the
 // recursive fields of the case of a datatype, or n - 1 for an integer n, and the formals that the hypothesis keeps at
@@ -39,14 +46,14 @@ data Around :=
 data Scope :=
   case Scope(vars: List[Var], env: List[Int], facts: List[Seq], goal: Term, outs: List[Int], arounds: List[Around])
 
-function check_proof(decls: Decls, proven: List[Lemma], contracts: List[Lemma], target: Lemma, proof: ProofTerm): List[Gap] :=
+function check_proof(decls: Decls, citations: Citations, contracts: List[Lemma], target: Lemma, proof: ProofTerm): List[Gap] :=
   match target.goal
     case Seq(formals, atoms, List(Concl(outs, List(Atom(concl))))) =>
       let n := size(formals), m := size(outs) in
       let levels := List(for i in range(0, n) yield ELevel(i)), all := List(for i in range(0, n + m) yield ELevel(i)) in
       let facts := List(for a in atoms for t in atom_term(a) yield Atom(beta(levels, t))) in
       let scope := Scope(formals ++ outs, reverse(range(0, n + m)), facts, beta(all, concl), range(n, n + m), List()) in
-      block_gaps(Walk(decls, proven, Map(for c in contracts yield c.name => c.goal), target, distinct(inductions(proof))), scope, proof)
+      block_gaps(Walk(decls, citations, Map(for c in contracts yield c.name => c.goal), target, distinct(inductions(proof))), scope, proof)
 
     // translate gives every lemma this shape
     case _ =>
@@ -164,7 +171,7 @@ function step_gaps(w: Walk, scope: Scope, step: StepTerm): (Scope, List[Gap]) :=
 
 // the statement of the lemma that a call names: the contract of a procedure, which the proof of a claim assumes at every
 // call, also of the procedure itself, since a claim is about the runs that end, which call it only finitely often, one
-// proven before, or the lemma itself at a recursive field of its induction, as its hypothesis
+// of the citations, or the lemma itself at a recursive field of its induction, as its hypothesis
 function called(w: Walk, scope: Scope, name: Name, args: List[Term]): Option[Seq] :=
   if get(name, w.contracts) != None then
     get(name, w.contracts)
@@ -174,7 +181,7 @@ function called(w: Walk, scope: Scope, name: Name, args: List[Term]): Option[Seq
     else
       None
   else
-    match List(for l in w.proven if l.name == name yield l.goal)
+    match List(for l in w.citations.statements if l.name == name yield l.goal)
       case List(goal; _) =>
         Some(goal)
       case List() =>
@@ -193,14 +200,17 @@ function is_same(w: Walk, scope: Scope, a: Term, b: Term): Bool :=
 function call_gap(w: Walk, name: Name): Str :=
   if name == w.target.name then
     "the lemma calls itself only at a recursive field of the case of its induction, with the formals of the inductions before it unchanged"
+  else if contains(name, w.citations.erroneous) then
+    "the statement of the lemma " ++ name.base ++ " has errors"
+    // a lemma of no statement: the checker rejects a call of a claim and of an unknown lemma
   else
-    "the lemma " ++ name.base ++ " is not proven before this one"
+    "the lemma " ++ name.base ++ " cannot be cited"
 
-// no gap if c follows, without the lemmas proven before or with them as facts, since facts also change normal forms,
+// no gap if c follows, without the facts of the citations or with them, since facts also change normal forms,
 // else the goal simplified at pos
 function closing(w: Walk, scope: Scope, c: Term, pos: Pos): List[Gap] :=
   let goal := sequent(scope, c) in
-  let facts := List(for l in w.proven yield l.goal) in
+  let facts := w.citations.facts in
   let alone := simplify(w.decls, goal) in
   if alone == TrueSeq() or simplify(w.decls, with_facts(goal, facts)) == TrueSeq() then
     List()

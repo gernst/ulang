@@ -517,6 +517,8 @@ function code_free_errors(cmd: At[Cmd]): List[Diagnostic]
 // the errors of the parts of expr
 function errors_in_expr(expr: At[Expr]): List[Diagnostic]
 
+function errors_in_proof(proof: Proof): List[Diagnostic]
+
 function is_lemma_or_test(cmd: Cmd): Bool
 
 // the expressions of a claim, the assumptions and the conclusion, or the ins of the call
