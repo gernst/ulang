@@ -223,9 +223,9 @@ function enum_fun(c: Checked, m: Path, n: Name): Cmd :=
   let params := List(for (_, k) in take(1, constrs) for t in k.params yield param_id(t)), d := generated_name("depth") in
   let field_enum := (lambda t => value_or(enum_expr(c, m, lambda p => generated_var(generated_name(p)), t), nowhere(ELit(LInt(0))))), below := generated_op("-", List(generated_var(d), nowhere(ELit(LInt(1))))) in
   let nullary := List(for (constr, k) in constrs if k.fields == List() yield generated_var(constr)), applied := List(for (constr, k) in constrs if k.fields != List() yield (constr, k.fields)), at_zero := generated_op("==", List(generated_var(d), nowhere(ELit(LInt(0))))) in
-  let counts := List(for (_, fields) in applied yield product_expr(List(for t in fields yield enum_call("count_of", List(field_enum(t), below))))), values := List(for (constr, fields) in applied yield constr_values(constr, List(for t in fields yield field_enum(t)), below)) in
+  let counts := List(for (_, fields) in applied yield product_expr(List(for t in fields yield enum_call("count_of", List(field_enum(t), below))))), values := List(for (constr, fields) in applied yield constr_values(constr, List(for t in fields yield field_enum(t)), below)), nullary_count := nowhere(ELit(LInt(size(nullary)))) in
   CFun(enum_fun_name(m, n), params, unplaced_vars(List(for p in params yield Var(generated_name(p), enum_type(TParam(p))))), enum_type(TSort(n, List(for p in params yield TParam(p)))), no_spec(), enum_call("Enumeration", List(
-    generated_lambda(d, nowhere(EIte(at_zero, nowhere(ELit(LInt(size(nullary)))), foldl(counts, nowhere(ELit(LInt(size(nullary)))), lambda a, b => generated_op("+", List(a, b)))))),
+    generated_lambda(d, nowhere(EIte(at_zero, nullary_count, foldl(counts, nullary_count, lambda a, b => generated_op("+", List(a, b)))))),
     generated_lambda(d, nowhere(EIte(at_zero, generated_list(nullary), foldl(values, generated_list(nullary), lambda a, b => generated_op("++", List(a, b)))))))))
 
 function param_id(t: Type): Id :=
@@ -238,7 +238,8 @@ function param_id(t: Type): Id :=
 
 // the values of constructor c over the values of its fields, of the enumerations es, at the depth below
 function constr_values(c: Name, es: List[At[Expr]], below: At[Expr]): At[Expr] :=
-  let vs := List(for i in range(1, size(es) + 1) yield generated_name("v" ++ show(i))), fs := List(for i in range(1, size(es) + 1) yield generated_name("f" ++ show(i))) in
+  let indices := range(1, size(es) + 1) in
+  let vs := List(for i in indices yield generated_name("v" ++ show(i))), fs := List(for i in indices yield generated_name("f" ++ show(i))) in
   nowhere(ELet(List(for (v, e) in zip(vs, es) yield (nowhere(PName(v, THole)), enum_call("values_of", List(e, below)))), nowhere(EFor(FList, List(for (f, v) in zip(fs, vs) yield GVal(nowhere(PName(f, THole)), generated_var(v), THole)), YVal(generated_call(c, List(for f in fs yield generated_var(f)))), None))))
 
 // the body of the test of a lemma with the formals and their enumerations, which raises Falsified at the first case that

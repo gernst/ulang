@@ -352,9 +352,10 @@ function continues(l: Str): Bool :=
 
 function setext(l: Str): Option[Int] :=
   let t := trim(l) in
-  if indent_of(l) <= 3 and t != "" and forall(chars(t), lambda c => c == '=') then
+  let candidate := indent_of(l) <= 3 and t != "" in
+  if candidate and forall(chars(t), lambda c => c == '=') then
     Some(1)
-  else if indent_of(l) <= 3 and t != "" and forall(chars(t), lambda c => c == '-') then
+  else if candidate and forall(chars(t), lambda c => c == '-') then
     Some(2)
   else
     None

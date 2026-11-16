@@ -2164,6 +2164,7 @@ procedure drop_target(in word: Str, ref edits: Edits) raises Refused, OsError :=
   let lines := Array(for line in split(text, '\n'))
   let dropped := List(for (key, cmd, _) in keyed(placed_of(main_mod(source))) if is_selected(key, base, arity) yield (key, cmd))
   let keys := distinct(firsts(dropped))
+  let names := join(", ", List(for key in keys yield key_text(key)))
   if keys == List() then
     raise Refused(path ++ " declares no " ++ base)
   end
@@ -2175,7 +2176,7 @@ procedure drop_target(in word: Str, ref edits: Edits) raises Refused, OsError :=
   let splices := List(for (_, cmd) in dropped yield (cmd_range(lines, cmd, 0, true), List()))
   formatted(in path, join("\n", spliced(List(for line in lines), splices)), edits.files, no_fragment(), out result, source)
   edits := edits with files := Map(path => result; edits.files)
-  note(in path ++ ": dropped " ++ join(", ", List(for key in keys yield key_text(key))) ++ sections_text(sections), ref edits)
+  note(in path ++ ": dropped " ++ names ++ sections_text(sections), ref edits)
 
 // the sections of the declarations that an edit took, if there are several, since a datatype in export and one in
 // implementation, or a signature and its definition, share a name
@@ -3532,8 +3533,9 @@ function is_word_at(line: Str, i: Int, n: Int): Bool :=
 
 // line with name at each of cols, from 1, replaced by new, where name stands there
 function at_cols(line: Str, cols: List[Int], name: Str, new: Str): Str :=
-  foldl(reverse(sort(cols)), line, lambda acc, col => if slice(acc, col - 1, col - 1 + size(name)) == name then
-    slice(acc, 0, col - 1) ++ new ++ slice(acc, col - 1 + size(name), size(acc))
+  foldl(reverse(sort(cols)), line, lambda acc, col => let stop := col - 1 + size(name) in
+  if slice(acc, col - 1, stop) == name then
+    slice(acc, 0, col - 1) ++ new ++ slice(acc, stop, size(acc))
   else
     acc)
 
@@ -4827,9 +4829,9 @@ function sig_lines(lines: Array[Str], cmd: At[Cmd], c: Cmd, name: Str): List[Str
   let all := lines_in(lines, cmd_range(lines, cmd, 0, false)) in
   if exists(key_of(c), lambda key => key.base == name) then
     let head := lines_in(lines, head_range(lines, cmd)) in
-    if is_signature(c) and size(all) - size(head) > spec_lines() then
-      head ++ List(
-        "    (" ++ counted(size(all) - size(head), "line") ++ " of examples)")
+    let spec_size := size(all) - size(head) in
+    if is_signature(c) and spec_size > spec_lines() then
+      head ++ List("    (" ++ counted(spec_size, "line") ++ " of examples)")
     else
       all
   else
