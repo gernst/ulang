@@ -72,6 +72,20 @@ test duplicates() :=
     "checked 1 file, unchanged",
     "  #1 " ++ path ++ ":2.3: Mismatch: expected Int but found Bool")
 
+// an error that names unknowns, whose numbers depend on what the checker checked before, is the same before and after a
+// script if it differs only in their numbers, and so neither new nor gone
+test renumbered_unknowns() :=
+  var reply: List[Str], status: Int
+  let state := "out/test/refactor/replies/state", path := "out/test/refactor/replies/unknowns.u"
+  os_write_utf8(in path, "function f(x: Int): Int :=\n  x\n")
+  run_script(in "@put " ++ path ++ "\nfunction f(x: Int): Int := x + 1\n", false, state, lambda in file, overlays, out found =>
+    let unknown := if overlays == Map() then "?19" else "?18"
+    found := List(
+      (file, Diagnostic(TypeKind, "UnknownContainer", None, Pos(2, 3), "the type " ++ unknown ++ " of the container is unknown", List())))
+  end, out reply, status, _)
+  assert status == 1 and take(1, reply) == List("applied, 1 error (0 new)")
+  assert contains("checked 1 file: 0 new, 0 gone", reply)
+
 // a script that changes no file lists the diagnostics of the state, unmarked but for their handles, since it has no change
 // to compare, while one that changes a file lists those that are new or gone
 test state_without_changes() :=
