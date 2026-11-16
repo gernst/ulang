@@ -155,6 +155,33 @@ test procedure_values() :=
   twice(in step(true), 1, out z)
   assert z == 4
 
+// the declared type of a local, an assignment, a result, or a formal types the formals of a procedure lambda before its
+// body is checked, so that a generator over a formal knows its container
+test procedure_lambdas_expected() :=
+  var n: Int, add: (in Str, ref Int)
+  let count: (in List[Str], out Int) := lambda in paths, out k =>
+    k := size(List(for p in paths yield p ++ "!"))
+  end
+  count(in List("a", "b"), out n)
+  assert n == 2
+  each(in lambda in s, ref m =>
+    m := m + size(Set(for c in s))
+  end, List("aa", "bc"), ref n)
+  assert n == 5
+  add := lambda in s, ref m =>
+    m := m + size(List(for c in s if c == 'a'))
+  end
+  add(in "banana", ref n)
+  assert n == 8
+  let total := sizes()
+  total(in List(List(1), List(2, 3)), out n)
+  assert n == 3
+
+function sizes(): (in List[List[Int]], out Int) :=
+  lambda in xss, out k =>
+    k := size(List(for xs in xss for x in xs yield x))
+  end
+
 procedure sum_all(in xs: List[Int], out t: Int) :=
   var rest := xs, sum := 0
   while rest != List() do

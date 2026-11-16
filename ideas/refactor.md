@@ -57,6 +57,14 @@ By priority, each the problem and the solution.
 
 80. **`@put before` a signature of `export` refuses a fragment of a bare signature** (Syntax 6, 16 November 2026): `@put before ulang/compile/lower.u:fusion_of` with the fragment `function let_fold_name(): Name` and its doc replied `rejected` with `fragment 3.1, script 4.1: signatures belong to the export section`, although the anchor `fusion_of` is a signature of `export`, so its place says the section; the workaround was a `@put ulang/compile/lower.u` of a fragment that writes `export`, the signature, `implementation`, and the definition. Solution: a fragment anchored before or after a declaration takes the section of the anchor, so that a bare signature next to a signature of `export` goes there.
 81. **A partial last old line of `@patch` cannot delete its line** (fixing stale tests, 16 November 2026): to delete an `assert text == "…"` of one long line after `assert text == first_fix` in `ulang/refactor/test/scripts.u:fixes/test`, the hunk `-   assert text == first_fix`, `-   assert text == "function is_pos`, `+   assert text == first_fix` was taken as the start of its last line, so the rest of the string stayed and the reply was `writes a text that does not parse: …:94.44: unexpected character`; the workaround was a script generated from the file with the whole line, about 400 characters. Solution: an old line that ends in `...`, as `-   assert text == "function is_pos...`, stands for the rest of its line, so that a hunk deletes or replaces a long line by its start.
+87. **A refusal of `@patch` whose old lines skip a line of the target does not say so** (Checker 8): the hunk
+   ```
+   @patch ulang/check/check.u:is_proc_lambda
+   -// a lambda of a procedure, which a declared type or a formal types as one of a function
+   -function is_proc_lambda(e: At[Expr]): Bool :=
+   -    case AOk(_, _, EProc(_, _, _, _, _)) =>
+   ```
+   left out the line `  match e` between the second and the third old line, and the reply was `the old lines, "…", occur in no line of the target as whole lines, and the line of the target that starts most like the first of them is ulang/check/check.u:7000, …, while some of them occur in the target, which is: …`, which names the first line, which matches, rather than the line where the run breaks. Solution: the refusal names the first old line that does not follow the one before it, `the old line 3 does not follow line 2, after which the target has "  match e"`.
 
 ## Order of work
 

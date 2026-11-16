@@ -14,6 +14,8 @@ function <*>(a: Odd, b: Odd): Odd
 
 function size(o: Odd): Int
 
+procedure measured(in p: (in Odd, out Int), x: Odd, out n: Int)
+
 implementation
 
 function is_odd(n: Int): Bool :=
@@ -27,3 +29,6 @@ function size(o: Odd): Int :=
 
 test odd_sees_even() :=
   assert is_odd(3) and not is_odd(4) and size(Even(1) <+> Even(2)) == 6
+
+procedure measured(in p: (in Odd, out Int), x: Odd, out n: Int) :=
+  p(in x, out n)
