@@ -20,7 +20,7 @@ function actions(script: Str): List[Action] :=
   example actions("@show a.u\n@put a.u\nf\ng\n") == List(
       Action(1, List("show", "a.u"), ""),
       Action(2, List("put", "a.u"), "f\ng"))
-  example actions("@patch a.u\n@@x => @y\n") == List(Action(1, List("patch", "a.u"), "@x => @y"))
+  example actions("@put a.u\n@@x\n") == List(Action(1, List("put", "a.u"), "@x"))
 
 // the directory of the state of refactor, out/refactor of the root of the project of the working directory, where the
 // table of handles and the journal are kept
@@ -2799,8 +2799,9 @@ procedure patch_block(
 data BlockMatch :=
   case BlockMatch(start: Int, count: Int, lead: Str, trail: Str, between: List[Str])
 
-// whether a line of a block is ... or …, which stands in the old lines for the lines between those before it and after
-// it, and in the new lines for where those lines go, since formatted code has no such line
+// whether the text of a line of a hunk, after its marker, is ... or …, which stands in the old lines for the lines
+// between those before it and after it, and in the new lines for where those lines go, since formatted code has no such
+// line
 function is_ellipsis(line: Str): Bool :=
   example is_ellipsis("  ...")
   example not is_ellipsis("x ...")
