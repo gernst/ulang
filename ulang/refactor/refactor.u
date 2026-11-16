@@ -457,6 +457,9 @@ procedure perform(
     case List("patch"; address) =>
       patch(in address, action.fragment, ref edits)
 
+    case List("example", word) =>
+      add_examples(in word, action.fragment, ref edits)
+
     case List("export", word) =>
       export_target(in word, ref edits)
 
@@ -503,18 +506,44 @@ procedure perform(
       edits := edits with checked := edits.checked ++ List(path)
 
     case _ =>
-      let actions := "@show T, @put F, @put F:name, @put [before|after] F:name, @put [before|after|into] N, @drop T, where a node N is #h, F:name #h, F:name \"text\", or F:L.C, @patch T, @rename T new, @outline F, @refs T, @sig name, @sig M, @resolve F:L.C, @export T, @unexport T, @fix T [Rule ...], @undo [n], @check [test] [F]"
+      let actions := "@show T, @put F, @put F:name, @put [before|after] F:name, @put [before|after|into] N, @drop T, where a node N is #h, F:name #h, F:name \"text\", or F:L.C, @patch T, @example F:name, @rename T new, @outline F, @refs T, @sig name, @sig M, @resolve F:L.C, @export T, @unexport T, @fix T [Rule ...], @undo [n], @check [test] [F]"
       raise Refused("line " ++ show(action.line) ++ ": unknown action @" ++ join(" ", action.words) ++ ", which is one of " ++ actions)
   end
 
-// the definition of key in d, or the declaration of key if it has no definition
+// the definition of key in d, with the lines of the specs of its signatures as its own, for its nodes, so that the
+// handles of the examples of a signature in export are nodes of the definition, or the declaration of key if it has no
+// definition
 function decl_of(d: Mod, key: Key): Option[(At[Cmd], Cmd)] :=
   let decls := List(for (k, cmd, c) in keyed(placed_of(d)) if k == key yield (cmd, c)) in
   match find(decls, lambda (_, c) => not is_signature(c))
-    case Some(decl) =>
-      Some(decl)
+    case Some((cmd, c)) =>
+      Some((cmd, with_specs(c, List(for (_, s) in decls if is_signature(s) yield spec_of(s)))))
     case None =>
       find(decls, lambda _ => true)
+  end
+
+// the spec of a function or procedure, its signature or definition
+function spec_of(c: Cmd): Spec :=
+  match c
+    case CFun(_, _, _, _, spec, _)
+       | CProc(_, _, _, _, _, _, spec, _)
+       | CFunSig(_, _, _, _, spec)
+       | CProcSig(_, _, _, _, _, _, spec) =>
+      spec
+
+    case _ =>
+      no_spec()
+  end
+
+// the definition c with the lines of specs in its spec, the specs of its signatures, which the nodes of c take in, where a
+// contract of its own wins, which a definition of a signature has only with errors
+function with_specs(c: Cmd, specs: List[Spec]): Cmd :=
+  let joined := foldl(specs, spec_of(c), lambda acc, s => Spec(s.pre ++ acc.pre, or_else(acc.post, s.post), s.examples ++ acc.examples)) in
+  match c
+    case CFun(_, _, _, _, _, _) | CProc(_, _, _, _, _, _, _, _) =>
+      c with spec := joined
+    case _ =>
+      c
   end
 
 function hash_of(text: Str): Int :=
@@ -843,7 +872,7 @@ procedure node_at_position(
 ) raises Refused, OsError :=
   var lines: Array[Str], d: Mod
   module_of(in path, files, out lines, d)
-  let around := List(for (key, cmd, _) in keyed(placed_of(d)) if is_within(pos, cmd.span) for (decl, c) in decl_of(d, key) if decl.span == cmd.span yield (key, c))
+  let around := List(for (key, cmd, _) in keyed(placed_of(d)) if is_within(pos, cmd.span) for (_, c) in decl_of(d, key) yield (key, c))
   let where := path ++ ":" ++ show(pos.line) ++ "." ++ show(pos.col)
   match around
     case List((key, cmd); _) =>
@@ -942,6 +971,19 @@ procedure rebase(
   let old_paths := paths_of(old_nodes, List(), 0), new_paths := paths_of(new_nodes, List(), 0)
   let new_table := zip(zip(numbered(new_nodes), new_hashes), new_paths)
   let alignment := aligned(zip(old_nodes, old_hashes), zip(new_nodes, new_hashes), region)
+  // the nodes of region, if the edit gave them the texts they had, as a node replaced by its own text, which keep their
+  // handles, while format may have changed the nodes around them
+  let kept_region := match alignment
+    case Some((before, after)) =>
+      let olds := take(size(old_nodes) - after - before, drop(before, old_hashes)) in
+      if olds == take(size(new_nodes) - after - before, drop(before, new_hashes)) then
+        range(before, before + size(olds))
+      else
+        List()
+
+    case None =>
+      List()
+  end
   var entries: List[Handle] := List()
   for h in handles.entries do
     var moved := h
@@ -955,7 +997,10 @@ procedure rebase(
           get_at(rank, same_text)
         else
           get_at(0, at_path)
-        let target := if is_removed(span, region, keep) then
+        // a declaration whose nodes have the texts they had keeps them all, and so do the nodes of a region that has them
+        let target := if old_hashes == new_hashes or contains(i, kept_region) then
+          Some(i)
+        else if is_removed(span, region, keep) then
           None
         else
           match alignment
@@ -1042,7 +1087,9 @@ procedure show_target(in word: Str, ref edits: Edits) raises Refused, OsError :=
   var shown: List[Str] := List()
   for (key, cmd, c) in selected do
     let region := cmd_range(lines, cmd, 0, true)
-    mark(in path, lines, key, c, region, ref handles, marks)
+    // the nodes of a signature are those of its definition, which take in its spec
+    let nodes := value_or(map_option(decl_of(main_mod(source), key), lambda (_, merged) => merged), c)
+    mark(in path, lines, key, nodes, region, ref handles, marks)
     shown := shown ++ List(join("\n", rendered(lines, region, marks)))
   end
   let whole := if name == None then
@@ -1090,7 +1137,10 @@ procedure put_at(
     List()
   else
     indented(dedented(unmarked(split(fragment, '\n'))), depth)
-  let text := join("\n", spliced(List(for line in lines), List((region, new))))
+  let (splice, written) := span_splice(place_word, lines, place.span, region, new)
+  var closing: List[(Range, List[Str])]
+  closed_heads(in place_word, place, edits.files, out closing)
+  let text := join("\n", spliced(List(for line in lines), List((splice, written)) ++ closing))
   formatted(in place.path, text, edits.files, List((Range(region.first, region.first + size(new) - 1), 1)), out result, source)
   let d := main_mod(source), result_lines := Array(for line in split(result, '\n'))
   let verb := match place_word
@@ -1144,6 +1194,89 @@ procedure put_at(
     end
   end
   edits := edits with handles := handles
+
+// the head of the signature whose last line of spec a drop of place removes, without its :=, which only a signature with
+// a spec has
+procedure closed_heads(
+  in  place_word: Str,
+      place: Place,
+      files: Map[Str, Str],
+  out closing: List[(Range, List[Str])]
+) raises Refused, OsError :=
+  closing := List()
+  if place_word == "drop" then
+    var d: Mod
+    module_of(in place.path, files, out _, d)
+    for (_, cmd, c) in keyed(placed_of(d)) if is_signature(c) and is_within(place.span.start, cmd.span) and forall(spec_parts(c), lambda part => is_inside(part, place.span)) do
+      let head := head_range(place.lines, cmd), line := line_at(place.lines, head.last)
+      closing := List(
+        (Range(head.last, head.last), List(
+          if ends_with(line, " :=") then
+            slice(line, 0, size(line) - 3)
+          else
+            line)))
+    end
+  end
+
+// the region of lines that an edit of place_word at the node at span replaces, whose region of lines is region, and
+// the lines that replace it, given new, the lines of the fragment at the depth of the edit: the text after the node on
+// its last line, such as the comma after an element or the ) after the last one, stays after what replaces the node,
+// so that a fragment writes the node alone, and an element placed before or after another, or dropped, writes or takes
+// the comma between them, where a fragment that writes the comma itself is taken as well
+function span_splice(place_word: Str, lines: Array[Str], span: Span, region: Range, new: List[Str]): (Range, List[Str]) :=
+  example span_splice("replace", Array("f(", "  a,", "  b)"), Span(Pos(3, 3), Pos(3, 4)), Range(3, 3), List("  c")) == (Range(3, 3), List("  c)"))
+  example span_splice("before", Array("f(", "  a,", "  b)"), Span(Pos(3, 3), Pos(3, 4)), Range(3, 2), List("  c")) == (Range(3, 2), List("  c,"))
+  example span_splice("after", Array("f(", "  a,", "  b)"), Span(Pos(3, 3), Pos(3, 4)), Range(4, 3), List("  c")) == (Range(3, 3), List("  b,", "  c)"))
+  example span_splice("after", Array("f(", "  a,", "  b)"), Span(Pos(2, 3), Pos(2, 4)), Range(3, 2), List("  c,")) == (Range(3, 2), List("  c,"))
+  example span_splice("drop", Array("f(", "  a,", "  b)"), Span(Pos(3, 3), Pos(3, 4)), Range(3, 3), List()) == (Range(2, 3), List("  a)"))
+  let stop_line := line_at(lines, span.stop.line) in
+  let head := slice(stop_line, 0, span.stop.col - 1), tail := slice(stop_line, span.stop.col - 1, size(stop_line)) in
+  let parted := starts_with(tail, ","), closed := starts_with(tail, ")") in
+  match place_word
+    case "replace" =>
+      (region, with_tail(if parted or closed then without_comma(new) else new, tail))
+
+    case "before" =>
+      (region, if parted or closed then with_tail(without_comma(new), ",") else new)
+
+    case "after" =>
+      if parted then
+        (region, with_tail(without_comma(new), ","))
+      else if closed then
+        (Range(span.stop.line, span.stop.line), List(head ++ ","; with_tail(without_comma(new), tail)))
+      else
+        (region, new)
+
+    case "drop" =>
+      let previous := line_at(lines, region.first - 1) in
+      if closed and ends_with(previous, ",") then
+        (Range(region.first - 1, region.last), List(slice(previous, 0, size(previous) - 1) ++ tail))
+      else
+        (region, List())
+
+    case _ =>
+      (region, new)
+  end
+
+// lines with tail after the last one
+function with_tail(lines: List[Str], tail: Str): List[Str] :=
+  example with_tail(List("a", "b"), ")") == List("a", "b)")
+  match reverse(lines)
+    case List(final; rest) =>
+      reverse(List(final ++ tail; rest))
+    case List() =>
+      List()
+  end
+
+// lines without a comma at the end of the last one
+function without_comma(lines: List[Str]): List[Str] :=
+  example without_comma(List("a,", "b,")) == List("a,", "b")
+  match reverse(lines)
+    case List(final; rest) if ends_with(final, ",") =>
+      reverse(List(slice(final, 0, size(final) - 1); rest))
+    case _ =>
+      lines
+  end
 
 // where @put places the declarations of a fragment that replace none of their key: side end, at the end of their
 // sections, before or after the declaration of name and arity in each section that has one, else at the end, or instead,
@@ -1803,7 +1936,7 @@ procedure patch(
       fragment: Str,
   ref edits: Edits
 ) raises Refused, OsError :=
-  var path: Str, lines: Array[Str], parts: List[(Range, Str)], source: Source, result: Str, key := Key("", "", -1), old_cmd: Option[Cmd] := None, whole: Option[Source] := None, handles := edits.handles
+  var path: Str, lines: Array[Str], parts: List[(Range, Str)], source: Source, result: Str, key := Key("", "", -1), old_cmd: Option[Cmd] := None, whole: Option[Source] := None, label: Str, handles := edits.handles
   let word := join(" ", address)
   if is_blank(fragment) then
     raise Refused("@patch " ++ word ++ " takes a fragment of lines old => new, or old lines, a line => alone, and new lines")
@@ -1816,7 +1949,7 @@ procedure patch(
   let block := index_of("=>", List(for line in code yield trim(line)))
   if is_node_address(address) then
     var place: Place
-    resolved_address(in address, edits, out place, _)
+    resolved_address(in address, edits, out place, label)
     path := place.path, lines := place.lines, parts := List((Range(place.span.start.line, place.span.stop.line), "the node"))
     key := place.key, old_cmd := Some(place.cmd)
   else
@@ -1834,7 +1967,7 @@ procedure patch(
         match distinct(List(for (k, _, _) in selected yield k))
           case List(k) =>
             parts := List(for (_, cmd, c) in selected yield (cmd_range(lines, cmd, 0, true), if is_signature(c) then "its signature" else "its definition"))
-            key := k, old_cmd := map_option(decl_of(main_mod(source), k), lambda (_, c) => c)
+            key := k, label := file ++ ":" ++ key_text(k), old_cmd := map_option(decl_of(main_mod(source), k), lambda (_, c) => c)
 
           case List() =>
             raise Refused(path ++ " declares no " ++ base)
@@ -1895,20 +2028,20 @@ procedure patch(
   if result == join("\n", List(for line in lines)) then
     raise Refused("@patch " ++ word ++ " changes nothing, once formatted")
   end
-  let new_lines := Array(for line in split(result, '\n'))
+  let result_lines := Array(for line in split(result, '\n'))
   match whole
     case Some(before) =>
       let old_mod := main_mod(before), new_mod := main_mod(source)
       let keys := distinct(List(for (k, _, _) in keyed(placed_of(old_mod)) ++ keyed(placed_of(new_mod)) yield k))
-      let touched := List(for k in keys if decl_text(lines, old_mod, k) != decl_text(new_lines, new_mod, k) yield k)
+      let touched := List(for k in keys if decl_text(lines, old_mod, k) != decl_text(result_lines, new_mod, k) yield k)
       for k in touched do
         for (_, c) in decl_of(old_mod, k) do
           for (_, cmd) in decl_of(new_mod, k) do
-            rebase(in path, k, lines, c, new_lines, cmd, Range(1, 0), true, ref handles)
+            rebase(in path, k, lines, c, result_lines, cmd, Range(1, 0), true, ref handles)
           end
         end
       end
-      let outside := if outside_text(lines, old_mod) == outside_text(new_lines, new_mod) then
+      let outside := if outside_text(lines, old_mod) == outside_text(result_lines, new_mod) then
         List()
       else
         List("the lines of no declaration")
@@ -1916,13 +2049,136 @@ procedure patch(
       note(in path ++ ": patched " ++ join(", ", List(for k in touched yield key_text(k)) ++ outside), ref edits)
 
     case None =>
+      var shown: List[Str] := List(), marks: Map[Int, Int] := Map()
       for (_, cmd) in decl_of(main_mod(source), key) do
         for c in old_cmd do
-          rebase(in path, key, lines, c, new_lines, cmd, changed, true, ref handles)
+          rebase(in path, key, lines, c, result_lines, cmd, changed, true, ref handles)
+          // the reply shows the nodes that the patch changed with their handles
+          for span in changed_nodes(lines, result_lines, line_nodes(result_lines, cmd)) do
+            let region := Range(span.start.line, span.stop.line)
+            mark(in path, result_lines, key, cmd, region, ref handles, marks)
+            shown := shown ++ List(
+              join("\n", rendered(result_lines, with_comments(result_lines, region), marks)))
+          end
         end
       end
       edits := edits with files := Map(path => result; edits.files), handles := handles
-      note(in path ++ ": patched " ++ word, ref edits)
+      note(in "patched " ++ label, ref edits)
+      for text in shown do
+        note(in text, ref edits)
+      end
+  end
+
+// the nodes of spans, those of a declaration in new, that an edit of old to new changed: the outermost that start on the
+// lines that it changed, else the innermost around them, so that an edit of a head alone changed none
+function changed_nodes(old: Array[Str], new: Array[Str], spans: List[Span]): List[Span] :=
+  example changed_nodes(Array("a", "  b", "  c"), Array("a", "  b", "  d"), List(Span(Pos(2, 3), Pos(3, 4)), Span(Pos(3, 3), Pos(3, 4)))) == List(Span(Pos(3, 3), Pos(3, 4)))
+  example changed_nodes(Array("a", "  b", "  c"), Array("a", "  c"), List(Span(Pos(1, 1), Pos(2, 4)), Span(Pos(2, 3), Pos(2, 4)))) == List(Span(Pos(1, 1), Pos(2, 4)))
+  let olds := List(for line in old), news := List(for line in new) in
+  let shared := common_prefix(olds, news) in
+  let suffix := min(common_prefix(reverse(olds), reverse(news)), min(size(olds), size(news)) - shared) in
+  let first := shared + 1, final := size(news) - suffix in
+  let starting := List(for span in spans if first <= span.start.line and span.start.line <= final) in
+  if starting != List() then
+    List(for span in starting if not exists(starting, lambda other => other != span and is_inside(span, other)))
+  else
+    List(for span in last(List(for span in spans if span.start.line < first and span.stop.line >= max(first, final))))
+
+// the number of the elements at the start of xs and ys that they share
+function common_prefix(xs: List[Str], ys: List[Str]): Int :=
+  example common_prefix(List("a", "b"), List("a", "c")) == 1
+  match (xs, ys)
+    case (List(x; xs_), List(y; ys_)) if x == y =>
+      1 + common_prefix(xs_, ys_)
+    case _ =>
+      0
+  end
+
+// adds the examples of the fragment to the spec of the function or procedure of the target, F:name[/n], after the lines
+// of its spec, on its signature if it has one, the place of the examples of an exported name, else on its definition,
+// writing the := of a signature without a spec, and shows them with their handles
+procedure add_examples(
+  in  word: Str,
+      fragment: Str,
+  ref edits: Edits
+) raises Refused, OsError :=
+  var text: Str, source: Source, handles := edits.handles, marks: Map[Int, Int] := Map()
+  let code := drop_blank(unmarked(split(fragment, '\n')))
+  let added := size(List(for line in code if starts_with(trim(line), "example ") yield line))
+  if not starts_with(trim(value_or(get_at(0, code), "")), "example ") then
+    raise Refused("@example " ++ word ++ " takes a fragment of examples, each starting with example")
+  end
+  let (path, name, arity) := target_of(word)
+  current_text(in path, edits.files, out text)
+  parsed(in path, text, edits.files, no_fragment(), out source)
+  let d := main_mod(source), lines := Array(for line in split(text, '\n'))
+  let selected := List(for (key, cmd, c) in keyed(placed_of(d)) if name != None and forall(name, lambda base => is_selected(key, base, arity)) and spec_holder(c) yield (key, cmd, c))
+  let ordered := List(for (key, cmd, c) in selected if is_signature(c) yield (key, cmd, c)) ++ List(for (key, cmd, c) in selected if not is_signature(c) yield (key, cmd, c))
+  match (distinct(List(for (key, _, _) in selected yield key)), ordered)
+    case (List(key), List((_, cmd, c); _)) =>
+      var result: Str
+      let head := head_range(lines, cmd)
+      let at := match spec_range(lines, cmd, c)
+        case Some(range) =>
+          range.last
+        case None =>
+          head.last
+      end
+      // a signature without a spec ends at its head, which the spec follows after :=
+      let opened := if is_signature(c) and not has_spec(c) then
+        List(
+          (Range(head.last, head.last), List(line_at(lines, head.last) ++ " :=")))
+      else
+        List()
+      let new := indented(dedented(code), indent_of(line_at(lines, cmd.span.start.line)) + 2), region := Range(at + 1, at)
+      formatted(in path, join("\n", spliced(List(for line in lines), opened ++ List((region, new)))), edits.files, List((Range(at + 1, at + size(new)), 1)), out result, source)
+      let after := main_mod(source), result_lines := Array(for line in split(result, '\n'))
+      let held := List(for (k, _, other) in keyed(placed_of(after)) if k == key and is_signature(other) == is_signature(c) yield size(spec_of(other).examples))
+      if size(placed_of(after)) != size(placed_of(d)) or held != List(size(spec_of(c).examples) + added) then
+        raise Refused("@example " ++ word ++ " takes examples alone, while the fragment writes other code")
+      end
+      let target := if is_signature(c) then "its signature" else "its definition"
+      edits := edits with files := Map(path => result; edits.files)
+      note(in path ++ ":" ++ key_text(key) ++ ": added " ++ counted(added, "example") ++ " to " ++ target, ref edits)
+      for ((_, old_cmd), (_, new_cmd)) in zip(List(for decl in decl_of(d, key)), List(for decl in decl_of(after, key))) do
+        rebase(in path, key, lines, old_cmd, result_lines, new_cmd, region, false, ref handles)
+        let olds := kinded_nodes(lines, old_cmd), news := kinded_nodes(result_lines, new_cmd)
+        let placed := match aligned(hashed(lines, List(for node in olds yield node.span)), hashed(result_lines, List(for node in news yield node.span)), region)
+          case Some((before, kept)) =>
+            outermost(take(size(news) - kept - before, drop(before, news)))
+          case None =>
+            List(for node in news if node.kind == KSpec and node.span.start.line > at and node.span.start.line <= at + size(new))
+        end
+        match (placed, last(placed))
+          case (List(first; _), Some(final)) =>
+            let shown := Range(first.span.start.line, final.span.stop.line)
+            mark(in path, result_lines, key, new_cmd, shown, ref handles, marks)
+            note(in join("\n", rendered(result_lines, shown, marks)), ref edits)
+
+          case _ =>
+            skip
+        end
+      end
+      edits := edits with handles := handles
+
+    case (List(), _) =>
+      raise Refused(path ++ " declares no function or procedure " ++ value_or(name, "") ++ ", whose spec @example writes")
+
+    case _ =>
+      raise Refused("@example takes one declaration file.u:name[/arity], not " ++ word)
+  end
+
+// whether c has a spec, a function or procedure, its signature or definition
+function spec_holder(c: Cmd): Bool :=
+  match c
+    case CFun(_, _, _, _, _, _)
+       | CProc(_, _, _, _, _, _, _, _)
+       | CFunSig(_, _, _, _, _)
+       | CProcSig(_, _, _, _, _, _, _) =>
+      true
+
+    case _ =>
+      false
   end
 
 // the parts of a file of lines, whose module is d, that a @patch of the file patches by lines: each declaration with its
@@ -3667,9 +3923,11 @@ procedure outline(in path: Str, ref edits: Edits) raises Refused, OsError :=
             else
               "private"
             var handle := ""
-            for (own, _) in decl_of(d, key) if own.span == cmd.span do
-              for span in get_at(0, line_nodes(lines, c)) do
-                handle_for(in path, key, 0, hash_of(node_text(lines, span)), out number, ref handles)
+            for (own, merged) in decl_of(d, key) if own.span == cmd.span do
+              // the handle of a declaration is its first node that is no line of its spec, the body of a function
+              for (node, i) in find(numbered(kinded_nodes(lines, merged)), lambda (node, _) => node.kind != KSpec and is_within(node.span.start, own.span)) do
+                let span := node.span
+                handle_for(in path, key, i, hash_of(node_text(lines, span)), out number, ref handles)
                 handle := "#" ++ show(number)
               end
             end
@@ -3789,10 +4047,10 @@ procedure refs(in word: Str, ref edits: Edits) raises Refused, OsError :=
       let m := main_mod(file_source), file_lines := Array(for line in split(file_text, '\n'))
       for span in hits do
         var around := "", handle := "", number: Int
-        for (key, cmd, c) in keyed(placed_of(m)) if cmd.span.start.line <= span.start.line and span.start.line <= cmd_range(file_lines, cmd, 0, false).last do
+        for (key, cmd, _) in keyed(placed_of(m)) if cmd.span.start.line <= span.start.line and span.start.line <= cmd_range(file_lines, cmd, 0, false).last do
           around := " in " ++ key_text(key)
-          for (own_cmd, _) in decl_of(m, key) if own_cmd.span == cmd.span do
-            let nodes := List(for (node, i) in numbered(line_nodes(file_lines, c)) if node.start <= span.start and span.stop <= node.stop yield (node, i))
+          for (_, merged) in decl_of(m, key) do
+            let nodes := List(for (node, i) in numbered(line_nodes(file_lines, merged)) if node.start <= span.start and span.stop <= node.stop yield (node, i))
             for (node, i) in last(nodes) do
               handle_for(in file, key, i, hash_of(node_text(file_lines, node)), out number, ref handles)
               handle := " #" ++ show(number)

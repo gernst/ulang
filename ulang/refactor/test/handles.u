@@ -176,3 +176,88 @@ test element_handles() :=
   os_read_utf8(in path, out text)
   assert status == 0
   assert text == "function names(): List[Str] :=\n  List(\n    \"alpha-alpha-alpha-alpha\",\n    \"aleph\",\n    \"bravo\",\n    \"gamma-gamma-gamma-gamma-gamma\",\n    \"delta\")\n"
+
+// a node replaced by its own text keeps its handle, and so do the nodes inside it
+test same_text() :=
+  var path: Str, reply: List[Str], status: Int
+  let dir := "out/test/refactor/same"
+  sample(in dir, out path, _)
+  run_script(in "@put #2\ncase 0 =>\n  y := 1\n  y := y + 1\n", false, dir, no_diagnostics, out reply, status, _)
+  assert status == 0
+  assert take(3, reply) == List(
+    "applied, clean",
+    "replaced " ++ path ++ ":p/2 #2",
+    "#2        case 0 =>\n#3          y := 1\n#4          y := y + 1")
+  run_script(in "@show " ++ path ++ ":p", false, dir, no_diagnostics, out reply, status, _)
+  assert reply == List(
+    "applied",
+    "@show " ++ path ++ ":p\n      procedure p(in x: Int, out y: Int) :=\n#1      match x\n#2        case 0 =>\n#3          y := 1\n#4          y := y + 1\n\n#5        case _ =>\n#6          y := 2\n        end")
+
+// a fragment at an element writes the element alone, since the text after the node on its last line stays, the comma or
+// the ) after the last one, and an element put after the last one or dropped as the last one moves the )
+test element_spans() :=
+  var reply: List[Str], status: Int, text: Str
+  let dir := "out/test/refactor/spans", path := "out/test/refactor/spans/e.u"
+  os_write_utf8(in os_join(dir, "handles.txt"), "")
+  os_write_utf8(in path, "function names(): List[Str] :=\n  List(\n    \"alpha-alpha-alpha-alpha\",\n    \"beta-beta-beta-beta-beta\",\n    \"gamma-gamma-gamma-gamma-gamma\",\n    \"delta\")\n")
+  run_script(in "@show " ++ path ++ ":names", false, dir, no_diagnostics, out reply, status, _)
+  assert status == 0 and contains("#5        \"delta\")", split(at(1, reply), '\n'))
+  run_script(in "@put #3\n\"bravo\"\n@put before #3\n\"aleph\"\n@put #5\n\"delta-delta-delta\"\n@put after #5\n\"epsilon\"\n", false, dir, no_diagnostics, out reply, status, _)
+  os_read_utf8(in path, out text)
+  assert status == 0
+  assert text == "function names(): List[Str] :=\n  List(\n    \"alpha-alpha-alpha-alpha\",\n    \"aleph\",\n    \"bravo\",\n    \"gamma-gamma-gamma-gamma-gamma\",\n    \"delta-delta-delta\",\n    \"epsilon\")\n"
+  run_script(in "@drop " ++ path ++ ":names \"\\\"epsilon\"\n", false, dir, no_diagnostics, out reply, status, _)
+  os_read_utf8(in path, out text)
+  assert status == 0
+  assert text == "function names(): List[Str] :=\n  List(\n    \"alpha-alpha-alpha-alpha\",\n    \"aleph\",\n    \"bravo\",\n    \"gamma-gamma-gamma-gamma-gamma\",\n    \"delta-delta-delta\")\n"
+
+// the lines of a spec are nodes, an example of a signature in export a node of its definition, which @example adds to,
+// on the signature if it has one, and a drop of the last line of the spec of a signature drops its :=
+test spec_lines() :=
+  var reply: List[Str], status: Int, text: Str
+  let dir := "out/test/refactor/specs", path := "out/test/refactor/specs/s.u"
+  os_write_utf8(in os_join(dir, "handles.txt"), "")
+  os_write_utf8(in path, "export\n\nfunction f(x: Int): Int :=\n  example f(1) == 2\n\nfunction g(x: Int): Int\n\nimplementation\n\nfunction f(x: Int): Int :=\n  x + 1\n\nfunction g(x: Int): Int :=\n  x\n\nprocedure p(in x: Int, out y: Int) :=\n  requires x > 0\n  ensures  y > x\n  example p(in 1, out 2)\n  y := x + 1\n")
+  run_script(in "@show " ++ path, false, dir, no_diagnostics, out reply, status, _)
+  assert status == 0
+  assert drop(1, split(at(1, reply), '\n')) == List(
+    "      export",
+    "",
+    "      function f(x: Int): Int :=",
+    "#1      example f(1) == 2",
+    "",
+    "      function g(x: Int): Int",
+    "",
+    "      implementation",
+    "",
+    "      function f(x: Int): Int :=",
+    "#2      x + 1",
+    "",
+    "      function g(x: Int): Int :=",
+    "#3      x",
+    "",
+    "      procedure p(in x: Int, out y: Int) :=",
+    "#4      requires x > 0",
+    "#5      ensures  y > x",
+    "#6      example p(in 1, out 2)",
+    "#7      y := x + 1")
+  run_script(in "@example " ++ path ++ ":g\nexample g(2) == 2\n@example " ++ path ++ ":p\nexample p(in 2, out 3)\n@put after #6\nexample p(in 3, out 4)\n@drop #1\n@put #4\nrequires x > 1\n@show " ++ path ++ ":p\n", false, dir, no_diagnostics, out reply, status, _)
+  os_read_utf8(in path, out text)
+  assert status == 0
+  assert text == "export\n\nfunction f(x: Int): Int\n\nfunction g(x: Int): Int :=\n  example g(2) == 2\n\nimplementation\n\nfunction f(x: Int): Int :=\n  x + 1\n\nfunction g(x: Int): Int :=\n  x\n\nprocedure p(in x: Int, out y: Int) :=\n  requires x > 1\n  ensures  y > x\n  example p(in 1, out 2)\n  example p(in 3, out 4)\n  example p(in 2, out 3)\n  y := x + 1\n"
+  assert take(11, reply) == List(
+    "applied, clean",
+    path ++ ":g/1: added 1 example to its signature",
+    "#8      example g(2) == 2",
+    path ++ ":p/2: added 1 example to its definition",
+    "#9      example p(in 2, out 3)",
+    "put after " ++ path ++ ":p/2 #6",
+    "#10     example p(in 3, out 4)",
+    "dropped " ++ path ++ ":f/1 #1",
+    "replaced " ++ path ++ ":p/2 #4",
+    "#4      requires x > 1",
+    "@show " ++ path ++ ":p\n      procedure p(in x: Int, out y: Int) :=\n#4      requires x > 1\n#5      ensures  y > x\n#6      example p(in 1, out 2)\n#10     example p(in 3, out 4)\n#9      example p(in 2, out 3)\n#7      y := x + 1")
+  run_script(in "@example " ++ path ++ ":g\nx + 2\n", false, dir, no_diagnostics, out reply, status, _)
+  assert status == 1 and reply == List(
+    "rejected",
+    "@example " ++ path ++ ":g takes a fragment of examples, each starting with example")
