@@ -176,15 +176,24 @@ function words_of(line: Str): List[Str] :=
 function plain_words(line: Str): List[Str] :=
   List(for w in split(line, ' ') if w != "" yield w)
 
-// a target file.u, file.u:name, or file.u:name/n, its path, name, and arity
+// a target file.u, file.u:name, or file.u:name/n, its path, name, and arity, where the arity of a declaration without
+// formals, a test, a lemma, or a type, is its kind, file.u:name/test, read as kind_arity of the kind, which is_selected
+// takes for that kind alone
 function target_of(word: Str): (Str, Option[Str], Option[Int]) :=
   example target_of("a/b.u:f/2") == ("a/b.u", Some("f"), Some(2))
+  example target_of("a/b.u:f/test") == ("a/b.u", Some("f"), Some(kind_arity("test")))
   match index_of(':', chars(word))
     case Some(i) =>
       let path := slice(word, 0, i), rest := slice(word, i + 1, size(word)) in
       match index_of('/', chars(rest))
         case Some(j) =>
-          (path, Some(slice(rest, 0, j)), number(slice(rest, j + 1, size(rest))))
+          let selector := slice(rest, j + 1, size(rest)) in
+          let arity := if contains(selector, List("test", "lemma", "type")) then
+            Some(kind_arity(selector))
+          else
+            number(selector) in
+          (path, Some(slice(rest, 0, j)), arity)
+
         case None =>
           (path, Some(rest), None)
       end
@@ -192,6 +201,36 @@ function target_of(word: Str): (Str, Option[Str], Option[Int]) :=
     case None =>
       (word, None, None)
   end
+
+// the arity by which a target names the declarations of a kind without formals, test, lemma, or type, below every arity
+// of a declaration with formals, and -1 for the others
+function kind_arity(kind: Str): Int :=
+  match kind
+    case "test" =>
+      -2
+
+    case "lemma" =>
+      -3
+
+    case "type" =>
+      -4
+
+    case _ =>
+      -1
+  end
+
+// the part after the name of a target F:name/… that names the declaration of key alone, its arity or its kind
+function selector_text(key: Key): Str :=
+  example selector_text(Key("value", "f", 2)) == "2"
+  example selector_text(Key("test", "f", -1)) == "test"
+  if key.arity >= 0 then show(key.arity) else key.kind
+
+// the refusal of the target word of the action, which takes one declaration, where word names several of the file path,
+// decls with their commands, each named with its kind and the target that names it alone
+function several_text(action: Str, word: Str, path: Str, decls: List[(Key, Cmd)]): Str :=
+  let keys := distinct(List(for (key, _) in decls yield key)) in
+  let named := List(for key in keys for (_, c) in find(decls, lambda (k, _) => k == key) yield "the " ++ decl_kind(c) ++ " " ++ key_text(key) ++ ", which " ++ path ++ ":" ++ key.base ++ "/" ++ selector_text(key) ++ " takes") in
+  action ++ " takes one declaration, while " ++ word ++ " names " ++ show(size(keys)) ++ ": " ++ join(", ", named)
 
 // the form of @put place file:name that names the declaration of word in file
 function anchored_form(file: Str, place: Str, word: Str): Str :=
@@ -272,9 +311,10 @@ function has_spec(cmd: Cmd): Bool :=
 function key_text(key: Key): Str :=
   if key.arity < 0 then key.base else key.base ++ "/" ++ show(key.arity)
 
-// whether the declaration of key is the one that name and arity select
+// whether the declaration of key is the one that name and arity select, where an arity below -1 selects a kind without
+// formals (kind_arity)
 function is_selected(key: Key, name: Str, arity: Option[Int]): Bool :=
-  key.base == name and forall(arity, lambda n => n == key.arity)
+  key.base == name and forall(arity, lambda n => if n < -1 then n == kind_arity(key.kind) else n == key.arity)
 
 function main_mod(source: Source): Mod :=
   match find(source.mods, lambda d => d.name == source.main)
@@ -1383,6 +1423,16 @@ function without_comma(lines: List[Str]): List[Str] :=
 data Anchor :=
   case Anchor(side: Str, name: Str, arity: Option[Int])
 
+// the action of a @put at the anchor in the file path, as the reply names it
+function anchor_form(path: Str, anchor: Anchor): Str :=
+  example anchor_form("a.u", Anchor("instead", "f", Some(2))) == "@put a.u:f/2"
+  example anchor_form("a.u", Anchor("after", "f", None)) == "@put after a.u:f"
+  let target := path ++ ":" ++ anchor.name ++ value_or(map_option(anchor.arity, lambda n => "/" ++ show(n)), "") in
+  if anchor.side == "instead" then
+    "@put " ++ target
+  else
+    "@put " ++ anchor.side ++ " " ++ target
+
 // the kind of node that a fragment placed at the node of span among nodes must have: that of the node, or for into that
 // of its last part, if it has one
 function expected_kind(place_word: Str, span: Span, nodes: List[Node]): Option[NodeKind] :=
@@ -1557,7 +1607,7 @@ procedure put_anchored(
         raise Refused(path ++ " declares no " ++ anchor.name)
 
       case keys =>
-        raise Refused(path ++ " declares " ++ join(", ", List(for k in keys yield key_text(k))) ++ ", so name one by its arity")
+        raise Refused(several_text("@put", path ++ ":" ++ anchor.name, path, List(for (k, _, c) in keyed(placed_of(d)) if contains(k, keys) yield (k, c))))
     end
   end
   let is_anchor := lambda c: At[Cmd] => anchor_key != None and cmd_key(c) == anchor_key
@@ -1743,14 +1793,25 @@ procedure put_anchored(
           ", whose uses keep the name " ++ anchor.name ++ ", which @rename changes"
         else
           ""
+        // a declaration that a targeted @put replaces besides its target, as a helper of the same name elsewhere in the
+        // file, says where it stood, so that the reply tells it from the additions around it
+        let away := anchor.side != "end" and not instead(cmd)
+        let at_line := if away then
+          " at line " ++ show(value_or(map_option(find(placed_of(d), lambda c => cmd_key(c) == old_key), lambda c => c.span.start.line), 0))
+        else
+          ""
+        let untargeted := if away then
+          ", which " ++ anchor_form(path, anchor) ++ " does not target"
+        else
+          ""
         let entry := if old_key != new_key then
           ("replaced " ++ value_or(map_option(old_key, key_text), "") ++ " by " ++ value_or(map_option(new_key, key_text), ""), moved ++ kept)
         else if new == lines_in(all_lines, replaced) and doc_signature == None then
           ("unchanged " ++ value_or(map_option(new_key, key_text), "a notation"), "")
         else if map_option(cmd_of(o), head_type) != map_option(cmd_of(cmd), head_type) then
-          ("replaced " ++ value_or(map_option(new_key, key_text), "a notation"), ", of another type" ++ moved)
+          ("replaced " ++ value_or(map_option(new_key, key_text), "a notation"), at_line ++ ", of another type" ++ moved ++ untargeted)
         else
-          ("replaced " ++ value_or(map_option(new_key, key_text), "a notation"), moved)
+          ("replaced " ++ value_or(map_option(new_key, key_text), "a notation"), at_line ++ moved ++ untargeted)
         entries := entries ++ List((first(entry), second(entry), section, role, ""))
         replaced_keys := replaced_keys ++ List(for k in new_key for o_k in old_key if section == "implementation" yield (o_k, k))
         spec_keys := spec_keys ++ List(for k in new_key if section == "implementation" and not is_signature_at(cmd) and not writes_signature yield k)
@@ -2107,7 +2168,7 @@ procedure drop_target(in word: Str, ref edits: Edits) raises Refused, OsError :=
     raise Refused(path ++ " declares no " ++ base)
   end
   if size(keys) > 1 then
-    raise Refused(path ++ " declares " ++ join(", ", List(for key in keys yield key_text(key))) ++ ", so name one by its arity")
+    raise Refused(several_text("@drop", word, path, List(for (key, cmd) in dropped for c in cmd_of(cmd) yield (key, c))))
   end
   let exported := main_mod(source).exported
   let sections := List(for (_, cmd) in dropped yield if contains(cmd, exported) then "export" else "implementation")
@@ -2132,13 +2193,13 @@ function sections_text(sections: List[Str]): Str :=
   end
 
 // substitutes in the text of the target, a node of the address (is_node_address), a declaration with its doc, its
-// signature and definition alike, or a whole file, each line old => new of the fragment, where old occurs in the target
-// and at most once in each of its parts, the signature and the definition of a declaration, or in a file each declaration
-// and each run of lines of no declaration, the header above the imports included, split at the last => at which it does,
-// since => also occurs in code, where the old text with the most of the line is the one meant; or, if a line of the
-// fragment is => alone, which formatted code never has, the lines before it by those after it, as whole lines whatever
-// their indentation, at most once in each part, or exactly once in the whole of a file; refuses a patch that changes
-// nothing, and rebases the handles of the declarations that it changed
+// signature and definition alike, or a whole file, each hunk of the fragment, a run of old lines -, the new lines +
+// after it, in the order of the fragment, each on the text that the hunks before it left, so that a hunk may anchor on
+// what one before it wrote; the old lines occur in the target and at most once in each of its parts, the signature and
+// the definition of a declaration, or in a file each declaration and each run of lines of no declaration, the header
+// above the imports included, and old lines of a file that occur in none of its parts, as across two declarations, at
+// most once in the whole file; a hunk -* replaces every occurrence of its text; refuses a patch that changes nothing,
+// and rebases the handles of the declarations that it changed
 procedure patch(
   in  address: List[Str],
       fragment: Str,
@@ -2147,14 +2208,10 @@ procedure patch(
   var path: Str, lines: Array[Str], parts: List[(Range, Str)], source: Source, result: Str, key := Key("", "", -1), old_cmd: Option[Decl] := None, whole: Option[Source] := None, label: Str, handles := edits.handles
   let word := join(" ", address)
   if is_blank(fragment) then
-    raise Refused("@patch " ++ word ++ " takes a fragment of lines old => new, or old lines, a line => alone, and new lines")
+    raise Refused("@patch " ++ word ++ " takes a fragment of hunks, each old lines that start with - and the new lines after them that start with +, as\n" ++ patch_form())
   end
-  let code := split(fragment, '\n')
-  let arrows := List(for (line, i) in numbered(code) if trim(line) == "=>" yield i + 1)
-  if size(arrows) > 1 then
-    raise Refused("fragment " ++ show(value_or(get_at(1, arrows), 0)) ++ ": a second line => alone, while a @patch takes one block, so each block takes a @patch of its own")
-  end
-  let block := index_of("=>", List(for line in code yield trim(line)))
+  var hunks: List[Hunk]
+  patch_hunks(in split(fragment, '\n'), out hunks)
   if is_node_address(address) then
     var place: Place
     resolved_address(in address, edits, out place, label)
@@ -2181,77 +2238,77 @@ procedure patch(
             raise Refused(path ++ " declares no " ++ base)
 
           case _ =>
-            raise Refused("@patch takes a handle or one declaration file.u:name[/arity], whose signature and definition it patches together, or a file, not " ++ word)
+            raise Refused(several_text("@patch", word, path, List(for (k, _, c) in selected yield (k, c))))
         end
 
       case None =>
         whole := Some(source), label := file
-        if block == None then
-          parts := file_parts(lines, main_mod(source))
-        else
-          parts := List((Range(1, size(lines)), "the file"))
-        end
+        parts := file_parts(lines, main_mod(source))
     end
   end
-  let regions := List(for (region, _) in parts yield region), labels := List(for (_, what) in parts yield what)
-  var patched := List(for region in regions yield join("\n", lines_in(lines, region))), changed := Range(1, 0), taken: List[Str] := List(), every: List[Str] := List()
-  match block
-    case Some(i) =>
-      var at: List[(Int, Int, Int)]
-      let old := unmarked(take(i, code))
-      patch_block(in old, unmarked(drop(i + 1, code)), labels, out at, ref patched)
-      if at == List() then
-        let part := join("\n", List(for line in drop_blank(old) yield trim(line)))
-        let counts := List(for text in patched yield size(occurrences(text, part)))
-        if size(drop_blank(old)) == 1 and is_once_each(counts) then
-          // one old line that is a part of a line of the target patches as the line form does
-          let new := join("\n", List(for line in drop_blank(unmarked(drop(i + 1, code))) yield trim(line)))
-          patched := List(for text in patched yield substituted(text, part, new))
-        else
-          var context: Str
-          block_context(in path, List(for line in old yield trim(line)), lines, regions, edits, out context)
-          let hint := if size(drop_blank(old)) == 1 and exists(counts, lambda n => n > 0) then
-            ", and as a part of a line it occurs " ++ occurrence_text(counts, labels) ++ ", so it takes more of its line"
+  var regions := List(for (region, _) in parts yield region), labels := List(for (_, what) in parts yield what)
+  var patched := List(for region in regions yield join("\n", lines_in(lines, region))), changed := Range(1, 0), every: List[Str] := List()
+  let original := patched
+  for (hunk, h) in numbered(hunks) do
+    let old := unmarked(hunk.old), new := unmarked(hunk.new)
+    // the refusals of a hunk of several name it by its line
+    let refusal := if size(hunks) > 1 then
+      "@patch, the hunk of fragment line " ++ show(hunk.first) ++ ":"
+    else
+      "@patch:"
+    if List(for line in old yield trim(line)) == List(for line in new yield trim(line)) then
+      raise Refused("@patch: the hunk of fragment line " ++ show(hunk.first) ++ " changes nothing, since its new lines are its old lines")
+    end
+    if hunk.every then
+      let text := value_or(get_at(0, hunk.old), ""), count := foldl(List(for t in patched yield size(occurrences(t, text))), 0, lambda a, b => a + b)
+      if count > 0 then
+        patched := List(for t in patched yield substituted(t, text, value_or(get_at(0, hunk.new), "")))
+        every := every ++ List("replaced " ++ quote(text) ++ " " ++ counted(count, "time"))
+      else
+        var context: Str
+        absent_context(in path, List(text), lines, regions, if h > 0 then original else List(), edits, out context)
+        raise Refused(refusal ++ " the old text " ++ quote(text) ++ " occurs nowhere in the target" ++ context)
+      end
+    else
+      var at: List[(Int, Int, Int)], found: Bool
+      try
+        patch_hunk(in old, new, labels, out at, found, ref patched)
+        if not found and whole != None and size(regions) > 1 and size(drop_blank(old)) > 1 then
+          // old lines across declarations of a file occur in no part of it, so the file is one part for them and the
+          // hunks after them
+          patched := List(join("\n", patched)), regions := List(Range(1, size(lines))), labels := List("the file")
+          patch_hunk(in old, new, labels, out at, found, ref patched)
+        end
+      catch
+        case Refused(message) =>
+          raise Refused(if starts_with(message, "@patch:") then
+            refusal ++ slice(message, 7, size(message))
           else
-            ""
-          raise Refused("@patch: the old lines, " ++ quote(join("\n", List(for line in old yield trim(line)))) ++ ", occur in no line of the target as whole lines" ++ hint ++ context)
+            message)
+      end
+      if not found then
+        var context: Str
+        let wanted := List(for line in old yield trim(line))
+        absent_context(in path, wanted, lines, regions, if h > 0 then original else List(), edits, out context)
+        if size(drop_blank(old)) == 1 then
+          raise Refused(refusal ++ " the old text " ++ quote(join("", drop_blank(wanted))) ++ " occurs nowhere in the target" ++ context)
+        else
+          raise Refused(refusal ++ " the old lines, " ++ quote(join("\n", wanted)) ++ ", occur in no line of the target as whole lines" ++ context)
         end
       end
       // the definition follows the signature, and only it has nodes
-      for (j, k, n) in take(1, reverse(at)) do
+      for (j, k, n) in take(1, reverse(at)) if size(hunks) == 1 do
         let first := value_or(map_option(get_at(j, regions), lambda r => r.first), 1) + k
         changed := Range(first, first + n - 1)
       end
-
-    case None =>
-      for (line, i) in numbered(code) if not is_blank(line) do
-        var absent: Option[Str], split: Option[Str], replaced: Option[Str]
-        if code_arrows(line ++ " ", " =>* ") != List() then
-          patch_every(in line, i + 1, out absent, replaced, ref patched)
-          split := None
-        else
-          patch_line(in line, i + 1, labels, out absent, split, ref patched)
-          replaced := None
-        end
-        taken := taken ++ List(for s in split)
-        every := every ++ List(for s in replaced)
-        for old in absent do
-          var text: Str, current: Source, earlier: Str
-          current_text(in path, edits.files, out text)
-          parsed(in path, text, edits.files, no_fragment(), out current)
-          earlier_action(in path, lambda before => index_of(old, before) != None, edits, out earlier)
-          raise Refused(nowhere_text(path, old, lines, main_mod(current)) ++ earlier)
-        end
-      end
+    end
   end
   let splices := List(for (region, text) in zip(regions, patched) yield (region, split(text, '\n')))
   try
     formatted(in path, join("\n", spliced(List(for line in lines), splices)), edits.files, no_fragment(), out result, source)
   catch
-    // a line of several => may have split where the agent did not mean it, and a block takes the lines after its
-    // line => alone up to the end of the fragment as its new lines, also a line old => new
     case Refused(message) =>
-      raise Refused("@patch " ++ word ++ " writes a text that does not parse:\n" ++ message ++ join("", List(for line in taken ++ block_note(code, block) yield "\n" ++ line)))
+      raise Refused("@patch " ++ word ++ " writes a text that does not parse:\n" ++ message ++ "\n" ++ new_lines_text(hunks))
   end
   if result == join("\n", List(for line in lines)) then
     raise Refused("@patch " ++ word ++ " changes nothing, once formatted")
@@ -2296,6 +2353,164 @@ procedure patch(
         note(in text, ref edits)
       end
   end
+
+// a hunk of a @patch: the old lines of a run of fragment lines -, or the one line of a line -*, which replaces every
+// occurrence of its text, the new lines of the run of lines + right after them, none for a deletion, and the fragment
+// lines from first to last that it spans
+data Hunk :=
+  case Hunk(old: List[Str], new: List[Str], every: Bool, first: Int, last: Int)
+
+// the form of a fragment of @patch, which the refusals of a fragment show
+function patch_form(): Str :=
+  "- case NoOverload(_, typ) =>\n+ case NoOverload(_, typ, _) =>"
+
+// the marker of a fragment line of @patch, -, -*, or +, and the text after it without one space after the marker, none
+// for a line that starts with none of them
+function patch_marker(line: Str): Option[(Str, Str)] :=
+  example patch_marker("- case A =>") == Some(("-", "case A =>"))
+  example patch_marker("-*x") == Some(("-*", "x"))
+  example patch_marker("+   y") == Some(("+", "  y"))
+  example patch_marker("x => y") == None
+  let marker := if starts_with(line, "-*") then
+    "-*"
+  else if starts_with(line, "-") then
+    "-"
+  else if starts_with(line, "+") then
+    "+"
+  else
+    "" in
+  let rest := slice(line, size(marker), size(line)) in
+  if marker == "" then
+    None
+  else
+    Some((marker, if starts_with(rest, " ") then slice(rest, 1, size(rest)) else rest))
+
+// the hunks of the fragment lines code of a @patch, each a run of lines -, or one line -*, and the run of lines + right
+// after it, where a blank line ends a hunk; refuses a line that starts with neither - nor +, a line + that follows no
+// line -, a line -* in a run of several lines, and a hunk -* of several new lines
+procedure patch_hunks(in code: List[Str], out hunks: List[Hunk]) raises Refused :=
+  var open: Option[Hunk] := None
+  hunks := List()
+  for (line, i) in numbered(code) do
+    let n := i + 1
+    match (patch_marker(line), open)
+      case (None, _) =>
+        if not is_blank(line) then
+          raise Refused("@patch: fragment line " ++ show(n) ++ ", " ++ quote(line) ++ ", starts with neither - nor +, while a @patch takes hunks, each old lines that start with - and the new lines after them that start with +, the rest of each line taken as written, as\n" ++ patch_form())
+        end
+        hunks := hunks ++ List(for hunk in open yield hunk), open := None
+
+      case (Some(("+", text)), Some(hunk)) =>
+        open := Some(hunk with new := hunk.new ++ List(text), last := n)
+
+      case (Some(("+", _)), None) =>
+        raise Refused("@patch: fragment line " ++ show(n) ++ ", " ++ quote(line) ++ ", is a line + that follows no line -, while the new lines of a hunk follow its old lines")
+
+      case (Some((marker, text)), Some(hunk)) if hunk.new == List() =>
+        if hunk.every or marker == "-*" then
+          raise Refused("@patch: fragment line " ++ show(n) ++ ", " ++ quote(line) ++ ", follows a line - or -* right before it, while a line -* is a hunk of its own, whose text it replaces everywhere")
+        end
+        open := Some(hunk with old := hunk.old ++ List(text), last := n)
+
+      case (Some((marker, text)), _) =>
+        hunks := hunks ++ List(for hunk in open yield hunk), open := Some(Hunk(List(text), List(), marker == "-*", n, n))
+    end
+  end
+  hunks := hunks ++ List(for hunk in open yield hunk)
+  for hunk in hunks if hunk.every and (size(hunk.new) > 1 or is_blank(join("", hunk.old))) do
+    raise Refused("@patch: the hunk -* of fragment line " ++ show(hunk.first) ++ " replaces a text of one line, which it takes, by a new line or by nothing")
+  end
+
+// substitutes in texts, the parts of one target with their labels, the old lines by the new lines as whole lines, see
+// patch_block, else, for one old line, its text as a part of a line, which occurs at most once in each part; at is
+// where the old lines occur as whole lines, and found whether they occur
+procedure patch_hunk(
+  in  old: List[Str],
+      new: List[Str],
+      labels: List[Str],
+  out at: List[(Int, Int, Int)],
+      found: Bool,
+  ref texts: List[Str]
+) raises Refused :=
+  found := true
+  patch_block(in old, new, labels, out at, ref texts)
+  if at == List() then
+    let part := join("\n", List(for line in drop_blank(old) yield trim(line)))
+    let counts := List(for text in texts yield size(occurrences(text, part)))
+    if size(drop_blank(old)) != 1 or forall(counts, lambda n => n == 0) then
+      found := false
+    else
+      if is_once_each(counts) then
+        let replacement := join("\n", List(for line in drop_blank(new) yield trim(line)))
+        texts := List(for text in texts yield substituted(text, part, replacement))
+      else
+        raise Refused("@patch: the old text " ++ quote(part) ++ " occurs " ++ occurrence_text(counts, labels) ++ ", so it takes more of its line")
+      end
+    end
+  end
+
+// the end of the refusal of a @patch of the file path whose old lines, wanted without their indentation, occur nowhere
+// in the regions of lines that it searched: the hunk before it that changed them, if they occur in the texts of the
+// target before the hunks, original, else the earlier action of the script that removed them, else the declarations of
+// the file that have one old line, or the text of the target if old lines occur in the file outside it, else the line
+// of the target that starts most like the first old line, with the text of the target if some old lines occur in it
+procedure absent_context(
+  in  path: Str,
+      wanted: List[Str],
+      lines: Array[Str],
+      regions: List[Range],
+      original: List[Str],
+      edits: Edits,
+  out context: Str
+) raises Refused, OsError :=
+  let one := size(drop_blank(wanted)) == 1, text := join("", drop_blank(wanted))
+  let occurs := lambda ls: List[Str] => if one then
+    exists(ls, lambda l => index_of(text, l) != None)
+  else
+    block_starts(ls, wanted) != List()
+  context := ""
+  if exists(original, lambda t => occurs(split(t, '\n'))) then
+    context := ", which a hunk before it of this @patch changed"
+  else
+    earlier_action(in path, lambda before => occurs(split(before, '\n')), edits, out context)
+  end
+  if context == "" then
+    let searched := List(for region in regions for line in lines_in(lines, region) yield line)
+    let trimmed := List(for line in searched yield trim(line))
+    if occurs(List(for line in lines)) then
+      if one then
+        var current: Source, now: Str
+        current_text(in path, edits.files, out now)
+        parsed(in path, now, edits.files, no_fragment(), out current)
+        let d := main_mod(current)
+        let holders := distinct(List(for (key, cmd, _) in keyed(placed_of(d)) if index_of(text, join("\n", lines_in(lines, cmd_range(lines, cmd, 0, true)))) != None yield path ++ ":" ++ key_text(key)))
+        context := ", but in " ++ (if holders == List() then
+          "the lines of no declaration of " ++ path
+        else
+          join(", ", holders))
+      else
+        context := ", but in the file outside the target, which @patch " ++ path ++ " takes, while the target is:\n" ++ join("\n", searched)
+      end
+    else
+      for (n, line) in nearest_line(lines, regions, value_or(get_at(0, drop_blank(wanted)), "")) do
+        context := ", and the line of the target that starts most like " ++ (if one then "it" else "the first of them") ++ " is " ++ path ++ ":" ++ show(n) ++ ", " ++ quote(trim(line))
+      end
+      if not one and exists(wanted, lambda line => not is_blank(line) and contains(line, trimmed)) then
+        context := context ++ ", while some of them occur in the target, which is:\n" ++ join("\n", searched)
+      end
+    end
+  end
+
+// the note of a @patch whose text does not parse: the fragment lines that its hunks took as their new lines
+function new_lines_text(hunks: List[Hunk]): Str :=
+  example new_lines_text(List(Hunk(List("a"), List("b", "c"), false, 1, 3))) == "its new lines are fragment lines 2 to 3"
+  example new_lines_text(List(Hunk(List("a"), List(), false, 1, 1))) == "its hunks have no new lines"
+  let spans := List(for hunk in hunks if hunk.new != List() yield (hunk.last - size(hunk.new) + 1, hunk.last)) in
+  let texts := List(for (first, last) in spans yield if first == last then show(first) else show(first) ++ " to " ++ show(last)) in
+  if texts == List() then
+    "its hunks have no new lines"
+  else
+    "its new lines are fragment lines " ++ join(", ", texts)
 
 // the nodes of a declaration in new that an edit of old to new changed, each a span and the part of it that counts, of
 // nodes: the outermost that start on the lines that it changed, where a node starts at the comments that format places
@@ -2432,7 +2647,7 @@ procedure add_examples(
       raise Refused(path ++ " declares no function or procedure " ++ value_or(name, "") ++ ", whose spec @example writes")
 
     case _ =>
-      raise Refused("@example takes one declaration file.u:name[/arity], not " ++ word)
+      raise Refused(several_text("@example", word, path, List(for (key, _, c) in selected yield (key, c))))
   end
 
 // whether c has a spec, a function or procedure, its signature or definition
@@ -2472,125 +2687,6 @@ function decl_text(lines: Array[Str], d: Mod, key: Key): List[Str] :=
 function outside_text(lines: Array[Str], d: Mod): List[Str] :=
   List(for region in gaps(List(for (_, cmd, _) in keyed(placed_of(d)) yield cmd_range(lines, cmd, 0, true)), size(lines)) for line in lines_in(lines, region) if not is_blank(line) yield line)
 
-// substitutes in texts, the parts of one target with their labels, the line old => new, the line number of the fragment,
-// where old occurs in them and at most once in each, split at the last => at which it does, since => also occurs in code,
-// so that the old text that takes the most of the line wins, and a line old => with nothing after deletes old, as old =>
-// with a space does; absent is the old text of a line that splits at one => only, if it occurs nowhere, so that the
-// refusal can name the declarations of the file that have it, and split says where a line of several => split
-procedure patch_line(
-  in  line: Str,
-      number: Int,
-      labels: List[Str],
-  out absent: Option[Str],
-      split: Option[Str],
-  ref texts: List[Str]
-) raises Refused :=
-  let full := if ends_with(line, " =>") then line ++ " " else line
-  let every := line_splits(full, occurrences(full, " => "), texts), coded := line_splits(full, code_arrows(full, " => "), texts)
-  // an arrow in a string or char literal of the line splits it only if none outside them leaves an old text
-  let counts := if exists(coded, lambda (_, _, ns) => is_once_each(ns)) then coded else every
-  absent := None, split := None
-  match reverse(List(for (old, new, ns) in counts if is_once_each(ns) yield (old, new)))
-    case List((old, new); _) =>
-      if old == new then
-        raise Refused("@patch: fragment line " ++ show(number) ++ ", " ++ quote(line) ++ ", changes nothing")
-      end
-      if size(counts) > 1 then
-        split := Some("fragment line " ++ show(number) ++ " split at its last => that leaves an old text of the target, " ++ quote(old) ++ " => " ++ quote(new))
-      end
-      texts := List(for text in texts yield substituted(text, old, new))
-
-    case List() =>
-      match counts
-        case List((old, _, ns)) =>
-          if foldl(ns, 0, lambda a, b => a + b) == 0 then
-            absent := Some(old)
-          else
-            raise Refused("@patch: the old text " ++ quote(old) ++ " occurs " ++ occurrence_text(ns, labels) ++ ", so it takes more of its line")
-          end
-
-        case List() =>
-          raise Refused("@patch: fragment line " ++ show(number) ++ ", " ++ quote(line) ++ ", is no line old => new")
-
-        case _ =>
-          raise Refused("@patch: no old text of " ++ quote(line) ++ " occurs in the target and at most once in each of its parts, where a line is old => new")
-      end
-  end
-
-// substitutes in texts, the parts of one target, the line old =>* new, the line number of the fragment, at every
-// occurrence of old, split at its one =>* outside the literals of the line, where a line old =>* with nothing after
-// deletes every old, and replaced says how often; absent is old if it occurs nowhere, so that the refusal can name the
-// declarations of the file that have it
-procedure patch_every(
-  in  line: Str,
-      number: Int,
-  out absent: Option[Str],
-      replaced: Option[Str],
-  ref texts: List[Str]
-) raises Refused :=
-  let full := line ++ " "
-  absent := None, replaced := None
-  match code_arrows(full, " =>* ")
-    case List(i) =>
-      let old := slice(full, 0, i), new := trim(slice(full, i + 5, size(full)))
-      let count := foldl(List(for text in texts yield size(occurrences(text, old))), 0, lambda a, b => a + b)
-      if is_blank(old) then
-        raise Refused("@patch: fragment line " ++ show(number) ++ ", " ++ quote(line) ++ ", is no line old =>* new")
-      end
-      if old == new then
-        raise Refused("@patch: fragment line " ++ show(number) ++ ", " ++ quote(line) ++ ", changes nothing")
-      end
-      if count == 0 then
-        absent := Some(old)
-      else
-        texts := List(for text in texts yield substituted(text, old, new))
-        replaced := Some("replaced " ++ quote(old) ++ " " ++ counted(count, "time"))
-      end
-
-    case _ =>
-      raise Refused("@patch: fragment line " ++ show(number) ++ ", " ++ quote(line) ++ ", has several =>* outside its literals, while a line old =>* new replaces every old by new")
-  end
-
-// the splits of line at the offsets of its arrows into the old and the new text, with the occurrences of the old text
-// in each of texts
-function line_splits(line: Str, arrows: List[Int], texts: List[Str]): List[(Str, Str, List[Int])] :=
-  example line_splits("a => b", List(1), List("xa", "aa")) == List(("a", "b", List(1, 2)))
-  List(for i in arrows yield (slice(line, 0, i), slice(line, i + 4, size(line)), List(for text in texts yield size(occurrences(text, slice(line, 0, i))))))
-
-// the offsets of the arrows of a line of code outside its string and char literals, read from the start of the line,
-// where an arrow is " => " or " =>* " with its spaces
-function code_arrows(line: Str, arrow: Str): List[Int] :=
-  example code_arrows("f(\"a => b\") => g('\"')", " => ") == List(11)
-  example code_arrows("a => b => c", " => ") == List(1, 6)
-  example code_arrows("a =>* b", " => ") == List()
-  example code_arrows("\" =>* \" =>* b", " =>* ") == List(7)
-  let quoted := Array(for inside in in_literals(chars(line), false)) in
-  List(for i in occurrences(line, arrow) if not value_or(get(i + 1, quoted), false))
-
-// whether each of the characters cs lies in a string or char literal, where quoted says whether they start in a string
-function in_literals(cs: List[Char], quoted: Bool): List[Bool] :=
-  example in_literals(chars("a\"=\\\"\"b"), false) == List(false, true, true, true, true, true, false)
-  example in_literals(chars("'\"'x"), false) == List(true, true, true, false)
-  match cs
-    case List('\\', _; rest) if quoted =>
-      List(true, true; in_literals(rest, true))
-
-    case List('"'; rest) =>
-      List(true; in_literals(rest, not quoted))
-
-    case List('\'', '\\', _, '\''; rest) if not quoted =>
-      List(true, true, true, true; in_literals(rest, false))
-
-    case List('\'', _, '\''; rest) if not quoted =>
-      List(true, true, true; in_literals(rest, false))
-
-    case List(_; rest) =>
-      List(quoted; in_literals(rest, quoted))
-
-    case List() =>
-      List()
-  end
-
 // whether counts, of the occurrences of a text in each part of a target, say that it occurs in one at least and at most
 // once in each
 function is_once_each(counts: List[Int]): Bool :=
@@ -2607,39 +2703,6 @@ function occurrence_text(counts: List[Int], labels: List[Str]): Str :=
   let places := List(for label in distinct(labels) yield (label, foldl(List(for (n, l) in zip(counts, labels) if l == label yield n), 0, lambda a, b => a + b))) in
   let found := List(for (label, n) in places if n > 0 yield show(n) ++ " in " ++ label) in
   show(total) ++ " times in the target" ++ (if size(places) == 1 then "" else ", " ++ join(" and ", found))
-
-// the refusal of a @patch whose old text occurs nowhere in its target, with the declarations of the file of lines,
-// whose module is d, that have it
-function nowhere_text(path: Str, old: Str, lines: Array[Str], d: Mod): Str :=
-  let holders := distinct(List(for (key, cmd, _) in keyed(placed_of(d)) if index_of(old, join("\n", lines_in(lines, cmd_range(lines, cmd, 0, true)))) != None yield path ++ ":" ++ key_text(key))) in
-  "@patch: the old text " ++ quote(old) ++ " occurs nowhere in the target" ++ (if holders == List() then "" else ", but in " ++ join(", ", holders))
-
-// the end of the refusal of a @patch of the file path whose old lines, wanted without their indentation, occur in none of
-// the regions of lines that it searched: the earlier action of the script that removed them, else the text of the
-// target if they occur in the file outside it or some of them in it
-procedure block_context(
-  in  path: Str,
-      wanted: List[Str],
-      lines: Array[Str],
-      regions: List[Range],
-      edits: Edits,
-  out context: Str
-) :=
-  earlier_action(in path, lambda before => block_starts(split(before, '\n'), wanted) != List(), edits, out context)
-  if context == "" then
-    let searched := List(for region in regions for line in lines_in(lines, region) yield line)
-    let trimmed := List(for line in searched yield trim(line))
-    if block_starts(List(for line in lines), wanted) != List() then
-      context := ", but in the file outside the target, which @patch " ++ path ++ " takes, while the target is:\n" ++ join("\n", searched)
-    else
-      for (n, line) in nearest_line(lines, regions, value_or(get_at(0, drop_blank(wanted)), "")) do
-        context := ", and the line of the target that starts most like the first of them is " ++ path ++ ":" ++ show(n) ++ ", " ++ quote(trim(line))
-      end
-      if exists(wanted, lambda line => not is_blank(line) and contains(line, trimmed)) then
-        context := context ++ ", while some of them occur in the target, which is:\n" ++ join("\n", searched)
-      end
-    end
-  end
 
 // the line of lines within regions whose start without its indentation is the longest start of wanted, by its number,
 // unless none shares a character with it, where the first of the lines wins
@@ -2674,12 +2737,13 @@ procedure earlier_action(
     end
   end
 
-// substitutes in texts, the parts of one target with their labels, the lines old by the lines new, at the indentation of
-// the first old line, where old occurs as consecutive whole lines, compared without their indentation, at most once in
-// each part, and else, if it occurs so in none, where its first line is the end of a line and its last the start of one,
-// whose rest stays; a line ... of the old lines stands for the lines between those before it and after it, the nearest
-// after, and one of the new lines for where they go, so that a region is wrapped without repeating it; at is the index
-// of each part where it occurs, its line in it, from 0, and the number of its lines, empty if it occurs in none
+// substitutes in texts, the parts of one target with their labels, the lines old by the lines new, at the indentation
+// of the first old line, where old occurs as consecutive whole lines, compared without their indentation, at most once
+// in each part, and else, if it occurs so in none, where its first line is the end of a line and its last the start of
+// one, whose rest stays; a line ... of the old lines stands for the lines between those before it and after it, the
+// nearest after, written -..., and one of the new lines, +..., for where they go, so that a region is wrapped without
+// repeating it; at is the index of each part where it occurs, its line in it, from 0, and the number of its lines,
+// empty if it occurs in none
 procedure patch_block(
   in  old: List[Str],
       new: List[Str],
@@ -2689,28 +2753,25 @@ procedure patch_block(
 ) raises Refused :=
   let wanted := List(for line in old yield trim(line))
   if is_blank(join("", wanted)) then
-    raise Refused("@patch: a fragment with a line => alone takes the old lines before it")
-  end
-  if wanted == List(for line in new yield trim(line)) then
-    raise Refused("@patch: the lines before => and after it are the same, so the patch changes nothing")
+    raise Refused("@patch: the old lines of a hunk are blank, while they say what it replaces")
   end
   let marks := List(for (line, i) in numbered(wanted) if is_ellipsis(line) yield i)
   let tail := map_option(get_at(0, marks), lambda m => drop(m + 1, wanted))
   let head := take(value_or(get_at(0, marks), size(wanted)), wanted)
   if size(marks) > 1 then
-    raise Refused("@patch: the old lines have " ++ show(size(marks)) ++ " lines ..., while one stands for the lines between the old lines before it and after it")
+    raise Refused("@patch: the old lines have " ++ show(size(marks)) ++ " lines -..., while one stands for the old lines between those before it and after it")
   end
   for rest in tail do
     if is_blank(join("", head)) or is_blank(join("", rest)) then
-      raise Refused("@patch: the line ... of the old lines stands for the lines between the old lines before it and after it, so it takes both")
+      raise Refused("@patch: a line -... stands for the old lines between those before it and after it, so it takes both")
     end
   end
   let new_marks := size(List(for line in new if is_ellipsis(line) yield line))
   if new_marks != size(marks) then
     if marks == List() then
-      raise Refused("@patch: a line ... of the new lines stands for the lines that a line ... of the old lines skips, which the old lines have none of")
+      raise Refused("@patch: a line +... stands for the lines that a line -... skips, which the old lines have none of")
     else
-      raise Refused("@patch: the line ... of the old lines stands for the lines between them, so the new lines take one line ... where those lines go, not " ++ show(new_marks))
+      raise Refused("@patch: a line -... stands for the old lines between those around it, so the new lines take one line +... where those lines go, not " ++ show(new_marks))
     end
   end
   let arrays := List(for text in texts yield Array(for line in split(text, '\n')))
@@ -2720,7 +2781,7 @@ procedure patch_block(
   else
     whole
   if not forall(found, lambda ms => size(ms) <= 1) then
-    raise Refused("@patch: the old lines, " ++ quote(join("\n", wanted)) ++ ", occur " ++ occurrence_text(List(for ms in found yield size(ms)), labels))
+    raise Refused("@patch: the old lines, " ++ quote(join("\n", wanted)) ++ ", occur " ++ occurrence_text(List(for ms in found yield size(ms)), labels) ++ ", so they take more of the lines around them")
   end
   at := List(for (ms, j) in numbered(found) for m in ms yield (j, m.start, m.count))
   texts := List(for (text, i) in numbered(texts) yield match get_at(i, found)
@@ -2831,33 +2892,6 @@ function joined_ends(lines: List[Str], lead: Str, trail: Str, depth: Int): List[
             List()
         end
     end
-
-// the note of a refused block of a fragment of the lines code, whose line => alone is at the index block: the lines of
-// the fragment that it took as its new lines, which run to the end of the fragment, and those of them that read as
-// lines old => new
-function block_note(code: List[Str], block: Option[Int]): List[Str] :=
-  example block_note(List("a", "=>", "b", "c => d", ""), Some(1)) == List(
-      "its block took fragment lines 3 to 4 as its new lines, which run to the end of the fragment, also line 4, \"c => d\", which a @patch of its own takes as a line old => new")
-  example block_note(List("a => b"), None) == List()
-  match block
-    case Some(i) =>
-      let news := List(for (line, n) in numbered(code) if n > i and not is_blank(line) yield (n + 1, line)) in
-      let arrows := List(for (n, line) in news if code_arrows(line, " => ") != List() yield "line " ++ show(n) ++ ", " ++ quote(trim(line))) in
-      match (news, reverse(news))
-        case (List((first, _); _), List((last, _); _)) =>
-          List(
-            "its block took fragment lines " ++ show(first) ++ " to " ++ show(last) ++ " as its new lines, which run to the end of the fragment" ++ (if arrows == List() then
-              ""
-            else
-              ", also " ++ join(", ", arrows) ++ ", which a @patch of its own takes as a line old => new"))
-
-        case _ =>
-          List()
-      end
-
-    case None =>
-      List()
-  end
 
 // the indices, from 0, at which lines continue with the lines wanted, compared without their indentation
 function block_starts(lines: List[Str], wanted: List[Str]): List[Int] :=
@@ -3733,7 +3767,7 @@ procedure export_target(in word: Str, ref edits: Edits) raises Refused, OsError 
       raise Refused(path ++ " declares no " ++ value_or(name, "declaration") ++ " to export")
 
     case _ =>
-      raise Refused(path ++ " declares " ++ join(", ", List(for (key, _, _) in selected yield key_text(key))) ++ ", so name one by its arity")
+      raise Refused(several_text("@export", word, path, List(for (key, _, c) in selected yield (key, c))))
   end
 
 // where @export puts the new signature of the declaration cmd of the implementation of d: after that of the exported
@@ -3834,7 +3868,7 @@ procedure unexport_target(
       raise Refused(path ++ " exports no " ++ value_or(name, "declaration"))
 
     case _ =>
-      raise Refused(path ++ " exports " ++ join(", ", List(for (key, _, _) in exported yield key_text(key))) ++ ", so name one by its arity")
+      raise Refused(several_text("@unexport", word, path, List(for (key, _, c) in exported yield (key, c))))
   end
 
 // a splice of a text, the characters from start to stop replaced by text, which fixes the warnings of fixed
