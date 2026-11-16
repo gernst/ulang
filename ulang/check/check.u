@@ -640,9 +640,9 @@ function has_arity(scs: List[Scheme], k: Int): Bool :=
 function bind(xs: List[Var]): Env :=
   List(for x in xs yield (x.name, Local(x.typ, true, false)))
 
-// the variables xs bound to value, which bound_lambda marks if it is a lambda
+// the variables xs bound to value, which bound_lambda marks if it is a function lambda, whose calls are applications
 function bind_value(xs: List[Var], value: At[Expr]): Env :=
-  List(for x in xs yield (x.name, Local(x.typ, true, is_lambda(value))))
+  List(for x in xs yield (x.name, Local(x.typ, true, is_function_lambda(value))))
 
 // no local of xs hides one of env, except those of the translations, whose names users cannot write, such as (acc) and
 // (item), which nest
@@ -3341,17 +3341,29 @@ procedure checks_args(
   out typed_args: List[At[Expr]],
   ref s: State
 ) :=
+  checks_lambdas_last(in env, List(for i in range(0, size(args)) yield "argument " ++ show(i + 1) ++ " of the call"), args, ps, out typed_args, ref s)
+
+// the exprs checked against the types ts, each named by its text of whats in a mismatch, the lambdas last, since they
+// take the types of their formals from the others, as the arguments of a function or the ins of a procedure
+procedure checks_lambdas_last(
+  in  env: Env,
+      whats: List[Str],
+      exprs: List[At[Expr]],
+      ts: List[Type],
+  out typed_exprs: List[At[Expr]],
+  ref s: State
+) :=
   var typed: Map[Int, At[Expr]] := Map(), x: At[Expr]
-  let indexed := zip(zip(args, ps), range(0, size(args)))
-  for ((a, p), i) in indexed if not is_lambda(a) do
-    check(in env, a, p, "argument " ++ show(i + 1) ++ " of the call", out x, ref s)
+  let indexed := zip(zip(zip(exprs, ts), whats), range(0, size(exprs)))
+  for (((e, t), what), i) in indexed if not is_lambda(e) do
+    check(in env, e, t, what, out x, ref s)
     typed := put(i, x, typed)
   end
-  for ((a, p), i) in indexed if is_lambda(a) do
-    check(in env, a, p, "argument " ++ show(i + 1) ++ " of the call", out x, ref s)
+  for (((e, t), what), i) in indexed if is_lambda(e) do
+    check(in env, e, t, what, out x, ref s)
     typed := put(i, x, typed)
   end
-  typed_args := List(for (a, i) in zip(args, range(0, size(args))) yield value_or(get(i, typed), a))
+  typed_exprs := List(for (e, i) in zip(exprs, range(0, size(exprs))) yield value_or(get(i, typed), e))
 
 // the arguments in order, except the lambdas, which get an unknown type and wait until the type of the function is
 // known, so that the formals of a lambda have the types that the function expects, see infers_lambdas
@@ -3464,11 +3476,25 @@ function typed_formal(pat: At[Pat], t: Type): At[Pat] :=
 
 function is_lambda(e: At[Expr]): Bool :=
   match e
+    case AOk(_, _, ELam(_, _)) | AOk(_, _, EProc(_, _, _, _, _)) =>
+      true
+    case _ =>
+      false
+  end
+
+// a lambda of a function, whose calls are applications, unlike those of a procedure lambda
+function is_function_lambda(e: At[Expr]): Bool :=
+  match e
     case AOk(_, _, ELam(_, _)) =>
       true
     case _ =>
       false
   end
+
+// the formals decls of a procedure lambda, those without a type typed by ts, the formals of their mode of the procedure
+// type that the lambda is expected to have
+function typed_proc_formals(decls: List[At[Var]], ts: List[Type]): List[At[Var]] :=
+  List(for (d, t) in zip(decls, ts) yield if d.that.typ == THole then d with that := Var(d.that.name, t) else d)
 
 // the lambdas among exprs, whose types are those in types, inferred with the formals that have no type typed by the
 // parameters of the function type there, if it is known, where res are the other exprs as infers_first typed them
@@ -3510,6 +3536,9 @@ procedure infer_lambda(
       lambda_patterns(in env, formals, ps, body, out x, u, ref s)
       take_errors(in expr.pos, before, out errors, ref s)
       typed_expr := checked_at(expr.pos, expr.span, x, errors), s := s with at := outer
+
+    case (EProc(ins, outs, refs, raised, stmt), TProc(is, os, rs, _)) if size(is) == size(ins) and size(os) == size(outs) and size(rs) == size(refs) =>
+      infer(in env, expr with that := EProc(typed_proc_formals(ins, is), typed_proc_formals(outs, os), typed_proc_formals(refs, rs), raised, stmt), out typed_expr, u, ref s)
 
     // of a call of an unknown function or of one of another arity, whose formals are TError, so that their uses make no
     // follow-ups
@@ -4629,7 +4658,8 @@ procedure call_declared(
       overloaded_call(in env, assignable, p, qs, ins, outs, refs, out stmt, ref s)
   end
 
-// a call of one of the procedures qs, by the types of its arguments, where the arguments are inferred first
+// a call of one of the procedures qs, by the types of its arguments, where the arguments are inferred first, but the
+// lambdas, which then take the types of their formals from the chosen procedure, if it is known, see infers_lambdas
 procedure overloaded_call(
   in  env: Env,
       assignable: List[Name],
@@ -4643,10 +4673,11 @@ procedure overloaded_call(
 ) :=
   var typed_ins: List[At[Expr]], is: List[Type], typed_outs: List[Var], typed_refs: List[Var], m: Name
   unique(in "out or ref", List(for x in outs ++ refs if not is_dropped(x) yield x.name), ref s)
-  infers(in env, ins, out typed_ins, is, ref s)
+  infers_first(in env, ins, out typed_ins, is, ref s)
   out_variables(in env, assignable, outs, out typed_outs, ref s)
   variables(in env, assignable, refs, out typed_refs, ref s)
   choose(in p, List(for q in qs yield (q, proc_scheme(s.sig, q))), TProc(is, List(for x in typed_outs yield x.typ), List(for x in typed_refs yield x.typ), RPending), out m, ref s)
+  infers_lambdas(in env, ins, is, ref typed_ins, s)
   stmt := SCall(m, typed_ins, typed_outs, typed_refs)
 
 procedure declared_call(
@@ -4666,7 +4697,7 @@ procedure declared_call(
       instance(in proc.params, out m, ref s)
       unique(in "out or ref", List(for x in outs ++ refs if not is_dropped(x) yield x.name), ref s)
       if size(proc.ins) == size(ins) and size(proc.outs) == size(outs) and size(proc.refs) == size(refs) then
-        checks(in env, "procedure " ++ q.base, ins, List(for t in proc.ins yield subst(t, m)), out typed_ins, ref s)
+        checks_lambdas_last(in env, replicate(size(ins), "procedure " ++ q.base), ins, List(for t in proc.ins yield subst(t, m)), out typed_ins, ref s)
         out_variables(in env, assignable, outs, out typed_outs, ref s)
         variables(in env, assignable, refs, out typed_refs, ref s)
         unifies_toward(in From, List(for x in typed_outs yield x.typ), List(for t in proc.outs yield subst(t, m)), ref s)

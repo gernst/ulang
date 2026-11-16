@@ -3,3 +3,16 @@
 
 test program_sees_members() :=
   assert is_even(10) and is_odd(7) and size(Even(1) <+> Even(1)) == 4 and size(Odd(1) <*> Odd(1)) == 9
+
+// a call of a procedure that the members overload chooses by the ins that are no lambdas, which then take the types of
+// their formals from it
+test overloaded_procedure_types_lambda() :=
+  var n: Int
+  measured(in lambda in e, out k =>
+    k := e.half
+  end, Even(3), out n)
+  assert n == 3
+  measured(in lambda in o, out k =>
+    k := o.half + 1
+  end, Odd(3), out n)
+  assert n == 4
