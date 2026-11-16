@@ -124,7 +124,7 @@ test patch_refusals() :=
   run_script(in "@patch " ++ path ++ ":g\nf(x) => f(x + 1)\n", false, state, no_diagnostics, out reply, status, _)
   assert status == 1 and reply == List(
     "rejected",
-    "@patch: the old text \"f(x)\" occurs 2 times in the target, its signature and definition alike, so it takes more of its line")
+    "@patch: the old text \"f(x)\" occurs 2 times in the target, so it takes more of its line")
   run_script(in "@patch " ++ path ++ ":p\ny := 1\n=>\ny := 3\ny := y + 2\n=>\ny := y + 4\n", false, state, no_diagnostics, out reply, status, _)
   assert status == 1 and reply == List(
     "rejected",
@@ -133,3 +133,73 @@ test patch_refusals() :=
   os_read_utf8(in path, out text)
   assert status == 0
   assert text == "function f(x: Int): Int :=\n  x\n\nfunction g(x: Int): Int :=\n  f(x) + f(x)\n\nprocedure p(out y: Int) :=\n  y := 1\n  y := y + 2\n"
+
+// a text that occurs once in the signature and once in the definition is patched in both, and one that occurs more
+// often in one of them is refused with where it occurs
+test patches_both_heads() :=
+  var reply: List[Str], status: Int, text: Str
+  let state := "out/test/refactor/declarations/heads", path := "out/test/refactor/declarations/heads.u"
+  os_write_utf8(in path, "export\n\nfunction repeat(s: Str, n: Int): Str\n\nimplementation\n\nfunction repeat(s: Str, n: Int): Str :=\n  if n <= 0 then \"\" else s ++ repeat(s, n - 1)\n")
+  run_script(in "@patch " ++ path ++ ":repeat\nrepeat(s: Str, n: Int) => repeat(n: Int, s: Str)\nrepeat(s, n - 1) => repeat(n - 1, s)\n", false, state, no_diagnostics, out reply, status, _)
+  os_read_utf8(in path, out text)
+  assert status == 0
+  assert text == "export\n\nfunction repeat(n: Int, s: Str): Str\n\nimplementation\n\nfunction repeat(n: Int, s: Str): Str :=\n  if n <= 0 then \"\" else s ++ repeat(n - 1, s)\n"
+  run_script(in "@patch " ++ path ++ ":repeat\nStr => Text\n", false, state, no_diagnostics, out reply, status, _)
+  assert status == 1 and reply == List(
+    "rejected",
+    "@patch: the old text \"Str\" occurs 4 times in the target, 2 in its signature and 2 in its definition, so it takes more of its line")
+
+// a line of several => splits at the last that leaves an old text of the target, so lines of a case, a lambda, and a
+// map patch by lines, and a split that breaks the parse is named in the refusal
+test patches_arrows() :=
+  var reply: List[Str], status: Int, text: Str
+  let state := "out/test/refactor/declarations/arrows", path := "out/test/refactor/declarations/arrows.u"
+  os_write_utf8(in path, "function pick(o: Option[Int]): Int :=\n  match o\n    case Some(x) =>\n      x\n    case None =>\n      0\n  end\n\nfunction h(xs: List[Int]): Bool :=\n  exists(xs, lambda d => d > 0)\n\nfunction m(k: Int): Map[Int, Int] :=\n  Map(k => 1)\n")
+  run_script(in "@patch " ++ path ++ ":pick\ncase None => => case _ =>\n@patch " ++ path ++ ":h\nlambda d => d > 0 => lambda d => d > 1\n@patch " ++ path ++ ":m\nMap(k => 1) => Map(k => 2)\n", false, state, no_diagnostics, out reply, status, _)
+  os_read_utf8(in path, out text)
+  assert status == 0
+  assert text == "function pick(o: Option[Int]): Int :=\n  match o\n    case Some(x) =>\n      x\n    case _ =>\n      0\n  end\n\nfunction h(xs: List[Int]): Bool :=\n  exists(xs, lambda d => d > 1)\n\nfunction m(k: Int): Map[Int, Int] :=\n  Map(k => 2)\n"
+  run_script(in "@patch " ++ path ++ ":pick\ncase _ => 0 => case _ => 1\n", false, state, no_diagnostics, out reply, status, _)
+  assert status == 1 and exists(reply, lambda line => ends_with(line, "\nfragment line 1 split at its last => that leaves an old text of the target, \"case _\" => \"0 => case _ => 1\""))
+
+// @patch of a file patches each declaration that has the old text once, and the lines of no declaration, the header
+// above the imports included, naming what it changed, while a block of old lines may span declarations
+test patches_files() :=
+  var reply: List[Str], status: Int, text: Str
+  let state := "out/test/refactor/declarations/files", path := "out/test/refactor/declarations/files.u"
+  os_write_utf8(in path, "// tools of old.md\n\nexport\n\n// see old.md\nfunction f(x: Int): Int\n\nimplementation\n\nfunction f(x: Int): Int :=\n  x + 1\n\n// also old.md\nfunction g(x: Int): Int :=\n  x + 1\n\nfunction k(): Int :=\n  0\n")
+  run_script(in "@patch " ++ path ++ "\nold.md => new.md\nx + 1 => x + 2\n", false, state, no_diagnostics, out reply, status, _)
+  os_read_utf8(in path, out text)
+  assert status == 0
+  assert text == "// tools of new.md\n\nexport\n\n// see new.md\nfunction f(x: Int): Int\n\nimplementation\n\nfunction f(x: Int): Int :=\n  x + 2\n\n// also new.md\nfunction g(x: Int): Int :=\n  x + 2\n\nfunction k(): Int :=\n  0\n"
+  assert take(2, reply) == List(
+    "applied, clean",
+    path ++ ": patched f/1, g/1, the lines of no declaration")
+  run_script(in "@patch " ++ path ++ "\n  x + 2\n=>\n  x + 3\n", false, state, no_diagnostics, out reply, status, _)
+  assert status == 1 and reply == List(
+    "rejected",
+    "@patch: the old lines, \"x + 2\", occur 2 times in the target")
+  run_script(in "@patch " ++ path ++ "\n// also new.md\nfunction g(x: Int): Int :=\n  x + 2\n\nfunction k(): Int :=\n=>\nfunction k(): Int :=\n", false, state, no_diagnostics, out reply, status, _)
+  os_read_utf8(in path, out text)
+  assert status == 0 and take(2, reply) == List("applied, clean", path ++ ": patched g/1")
+  assert text == "// tools of new.md\n\nexport\n\n// see new.md\nfunction f(x: Int): Int\n\nimplementation\n\nfunction f(x: Int): Int :=\n  x + 2\n\nfunction k(): Int :=\n  0\n"
+
+// a @patch whose old lines an earlier action of the script removed names that action, and one whose old lines lie
+// outside its target shows the target that it searched and the file that has them
+test patches_after_drops() :=
+  var reply: List[Str], status: Int, text: Str
+  let state := "out/test/refactor/declarations/dropped", path := "out/test/refactor/declarations/dropped.u"
+  os_write_utf8(in path, "export\n\n// the datatypes\nfunction a(): Int\n\nfunction b(): Int\n\nimplementation\n\nfunction a(): Int :=\n  1\n\nfunction b(): Int :=\n  2\n")
+  let block := "// the datatypes\nfunction a(): Int\n\nfunction b(): Int\n=>\n// both\nfunction b(): Int\n"
+  run_script(in "@drop " ++ path ++ ":a\n@patch " ++ path ++ ":b\n" ++ block, false, state, no_diagnostics, out reply, status, _)
+  assert status == 1 and reply == List(
+    "rejected",
+    "@patch: the old lines, \"// the datatypes\\nfunction a(): Int\\n\\nfunction b(): Int\", occur in no line of the target as whole lines, which the file had before an earlier action of the script, " ++ path ++ ": dropped a/0 (export and implementation)")
+  run_script(in "@patch " ++ path ++ ":b\n" ++ block, false, state, no_diagnostics, out reply, status, _)
+  assert status == 1 and reply == List(
+    "rejected",
+    "@patch: the old lines, \"// the datatypes\\nfunction a(): Int\\n\\nfunction b(): Int\", occur in no line of the target as whole lines, but in the file outside the target, which @patch " ++ path ++ " takes, while the target is:\nfunction b(): Int\nfunction b(): Int :=\n  2")
+  run_script(in "@patch " ++ path ++ "\n" ++ block, false, state, no_diagnostics, out reply, status, _)
+  os_read_utf8(in path, out text)
+  assert status == 0 and take(2, reply) == List("applied, clean", path ++ ": patched a/0, b/0")
+  assert text == "export\n\n// both\nfunction b(): Int\n\nimplementation\n\nfunction a(): Int :=\n  1\n\nfunction b(): Int :=\n  2\n"
