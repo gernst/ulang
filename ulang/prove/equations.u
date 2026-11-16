@@ -101,7 +101,7 @@ function hits_equations(decls: Decls, q: Partial, values: List[(Int, Term)], cas
       List()
 
     case List(hit; rest) =>
-      let br := at(hit.row, from_list(cases)) in
+      let br := at(hit.row, cases) in
       let body := at_leaf(values, beta(hit.bindings, br.body)) in
       match br.guard
         case Some(g) =>

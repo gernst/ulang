@@ -30,6 +30,21 @@ function at[A](i: Int, xs: List[A]): A :=
   example at(1, List('a', 'b')) == 'b'
   example at(2, List('a', 'b')) raises OutOfBounds(2, 2)
 
+// the element at index i, from 0, as an option, which is None out of range, as get of arrays and strings gives it
+function get_at[A](i: Int, xs: List[A]): Option[A] :=
+  example get_at(1, List('a', 'b')) == Some('b')
+  example get_at(2, List('a', 'b')) == None
+  example get_at(-1, List('a', 'b')) == None
+
+// the one element of xs, if it has one
+function sole[A](xs: List[A]): Option[A] :=
+  example sole(List(1)) == Some(1)
+  example sole(List(1, 2)) == None
+
+// the number of the elements at the start of xs and ys that they share
+function common_prefix[A](xs: List[A], ys: List[A]): Int :=
+  example common_prefix(List("a", "b"), List("a", "c")) == 1
+
 // the longest prefix of xs whose elements satisfy p, and what follows it
 function take_while[A](xs: List[A], p: A -> Bool): List[A] :=
   example take_while(List(1, 2, 3, 1), lambda x => x < 3) == List(1, 2)
@@ -466,4 +481,28 @@ function at[A](i: Int, xs: List[A]): A :=
       x
     case _ =>
       at(i, from_list(xs))
+  end
+
+function get_at[A](i: Int, xs: List[A]): Option[A] :=
+  match drop(i, xs)
+    case List(x; _) if i >= 0 =>
+      Some(x)
+    case _ =>
+      None
+  end
+
+function sole[A](xs: List[A]): Option[A] :=
+  match xs
+    case List(x) =>
+      Some(x)
+    case _ =>
+      None
+  end
+
+function common_prefix[A](xs: List[A], ys: List[A]): Int :=
+  match (xs, ys)
+    case (List(x; xs_), List(y; ys_)) if x == y =>
+      1 + common_prefix(xs_, ys_)
+    case _ =>
+      0
   end

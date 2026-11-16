@@ -147,7 +147,7 @@ function step_gaps(w: Walk, scope: Scope, step: StepTerm): (Scope, List[Gap]) :=
     // a value
     case CallTerm(name, args, outs, pos) =>
       let terms := List(for a in args yield opened(scope, a)) in
-      let levels := List(for i in outs yield at(i, from_list(scope.env))) in
+      let env := from_list(scope.env), levels := List(for i in outs yield at(i, env)) in
       match called(w, scope, name, terms)
         case Some(Seq(_, atoms, List(Concl(_, List(Atom(concl)))))) =>
           let required := List(for a in atoms for t in atom_term(a) for g in closing(w, scope, beta(terms, t), pos) yield g) in
@@ -162,7 +162,7 @@ function step_gaps(w: Walk, scope: Scope, step: StepTerm): (Scope, List[Gap]) :=
       end
 
     case AssignTerm(witness, value, _) =>
-      let l := at(witness, from_list(scope.env)) in
+      let l := at(witness, scope.env) in
       (scope with facts := scope.facts ++ List(Atom(Eq(ELevel(l), opened(scope, value)))), outs := List(for o in scope.outs if o != l yield o), List())
 
     case UnsupportedTerm(what, pos) =>
@@ -228,7 +228,7 @@ function sequent(scope: Scope, c: Term): Seq :=
 function split_gaps(w: Walk, scope: Scope, split: SplitTerm): List[Gap] :=
   match split
     case InductionTerm(p, cases, pos) =>
-      match at(p, from_list(scope.vars)).typ
+      match at(p, scope.vars).typ
         case TInt() =>
           int_gaps(w, scope, cases, p, pos)
 
@@ -259,7 +259,7 @@ function split_gaps(w: Walk, scope: Scope, split: SplitTerm): List[Gap] :=
 // witnesses (next)x, at which inv holds; and the proof after continues at havoc from inv and not cond
 function invariant_gaps(w: Walk, scope: Scope, vars: List[Int], havoc: List[Var], inv: Term, cond: Term, body: ProofTerm, after: ProofTerm, pos: Pos): List[Gap] :=
   let around := List(for l in reverse(scope.env) yield ELevel(l)) in
-  let before := List(for i in vars yield ELevel(at(i, from_list(scope.env)))) in
+  let env := from_list(scope.env), before := List(for i in vars yield ELevel(at(i, env))) in
   let k := size(scope.vars), n := size(havoc), nexts := range(k + n, k + 2 * n) in
   let fresh := List(for l in range(k, k + n) yield ELevel(l)), next := List(for l in nexts yield ELevel(l)) in
   let holds := Atom(beta(around ++ fresh, inv)), guard := beta(around ++ fresh, cond) in

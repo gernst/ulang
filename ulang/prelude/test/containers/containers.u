@@ -1,6 +1,6 @@
-// containers: the interface that lists, sets, maps, arrays, and strings share, conversions named after the type they
-// convert into, ++ and -- of two of a kind, where -- of a map takes a set of keys, and {x; s} and {k => v; m}, which add
-// to a set or map, and the literals and comprehensions of lists, sets, and maps
+// containers: the interface that lists, sets, maps, arrays, and strings share, conversions by the forms of the type
+// they convert into, ++ and -- of two of a kind, where -- of a map takes a set of keys, and Set(x; s) and Map(k => v;
+// m), which add to a set or map, and the literals and comprehensions of lists, sets, and maps
 
 test conversions() :=
   assert List(for x in Set(for x in List(3, 1, 2, 1))) == List(1, 2, 3) and Set(for x in List(for x in Set(2, 1))) == Set(1, 2)

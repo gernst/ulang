@@ -87,6 +87,13 @@ function first[A, B](p: (A, B)): A
 
 function second[A, B](p: (A, B)): B
 
+// whether part occurs in s, where the empty part occurs in every string, declared here since str declares the
+// contains of a character, and a module overloads a name only by arity
+function contains(part: Str, s: Str): Bool :=
+  example contains("ll", "hello")
+  example not contains("lo!", "hello")
+  example contains("", "")
+
 builtin
 
 type Bool
@@ -179,3 +186,6 @@ function second[A, B](p: (A, B)): B :=
 test arithmetic() :=
   assert abs(-3) == 3 and abs(3) == 3 and gcd(12, -18) == 6 and gcd(0, 5) == 5 and gcd(0, 0) == 0
   assert first((1, "a")) == 1 and second((1, "a")) == "a"
+
+function contains(part: Str, s: Str): Bool :=
+  index_of(part, s) != None

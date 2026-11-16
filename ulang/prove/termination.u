@@ -163,7 +163,7 @@ function hits_calls(decls: Decls, names: List[(Name, Int)], cases: List[TermBran
       List()
 
     case List(hit; rest) =>
-      let br := at(hit.row, from_list(cases)) in
+      let br := at(hit.row, cases) in
       let body := beta(hit.bindings, br.body) in
       match br.guard
         case Some(g) =>
@@ -192,7 +192,7 @@ function measure_slots(decls: Decls, names: List[(Name, Int)]): List[Slot] :=
 
     case _ =>
       let n := value_or(foldl(formals, None, lambda least, fs => Some(min(value_or(least, size(fs)), size(fs)))), 0) in
-      let common := List(for i in range(0, n) if forall(formals, lambda fs => is_datatype(decls, at(i, from_list(fs)).typ)) yield Slot(List(for fs in formals yield Size(EBound(size(fs) - 1 - i))), false)) in
+      let common := List(for i in range(0, n) if forall(formals, lambda fs => is_datatype(decls, at(i, fs).typ)) yield Slot(List(for fs in formals yield Size(EBound(size(fs) - 1 - i))), false)) in
       let k := size(formals) in
       let ranks := List(
         Slot(List(for i in range(0, k) yield EInt(i + 1)), true),
@@ -266,7 +266,7 @@ function comparison_sides(t: Term): Option[(Term, Term)] :=
 function is_int_term(fs: List[Var], t: Term): Bool :=
   match t
     case EBound(index) =>
-      index < size(fs) and at(size(fs) - 1 - index, from_list(fs)).typ == TInt()
+      index < size(fs) and at(size(fs) - 1 - index, fs).typ == TInt()
 
     case EInt(_) =>
       true

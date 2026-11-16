@@ -25,6 +25,12 @@ function exists[A](o: Option[A], p: A -> Bool): Bool
 
 function forall[A](o: Option[A], p: A -> Bool): Bool
 
+// o if its value satisfies p, else None, as find of the other containers gives the first element that does
+function find[A](o: Option[A], p: A -> Bool): Option[A] :=
+  example find(Some(2), lambda x => x > 1) == Some(2)
+  example find(Some(1), lambda x => x > 1) == None
+  example find(None, lambda x => x > 1) == None
+
 // None or Some(a), also inside other values
 function show[A](o: Option[A]): Str
 
@@ -84,6 +90,14 @@ function forall[A](o: Option[A], p: A -> Bool): Bool :=
       p(x)
     case None =>
       true
+  end
+
+function find[A](o: Option[A], p: A -> Bool): Option[A] :=
+  match o
+    case Some(x) =>
+      if p(x) then o else None
+    case None =>
+      None
   end
 
 function show[A](o: Option[A]): Str :=

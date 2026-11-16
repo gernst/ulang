@@ -4,9 +4,8 @@
 #ifndef ULANG_H
 #define ULANG_H
 
-// stdio.h before gmp.h, which declares its functions on files only after it
 #include <stdio.h>
-#include <gmp.h>
+#include "gmp_decls.h"
 #include <setjmp.h>
 #include <stddef.h>
 #include <stdint.h>
