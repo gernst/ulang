@@ -1,10 +1,10 @@
 # Lint on the e-graph of the prover
 
-A plan: the rules of `ulang.sh check --lint` that need the e-graph of the prover, `ulang/prove/egraph.u` (`ideas/prove.md`, section 5), so that each rewrite is an equality that the prover establishes. The walks of the syntax are done in `ulang/lint/lint.u`, described in `CLAUDE.md`, and those still open, with the suppression of warnings, are Diagnostics 5; edits are applied by `refactor @fix` (Refactoring of `README.md`), never by lint. When this work is done, what holds goes into `CLAUDE.md`, what stays open into the items of `ideas/`, and this file is deleted. Its background is the sketch `ideas/properties.md`: structural quality as the cost of verifying a unit and a change to it.
+A plan: the rules of `ulang.sh check --lint` that need the e-graph of the prover, `ulang/prove/egraph.u` (`ideas/verification.md`, section 5), so that each rewrite is an equality that the prover establishes. The walks of the syntax are done in `ulang/lint/lint.u`, described in `CLAUDE.md`, and those still open, with the suppression of warnings, are Diagnostics 5; edits are applied by `refactor @fix` (Refactoring of `README.md`), never by lint. When this work is done, what holds goes into `CLAUDE.md`, what stays open into the items of `ideas/`, and this file is deleted. Its background is the sketch `ideas/properties.md`: structural quality as the cost of verifying a unit and a change to it.
 
 ## 1. Why an e-graph
 
-A rewrite is an equality plus a choice of the simpler side. An e-graph separates the two, as `ideas/prove.md` separates provability from the printed goal:
+A rewrite is an equality plus a choice of the simpler side. An e-graph separates the two, as `ideas/verification.md` separates provability from the printed goal:
 
 - **Saturation finds the equalities**, over the definitions, the proven lemmas, and the facts of the context, in all directions at once.
 - **Extraction chooses** the cheapest representative by a cost, for lint the size of the source.
@@ -76,7 +76,7 @@ Rules that wait for other items, kept here until those take them:
 
 ## 7. Order
 
-1. **Into `ideas/prove.md`:** the needs of section 5, which only this file lists, so that the session of the prover takes them before extraction is designed.
+1. **Into `ideas/verification.md`:** the needs of section 5, which only this file lists, so that the session of the prover takes them before extraction is designed.
 2. **Lint on the e-graph:** the side table of source parts per class and extraction by the size of the source; R2 by definitions; the lemmas of R5, R6, and R1 of lists, which replace the patterns of `placed_lints` and `iterated_list`. What stays: the command, `Warning`, `format_module_expr` for the representatives, the walks of statements, and the edits for `refactor @fix`.
 3. **The context:** D1, D2.
 4. **Classes:** R4, N1, P1.

@@ -62,6 +62,10 @@ procedure prove_module(
   out proven: Bool
 )
 
+// whether reached, the text of the error that a run reached, is that of d, of the file path, which a run names without its
+// module if it is in the main module of the run, and else with it
+function reaches(reached: Option[Str], path: Str, d: Diagnostic): Bool
+
 implementation
 
 procedure load_tester(ref source: Source) raises ParseError, OsError :=
@@ -108,8 +112,6 @@ function failure_text(o: Outcome, listed: List[(Str, Diagnostic)]): Str :=
       "test " ++ o.name ++ " failed: " ++ o.message
   end
 
-// whether reached, the text of the error that a run reached, is that of d, of the file path, which a run names without its
-// module if it is in the main module of the run, and else with it
 function reaches(reached: Option[Str], path: Str, d: Diagnostic): Bool :=
   match reached
     case Some(text) =>
