@@ -117,3 +117,26 @@ lemma quotient_and_remainder(in m: Int, n: Int) :=
 // gcd unfolds, since it terminates by the absolute value of its divisor
 lemma gcd_zero(in a: Int) :=
   ensures gcd(a, 0) == abs(a)
+
+// an equation without a factor 1 or -1 is divided by the greatest common divisor of its factors before it is solved, so
+// that 2 * s == 2 * k solves s for k, and a conclusion that is one of the assumptions closes
+lemma equal_doubles(in n: Int, k: Int, s: Int) :=
+  requires 2 * k == n, 2 * s == n
+  ensures  2 * s == n
+
+lemma halved_sum(in a: Int, b: Int) :=
+  requires 2 * a + 4 * b == 6
+  ensures  a + 2 * b == 3
+
+lemma halves_of(in n: Int, k: Int, out s: Int) :=
+  requires 2 * k == n * (n - 1)
+  ensures  2 * s == n * (n - 1)
+  s := k
+
+// the requires of halves_of follows from the requires of via_direct, and its ensures gives the one of via_direct
+lemma via_direct(in n: Int, k: Int, out t: Int) :=
+  requires 2 * k == n * (n - 1)
+  ensures  2 * t == n * (n - 1)
+  var s: Int
+  halves_of(in n, k, out s)
+  t := s
