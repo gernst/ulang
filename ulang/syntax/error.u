@@ -89,9 +89,6 @@ function at_pos(p: Pos): Str
 
 implementation
 
-function error_kinds(): List[ErrorKind] :=
-  List(ParseKind, TypeKind, FormatKind, RuntimeKind, ProofKind, InternalKind)
-
 function kind_name(kind: ErrorKind): Str :=
   match kind
     case ParseKind =>
