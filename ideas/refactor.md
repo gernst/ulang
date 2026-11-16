@@ -51,7 +51,7 @@ By priority, each the problem and the solution.
 ### Changes to ulang
 
 21. **The record of resolutions** of Diagnostics 3, which declaration each name, field, type, and constructor resolves to, for item 12, the handles of diagnostics, and item 16.
-22. **A single node formats as in its file**, also over error nodes, so that `@show`, `@patch`, and the code of diagnostics always match the file.
+22. **A node printed alone differs from its text in the file**: `@show` and the echo of `@patch` copy the lines of the file, but the replacements of lints, which `check --lint` writes and `@fix` splices, are printed by `format_module_expr` of `ulang/format/format.u` at column 0, without the comments inside them, and so is the code of type errors, so a replacement or a message laid out otherwise than `format` lays out the node at its place occurs nowhere in the file as a `@patch` old line, and the text that `@fix` announces is not the text that lands. Solution: since the printer is ours, a node is printed with the context that `format` gives it at its place, its indentation, the notation of its module, and the comments in its span, so that its text is the slice of the formatted file, also for an error node, which prints as its tokens.
 24. **Drafting**: a hole `todo`, an expression of any type and a statement, which raises `Todo`, is an open goal for the prover, and whose uses `check --test` lists, so a new constructor is stubbed in each match by `case Scroll(_) => todo`; and an optional inline `export function f(…) := …`, so that a fragment is the whole truth of a declaration.
 
 ### Found by the third client outside the tool
