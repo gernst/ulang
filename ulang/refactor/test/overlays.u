@@ -6,7 +6,8 @@ import ulang.parse
 import ulang.check
 import ulang.refactor
 
-// the errors of checking file with the overlays, as checked_diagnostics of ulang/ulang.u gives them, without the lints
+// the errors of checking file with the overlays, as checked_diagnostics of ulang/ulang.u gives them, without the lints,
+// with its imports loaded only as far as it sees them
 procedure checked(
   in  file: Str,
       overlays: Map[Str, Str],
@@ -14,9 +15,10 @@ procedure checked(
 ) :=
   try
     var source: Source, q: Prog
-    parse_file_overlaid(in file, overlays, out source)
+    var checks := no_checks()
+    parse_file_overlaid(in file, overlays, true, out source)
     require_parsed(in source)
-    check_all(in source, no_tests, out q, _)
+    check_cached(in source, empty(), false, true, no_tests, out q, _, _, ref checks)
     found := List(for d in diagnostics(q) yield (file, d))
   catch
     case ParseErrors(errors) =>
@@ -106,23 +108,36 @@ test failed_import() :=
   assert text == "import out.test.refactor.overlays.moved.box\n\n" ++ header ++ "  g(x) + 2\n"
   os_remove_all(in dir)
 
-// a script checks the importers of a changed package that name a changed declaration of its exports, also in a dry run,
-// lists their errors, and counts the files checked in its first line, while an importer that names none is not checked
+// a script whose edit changes the exports of a package names them and says that it does not check the importers, which
+// may now have errors, also in a dry run, while an edit of a body changes no export
 test importers() :=
   var reply: List[Str], status: Int
   let state := "out/test/refactor/overlays/state", dir := "out/test/refactor/overlays/importers"
-  let lib := dir ++ "/lib/lib.u", user := dir ++ "/user/user.u", other := dir ++ "/other/other.u"
+  let lib := dir ++ "/lib/lib.u", user := dir ++ "/user/user.u"
   os_write_utf8(in lib, "export\n\nfunction f(x: Int): Int\n\nfunction g(): Int\n\nimplementation\n\nfunction f(x: Int): Int :=\n  x + 1\n\nfunction g(): Int :=\n  1\n")
   os_write_utf8(in user, "import out.test.refactor.overlays.importers.lib\n\nfunction h(): Int :=\n  f(1)\n")
-  os_write_utf8(in other, "import out.test.refactor.overlays.importers.lib\n\nfunction k(): Int :=\n  g()\n")
   run_script(in "@drop " ++ lib ++ ":f", true, state, checked, out reply, status, _)
-  assert status == 1
+  assert status == 0
   assert reply == List(
-    "dry, 1 error (1 new) in 2 files",
+    "dry, clean",
     lib ++ ": dropped f/1 (export and implementation)",
     "would write " ++ lib,
-    "checked 2 files, with the importer " ++ user ++ ": 1 new, 0 gone",
-    "  + " ++ user ++ ":4.3: UnknownVariable: unknown variable f")
+    "checked 1 file: 0 new, 0 gone",
+    lib ++ ": the exports f changed, whose importers are not checked")
   run_script(in "@patch " ++ lib ++ ":f\nx + 1 => x + 2\n", true, state, checked, out reply, status, _)
+  assert status == 0 and not exists(reply, lambda line => index_of("whose importers are not checked", line) != None)
+  os_remove_all(in dir)
+
+// the check of a script loads the imports of a file only as far as it sees them, so an error in a definition of an
+// import is not listed in the reply of an edit of the file, but in that of an edit of the import
+test broken_imports() :=
+  var reply: List[Str], status: Int
+  let state := "out/test/refactor/overlays/state", dir := "out/test/refactor/overlays/broken"
+  let lib := dir ++ "/lib/lib.u", user := dir ++ "/user/user.u"
+  os_write_utf8(in lib, "export\n\nfunction f(x: Int): Int\n\nimplementation\n\nfunction f(x: Int): Int :=\n  true\n")
+  os_write_utf8(in user, "import out.test.refactor.overlays.broken.lib\n\nfunction h(): Int :=\n  f(1)\n")
+  run_script(in "@patch " ++ user ++ ":h\nf(1) => f(2)\n", true, state, checked, out reply, status, _)
   assert status == 0 and take(1, reply) == List("dry, clean")
+  run_script(in "@patch " ++ lib ++ ":f\ntrue => false\n", true, state, checked, out reply, status, _)
+  assert status == 1 and take(1, reply) == List("dry, 1 error (0 new)")
   os_remove_all(in dir)

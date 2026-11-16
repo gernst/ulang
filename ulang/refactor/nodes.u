@@ -1,5 +1,5 @@
 // the nodes of a declaration that handles name: the parts that start their lines in formatted text, statements, cases,
-// constructors, elements spread one per line, and the body of a function, by their spans
+// constructors, elements spread one per line, the body of a function, and the head of a definition, by their spans
 
 import ulang.syntax
 
@@ -11,18 +11,21 @@ export
 function line_nodes(lines: Array[Str], cmd: Cmd): List[Span]
 
 // what a node is, by which an edit checks that a fragment fits the place of a node, where a line of a spec is an example
-// or a contract, requires or ensures
+// or a contract, requires or ensures, and a head is that of the definition of a function or procedure, which its
+// signature repeats
 data NodeKind :=
   case KStatement
   case KCase
   case KExpression
   case KConstructor
   case KSpec
+  case KHead
 
 data Node :=
   case Node(span: Span, kind: NodeKind)
 
-// the nodes of line_nodes with their kinds, where the cases of a match and the handlers of a try are cases
+// the nodes of line_nodes with their kinds, where the cases of a match and the handlers of a try are cases, and the head
+// of the definition of a function or procedure is a node of its own
 function kinded_nodes(lines: Array[Str], cmd: Cmd): List[Node]
 
 // the kind with its article, as messages name it
@@ -37,9 +40,65 @@ function line_nodes(lines: Array[Str], cmd: Cmd): List[Span] :=
 // the nodes of cmd in the order of their starts, where those of the same start keep their order, the outer first, and a
 // line of a spec starts at its keyword
 function kinded_nodes(lines: Array[Str], cmd: Cmd): List[Node] :=
-  let placed := List(for node in cmd_nodes(cmd) yield at_keyword(lines, node)) in
+  let placed := List(for node in head_nodes(lines, cmd) ++ cmd_nodes(cmd) yield at_keyword(lines, node)) in
   let sorted := List(for (_, _, node) in sort(List(for (node, i) in numbered(placed) yield (node.span.start, i, node))) yield node) in
   first_starts(List(for node in sorted if node.span.start != node.span.stop and starts_line(lines, node.span.start) yield node), Set())
+
+// the head of the definition of a function or procedure, from its keyword to its :=, without the :=, which a fragment at
+// the node keeps, as the comma after an element, where only the lines of its spec and comments stand between the head
+// and the body, which format starts on the line after the :=
+function head_nodes(lines: Array[Str], cmd: Cmd): List[Node] :=
+  match cmd
+    case CFun(_, _, _, _, spec, body) =>
+      head_above(lines, spec_spans(spec), body.span.start.line - 1)
+
+    case CProc(_, _, _, _, _, _, spec, stmt) =>
+      head_above(lines, spec_spans(spec), stmt.span.start.line - 1)
+
+    case _ =>
+      List()
+  end
+
+function spec_spans(spec: Spec): List[Span] :=
+  List(for expr in spec.pre yield expr.span) ++ List(for expr in spec.post yield expr.span) ++ List(for x in spec.examples yield x.span)
+
+// the head whose last line is the first at or above line that is neither blank nor a comment nor a line of parts, the
+// lines of the spec, if it ends in :=, and whose first line, above it without a blank line between, starts with the
+// keyword of a function or procedure
+function head_above(lines: Array[Str], parts: List[Span], line: Int): List[Node] :=
+  example head_above(Array("function f(x: Int): Int :=", "  example f(1) == 1", "  x"), List(Span(Pos(2, 11), Pos(2, 20))), 2) == List(Node(Span(Pos(1, 1), Pos(1, 24)), KHead))
+  example head_above(Array("procedure p(", "  in  x: Int,", "  out y: Int", ") :=", "  y := x"), List(), 4) == List(Node(Span(Pos(1, 1), Pos(4, 2)), KHead))
+  example head_above(Array("function f(): Int := 1"), List(), 0) == List()
+  if line < 1 or line > size(lines) then
+    List()
+  else
+    let text := at(line - 1, lines) in
+    if trim(text) == "" or starts_with(trim(text), "//") or exists(parts, lambda part => part.start.line <= line and line <= part.stop.line) then
+      head_above(lines, parts, line - 1)
+    else if ends_with(text, " :=") then
+      match head_start(lines, line)
+        case Some(start) =>
+          List(
+            Node(Span(line_start(lines, Pos(start, 1)), Pos(line, size(text) - 2)), KHead))
+
+        case None =>
+          List()
+      end
+    else
+      List()
+
+// the line at or above line that starts with the keyword of a function or procedure, with no blank line between
+function head_start(lines: Array[Str], line: Int): Option[Int] :=
+  if line < 1 or line > size(lines) then
+    None
+  else
+    let text := trim(at(line - 1, lines)) in
+    if starts_with(text, "function ") or starts_with(text, "procedure ") then
+      Some(line)
+    else if text == "" then
+      None
+    else
+      head_start(lines, line - 1)
 
 function kind_text(kind: NodeKind): Str :=
   match kind
@@ -57,6 +116,9 @@ function kind_text(kind: NodeKind): Str :=
 
     case KSpec =>
       "a line of a spec"
+
+    case KHead =>
+      "a head"
   end
 
 function first_starts(nodes: List[Node], seen: Set[Pos]): List[Node] :=

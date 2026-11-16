@@ -126,7 +126,7 @@ procedure parse_case(
   var here: Str, root: Str
   os_cwd(out here)
   project_root(in normal_path(here), out root)
-  parse_texts(in root, os_dirname(path), List(), List(), (module_in(os_dirname(path), os_basename(path)), text), out source)
+  parse_texts(in root, os_dirname(path), List(), List(), (module_in(os_dirname(path), os_basename(path)), text), false, out source)
   load_tester(ref source)
 
 // check_program with the tests of the lemmas
@@ -219,7 +219,7 @@ procedure run_texts_despite_errors(
   project_root(in normal_path(here), out root)
   match main
     case (name, lines) =>
-      parse_texts(in root, dir, List(for (d, files) in imported yield (d, List(for (m, ls) in files yield (module_in(d, m), text_of(ls))))), List(), (module_in(dir, name), text_of(lines)), out source)
+      parse_texts(in root, dir, List(for (d, files) in imported yield (d, List(for (m, ls) in files yield (module_in(d, m), text_of(ls))))), List(), (module_in(dir, name), text_of(lines)), false, out source)
   end
   require_parsed(in source)
   load_tester(ref source)
@@ -254,7 +254,7 @@ procedure load_texts(
   match main
     case (name, lines) =>
       var source: Source
-      parse_texts(in root, dir, List(), List(for (m, ls) in members yield (module_in(dir, m), text_of(ls))), (module_in(dir, name), text_of(lines)), out source)
+      parse_texts(in root, dir, List(), List(for (m, ls) in members yield (module_in(dir, m), text_of(ls))), (module_in(dir, name), text_of(lines)), false, out source)
       require_parsed(in source)
       load_tester(ref source)
       check_tested(in source, out q)

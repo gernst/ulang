@@ -105,21 +105,21 @@ make test                                 # runs all tests
 
 ## Refactoring
 
-`out/ulang.sh refactor` edits sources by their meaning, as `format` edits their layout. It runs a script, from a file, from stdin, or as actions on the command line, a line of the script from each word that starts with `@`, `out/ulang.sh refactor @show shapes.u:area @refs shapes.u:area`, where the last one, if it is a `@put` or `@patch`, takes its fragment from stdin. Each action is a line that starts with `@`, which ulang never uses. Its fragment is the lines up to the next action, taken verbatim. A script writes all its files or, if one action is refused, none.
+`out/ulang.sh refactor` edits sources by their meaning, as `format` edits their layout. It runs a script, from a file, from stdin, or as actions on the command line, a line of the script from each word that starts with `@`, `out/ulang.sh refactor @show shapes.u:area @refs shapes.u:area`, where the last one, if it is a `@put` or `@patch`, takes its fragment from stdin. Each action is a line that starts with `@`, which ulang never uses. Its fragment is the lines up to the next action, taken verbatim, where a line that starts with `@@` is a line of the fragment with one `@`, `@@a => @b` the patch of `@a` to `@b`; so an action that takes a fragment and has none, since the line after it starts with `@`, is refused with the line that it took as an action, and an unknown action with the escape `@@`. A script writes all its files or, if one action is refused, none.
 
-`@show` prints code with handles, `#n` in a margin beside each line that starts a node: a statement, a case, a constructor, or an expression that starts its line, the body of a function, the body of a `let` after `in`, a branch of an `if` spread over lines, an element or argument of a form or call spread one per line, or a line of a spec, an example, `requires`, or `ensures`, where those of a signature in `export` are nodes of its definition. A node is its text from its first token to its last, so what follows it on its last line, such as the comma after an element or the `)` after the last one, stays where an edit replaces it; `@show` of a node and the echo of an edit also print the comments that `format` places above it, which an edit of the node keeps.
+`@show` prints code with handles, `#n` in a margin beside each line that starts a node: a statement, a case, a constructor, or an expression that starts its line, the body of a function, the body of a `let` after `in`, a branch of an `if` spread over lines, an element or argument of a form or call spread one per line, or a line of a spec, an example, `requires`, or `ensures`, where those of a signature in `export` are nodes of its definition, and the head of the definition of a function or procedure, up to its `:=`, which a diagnostic at the head, such as `SignatureMismatch`, names, and which only `@put N` replaces. A node is its text from its first token to its last, so what follows it on its last line, such as the comma after an element or the `)` after the last one, stays where an edit replaces it; `@show` of a node and the echo of an edit also print the comments that `format` places above it, which an edit of the node keeps.
 
 ```
 $ out/ulang.sh refactor @show shapes.u:area
 applied
 @show shapes.u:area
       // the area, rounded
-      function area(s: Shape): Int :=
-#1      match s
-#2        case Circle(r) =>
-#3          3 * r * r
-#4        case Square(side) =>
-#5          side * side
+#1    function area(s: Shape): Int :=
+#2      match s
+#3        case Circle(r) =>
+#4          3 * r * r
+#5        case Square(side) =>
+#6          side * side
         end
 ```
 
@@ -131,20 +131,20 @@ data Shape :=
   case Circle(r: Int)
   case Square(side: Int)
   case Rect(width: Int, height: Int)
-@put into #1
+@put into #2
 case Rect(width, height) => width * height
 @fix shapes.u
 @check test
 ```
 
-Fragments need no layout, since every edited file is printed by `format`. The first line of the reply is the state after the script, `applied, clean`, or its errors and warnings, each with how many of them the script made new if it changed a file, `applied, 2 errors (1 new), 1 warning (0 new)`, and its tests; then what each action did, with the nodes that an edit by handle placed, and the diagnostics and lints that are new (`+`) or gone (`-`) in the files that it checked, each new one with the handle of its node. It checks the files that it changed, those of `@check`, and the importers of a changed package that name a declaration whose lines in its export or builtin section the script changed, which the line of the files checked names, `checked 2 files, with the importer b/b.u: 1 new, 0 gone`, and the first line counts, `applied, 1 error (1 new) in 2 files`:
+Fragments need no layout, since every edited file is printed by `format`. The first line of the reply is the state after the script, `applied, clean`, or its errors and warnings, each with how many of them the script made new if it changed a file, `applied, 2 errors (1 new), 1 warning (0 new)`, and its tests; then what each action did, with the nodes that an edit by handle placed, and the diagnostics and lints that are new (`+`) or gone (`-`) in the files that it checked, each new one with the handle of its node. It checks the files that it changed and those of `@check`, each with the packages that it imports only as far as it sees them, so that an error in a definition of an import is listed only by a script that checks a file of that package, but not the importers of a changed package: a script that changes the declarations of an export or builtin section names them in a line of their own, `a/a.u: the exports f changed, whose importers are not checked`, since those may now have errors:
 
 ```
 applied, clean, 1 test passed
 shapes.u: replaced Shape
-put into shapes.u:area/1 #1
-#6        case Rect(width, height) =>
-#7          width * height
+put into shapes.u:area/1 #2
+#7        case Rect(width, height) =>
+#8          width * height
 shapes.u: fixed BoolIte at 20.3
 script 1 of the journal
 checked 1 file: 0 new, 1 gone
@@ -152,7 +152,7 @@ checked 1 file: 0 new, 1 gone
 tested shapes.u: 1 passed, 0 failed
 ```
 
-Without the `@put into #1`, the reply would have listed the match that the new constructor leaves open as a new diagnostic, so the follow-ups of a change are a list of work, not a search. The status is 0 if the files are clean or have warnings only, 1 if errors remain or the script is refused (`rejected`, with the message of the refusal, and for an error of the system, such as a file that cannot be read, the line and the action of the script), and 3 if a test failed. A test that fails by reaching an error of the reply says so instead of repeating it, and the tests and examples that errors keep out of the program are counted as not run, as are the examples on a definition that belong to its signature, while the lemmas whose tests they keep out are named.
+Without the `@put into #2`, the reply would have listed the match that the new constructor leaves open as a new diagnostic, so the follow-ups of a change are a list of work, not a search. The status is 0 if the files are clean or have warnings only, 1 if errors remain or the script is refused (`rejected`, with the message of the refusal, and for an error of the system, such as a file that cannot be read, the line and the action of the script), and 3 if a test failed. A test that fails by reaching an error of the reply says so instead of repeating it, and the tests and examples that errors keep out of the program are counted as not run, as are the examples on a definition that belong to its signature, while the lemmas whose tests they keep out are named.
 
 Four queries tell what a module offers, what a name is, and who uses it, before an edit:
 
@@ -160,15 +160,15 @@ Four queries tell what a module offers, what a name is, and who uses it, before 
 $ out/ulang.sh refactor @outline shapes.u
 applied
 @outline shapes.u
-1-4   none data     Shape    private  #8 cases Circle/1, Square/1, Rect/2
-7-17  none function area/1   private  #1
-19-20 none function is_big/1 private  #9
-22-23 none test     areas    private  #10
+1-4   none data     Shape    private  #9 cases Circle/1, Square/1, Rect/2
+7-17  none function area/1   private  #2
+19-20 none function is_big/1 private  #10
+22-23 none test     areas    private  #11
 $ out/ulang.sh refactor @refs shapes.u:area
 applied
 @refs shapes.u:area: 2 uses of shapes.area/1 in 1 file
-  shapes.u:20.3 in is_big/1 #9: area(s) > 100
-  shapes.u:23.10 in areas/0 #10: assert area(Square(3)) == 9 and not is_big(Circle(2))
+  shapes.u:20.3 in is_big/1 #10: area(s) > 100
+  shapes.u:23.10 in areas/0 #11: assert area(Square(3)) == 9 and not is_big(Circle(2))
 $ out/ulang.sh refactor @sig lines
 applied
 @sig lines: 1 declaration in 1 module
@@ -192,26 +192,26 @@ A node N is a handle `#n`, a handle scoped by its declaration `F:name #n`, which
 | `@sig M` | the export and builtin sections of a module, a file `F` or a path from the root, `ulang/check/check`, or `prelude/str` of the library, as the file writes them, with their docs |
 | `@resolve F:L.C`, `@resolve F L.C` | the qualified name and type of the use at the position, or the type of the variable declared there, from `hints` |
 | `@refs F:name[/n]` | the uses of a function, procedure, pattern alias, or constructor in its package and its importers, by resolution, each with its position, declaration, handle, and line |
-| `@put F` | writes the declarations of the fragment into `F`, each replacing the one of its name and arity where it stands, whatever section the fragment names, or added, which the reply says with its section, naming each declaration once, and says `of another type` where a replacement's types differ; a missing or empty `F` is the fragment, header, imports, and sections, in a directory made if missing; into a file, the `import` lines join its imports and the declarations after `export` or `builtin` go into that section, which is made if missing; an import of the fragment replaces an import of the file of the same last name that fails, as of a package that moved, a declaration keeps its doc unless the fragment writes one, the signature in `export` follows the head of its definition and takes its doc if the fragment writes no signature, a private procedure that the fragment exports gets the raises of its signature or else those that the check inferred in both heads, as `@export` does, and a comment of no declaration is refused |
-| `@put F:name[/n]` | the declaration of that name in the fragment replaces the target at its place, whatever its arity, with its signature, and the others follow it; a fragment of one declaration of another name, of the target's kind, replaces it so too, while the uses keep the old name, which `@rename` changes |
+| `@put F` | writes the declarations of the fragment into `F`, each replacing the one of its name and arity where it stands, whatever section the fragment names, or added, which the reply says with its section, naming each declaration once, and the other arities of its name that the file declares, which it overloads, `added g/0 to implementation, beside g/1`, and each import that it added, `added import p.q`, and says `of another type` where a replacement's types differ; a missing or empty `F` is the fragment, header, imports, and sections, in a directory made if missing; into a file, the `import` lines join its imports and the declarations after `export` or `builtin` go into that section, which is made if missing; an import of the fragment replaces an import of the file of the same last name that fails, as of a package that moved, a declaration keeps its doc unless the fragment writes one, the signature in `export` follows the head of its definition and takes its doc if the fragment writes no signature, a private procedure that the fragment exports gets the raises of its signature or else those that the check inferred in both heads, as `@export` does, and a comment of no declaration is refused |
+| `@put F:name[/n]` | the declaration of that name in the fragment replaces the target at its place, whatever its arity, with its signature; of the others, each that the file declares by its name and arity replaces it where it stands, as for `@put F`, and the new ones follow the target in their sections, in the order of the fragment, also one of a name that the file declares with another arity, which is added beside it as an overload, `added g/0, beside g/1`, so that a declaration of the old arity is dropped by `@drop F:g/1`; a fragment of one declaration of another name, of the target's kind, replaces it so too, while the uses keep the old name, which `@rename` changes |
 | `@put [F] before T`, `@put [F] after T` | places the new declarations of the fragment next to the declaration `T` in its section, where the lines under no section go into the builtin section if `T` is a builtin, where `T` is `F:name[/n]`, so `@put F after name` is refused with the form `@put after F:name` |
-| `@put N`, `@put before N`, `@put after N`, `@put into N` | replaces the node, or inserts code next to it or as its last statement or case, at its indentation, refused for a fragment of another kind than the node, a statement, a case, an expression, or a constructor, or one that writes declarations; a fragment may keep the margin of `@show`, and writes the node alone, without the comma or `)` after it, which stay, while one before or after an element gets the comma between them, also after the last one, and a drop of the last element moves its `)`; a drop of the last line of the spec of a signature drops its `:=` |
+| `@put N`, `@put before N`, `@put after N`, `@put into N` | replaces the node, or inserts code next to it or as its last statement or case, at its indentation, refused for a fragment of another kind than the node, a statement, a case, an expression, a constructor, or a head, which nothing goes next to or into, or one that writes declarations; a fragment may keep the margin of `@show`, and writes the node alone, without the comma or `)` after it, which stay, while one before or after an element gets the comma between them, also after the last one, and a drop of the last element moves its `)`, where a comment at the end of a line stays with the element that it follows; a drop of the last line of the spec of a signature drops its `:=` |
 | `@drop T` | removes a declaration, with its doc and signature, saying the sections where it had more than one, or a node N |
-| `@patch T` | lines `old => new` within the text of a declaration, its signature and definition alike, of a node N, or of a file `F`, each `old` occurring in the target and at most once in each of its parts, the signature and the definition of a declaration, or each declaration of a file and each run of its lines of no declaration, the comments at the top above the imports included, so that a text of both heads changes in both, and a line of several `=>` splits at the last one that leaves such an `old`, as for a line of a `case`, a lambda, or a map, where a refusal of a split that does not parse names it; a line `old =>`, with or without a space after the arrow, deletes `old`; or a block, the old lines, a line `=>` alone, and the new lines, at most once in each part of a declaration and once in a file, where nothing after the `=>` deletes the old lines, and a second line `=>` alone is refused at its line of the script, since a `@patch` takes one block; a patch of a file names the declarations that it changed; a patch that changes nothing is refused, and one whose `old` occurs nowhere in the target or too often says so, with the parts where it occurs, naming for none the declarations of the file that have it, or the earlier action of the script that removed it, and for old lines outside the target the target that it; the reply shows the nodes that the patch changed, with their handles searched |
+| `@patch T` | lines `old => new` within the text of a declaration, its signature and definition alike, of a node N, or of a file `F`, each `old` occurring in the target and at most once in each of its parts, the signature and the definition of a declaration, or each declaration of a file and each run of its lines of no declaration, the comments at the top above the imports included, so that a text of both heads changes in both, and a line of several `=>` splits at the last one that leaves such an `old`, as for a line of a `case`, a lambda, or a map, of those outside the string and char literals of the line if one of them leaves one, where a refusal of a split that does not parse names it; a line `old =>`, with or without a space after the arrow, deletes `old`; or a block, the old lines, a line `=>` alone, and the new lines, at most once in each part of a declaration and once in a file, where one old line that is only a part of a line of the target patches as the line form does, where nothing after the `=>` deletes the old lines, and a second line `=>` alone is refused at its line of the script, since a `@patch` takes one block; a patch of a file names the declarations that it changed; a patch that changes nothing is refused, and one whose `old` occurs nowhere in the target or too often says so, with the parts where it occurs, naming for none the declarations of the file that have it, or the earlier action of the script that removed it, for old lines outside the target the target that it searched, and for old lines that occur nowhere the line of the target that starts most like the first of them, by its line, as `format` laid it out; the reply shows the nodes that the patch changed, with their handles, where a changed comment counts as the node below it, which it documents |
 | `@example F:name[/n]` | adds the examples of the fragment, lines `example …`, after the spec of the function or procedure, on its signature if it has one, the place of the examples of an exported name, else on its definition, and shows them with their handles |
 | `@rename T new` | renames a function, procedure, pattern alias, or constructor at its declarations and at every use that resolves to it, several per script, with a warning where the new name meets declarations of any arity that the uses also see |
 | `@export T`, `@unexport T` | moves a definition's doc, contract, and examples to a new signature in `export`, beside the signature of the exported declaration next to the definition, with the raises that a procedure infers, or back, refused while another module uses it; a datatype or an alias moves whole |
 | `@fix T [Rule …]` | applies the edits of the lints of a file or a declaration, all or of the rules named |
 | `@undo [n]` | restores the files of a script of the journal, by default the last one |
-| `@check [test] [F]` | checks `F` too, and with `test` runs the tests of the files, whose results the reply lists, while what the tests print goes to stderr, so that the first line of the output is the state, but not those of the importers, nor of a directory that `project.u` runs only compiled, whose files it names, and names the tests of their packages that the errors of an earlier script left out and that no script has run since, `not run since an earlier script, whose errors left them out: a/wire.u: test round_trip` |
+| `@check [test] [F]` | checks `F` too, and with `test` runs the tests of the files, whose results the reply lists, while what the tests print goes to stderr, so that the first line of the output is the state, but not those of a directory that `project.u` runs only compiled, whose files it names, and names the tests of their packages that the errors of an earlier script left out and that no script has run since, `not run since an earlier script, whose errors left them out: a/wire.u: test round_trip` |
 
 - A handle stays valid across edits of other declarations, and across the edits of the same script, also of `@patch`: an edit keeps the handles of the nodes before and after it at their places, also among identical statements, and a node replaced by its own text keeps its handle and those inside it. It becomes stale when its node is changed by something else, and `@show` gives a new one.
 - `@rename` finds the uses by the names that the checker resolved, not by their text, so it never renames another overload or a local. After its writes, it checks every file of the package and every importer that contains the name, and undoes the script if any use resolves differently, e.g. to a local of the new name. It lists the mentions in `CLAUDE.md`, `README.md`, and `ideas/` that it leaves to you.
 - `@fix` rewrites expressions, drops an unused private declaration, writes `_` for an unused pattern variable and at the outs that only feed an unused local, removes an unused local, makes a `var` that nothing assigns a `let`, and moves a local that is declared too high into the branches that use it. A fix that enables another takes a second `@fix`. An edit after which the unit of the file has an error that it did not have before is refused and listed in the reply with that error, `f.u: refused Folded at 5.3, which would cause f.u:5.3: …`, while the others apply: the edits are checked together, and if that adds an error, each in turn on top of those taken.
-- An error in a fragment names its line in the fragment and in the script, `fragment 2.6, script 3.6`.
+- An error in a fragment names its line in the fragment and in the script, `fragment 2.6, script 3.6`. Where the fragment has an error, the errors at the lines of the file, which parsed before, are its follow-ups and left out, as are those after a keyword written as a name on its line, which the parse took as the start of a section or a command: a field `builtin` replies only `fragment 2.29, script 3.29: keyword builtin is not a name`.
 - A script edits files that parse, also with an import that fails, such as one of a package that moved, which a `@put` of the new import replaces.
 - Paths in actions are normal, `./a.u` is `a.u`, and the handles are kept by their paths from the root, so that they hold from any directory.
-- `--dry` writes nothing, but checks the texts that it would write, with the importers that the script would change, so its reply, `dry, 2 errors (2 new)`, lists the diagnostics that the script would leave, without handles, since their nodes are in no file, and without tests; the journal and the handles are kept in `out/refactor/` of the root, and the queries write nothing but the handles they show.
+- `--dry` writes nothing, but checks the texts that it would write, so its reply, `dry, 2 errors (2 new)`, lists the diagnostics that the script would leave, without handles, since their nodes are in no file, and without tests; the journal and the handles are kept in `out/refactor/` of the root, and the queries write nothing but the handles they show.
 - The actions and the checks of a script see the files that it has written so far, also a module of a new package, which another file of the same script may import.
 - `--overlay F=<path>`, repeated for several files, takes the text of the file at path as that of `F`, as an editor passes its unsaved buffers; the script writes `F` only if it changes it.
 - A query that is refused, `@show`, `@outline`, `@refs`, `@sig`, or `@resolve`, takes no other action down with it, since it writes nothing: the reply says `@show T: refused, …` in its place, its first line counts it, `applied, clean, 1 query refused`, and the status is 1, while any other action that is refused refuses the script.
