@@ -1106,13 +1106,6 @@ function is_removed(span: Span, region: Range, keep: Bool): Bool :=
   let start := span.start.line, stop := span.stop.line in
   region.first <= region.last and region.first <= start and stop <= region.last and not (keep and start == region.first and stop == region.last)
 
-function get_at[A](i: Int, xs: List[A]): Option[A] :=
-  example get_at(1, List('a', 'b')) == Some('b')
-  if i < 0 then
-    None
-  else
-    find_map(zip(xs, range(0, size(xs))), lambda (x, j) => if j == i then Some(x) else None)
-
 // the paths of nodes, which are in preorder, in the tree of their containment, the indices among the children of the
 // nodes around each, where stack has the nodes around the next one with their paths and numbers of children so far, and
 // roots the number of nodes around none so far
@@ -1845,17 +1838,6 @@ function beside_text(key: Option[Key], cmds: List[At[Cmd]]): Str :=
   let others := distinct(List(for k in key for cmd in cmds for o in cmd_key(cmd) if o.kind == k.kind and o.base == k.base and o.arity != k.arity yield key_text(o))) in
   if others == List() then "" else ", beside " ++ join(", ", others)
 
-// the one element of xs, if it has one
-function sole[A](xs: List[A]): Option[A] :=
-  example sole(List(1)) == Some(1)
-  example sole(List(1, 2)) == None
-  match xs
-    case List(x) =>
-      Some(x)
-    case _ =>
-      None
-  end
-
 // the text of the reply of what a fragment did, named once with the sections of its parts among entries, each what it
 // did, the rest of its text, the section of the part, and the section that the fragment named, where plain tells a file
 // without sections, whose additions name none, and a part that is unchanged beside one replaced is named by that one, so
@@ -2565,16 +2547,6 @@ function counted_span(lines: Array[Str], node: Node, nodes: List[Node]): Span :=
       Span(span.start, Pos(body.span.start.line - 1, size(line_at(lines, body.span.start.line - 1)) + 1))
     case _ =>
       span
-  end
-
-// the number of the elements at the start of xs and ys that they share
-function common_prefix[A](xs: List[A], ys: List[A]): Int :=
-  example common_prefix(List("a", "b"), List("a", "c")) == 1
-  match (xs, ys)
-    case (List(x; xs_), List(y; ys_)) if x == y =>
-      1 + common_prefix(xs_, ys_)
-    case _ =>
-      0
   end
 
 // adds the examples of the fragment to the spec of the function or procedure of the target, F:name[/n], after the lines

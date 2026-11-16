@@ -143,12 +143,9 @@ function union(a: Sig, b: Sig): Sig :=
 // a name, where an abstract type, whose constructors are private, has no members, and a base name of only hidden
 // declarations is not named
 function exported(sig: Sig, hidden_values: Set[Name], hidden_sorts: Set[Name]): Sig :=
-  let members := without(sig.members, hidden_sorts) in
-  let kept := Sig(without(sig.type_aliases, hidden_sorts), without(sig.funs, hidden_values), without(sig.procs, hidden_values), without(sig.datas, hidden_sorts), Map(for k => v in members if not is_hidden(v, hidden_values)), without(sig.constrs, hidden_values), without(sig.pat_aliases, hidden_values), without(sig.lemmas, hidden_values), empty(), without(sig.fixed, hidden_sorts)) in
+  let members := sig.members -- hidden_sorts in
+  let kept := Sig(sig.type_aliases -- hidden_sorts, sig.funs -- hidden_values, sig.procs -- hidden_values, sig.datas -- hidden_sorts, Map(for k => v in members if not is_hidden(v, hidden_values)), sig.constrs -- hidden_values, sig.pat_aliases -- hidden_values, sig.lemmas -- hidden_values, empty(), sig.fixed -- hidden_sorts) in
   kept with named := Map(for k => v in sig.named if declared(kept, v) != List() yield k => declared(kept, v))
-
-function without[V](m: Map[Name, V], names: Set[Name]): Map[Name, V] :=
-  Map(for k => v in m if not contains(k, names))
 
 function declares(sig: Sig, n: Name): Bool :=
   is_type_alias(sig, n) or is_fun(sig, n) or is_proc(sig, n) or is_data(sig, n) or is_constr(sig, n) or is_pat_alias(sig, n)
