@@ -1,0 +1,82 @@
+// the placement of comments by format, over texts parsed without the library, which declare the operators they use
+import ulang.syntax
+import ulang.parse
+import ulang.format
+
+// comments stand anywhere, and format keeps them where they are, at the end of a line, before end, else, and catch, on
+// a local line, between arguments, elements, and cases, and above a blank line
+test formatted_comments() :=
+  var p: Source
+  let text := join("\n", List(
+    "// the module",
+    "",
+    "infix 6 >",
+    "",
+    "infix left 9 +",
+    "",
+    "// a function",
+    "function f(x: Int): Int := // after the head",
+    "  g(",
+    "    x, // between arguments",
+    "    2)",
+    "",
+    "data T := // after data",
+    "  // A",
+    "  case A // after A",
+    "  case B(x: Int)",
+    "",
+    "function g(x: Int, y: Int): Int :=",
+    "  example g(1, 2) == 3 // after an example",
+    "  let z := x + y in",
+    "  // the body",
+    "  match z",
+    "    // zero",
+    "    case 0 =>",
+    "      1 // one",
+    "",
+    "    // between cases",
+    "    case _ =>",
+    "      List(",
+    "        1, // between elements",
+    "        2,",
+    "        // before an element",
+    "        3)",
+    "  end",
+    "",
+    "// detached",
+    "",
+    "procedure main() :=",
+    "  let x := 1 // on a local line",
+    "  if x == 1 then // after then",
+    "    os_println(in \"a\") // after a call",
+    "    // before else",
+    "  else",
+    "    // after else",
+    "",
+    "    skip",
+    "  end",
+    "  while x > 1 do",
+    "    skip",
+    "    // before the end of a while",
+    "  end",
+    "  try",
+    "    skip",
+    "    // before catch",
+    "  catch",
+    "    case _ =>",
+    "      skip",
+    "    // before the end of a try",
+    "  end",
+    "// at the end")) ++ "\n"
+  parse_text_recovering(in text, out p)
+  assert parse_errors(p) == List()
+  assert format_program(p) == text
+
+// a comment that the layout of its part has no place for stands above the line of the part, from where it stays
+test moved_comments() :=
+  var p: Source
+  let text := "infix left 9 +\n\nprocedure main() :=\n  x := 1 + // inner\n  2\n", moved := "infix left 9 +\n\nprocedure main() :=\n  // inner\n  x := 1 + 2\n"
+  parse_text_recovering(in text, out p)
+  assert format_program(p) == moved
+  parse_text_recovering(in moved, out p)
+  assert format_program(p) == moved
