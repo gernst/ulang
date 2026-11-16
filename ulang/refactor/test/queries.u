@@ -95,3 +95,21 @@ test resolves() :=
     "@resolve " ++ path ++ ":2.12: use of prelude.list.size: List[Int] -> Int",
     "@resolve " ++ path ++ ":2.7: declaration of n: Int",
     "@resolve " ++ path ++ ":1.1: no use or declaration of a name there")
+
+// targets by module, m.name/n of a declaration, m.T.f of a field, its accesses and updates, and m.T.C of a
+// constructor, and a local F:proc/local, which @resolve takes alone
+test module_targets() :=
+  var reply: List[Str], status: Int
+  let state := "out/test/refactor/queries/targets", path := "out/test/refactor/queries/targets/t.u", m := "out.test.refactor.queries.targets.t"
+  os_write_utf8(in os_join(state, "handles.txt"), "")
+  os_write_utf8(in path, "data P :=\n  case P(x: Int, y: Int)\n\nfunction f(p: P): Int :=\n  let n := p.x in\n  n + 1\n\nfunction g(p: P): P :=\n  P(f(p), p.y) with x := 1\n")
+  run_script(in "@refs " ++ m ++ ".f/1\n@refs " ++ m ++ ".P.x\n@refs " ++ m ++ ".P.P\n@resolve " ++ path ++ ":f/n\n", false, state, no_diagnostics, out reply, status, _)
+  assert status == 0
+  assert contains("@refs " ++ path ++ ":f/1: 1 use of " ++ m ++ ".f/1 in 1 file", List(for r in reply for line in split(r, '\n') yield line))
+  assert contains("@refs " ++ path ++ ":P.x: 2 uses of the field " ++ m ++ ".P.x in 1 file", List(for r in reply for line in split(r, '\n') yield line))
+  assert contains("@refs " ++ path ++ ":P: 1 use of " ++ m ++ ".P/2 in 1 file", List(for r in reply for line in split(r, '\n') yield line))
+  assert contains("@resolve " ++ path ++ ":f/n: declaration of n: Int at 5.7, read at 6.3", reply)
+  run_script(in "@show " ++ path ++ ":f/n\n", false, state, no_diagnostics, out reply, status, _)
+  assert reply == List(
+    "applied, 1 query refused",
+    "@show " ++ path ++ ":f/n: refused, @show takes no local, while " ++ path ++ ":f/n names one, which @resolve takes")

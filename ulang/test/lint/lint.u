@@ -15,12 +15,12 @@ procedure linted(
 ) :=
   var d: Mod
   parse_text(in join("\n", lines) ++ "\n", out d)
-  found := List(for w in lints(d) if contains(w.lint, selected) yield (w.pos, warning_text(d, w)))
+  found := List(for w in lints(d) if contains(w.lint, selected) yield (w.pos, warning_text(d, Array(for line in lines), w)))
 
-function warning_text(d: Mod, w: Warning): Str :=
+function warning_text(d: Mod, lines: Array[Str], w: Warning): Str :=
   match w.replacement
     case Some(r) =>
-      format_module_expr(Source(List(d), List(), d.name), d.name, r)
+      format_module_expr(Source(List(d), List(), d.name), d.name, line_indentation(lines, replaced_start(w)), r)
     case None =>
       w.message
   end
@@ -55,6 +55,19 @@ test lints_of_bool_comparisons() :=
     "procedure p(in c: Bool) :=",
     "  assert (c == false) == true"), out found)
   assert found == List((Pos(2, 5), "c"), (Pos(4, 9), "not c"), (Pos(6, 3), "(n, 1)"))
+
+// a replacement as format writes it at its place, at the indentation of its line and with the comments inside it
+test lints_at_their_places() :=
+  var found: List[(Pos, Str)]
+  linted(in List(BoolIte), List(
+    "procedure p(in xs: List[Int], out b: Bool) :=",
+    "  if true then",
+    "    b := if contains(",
+    "      // the first",
+    "      1,",
+    "      xs) then true else false",
+    "  end"), out found)
+  assert found == List((Pos(3, 10), "contains(\n      // the first\n      1,\n      xs)"))
 
 test lints_of_matches() :=
   var found: List[(Pos, Str)]

@@ -36,6 +36,22 @@ test refused_fragment() :=
     "rejected",
     "fragment 2.6, script 3.6: expression expected but end of input found")
 
+// a fragment with a habit of another language is refused with its correction, which @retry applies, once
+test retries_corrected_fragments() :=
+  var reply: List[Str], status: Int, text: Str
+  let state := "out/test/refactor/retry", path := "out/test/refactor/retry/r.u"
+  os_write_utf8(in path, "function f(x: Int): Int :=\n  x\n")
+  run_script(in "@put " ++ path ++ "\nfunction g(x: Int): Int :=\n  return x + 1\n", false, state, nothing_found, out reply, status, _)
+  assert status == 1
+  assert reply == List(
+    "rejected",
+    "fragment 2.10, script 3.10: declaration expected but x found\ncorrected by the hints, which @retry applies:\n  fragment 2, script 3:   x + 1")
+  run_script(in "@retry", false, state, nothing_found, out reply, status, _)
+  os_read_utf8(in path, out text)
+  assert status == 0 and text == "function f(x: Int): Int :=\n  x\n\nfunction g(x: Int): Int :=\n  x + 1\n"
+  run_script(in "@retry", false, state, nothing_found, out reply, status, _)
+  assert status == 1 and take(1, reply) == List("rejected")
+
 // handles of @show name the nodes of a declaration, which @put replaces and inserts before, and @patch edits, in one
 // script, since each edit moves the handles of its declaration, and @undo restores the file
 test handles() :=
@@ -91,6 +107,18 @@ test fixes() :=
   run_script(in "@fix " ++ path, false, state, nothing_found, out _, status, _)
   os_read_utf8(in path, out text)
   assert text == "function is_pos(n: Int): Bool :=\n  n > 0 and n < 10\n\nfunction first(o: Option[Int]): Int :=\n  value_or(o, 0)\n\nprocedure classify(in n: Int, out text: Str) :=\n  let count := 1\n  let k := n + 1\n  if is_pos(n) then\n    var label: Str\n    label := \"pos\"\n    text := label ++ show(count) ++ show(first(Some(k)))\n  else\n    var label: Str\n    label := \"neg\"\n    text := label\n  end\n\nfunction count_a(s: Str): Int :=\n  size(List(for c in s if c == 'a'))\n\nprocedure main() :=\n  var t: Str\n  classify(in 3, out t)\n  os_println(in t)\n  os_println(in show(count_a(t)))\n"
+
+// @fix writes a replacement as format writes it at its place, at the indentation of its line and with the comments
+// inside it, which a replacement printed alone would drop
+test fixes_keep_comments() :=
+  var status: Int, text: Str
+  let state := "out/test/refactor/fixes", path := "out/test/refactor/fixes/c.u"
+  let body := "procedure main() :=\n  var b := false\n  if true then\n    b := "
+  os_write_utf8(in path, body ++ "if contains(\n      // the first\n      1,\n      List(2)) then\n      true\n    else\n      false\n  end\n  os_println(in show(b))\n")
+  run_script(in "@fix " ++ path, false, state, nothing_found, out _, status, _)
+  os_read_utf8(in path, out text)
+  assert status == 0
+  assert text == body ++ "contains(\n      // the first\n      1,\n      List(2))\n  end\n  os_println(in show(b))\n"
 
 // a check that finds an error at each use of value_or in the text of the file, the overlay if any, as if the module
 // declared another

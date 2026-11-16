@@ -23,8 +23,14 @@ procedure require_formatted(
       text: Str
 ) raises Unformatted
 
-// expr as format writes it in the module name of source, with the notation of all its sections, at the start of a line
-function format_module_expr(source: Source, name: Path, expr: At[Expr]): Str
+// expr as format writes it on a line at indent in the module name of source, with the notation of all its sections and
+// the comments in its span that its text places, so that it is the text of the formatted file at expr
+function format_module_expr(source: Source, name: Path, indent: Str, expr: At[Expr]): Str
+
+// the spaces that start the line of pos in lines, the indentation at which format writes the part that starts at pos
+function line_indentation(lines: Array[Str], pos: Pos): Str :=
+  example line_indentation(Array("a", "  b c"), Pos(2, 5)) == "  "
+  example line_indentation(Array("a"), Pos(3, 1)) == ""
 
 function format_lit(lit: Lit): Str
 
@@ -97,12 +103,20 @@ function format_module(source: Source, name: Path): Str :=
       ""
   end
 
-function format_module_expr(source: Source, name: Path, expr: At[Expr]): Str :=
+function format_module_expr(source: Source, name: Path, indent: Str, expr: At[Expr]): Str :=
   match find(source.mods, lambda d => d.name == name)
     case Some(d) =>
-      format_expr(with_notation(imported_notation(source.mods, seen_modules(d, source.packages)), commands_of(d.exported ++ d.builtins ++ d.implemented)), List(), "", expr)
+      expand(d.comments, format_expr(with_notation(imported_notation(source.mods, seen_modules(d, source.packages)), commands_of(d.exported ++ d.builtins ++ d.implemented)), d.comments, indent, expr))
     case None =>
-      format_expr(builtin_notation(), List(), "", expr)
+      format_expr(builtin_notation(), List(), indent, expr)
+  end
+
+function line_indentation(lines: Array[Str], pos: Pos): Str :=
+  match get(pos.line - 1, lines)
+    case Some(line) =>
+      str(take_while(chars(line), lambda c => c == ' '))
+    case None =>
+      ""
   end
 
 // the notation that the modules names of mods export, in order, after builtin_notation of ulang/syntax/notation.u
