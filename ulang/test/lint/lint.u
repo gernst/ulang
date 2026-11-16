@@ -82,8 +82,8 @@ test lints_of_matches() :=
     "  end"), out found)
   assert found == List((Pos(2, 3), "value_or(o, d)"))
 
-// matches that spell out map_option, exists, and forall, in either order, but not with a guard, of another pattern than
-// a variable, or in the definition of the function itself
+// matches that spell out map_option, exists, and forall of a function that exists, in either order, but not of a body
+// that needs a lambda, with a guard, or in the definition of the function itself, and not with a recursive call
 test lints_of_option_matches() :=
   var found: List[(Pos, Str)]
   linted(in List(OptionMatch), List(
@@ -91,7 +91,7 @@ test lints_of_option_matches() :=
     "function a(o: Option[Int]): Option[Int] :=",
     "  match o",
     "    case Some(x) =>",
-    "      Some(x + 1)",
+    "      Some(f(x))",
     "    case None =>",
     "      None",
     "  end",
@@ -100,28 +100,35 @@ test lints_of_option_matches() :=
     "    case None =>",
     "      false",
     "    case Some(x) =>",
-    "      x == 1",
+    "      p(x)",
     "  end",
     "function c(o: Option[Int]): Bool :=",
     "  match o",
     "    case Some(x) =>",
-    "      x == 1",
+    "      q(x)",
     "    case None() =>",
     "      true",
     "  end",
-    "function d(o: Option[Int]): Bool :=",
+    "function d(o: Option[Int]): Option[Int] :=",
     "  match o",
-    "    case Some(x) if x == 2 =>",
-    "      x == 1",
-    "    case _ =>",
-    "      true",
+    "    case Some(x) =>",
+    "      Some(x + 1)",
+    "    case None =>",
+    "      None",
     "  end",
-    "function e(o: Option[(Int, Int)]): Bool :=",
+    "function e(o: Option[Int]): Bool :=",
     "  match o",
-    "    case Some((x, y)) =>",
-    "      x == y",
+    "    case Some(x) =>",
+    "      p(x, 1)",
     "    case None =>",
     "      false",
+    "  end",
+    "function g(o: Option[Int]): Bool :=",
+    "  match o",
+    "    case Some(x) if x == 2 =>",
+    "      p(x)",
+    "    case _ =>",
+    "      true",
     "  end",
     "function exists(o: Option[Int], p: Int -> Bool): Bool :=",
     "  match o",
@@ -133,22 +140,22 @@ test lints_of_option_matches() :=
     "function r(o: Option[Int]): Option[Int] :=",
     "  match o",
     "    case Some(x) =>",
-    "      Some(r(None))",
+    "      Some(r(x))",
     "    case None =>",
     "      None",
     "  end",
     "function s(o: Option[Int]): Option[Int] :=",
     "  match s(o)",
     "    case Some(x) =>",
-    "      Some(x + 1)",
+    "      Some(f(x))",
     "    case None =>",
     "      None",
     "  end"), out found)
   assert found == List(
-    (Pos(3, 3), "map_option(o, lambda x => x + 1)"),
-    (Pos(10, 3), "exists(o, lambda x => x == 1)"),
-    (Pos(17, 3), "forall(o, lambda x => x == 1)"),
-    (Pos(52, 3), "map_option(s(o), lambda x => x + 1)"))
+    (Pos(3, 3), "map_option(o, f)"),
+    (Pos(10, 3), "exists(o, p)"),
+    (Pos(17, 3), "forall(o, q)"),
+    (Pos(59, 3), "map_option(s(o), f)"))
 
 // an if inside an if of the same condition, or of not of it, in either branch, and a guard, but not of another condition
 test lints_of_decided_expressions() :=
