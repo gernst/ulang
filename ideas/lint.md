@@ -57,11 +57,11 @@ Exported now, and enough for the side table: class ids, `class_of`, `class_nodes
 Engines: **eq** (definitions and lemmas), **ctx** (extended by the path), **classes** (parts that share a class). Priority: **A** soon, **B** after the mechanism has settled.
 
 - **R1 `CopiedContainer`** (eq, A for lists, sets and maps under binders): `List(for y in List(for x in c) yield e)` is `List(for y in c yield e)`, also as the generator of a `for`; replaces `iterated_list`.
-- **R2 `Folded`** (eq, A): a part that spells out the body of a library function, `value_or`, `map_option`, `not`, `exists`; replaces the `value_or` pattern of `placed_lints`.
+- **R2 `Folded`** (eq, A): a part that spells out the body of a library function, `value_or`, `map_option`, `not`, `exists`; replaces the patterns of `value_or`, `map_option`, `exists`, and `forall` of options in `folded_match` of `ulang/lint/lint.u`.
 - **R4 `RepeatedExpr`** (classes, B, a finding without edit): two source parts in one class, larger than a threshold, in one declaration or module, modulo the names of locals, overloads, and the lemmas, so `x.name` and `name_of(x)` are found too.
-- **R5 `BoolIte`** (eq, A): `if c then true else false == c`, `c == true == c`, `if c then a else a == a`; replaces the pattern of `placed_lints`.
+- **R5 `BoolIte`** (eq, A): `if c then true else false == c`, `c == true == c`, `if c then a else a == a`; replaces the patterns of `placed_lints` and `compared_bool`.
 - **R6 `IdentityForm`** (eq, A): `List(for x in xs) == xs` of a list, `Set(for x in s) == s` of a set.
-- **D1 `DecidedCondition`** (ctx, B): a condition whose class contains `true` or `false` under the path, replaced by the branch it takes.
+- **D1 `DecidedCondition`** (ctx, B): a condition whose class contains `true` or `false` under the path, replaced by the branch it takes; replaces the walk of `decided_cmd` of `ulang/lint/lint.u`, which knows only the conditions of the `if`s and guards around, written alike.
 - **D2 `RedundantGuard`** (ctx, B): `if c then a else b` where `a` and `b` share a class under `c`, which becomes `b`.
 - **N1 `DuplicateDefinition`** (classes, B): two functions of the same type whose bodies, applied to the same fresh constants, share a class after saturation.
 - **P1 `ulang.bin diff <old> <new>`** (classes, B): the declarations added, removed, or changed, where a change is a body that no longer shares a class with the old one, so a renamed local or an applied lint is no change; also the base of the merge by declarations of `refactor.md`.
