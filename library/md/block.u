@@ -40,7 +40,7 @@ data Start :=
   case TextStart
 
 function parse_blocks(text: Str): List[Block] :=
-  blocks(split(str(List(for c in chars(text) if c != '\r' yield c)), '\n'))
+  blocks(split(str(List(for c in text if c != '\r' yield c)), '\n'))
 
 function blocks(lines: List[Str]): List[Block] :=
   let (bs, _) := blocks_gap(lines, false, false) in
@@ -191,7 +191,7 @@ function indented_code(acc: List[Str], lines: List[Str]): (Block, List[Str]) :=
 
 // three or more of -, *, or _, the same, with spaces between
 function is_rule(l: Str): Bool :=
-  let cs := List(for c in chars(l) if c != ' ' yield c) in
+  let cs := List(for c in l if c != ' ' yield c) in
   match cs
     case List(c; _) =>
       (c == '-' or c == '*' or c == '_') and size(cs) >= 3 and forall(cs, lambda d => d == c)

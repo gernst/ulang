@@ -5,7 +5,7 @@
 
 // the words of a text, lower-cased runs of letters
 function words(text: Str): List[Str] :=
-  List(for w in split(str(List(for c in chars(text) yield if is_letter(c) then lower(c) else ' ')), ' ') if w != "")
+  List(for w in split(str(List(for c in text yield if is_letter(c) then lower(c) else ' ')), ' ') if w != "")
 
 function lower(c: Char): Char :=
   if 'A' <= c and c <= 'Z' then chr(int(c) + 32) else c

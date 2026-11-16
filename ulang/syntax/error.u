@@ -216,7 +216,7 @@ function position_fields(pos: Pos): List[(Str, Str)] :=
     List(("line", show(pos.line)), ("column", show(pos.col)))
 
 function json_text(text: Str): Str :=
-  "\"" ++ join("", List(for c in chars(text) yield json_char(c))) ++ "\""
+  "\"" ++ join("", List(for c in text yield json_char(c))) ++ "\""
 
 function json_char(c: Char): Str :=
   match c

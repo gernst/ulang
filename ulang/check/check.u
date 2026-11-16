@@ -2791,7 +2791,7 @@ procedure fold_items(
   let w := zonk_type(s.sub, u)
   match w
     case TSort(Name(m, _), _) if m != List() =>
-      match List(for sc in schemes_of(s.sig, Name(m, fold)) if is_fold(sc.typ) yield sc)
+      match List(for sc in schemes_of(s.sig, Name(m, fold)) if is_fold(sc.typ, w) yield sc)
         case List(sc; _) =>
           var t: Type
           instantiate(in sc, out t, ref s)
@@ -2831,11 +2831,12 @@ procedure fold_items(
       item := None
   end
 
-// whether t is the type of a fold, of a container, an accumulator, and a function of a step
-function is_fold(t: Type): Bool :=
-  match t
-    case TFun(List(_, _, TFun(_, _)), _) =>
-      true
+// whether a scheme is a fold over the container w, which takes the type of w first, since a module may declare the folds of
+// one of its types and not of the others, as the prelude declares those of Str and not of Int
+function is_fold(t: Type, w: Type): Bool :=
+  match (t, w)
+    case (TFun(List(TSort(name, _), _, TFun(_, _)), _), TSort(name_, _)) =>
+      name == name_
     case _ =>
       false
   end
@@ -4622,7 +4623,7 @@ procedure declare_pat_aliases(in cs: List[(Path, Cmd)], ref s: State) :=
     end
   end
 
-// the proof of a lemma over its formals and the locals of the proof, see ideas/prove.md, section 4: the steps in their order,
+// the proof of a lemma over its formals and the locals of the proof, see ideas/verification.md, section 4: the steps in their order,
 // each adding its local to env, then the split, whose cases are proofs with the variables of their patterns
 procedure check_proof(
   in  formals: List[Var],

@@ -78,6 +78,21 @@ test lints_of_iterated_lists() :=
     "  end"), out found)
   assert found == List((Pos(2, 17), "xs"), (Pos(6, 22), "m"), (Pos(9, 12), "xs"))
 
+// a generator or for over the characters of a string ranges over the string, but not over a chars of another arity
+test lints_of_chars_loops() :=
+  var found: List[(Pos, Str)]
+  linted(in List(CharsLoop), List(
+    "function l(s: Str): List[Int] :=",
+    "  List(for c in chars(s) if is_space(c) yield int(c))",
+    "function m(s: Str, t: Str): Set[(Char, Char)] :=",
+    "  Set(for c in chars(trim(s)) for d in chars(t, s) yield (c, d))",
+    "procedure p(in s: Str, out n: Int) :=",
+    "  n := 0",
+    "  for c in chars(s) do",
+    "    n := plus(n, int(c))",
+    "  end"), out found)
+  assert found == List((Pos(2, 17), "s"), (Pos(4, 16), "trim(s)"), (Pos(7, 12), "s"))
+
 test lints_of_variables() :=
   var found: List[(Pos, Str)]
   linted(in List(UnusedVariable), List(

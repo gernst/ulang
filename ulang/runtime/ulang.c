@@ -64,10 +64,7 @@ static void gc_free(void *p, size_t size) {
   (void)size;
 }
 
-// the small integers, which exist once, since most integers of programs are small
-#define SMALL_MIN (-16)
-#define SMALL_MAX 255
-static struct u_object small_ints[SMALL_MAX - SMALL_MIN + 1];
+// the characters below 256 and the bytes, which exist once each
 static struct u_object small_chars[256];
 static struct u_object byte_objects[256];
 
@@ -81,10 +78,6 @@ __attribute__((constructor)) static void init(void) {
   // variable GC_FREE_SPACE_DIVISOR of libgc still decides where it is set
   if (!getenv("GC_FREE_SPACE_DIVISOR")) GC_set_free_space_divisor(1);
   mp_set_memory_functions(GC_malloc, gc_realloc, gc_free);
-  for (int i = 0; i <= SMALL_MAX - SMALL_MIN; i++) {
-    small_ints[i].type = &u_int_type;
-    small_ints[i].num = i + SMALL_MIN;
-  }
   for (int i = 0; i < 256; i++) {
     small_chars[i].type = &u_char_type;
     small_chars[i].num = i;
@@ -93,15 +86,37 @@ __attribute__((constructor)) static void init(void) {
   }
 }
 
+// objects of up to 96 bytes from lists of free ones, one list per size in units of 16 bytes, which GC_malloc_many fills
+// with cleared objects linked by their first word: an allocation takes the first of its list, without the call, the lock,
+// and the thread-local lookup of GC_malloc. The lists are static, so the collector sees them as roots.
+#define FREE_LISTS 7
+static void *free_lists[FREE_LISTS];
+
+static inline void *small(size_t bytes) {
+  size_t k = (bytes + 15) >> 4;
+  if (k >= FREE_LISTS) {
+    void *p = GC_MALLOC(bytes);
+    if (!p) u_fail("out of memory");
+    return p;
+  }
+  void *p = free_lists[k];
+  if (!p) {
+    p = GC_malloc_many(k << 4);
+    if (!p) u_fail("out of memory");
+  }
+  free_lists[k] = *(void **)p;
+  *(void **)p = NULL;
+  return p;
+}
+
 static u_value object(const struct u_type *type) {
-  u_value v = GC_MALLOC(sizeof(struct u_object));
-  if (!v) u_fail("out of memory");
+  u_value v = small(sizeof(struct u_object));
   v->type = type;
   return v;
 }
 
 u_value u_mk_int(long long n) {
-  if (n >= SMALL_MIN && n <= SMALL_MAX) return &small_ints[n - SMALL_MIN];
+  if (n >= U_TAG_MIN && n <= U_TAG_MAX) return u_tagged(n);
   u_value v = object(&u_int_type);
   v->num = n;
   return v;
@@ -125,7 +140,7 @@ u_value u_mk_int_str(const char *digits) {
 }
 
 static void to_mpz(mpz_t z, u_value v) {
-  if (v->type == &u_int_type) mpz_set_si(z, v->num);
+  if (u_type_of(v) == &u_int_type) mpz_set_si(z, u_num_of(v));
   else mpz_set(z, v->big);
 }
 
@@ -144,24 +159,24 @@ static u_value slow(void (*op)(mpz_ptr, mpz_srcptr, mpz_srcptr), u_value a, u_va
 // -1, 0, or 1 as a is less than, equal to, or greater than b
 static int int_order(u_value a, u_value b) {
   int c;
-  if (a->type == &u_int_type && b->type == &u_int_type) return (a->num > b->num) - (a->num < b->num);
-  if (a->type == &u_int_type) c = -mpz_cmp_si(b->big, a->num);
-  else if (b->type == &u_int_type) c = mpz_cmp_si(a->big, b->num);
+  if (u_type_of(a) == &u_int_type && u_type_of(b) == &u_int_type) return (u_num_of(a) > u_num_of(b)) - (u_num_of(a) < u_num_of(b));
+  if (u_type_of(a) == &u_int_type) c = -mpz_cmp_si(b->big, u_num_of(a));
+  else if (u_type_of(b) == &u_int_type) c = mpz_cmp_si(a->big, u_num_of(b));
   else c = mpz_cmp(a->big, b->big);
   return (c > 0) - (c < 0);
 }
 
 // the decimal digits of an integer
 static char *digits(u_value v) {
-  if (v->type == &u_big_type) return mpz_get_str(NULL, 10, v->big);
+  if (u_type_of(v) == &u_big_type) return mpz_get_str(NULL, 10, v->big);
   char *s = GC_MALLOC_ATOMIC(24);
-  snprintf(s, 24, "%lld", v->num);
+  snprintf(s, 24, "%lld", u_num_of(v));
   return s;
 }
 
 // an integer as an index of a string or an array, where big integers are beyond any
 static long long index_of(u_value v) {
-  if (v->type == &u_int_type) return v->num;
+  if (u_type_of(v) == &u_int_type) return u_num_of(v);
   return mpz_sgn(v->big) < 0 ? LLONG_MIN / 4 : LLONG_MAX / 4;
 }
 
@@ -316,8 +331,7 @@ u_value u_from_utf8(const char *bytes, size_t n) {
 
 // an object with its items after it, in one allocation
 static u_value compound(const struct u_type *type, int size) {
-  u_value v = GC_MALLOC(sizeof(struct u_object) + size * sizeof(u_value));
-  if (!v) u_fail("out of memory");
+  u_value v = small(sizeof(struct u_object) + size * sizeof(u_value));
   v->type = type;
   v->size = size;
   v->items = (u_value *)(v + 1);
@@ -350,6 +364,32 @@ u_value u_mk_con(const struct u_name *name, int size, ...) {
   return v;
 }
 
+// the constructions of 1 to 3 fields and tuples of 2 and 3, which the backends call by construction of
+// ulang/compile/lower.u without the variable arguments of u_mk_con and u_mk_tuple
+u_value u_mk_con_1(const struct u_name *name, u_value a) {
+  u_value v = compound(name->type, 1);
+  v->name = name;
+  v->items[0] = a;
+  return v;
+}
+
+u_value u_mk_con_2(const struct u_name *name, u_value a, u_value b) {
+  u_value v = compound(name->type, 2);
+  v->name = name;
+  v->items[0] = a;
+  v->items[1] = b;
+  return v;
+}
+
+u_value u_mk_con_3(const struct u_name *name, u_value a, u_value b, u_value c) {
+  u_value v = compound(name->type, 3);
+  v->name = name;
+  v->items[0] = a;
+  v->items[1] = b;
+  v->items[2] = c;
+  return v;
+}
+
 u_value u_mk_con_array(const struct u_name *name, int size, u_value *xs) {
   u_value v = compound(name->type, size);
   v->name = name;
@@ -363,13 +403,13 @@ void u_missing_field(u_value field) {
 
 u_value u_unordered(u_value a, u_value b) {
   (void)b;
-  u_raise(u_mk_con(&n_prelude_46_Unordered, 1, u_from_utf8(a->type->name, u_strlen(a->type->name))), "prelude.Unordered");
+  u_raise(u_mk_con(&n_prelude_46_Unordered, 1, u_from_utf8(u_type_of(a)->name, u_strlen(u_type_of(a)->name))), "prelude.Unordered");
   return a;
 }
 
 u_value u_incomparable(u_value a, u_value b) {
   (void)b;
-  u_raise(u_mk_con(&n_prelude_46_Incomparable, 1, u_from_utf8(a->type->name, u_strlen(a->type->name))), "prelude.Incomparable");
+  u_raise(u_mk_con(&n_prelude_46_Incomparable, 1, u_from_utf8(u_type_of(a)->name, u_strlen(u_type_of(a)->name))), "prelude.Incomparable");
   return a;
 }
 
@@ -386,6 +426,21 @@ u_value u_mk_tuple(int size, ...) {
   va_start(args, size);
   u_value v = fill(compound(&u_tuple_type, size), args);
   va_end(args);
+  return v;
+}
+
+u_value u_mk_tuple_2(u_value a, u_value b) {
+  u_value v = compound(&u_tuple_type, 2);
+  v->items[0] = a;
+  v->items[1] = b;
+  return v;
+}
+
+u_value u_mk_tuple_3(u_value a, u_value b, u_value c) {
+  u_value v = compound(&u_tuple_type, 3);
+  v->items[0] = a;
+  v->items[1] = b;
+  v->items[2] = c;
   return v;
 }
 
@@ -411,23 +466,24 @@ static int sign(long long d) {
   return (d > 0) - (d < 0);
 }
 
-// -1, 0, or 1 as a value, which are shared
+// -1, 0, or 1 as a value
 static u_value ordering(int c) {
-  return &small_ints[c - SMALL_MIN];
+  return u_tagged(c);
 }
 
 // the sign of an integer, by which the result of a declared compare counts, whatever its size
 static int int_sign(u_value c) {
-  return c->type == &u_int_type ? sign(c->num) : mpz_sgn(c->big);
+  return u_type_of(c) == &u_int_type ? sign(u_num_of(c)) : mpz_sgn(c->big);
 }
 
 // -1, 0, or 1 for values of the same type, by the order of their type
 static int compare(u_value a, u_value b) {
-  return int_sign(a->type->compare(a, b));
+  return int_sign(u_type_of(a)->compare(a, b));
 }
 
 int u_equals(u_value a, u_value b) {
-  return u_truth(a->type->equals(a, b));
+  if (u_type_of(a) == u_type_of(b) && (u_type_of(a) == &u_int_type || u_type_of(a) == &u_char_type)) return u_num_of(a) == u_num_of(b);
+  return u_truth(u_type_of(a)->equals(a, b));
 }
 
 u_value u_equals_by_compare(u_value a, u_value b) {
@@ -439,7 +495,7 @@ static u_value compare_ints(u_value a, u_value b) {
 }
 
 static u_value compare_nums(u_value a, u_value b) {
-  return ordering(sign(a->num - b->num));
+  return ordering(sign(u_num_of(a) - u_num_of(b)));
 }
 
 // strings by their code points and then by their length
@@ -514,7 +570,7 @@ static void fail_with(const char *format, u_value a, u_value b);
 // functions and procedures, which are incomparable
 static u_value compare_callables(u_value a, u_value b) {
   (void)b;
-  fail_with(a->type == &u_closure_type ? u_text_compare_functions : u_text_compare_procedures, NULL, NULL);
+  fail_with(u_type_of(a) == &u_closure_type ? u_text_compare_functions : u_text_compare_procedures, NULL, NULL);
   return NULL;
 }
 
@@ -546,48 +602,50 @@ void u_call_proc(u_value p, int ins, int outs, ...) {
 
 u_value u_add(u_value a, u_value b) {
   long long r;
-  if (a->type == &u_int_type && b->type == &u_int_type && !__builtin_add_overflow(a->num, b->num, &r)) return u_mk_int(r);
+  if (u_type_of(a) == &u_int_type && u_type_of(b) == &u_int_type && !__builtin_add_overflow(u_num_of(a), u_num_of(b), &r)) return u_mk_int(r);
   return slow(mpz_add, a, b);
 }
 
 u_value u_sub(u_value a, u_value b) {
   long long r;
-  if (a->type == &u_int_type && b->type == &u_int_type && !__builtin_sub_overflow(a->num, b->num, &r)) return u_mk_int(r);
+  if (u_type_of(a) == &u_int_type && u_type_of(b) == &u_int_type && !__builtin_sub_overflow(u_num_of(a), u_num_of(b), &r)) return u_mk_int(r);
   return slow(mpz_sub, a, b);
 }
 
 u_value u_mul(u_value a, u_value b) {
   long long r;
-  if (a->type == &u_int_type && b->type == &u_int_type && !__builtin_mul_overflow(a->num, b->num, &r)) return u_mk_int(r);
+  if (u_type_of(a) == &u_int_type && u_type_of(b) == &u_int_type && !__builtin_mul_overflow(u_num_of(a), u_num_of(b), &r)) return u_mk_int(r);
   return slow(mpz_mul, a, b);
 }
 
 // small integers that C divides, where the quotient of LLONG_MIN and -1 overflows
 static int divisible(u_value a, u_value b) {
-  return a->type == &u_int_type && b->type == &u_int_type && !(a->num == LLONG_MIN && b->num == -1);
+  return u_type_of(a) == &u_int_type && u_type_of(b) == &u_int_type && !(u_num_of(a) == LLONG_MIN && u_num_of(b) == -1);
 }
 
 // division truncates toward zero, as in C, and a big integer is never zero
 u_value u_div(u_value a, u_value b) {
-  if (b->type == &u_int_type && b->num == 0) division_by_zero();
-  if (divisible(a, b)) return u_mk_int(a->num / b->num);
+  if (u_type_of(b) == &u_int_type && u_num_of(b) == 0) division_by_zero();
+  if (divisible(a, b)) return u_mk_int(u_num_of(a) / u_num_of(b));
   return slow(mpz_tdiv_q, a, b);
 }
 
 u_value u_mod(u_value a, u_value b) {
-  if (b->type == &u_int_type && b->num == 0) division_by_zero();
-  if (divisible(a, b)) return u_mk_int(a->num % b->num);
+  if (u_type_of(b) == &u_int_type && u_num_of(b) == 0) division_by_zero();
+  if (divisible(a, b)) return u_mk_int(u_num_of(a) % u_num_of(b));
   return slow(mpz_tdiv_r, a, b);
 }
 
 // small integers directly, and other values by the order of their type
 u_value u_lt(u_value a, u_value b) {
-  if (a->type == &u_int_type && b->type == &u_int_type) return u_mk_bool(a->num < b->num);
+  if (u_type_of(a) == &u_int_type && u_type_of(b) == &u_int_type) return u_mk_bool(u_num_of(a) < u_num_of(b));
   return u_mk_bool(compare(a, b) < 0);
 }
 
+// small integers and characters directly, and other values by the equality of their type
 u_value u_eq(u_value a, u_value b) {
-  return a->type->equals(a, b);
+  if (u_type_of(a) == u_type_of(b) && (u_type_of(a) == &u_int_type || u_type_of(a) == &u_char_type)) return u_mk_bool(u_num_of(a) == u_num_of(b));
+  return u_type_of(a)->equals(a, b);
 }
 
 u_value u_chars(u_value s) {
@@ -600,22 +658,22 @@ u_value u_string(u_value cs) {
   long long n = 0;
   int width = 1;
   for (u_value c = cs; u_is_con(c, &n_list_46_Cons); c = c->items[1], n++)
-    if (width_of(c->items[0]->num) > width) width = width_of(c->items[0]->num);
+    if (width_of(u_num_of(c->items[0])) > width) width = width_of(u_num_of(c->items[0]));
   u_value s = new_str(n, width);
   long long i = 0;
-  for (u_value c = cs; u_is_con(c, &n_list_46_Cons); c = c->items[1]) put_unit(s, i++, c->items[0]->num);
+  for (u_value c = cs; u_is_con(c, &n_list_46_Cons); c = c->items[1]) put_unit(s, i++, u_num_of(c->items[0]));
   return s;
 }
 
 u_value u_ord(u_value c) {
-  return u_mk_int(c->num);
+  return u_mk_int(u_num_of(c));
 }
 
 // the code points, without the surrogates of UTF-16
 u_value u_chr(u_value n) {
-  if (n->type != &u_int_type || n->num < 0 || n->num > 0x10FFFF || (n->num >= 0xD800 && n->num <= 0xDFFF))
+  if (u_type_of(n) != &u_int_type || u_num_of(n) < 0 || u_num_of(n) > 0x10FFFF || (u_num_of(n) >= 0xD800 && u_num_of(n) <= 0xDFFF))
     u_raise(u_mk_con(&n_prelude_46_NoCharacter, 1, n), "prelude.NoCharacter");
-  return u_mk_char(n->num);
+  return u_mk_char(u_num_of(n));
 }
 
 u_value u_mk_byte(long long b) {
@@ -623,12 +681,12 @@ u_value u_mk_byte(long long b) {
 }
 
 u_value u_byte(u_value n) {
-  if (n->type != &u_int_type || n->num < 0 || n->num > 255) u_raise(u_mk_con(&n_prelude_46_NoByte, 1, n), "prelude.NoByte");
-  return &byte_objects[n->num];
+  if (u_type_of(n) != &u_int_type || u_num_of(n) < 0 || u_num_of(n) > 255) u_raise(u_mk_con(&n_prelude_46_NoByte, 1, n), "prelude.NoByte");
+  return &byte_objects[u_num_of(n)];
 }
 
 u_value u_byte_int(u_value b) {
-  return u_mk_int(b->num);
+  return u_mk_int(u_num_of(b));
 }
 
 // a cell with x at the place end of a list being built, whose tail is the place of the next cell,
@@ -754,7 +812,7 @@ u_value u_split(u_value s, u_value c) {
   u_value parts = &o_list_46_Nil;
   long long to = s->length;
   for (long long i = s->length; i >= 0; i--) {
-    if (i == 0 || u_str_at(s, i - 1) == c->num) {
+    if (i == 0 || u_str_at(s, i - 1) == u_num_of(c)) {
       parts = u_mk_con(&n_list_46_Cons, 2, substring(s, i, to), parts);
       to = i - 1;
     }
@@ -769,9 +827,9 @@ u_value u_at(u_value i, u_value s) {
 }
 
 u_value u_contains(u_value c, u_value s) {
-  if (s->width == 1) return u_mk_bool(c->num < 0x100 && memchr(s->units, (int)c->num, (size_t)s->length) != NULL);
+  if (s->width == 1) return u_mk_bool(u_num_of(c) < 0x100 && memchr(s->units, (int)u_num_of(c), (size_t)s->length) != NULL);
   for (long long i = 0; i < s->length; i++)
-    if (u_str_at(s, i) == c->num) return &u_true;
+    if (u_str_at(s, i) == u_num_of(c)) return &u_true;
   return &u_false;
 }
 
@@ -805,9 +863,10 @@ u_value u_mk_array(int n, ...) {
   return a;
 }
 
-// the number of elements of a list or an array, the source of a comprehension
+// the number of elements of a list, an array, or a string, the source of a comprehension
 int u_count(u_value c) {
-  if (c->type == &u_array_type) return c->size;
+  if (u_type_of(c) == &u_array_type) return c->size;
+  if (u_type_of(c) == &u_str_type) return c->length;
   int n = 0;
   for (; u_is_con(c, &n_list_46_Cons); c = c->items[1]) n++;
   return n;
@@ -908,16 +967,32 @@ u_value u_array_foldl(u_value a, u_value acc, u_value f) {
   return acc;
 }
 
+// the characters of s folded from the last to the first, f(c1, f(c2, ... f(cn, acc))), and from the first to the last
+u_value u_str_foldr(u_value s, u_value acc, u_value f) {
+  for (long long i = s->length - 1; i >= 0; i--) acc = u_apply(f, 2, u_mk_char(u_str_at(s, i)), acc);
+  return acc;
+}
+
+u_value u_str_foldl(u_value s, u_value acc, u_value f) {
+  for (long long i = 0; i < s->length; i++) acc = u_apply(f, 2, acc, u_mk_char(u_str_at(s, i)));
+  return acc;
+}
+
+// the character at index i of s, from 0, which the loops of comprehensions and for statements over strings take in order
+u_value u_str_item(u_value s, long long i) {
+  return u_mk_char(u_str_at(s, i));
+}
+
 u_value u_is_digit(u_value c) {
-  return u_mk_bool('0' <= c->num && c->num <= '9');
+  return u_mk_bool('0' <= u_num_of(c) && u_num_of(c) <= '9');
 }
 
 u_value u_is_letter(u_value c) {
-  return u_mk_bool(('a' <= c->num && c->num <= 'z') || ('A' <= c->num && c->num <= 'Z'));
+  return u_mk_bool(('a' <= u_num_of(c) && u_num_of(c) <= 'z') || ('A' <= u_num_of(c) && u_num_of(c) <= 'Z'));
 }
 
 u_value u_is_space(u_value c) {
-  return u_mk_bool(c->num == ' ' || c->num == '\n' || c->num == '\t' || c->num == '\r');
+  return u_mk_bool(u_num_of(c) == ' ' || u_num_of(c) == '\n' || u_num_of(c) == '\t' || u_num_of(c) == '\r');
 }
 
 // the text of a value, shown by its type, appended
@@ -927,7 +1002,7 @@ static void append_shown(struct u_text *t, u_value v) {
 
 // values as show_in of ulang/run/run.u shows them, by their types
 u_value u_show(u_value v) {
-  return v->type->show(v);
+  return u_type_of(v)->show(v);
 }
 
 void u_fprint_value(FILE *out, u_value v) {
@@ -941,13 +1016,13 @@ static u_value show_int(u_value v) {
 }
 
 static u_value show_bool(u_value v) {
-  return v->num ? u_mk_lit("true") : u_mk_lit("false");
+  return u_num_of(v) ? u_mk_lit("true") : u_mk_lit("false");
 }
 
 static u_value show_char(u_value v) {
   struct u_text t = {NULL, 0, 0, 1};
   append(&t, "'");
-  append_char(&t, v->num, '\'');
+  append_char(&t, u_num_of(v), '\'');
   append(&t, "'");
   return text_value(&t);
 }
@@ -956,7 +1031,7 @@ static u_value show_char(u_value v) {
 static u_value show_byte(u_value v) {
   struct u_text t = {NULL, 0, 0, 1};
   append(&t, "byte(");
-  append(&t, u_utf8(show_int(u_mk_int(v->num)), NULL));
+  append(&t, u_utf8(show_int(u_mk_int(u_num_of(v))), NULL));
   append(&t, ")");
   return text_value(&t);
 }
@@ -1253,7 +1328,7 @@ void p_os_read_bytes(u_value path, u_value *result) {
 void p_os_write_bytes(u_value path, u_value contents) {
   FILE *f = open_for_writing(path);
   unsigned char *s = (unsigned char *)text(contents->size);
-  for (int i = 0; i < contents->size; i++) s[i] = (unsigned char)contents->items[i]->num;
+  for (int i = 0; i < contents->size; i++) s[i] = (unsigned char)u_num_of(contents->items[i]);
   int ok = fwrite(s, 1, contents->size, f) == (size_t)contents->size;
   if (fclose(f) || !ok) os_error("cannot write ", path);
 }
@@ -1269,7 +1344,7 @@ u_value u_encode_utf8(u_value s) {
 
 u_value u_decode_utf8(u_value bytes) {
   char *s = text(bytes->size);
-  for (int i = 0; i < bytes->size; i++) s[i] = (char)bytes->items[i]->num;
+  for (int i = 0; i < bytes->size; i++) s[i] = (char)u_num_of(bytes->items[i]);
   u_value t = decode(s, bytes->size, 1);
   return t ? u_mk_con(&n_option_46_Some, 1, t) : &o_option_46_None;
 }
@@ -1520,7 +1595,7 @@ void p_os_print_error(u_value text) {
 
 void p_os_exit(u_value code) {
   fflush(stdout);
-  exit(code->type == &u_int_type ? (int)code->num : 1);
+  exit(u_type_of(code) == &u_int_type ? (int)u_num_of(code) : 1);
 }
 
 void p_os_library_dir(u_value *result) {
@@ -1608,7 +1683,7 @@ static void read_failed(FILE *f, u_value io) {
 
 void p_io_read_bytes(u_value io, u_value n, u_value *bytes) {
   FILE *f = open_file(io);
-  long long k = n->type == &u_int_type && n->num > 0 ? n->num : 0;
+  long long k = u_type_of(n) == &u_int_type && u_num_of(n) > 0 ? u_num_of(n) : 0;
   unsigned char *s = (unsigned char *)text(k);
   size_t m = fread(s, 1, k, f);
   read_failed(f, io);
@@ -1628,7 +1703,7 @@ void p_io_read_until(u_value io, u_value delimiter, u_value *bytes) {
       room *= 2;
     }
     s[n++] = (unsigned char)c;
-    if (c == delimiter->num) break;
+    if (c == u_num_of(delimiter)) break;
   }
   read_failed(f, io);
   *bytes = byte_array(s, n);
@@ -1665,8 +1740,8 @@ static void send_all(int fd, const unsigned char *s, size_t n, u_value io) {
 void p_io_write_bytes(u_value io, u_value bytes) {
   FILE *f = open_file(io);
   unsigned char *s = (unsigned char *)text(bytes->size);
-  for (int i = 0; i < bytes->size; i++) s[i] = (unsigned char)bytes->items[i]->num;
-  if (io->type == &u_socket_type) {
+  for (int i = 0; i < bytes->size; i++) s[i] = (unsigned char)u_num_of(bytes->items[i]);
+  if (u_type_of(io) == &u_socket_type) {
     send_all(fileno(f), s, bytes->size, io);
     return;
   }
@@ -1697,8 +1772,8 @@ static u_value host_port(const char *host, const char *port) {
 // listening and the loopback for connecting
 static struct addrinfo *addresses(u_value host, u_value port, int passive, char *digits) {
   long long least = passive ? 0 : 1;
-  if (port->type != &u_int_type || port->num < least || port->num > 65535) os_error("no port: ", u_show(port));
-  sprintf(digits, "%lld", port->num);
+  if (u_type_of(port) != &u_int_type || u_num_of(port) < least || u_num_of(port) > 65535) os_error("no port: ", u_show(port));
+  sprintf(digits, "%lld", u_num_of(port));
   const char *name = system_path(host, "no host: ");
   struct addrinfo hints = {0}, *list;
   hints.ai_family = AF_UNSPEC;
@@ -1764,7 +1839,7 @@ void p_io_listen(u_value host, u_value port, u_value *listener) {
   // the port that the system chose for port 0
   u_value chosen;
   p_io_port(*listener, &chosen);
-  sprintf(digits, "%lld", chosen->num);
+  sprintf(digits, "%lld", u_num_of(chosen));
   (*listener)->path = host_port(u_utf8(host, NULL), digits);
 }
 
