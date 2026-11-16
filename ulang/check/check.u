@@ -3339,11 +3339,12 @@ procedure checks_args(
   ref s: State
 ) :=
   var typed: Map[Int, At[Expr]] := Map(), x: At[Expr]
-  for ((a, p), i) in zip(zip(args, ps), range(0, size(args))) if not is_lambda(a) do
+  let indexed := zip(zip(args, ps), range(0, size(args)))
+  for ((a, p), i) in indexed if not is_lambda(a) do
     check(in env, a, p, "argument " ++ show(i + 1) ++ " of the call", out x, ref s)
     typed := put(i, x, typed)
   end
-  for ((a, p), i) in zip(zip(args, ps), range(0, size(args))) if is_lambda(a) do
+  for ((a, p), i) in indexed if is_lambda(a) do
     check(in env, a, p, "argument " ++ show(i + 1) ++ " of the call", out x, ref s)
     typed := put(i, x, typed)
   end

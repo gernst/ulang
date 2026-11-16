@@ -1447,13 +1447,15 @@ function simp_eq(ctx: Ctx, a: Term, b: Term): Term :=
     EBool(false)
   else if is_equal_by_rules(ctx, a, b) then
     EBool(true)
-  else if has_division(lin_sub(lin_of(a), lin_of(b))) and is_entailed(ctx, lin_sub(lin_of(a), lin_of(b))) and is_entailed(ctx, lin_sub(lin_of(b), lin_of(a))) then
-    EBool(true)
   else
-    match oriented(ctx.decls, a, b)
-      case (x, y) =>
-        rewrite(ctx, Eq(x, y))
-    end
+    let d := lin_sub(lin_of(a), lin_of(b)) in
+    if has_division(d) and is_entailed(ctx, d) and is_entailed(ctx, lin_sub(lin_of(b), lin_of(a))) then
+      EBool(true)
+    else
+      match oriented(ctx.decls, a, b)
+        case (x, y) =>
+          rewrite(ctx, Eq(x, y))
+      end
 
 // an equation between patterns over the variables below vars, used from left to right
 data Equation :=

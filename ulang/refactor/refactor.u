@@ -2103,18 +2103,19 @@ procedure drop_target(in word: Str, ref edits: Edits) raises Refused, OsError :=
   let lines := Array(for line in split(text, '\n'))
   let dropped := List(for (key, cmd, _) in keyed(placed_of(main_mod(source))) if is_selected(key, base, arity) yield (key, cmd))
   let keys := distinct(firsts(dropped))
+  let names := join(", ", List(for key in keys yield key_text(key)))
   if keys == List() then
     raise Refused(path ++ " declares no " ++ base)
   end
   if size(keys) > 1 then
-    raise Refused(path ++ " declares " ++ join(", ", List(for key in keys yield key_text(key))) ++ ", so name one by its arity")
+    raise Refused(path ++ " declares " ++ names ++ ", so name one by its arity")
   end
   let exported := main_mod(source).exported
   let sections := List(for (_, cmd) in dropped yield if contains(cmd, exported) then "export" else "implementation")
   let splices := List(for (_, cmd) in dropped yield (cmd_range(lines, cmd, 0, true), List()))
   formatted(in path, join("\n", spliced(List(for line in lines), splices)), edits.files, no_fragment(), out result, source)
   edits := edits with files := Map(path => result; edits.files)
-  note(in path ++ ": dropped " ++ join(", ", List(for key in keys yield key_text(key))) ++ sections_text(sections), ref edits)
+  note(in path ++ ": dropped " ++ names ++ sections_text(sections), ref edits)
 
 // the sections of the declarations that an edit took, if there are several, since a datatype in export and one in
 // implementation, or a signature and its definition, share a name
@@ -2198,19 +2199,20 @@ procedure patch(
   match block
     case Some(i) =>
       var at: List[(Int, Int, Int)]
-      let old := unmarked(take(i, code))
-      patch_block(in old, unmarked(drop(i + 1, code)), labels, out at, ref patched)
+      let old := unmarked(take(i, code)), replacement := unmarked(drop(i + 1, code))
+      patch_block(in old, replacement, labels, out at, ref patched)
       if at == List() then
         let part := join("\n", List(for line in drop_blank(old) yield trim(line)))
         let counts := List(for text in patched yield size(occurrences(text, part)))
-        if size(drop_blank(old)) == 1 and is_once_each(counts) then
+        let one_line := size(drop_blank(old)) == 1
+        if one_line and is_once_each(counts) then
           // one old line that is a part of a line of the target patches as the line form does
-          let new := join("\n", List(for line in drop_blank(unmarked(drop(i + 1, code))) yield trim(line)))
+          let new := join("\n", List(for line in drop_blank(replacement) yield trim(line)))
           patched := List(for text in patched yield substituted(text, part, new))
         else
           var context: Str
           block_context(in path, List(for line in old yield trim(line)), lines, regions, edits, out context)
-          let hint := if size(drop_blank(old)) == 1 and exists(counts, lambda n => n > 0) then
+          let hint := if one_line and exists(counts, lambda n => n > 0) then
             ", and as a part of a line it occurs " ++ occurrence_text(counts, labels) ++ ", so it takes more of its line"
           else
             ""
@@ -3497,8 +3499,9 @@ function is_word_at(line: Str, i: Int, n: Int): Bool :=
 
 // line with name at each of cols, from 1, replaced by new, where name stands there
 function at_cols(line: Str, cols: List[Int], name: Str, new: Str): Str :=
-  foldl(reverse(sort(cols)), line, lambda acc, col => if slice(acc, col - 1, col - 1 + size(name)) == name then
-    slice(acc, 0, col - 1) ++ new ++ slice(acc, col - 1 + size(name), size(acc))
+  foldl(reverse(sort(cols)), line, lambda acc, col => let stop := col - 1 + size(name) in
+  if slice(acc, col - 1, stop) == name then
+    slice(acc, 0, col - 1) ++ new ++ slice(acc, stop, size(acc))
   else
     acc)
 
@@ -4792,9 +4795,9 @@ function sig_lines(lines: Array[Str], cmd: At[Cmd], c: Cmd, name: Str): List[Str
   let all := lines_in(lines, cmd_range(lines, cmd, 0, false)) in
   if exists(key_of(c), lambda key => key.base == name) then
     let head := lines_in(lines, head_range(lines, cmd)) in
-    if is_signature(c) and size(all) - size(head) > spec_lines() then
-      head ++ List(
-        "    (" ++ counted(size(all) - size(head), "line") ++ " of examples)")
+    let spec_size := size(all) - size(head) in
+    if is_signature(c) and spec_size > spec_lines() then
+      head ++ List("    (" ++ counted(spec_size, "line") ++ " of examples)")
     else
       all
   else
