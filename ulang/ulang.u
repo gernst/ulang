@@ -19,7 +19,11 @@ data Request :=
   case RRun(target: Target, args: List[Str])
   // the phases after loading, where names select tests and lemmas, args are those of the tests, and each overlay is a file
   // and the file whose text check takes instead, as of an editor's unsaved buffer
-  case RCheck(targets: List[Target], phases: Phases, args: List[Str], overlays: List[(Str, Str)])
+  case RCheck(
+    targets: List[Target],
+    phases: Phases,
+    args: List[Str],
+    overlays: List[(Str, Str)])
   case RFormat(paths: List[Str])
   // the findings of checking the file, as hover and inlay hints, with overlays as those of check
   case RHints(path: Str, overlays: List[(Str, Str)])
@@ -29,7 +33,11 @@ data Request :=
   case RCompileTests(dir: Option[Str], output: Str)
   // the script of the file, or of stdin if none, or the actions of the words, a line from each that starts with @, see ulang/refactor/refactor.u,
   // where each overlay is a file and the file whose text the script takes instead, as of an editor's unsaved buffer
-  case RRefactor(script: Option[Str], inline: Option[Str], dry: Bool, overlays: List[(Str, Str)])
+  case RRefactor(
+    script: Option[Str],
+    inline: Option[Str],
+    dry: Bool,
+    overlays: List[(Str, Str)])
   case RHelp(command: Option[Str])
   // arguments that request does not read, with what is wrong with them
   case RUsage(problem: Str)
@@ -194,7 +202,8 @@ function check_request(words: List[Str], phases: Phases, targets: List[Target], 
         RUsage("check takes arguments after -- only with --test")
       else if phases.timeout != None and not phases.tests then
         RUsage("check takes --timeout only with --test")
-      else if exists(targets, lambda t => t.name != None) and not (phases.tests or phases.proofs) then
+      else if exists(targets, lambda t => t.name != None)
+        and not (phases.tests or phases.proofs) then
         RUsage("check takes names only with --test or --prove")
       else
         RCheck(targets, phases, rest, overlays)
@@ -300,44 +309,69 @@ function target_of(word: Str): Target :=
 
 test requests() :=
   assert request(List("run", "a.u")) == RRun(Target("a.u", None), List())
-  assert request(List("run", "a.u:go", "--", "x")) == RRun(Target("a.u", Some("go")), List("x"))
-  assert request(List("check", "--test", "a.u:t", "dir", "b:c")) == RCheck(List(Target("a.u", Some("t")), Target("dir", None), Target("b:c", None)), Phases(false, true, false, None), List(), List())
-  assert request(List("check")) == RCheck(List(), Phases(false, false, false, None), List(), List())
-  assert request(List("check", "a.u", "--lint")) == RCheck(List(Target("a.u", None)), Phases(true, false, false, None), List(), List())
-  assert request(List("check", "--prove", "a.u:l", "--test")) == RCheck(List(Target("a.u", Some("l"))), Phases(false, true, true, None), List(), List())
+  assert request(List("run", "a.u:go", "--", "x"))
+    == RRun(Target("a.u", Some("go")), List("x"))
+  assert request(List("check", "--test", "a.u:t", "dir", "b:c"))
+    == RCheck(List(Target("a.u", Some("t")), Target("dir", None), Target("b:c", None)), Phases(false, true, false, None), List(), List())
+  assert request(List("check"))
+    == RCheck(List(), Phases(false, false, false, None), List(), List())
+  assert request(List("check", "a.u", "--lint"))
+    == RCheck(List(Target("a.u", None)), Phases(true, false, false, None), List(), List())
+  assert request(List("check", "--prove", "a.u:l", "--test"))
+    == RCheck(List(Target("a.u", Some("l"))), Phases(false, true, true, None), List(), List())
   assert request(List("format", "a.u")) == RFormat(List("a.u"))
   assert request(List("compile", "-o", "a.c", "--tests")) == RCompileTests(None, "a.c")
-  assert request(List("compile", "--tests", "ulang/test", "-o", "a.c")) == RCompileTests(Some("ulang/test"), "a.c")
-  assert request(List("compile", "a.u:go", "-o", "a.c")) == RCompile(Target("a.u", Some("go")), "a.c")
+  assert request(List("compile", "--tests", "ulang/test", "-o", "a.c"))
+    == RCompileTests(Some("ulang/test"), "a.c")
+  assert request(List("compile", "a.u:go", "-o", "a.c"))
+    == RCompile(Target("a.u", Some("go")), "a.c")
   assert request(List("help", "check")) == RHelp(Some("check"))
   assert request(List("hints", "a.u")) == RHints("a.u", List())
-  assert request(List("check", "--overlay", "a.u=/tmp/b", "a.u")) == RCheck(List(Target("a.u", None)), Phases(false, false, false, None), List(), List(("a.u", "/tmp/b")))
-  assert request(List("hints", "--overlay", "a.u=/tmp/b", "a.u")) == RHints("a.u", List(("a.u", "/tmp/b")))
+  assert request(List("check", "--overlay", "a.u=/tmp/b", "a.u"))
+    == RCheck(List(Target("a.u", None)), Phases(false, false, false, None), List(), List(("a.u", "/tmp/b")))
+  assert request(List("hints", "--overlay", "a.u=/tmp/b", "a.u"))
+    == RHints("a.u", List(("a.u", "/tmp/b")))
 
 test usage_errors() :=
   assert request(List()) == RUsage("no command")
   assert request(List("frobnicate")) == RUsage("unknown command frobnicate")
   assert request(List("test", "a.u")) == RUsage("unknown command test")
-  assert request(List("check", "a.u", "--", "x")) == RUsage("check takes arguments after -- only with --test")
-  assert request(List("check", "a.u:t")) == RUsage("check takes names only with --test or --prove")
-  assert request(List("check", "--lint", "a.u:t")) == RUsage("check takes names only with --test or --prove")
+  assert request(List("check", "a.u", "--", "x"))
+    == RUsage("check takes arguments after -- only with --test")
+  assert request(List("check", "a.u:t"))
+    == RUsage("check takes names only with --test or --prove")
+  assert request(List("check", "--lint", "a.u:t"))
+    == RUsage("check takes names only with --test or --prove")
   assert request(List("check", "-v", "a.u")) == RUsage("check does not take -v")
-  assert request(List("check", "--test", "--timeout", "5", "a.u")) == RCheck(List(Target("a.u", None)), Phases(false, true, false, Some(5)), List(), List())
-  assert request(List("check", "--timeout", "5", "a.u")) == RUsage("check takes --timeout only with --test")
-  assert request(List("check", "--test", "--timeout", "0")) == RUsage("check takes a positive number of seconds after --timeout")
-  assert request(List("check", "--test", "--timeout")) == RUsage("check does not take --timeout")
+  assert request(List("check", "--test", "--timeout", "5", "a.u"))
+    == RCheck(List(Target("a.u", None)), Phases(false, true, false, Some(5)), List(), List())
+  assert request(List("check", "--timeout", "5", "a.u"))
+    == RUsage("check takes --timeout only with --test")
+  assert request(List("check", "--test", "--timeout", "0"))
+    == RUsage("check takes a positive number of seconds after --timeout")
+  assert request(List("check", "--test", "--timeout"))
+    == RUsage("check does not take --timeout")
   assert request(List("format", "--check")) == RUsage("format takes no options")
-  assert request(List("format", "a.u", "--", "x")) == RUsage("format takes no arguments after --")
-  assert request(List("check", "--test", "a.u", "--", "-v")) == RCheck(List(Target("a.u", None)), Phases(false, true, false, None), List("-v"), List())
+  assert request(List("format", "a.u", "--", "x"))
+    == RUsage("format takes no arguments after --")
+  assert request(List("check", "--test", "a.u", "--", "-v"))
+    == RCheck(List(Target("a.u", None)), Phases(false, true, false, None), List("-v"), List())
   assert request(List("run", "dir")) == RUsage("run takes a file name.u, not dir")
-  assert request(List("compile", "a.u")) == RUsage("compile takes -o <target.c> or -o <target.s>")
-  assert request(List("compile", "a.u", "--tests", "-o", "a.c")) == RUsage("compile --tests takes a directory, whose packages and programs it compiles, not a file")
-  assert request(List("compile", "a.u:t", "--tests", "-o", "a.c")) == RUsage("compile --tests takes a directory, whose packages and programs it compiles, not a file")
-  assert request(List("compile", "-o", "a.c")) == RUsage("compile takes a file or --tests")
+  assert request(List("compile", "a.u"))
+    == RUsage("compile takes -o <target.c> or -o <target.s>")
+  assert request(List("compile", "a.u", "--tests", "-o", "a.c"))
+    == RUsage("compile --tests takes a directory, whose packages and programs it compiles, not a file")
+  assert request(List("compile", "a.u:t", "--tests", "-o", "a.c"))
+    == RUsage("compile --tests takes a directory, whose packages and programs it compiles, not a file")
+  assert request(List("compile", "-o", "a.c"))
+    == RUsage("compile takes a file or --tests")
   assert request(List("hints", "a.u", "b.u")) == RUsage("hints takes one file")
-  assert request(List("hints", "a.u:f")) == RUsage("hints takes a file name.u, not a.u:f")
-  assert request(List("check", "--overlay", "a.u")) == RUsage("check takes --overlay F=<path>, the file F and the file of its text")
-  assert request(List("hints", "a.u", "--overlay")) == RUsage("hints takes --overlay F=<path>, the file F and the file of its text")
+  assert request(List("hints", "a.u:f"))
+    == RUsage("hints takes a file name.u, not a.u:f")
+  assert request(List("check", "--overlay", "a.u"))
+    == RUsage("check takes --overlay F=<path>, the file F and the file of its text")
+  assert request(List("hints", "a.u", "--overlay"))
+    == RUsage("hints takes --overlay F=<path>, the file F and the file of its text")
   assert request(List("hints")) == RUsage("hints takes one file")
   assert request(List("hints", "-v", "a.u")) == RUsage("hints does not take -v")
 
@@ -375,10 +409,13 @@ function refactor_request(words: List[Str], request: Request): Request :=
 
 // the script of the words of inline actions, a line for each action, each from a word that starts with @ up to the next
 function inline_script(words: List[Str]): Str :=
-  example inline_script(List("@sig", "a", "@show", "a.u:f", "#2")) == "@sig a\n@show a.u:f #2"
+  example inline_script(List("@sig", "a", "@show", "a.u:f", "#2"))
+      == "@sig a\n@show a.u:f #2"
   match words
     case List(word, next; rest) =>
-      word ++ (if starts_with(next, "@") then "\n" else " ") ++ inline_script(List(next; rest))
+      word
+        ++ (if starts_with(next, "@") then "\n" else " ")
+        ++ inline_script(List(next; rest))
 
     case List(word) =>
       word
@@ -388,19 +425,27 @@ function inline_script(words: List[Str]): Str :=
   end
 
 test refactor_requests() :=
-  assert request(List("refactor", "--dry", "s.txt")) == RRefactor(Some("s.txt"), None, true, List())
-  assert request(List("refactor", "@show", "a.u:f")) == RRefactor(None, Some("@show a.u:f"), false, List())
-  assert request(List("refactor", "--overlay", "a.u=/tmp/b", "@check", "a.u")) == RRefactor(None, Some("@check a.u"), false, List(("a.u", "/tmp/b")))
-  assert request(List("refactor", "--overlay", "a.u")) == RUsage("refactor takes --overlay F=<path>, the file F and the file of its text")
-  assert request(List("refactor", "@sig", "a", "@sig", "b")) == RRefactor(None, Some("@sig a\n@sig b"), false, List())
-  assert request(List("refactor", "-v", "s.txt")) == RUsage("refactor does not take -v")
-  assert request(List("refactor", "--overlay")) == RUsage("refactor takes --overlay F=<path>, the file F and the file of its text")
+  assert request(List("refactor", "--dry", "s.txt"))
+    == RRefactor(Some("s.txt"), None, true, List())
+  assert request(List("refactor", "@show", "a.u:f"))
+    == RRefactor(None, Some("@show a.u:f"), false, List())
+  assert request(List("refactor", "--overlay", "a.u=/tmp/b", "@check", "a.u"))
+    == RRefactor(None, Some("@check a.u"), false, List(("a.u", "/tmp/b")))
+  assert request(List("refactor", "--overlay", "a.u"))
+    == RUsage("refactor takes --overlay F=<path>, the file F and the file of its text")
+  assert request(List("refactor", "@sig", "a", "@sig", "b"))
+    == RRefactor(None, Some("@sig a\n@sig b"), false, List())
+  assert request(List("refactor", "-v", "s.txt"))
+    == RUsage("refactor does not take -v")
+  assert request(List("refactor", "--overlay"))
+    == RUsage("refactor takes --overlay F=<path>, the file F and the file of its text")
 
 function commands(): List[Str] :=
   List("run", "check", "format", "hints", "compile", "refactor", "help")
 
 function usage(): Str :=
-  "usage:\n" ++ join("\n", List(for c in commands() yield "  ulang " ++ synopsis(c)))
+  "usage:\n"
+    ++ join("\n", List(for c in commands() yield "  ulang " ++ synopsis(c)))
 
 function help(command: Str): Str :=
   "usage: ulang " ++ synopsis(command) ++ "\n\n" ++ description(command)
@@ -435,19 +480,46 @@ function description(command: Str): Str :=
       "calls the procedure, main by default, which takes no parameters, where os_args gives the arguments after --"
 
     case "check" =>
-      "checks the files, also below directories, by default the project, each unit loaded once, without --test and --prove\n" ++ "with its imports only as far as it sees them, so without the errors of their definitions, with the errors of parsing,\n" ++ "of types, and of format, and adds the phases of the options, which run as far as the errors allow: --lint prints the\n" ++ "lints of the files that load, as warnings with the rule and, where it has one, the simpler expression to write, which\n" ++ "do not fail the check; --test runs the tests, all or the named ones, in the working directory, where the arguments\n" ++ "after -- are those of os_args, printing a line per test, each failed if it runs longer than the seconds of --timeout;\n" ++ "--prove proves the lemmas, all or the named ones, where a\n" ++ "recursive function unfolds only if the prover proves that it terminates, unless code that the lemmas may reach has\n" ++ "errors, and a lemma whose test found a counterexample is falsified; a file passes if it loads and its phases pass, and\n" ++ "with several files, check prints the files that do not pass and how many do; --overlay F=<path> takes the text of\n" ++ "the file at path as that of F, as of an unsaved buffer of an editor, and reports its errors against F"
+      "checks the files, also below directories, by default the project, each unit loaded once, without --test and --prove\n"
+        ++ "with its imports only as far as it sees them, so without the errors of their definitions, with the errors of parsing,\n"
+        ++ "of types, and of format, and adds the phases of the options, which run as far as the errors allow: --lint prints the\n"
+        ++ "lints of the files that load, as warnings with the rule and, where it has one, the simpler expression to write, which\n"
+        ++ "do not fail the check; --test runs the tests, all or the named ones, in the working directory, where the arguments\n"
+        ++ "after -- are those of os_args, printing a line per test, each failed if it runs longer than the seconds of --timeout;\n"
+        ++ "--prove proves the lemmas, all or the named ones, where a\n"
+        ++ "recursive function unfolds only if the prover proves that it terminates, unless code that the lemmas may reach has\n"
+        ++ "errors, and a lemma whose test found a counterexample is falsified; a file passes if it loads and its phases pass, and\n"
+        ++ "with several files, check prints the files that do not pass and how many do; --overlay F=<path> takes the text of\n"
+        ++ "the file at path as that of F, as of an unsaved buffer of an editor, and reports its errors against F"
 
     case "format" =>
-      "rewrites the files, also below directories, by default the project, as format_program writes them, where check\n" ++ "reports the files that differ"
+      "rewrites the files, also below directories, by default the project, as format_program writes them, where check\n"
+        ++ "reports the files that differ"
 
     case "hints" =>
-      "checks the file as check does and prints what the check found in it, as JSON lines of the hover and the inlay hints\n" ++ "of LSP: the qualified name and the type of each use of a name, the type of each local, formal, and pattern variable,\n" ++ "with an inlay where the source does not write it, and the inferred raises of private procedures, after the errors;\n" ++ "--overlay F=<path> takes the text of the file at path as that of F, as check does, so that hints follow an unsaved buffer"
+      "checks the file as check does and prints what the check found in it, as JSON lines of the hover and the inlay hints\n"
+        ++ "of LSP: the qualified name and the type of each use of a name, the type of each local, formal, and pattern variable,\n"
+        ++ "with an inlay where the source does not write it, and the inferred raises of private procedures, after the errors;\n"
+        ++ "--overlay F=<path> takes the text of the file at path as that of F, as check does, so that hints follow an unsaved buffer"
 
     case "compile" =>
-      "translates the file to C, or to assembly for x86-64 if the target ends in .s, whose main calls the procedure, main by default, or with --tests the tests of the .u files below the directory, by default the root of the project, with its packages and programs,\n" ++ "whose main takes the targets of check --test, but none of its options, with the tests of lemmas but without their proofs, and runs them as\n" ++ "check --test does, from the root of the project"
+      "translates the file to C, or to assembly for x86-64 if the target ends in .s, whose main calls the procedure, main by default, or with --tests the tests of the .u files below the directory, by default the root of the project, with its packages and programs,\n"
+        ++ "whose main takes the targets of check --test, but none of its options, with the tests of lemmas but without their proofs, and runs them as\n"
+        ++ "check --test does, from the root of the project"
 
     case "refactor" =>
-      "runs the script of the file, or of stdin, or the actions of the words, a line per action that starts with @,\n" ++ "followed by its fragment: @show T, @outline F, @refs T, @sig name, @sig M, @resolve F:L.C, @put F, @put F:name, @put\n" ++ "[F] before|after T, @put [before|after|into] N, @drop T, @patch T, @example F:name, @rename T new, @export T, @unexport T, @fix T\n" ++ "[Rule ...], @undo [n], and @check [test] [F], where T is a file or a declaration file.u:name[/arity], or name/test,\n" ++ "/lemma, or /type of that kind, the fragment of @patch is hunks of old lines that start with - and the new lines +\n" ++ "after them, a hunk -* replacing every occurrence, a node N is\n" ++ "#n, F:name #n, F:name \"text\", or F:L.C, and a module M is a file or a path from the root, prelude/str for the\n" ++ "library, as one transaction, then checks the files that changed and replies with the state and the diagnostics that\n" ++ "are new or gone, exiting 1 while errors remain and 3 if a test failed; inline actions are a line each,\n" ++ "where a last @put, @patch, or @example takes its fragment from stdin; --dry writes nothing and checks the texts that it would write; --overlay F=<path> takes the text of the\n" ++ "file at path as that of F, as of an unsaved buffer, which the script writes only if it changes it; the actions, an\n" ++ "example, and the reply are in Refactoring of doc/tool.md"
+      "runs the script of the file, or of stdin, or the actions of the words, a line per action that starts with @,\n"
+        ++ "followed by its fragment: @show T, @outline F, @refs T, @sig name, @sig M, @resolve F:L.C, @put F, @put F:name, @put\n"
+        ++ "[F] before|after T, @put [before|after|into] N, @drop T, @patch T, @example F:name, @rename T new, @export T, @unexport T, @fix T\n"
+        ++ "[Rule ...], @undo [n], and @check [test] [F], where T is a file or a declaration file.u:name[/arity], or name/test,\n"
+        ++ "/lemma, or /type of that kind, the fragment of @patch is hunks of old lines that start with - and the new lines +\n"
+        ++ "after them, a hunk -* replacing every occurrence, a node N is\n"
+        ++ "#n, F:name #n, F:name \"text\", or F:L.C, and a module M is a file or a path from the root, prelude/str for the\n"
+        ++ "library, as one transaction, then checks the files that changed and replies with the state and the diagnostics that\n"
+        ++ "are new or gone, exiting 1 while errors remain and 3 if a test failed; inline actions are a line each,\n"
+        ++ "where a last @put, @patch, or @example takes its fragment from stdin; --dry writes nothing and checks the texts that it would write; --overlay F=<path> takes the text of the\n"
+        ++ "file at path as that of F, as of an unsaved buffer, which the script writes only if it changes it; the actions, an\n"
+        ++ "example, and the reply are in Refactoring of doc/tool.md"
 
     case _ =>
       "prints the usage of all commands, or of one"
@@ -455,7 +527,11 @@ function description(command: Str): Str :=
 
 // calls the procedure of the target, main by default, without parameters, where os_args gives args
 procedure run_target(in target: Target, args: List[Str], out status: Int) :=
-  var q: Prog, errors: List[Diagnostic], entry := Name(List(), value_or(target.name, "main")), cache: Map[Name, Val] := empty()
+  var
+    q: Prog,
+    errors: List[Diagnostic],
+    entry := Name(List(), value_or(target.name, "main")),
+    cache: Map[Name, Val] := empty()
   check_file(in target.path, false, false, out q, errors)
   report(in target.path, errors, false)
   status := load_status(q, errors)
@@ -483,7 +559,8 @@ procedure run_target(in target: Target, args: List[Str], out status: Int) :=
 // definitions that they make unsafe: if its main module is checked, which it is not if a package that it imports has
 // errors, and no error is internal
 function is_runnable(q: Prog, errors: List[Diagnostic]): Bool :=
-  not exists(errors, lambda d => d.kind == InternalKind) and exists(q.cmds, lambda c => is_parsed(c) and cmd_module(c.that) == Some(q.main))
+  not exists(errors, lambda d => d.kind == InternalKind)
+    and exists(q.cmds, lambda c => is_parsed(c) and cmd_module(c.that) == Some(q.main))
 
 // the exit status of loading the program q, whose diagnostics are errors: 0 for none, 1 for errors of the sources, and 4 for
 // an internal error, where a run, a test, or a lemma that fails is 3 and a usage error 2, and the greatest of several counts
@@ -559,11 +636,19 @@ procedure check_unit(
 ) :=
   // the interpreter and the prover of q, which the files share, and the values of the functions without parameters that
   // the tests that passed computed
-  let run := (if phases.tests then Some(load(q) with args := args) else None), prover := if phases.proofs and not blocks_proofs(q) then Some(prover_of(q)) else None
+  let
+    run := (if phases.tests then Some(load(q) with args := args) else None),
+    prover := if phases.proofs and not blocks_proofs(q) then Some(prover_of(q)) else None
   var constants: Map[Name, Val] := empty()
   failed := List()
   for file in files_of(unit) do
-    let m := sibling(q.main, file), names := names_of(file, unit), label := label_of(file, several), tests := test_names(q, m), lemmas := lemma_names(q, m), both := phases.tests and phases.proofs and names != List()
+    let
+      m := sibling(q.main, file),
+      names := names_of(file, unit),
+      label := label_of(file, several),
+      tests := test_names(q, m),
+      lemmas := lemma_names(q, m),
+      both := phases.tests and phases.proofs and names != List()
     var passed := true, ran: Bool, proven: Bool, falsified: Set[Str] := empty()
     for n in names if both and not contains(n, tests) and not contains(n, lemmas) do
       os_println(in label ++ error_text(RuntimeKind, "there is no test or lemma " ++ n))
@@ -583,7 +668,8 @@ procedure check_unit(
 
         // the errors fail the file already, with their status, while no lemma failed
         case None =>
-          os_println(in label ++ "no lemma proven, since code that the lemmas may reach has errors")
+          os_println(in label
+            ++ "no lemma proven, since code that the lemmas may reach has errors")
       end
     end
     if not passed then
@@ -654,7 +740,14 @@ procedure visit_units(
       visit: (in Source, Prog, List[Target], List[(Str, Diagnostic)], out List[Str]),
   out status: Int
 ) :=
-  var units: List[List[Target]], source: Source, q: Prog, errors: List[Diagnostic], failed: Buffer[Str] := empty(), bad: List[Str], cache := no_cache()
+  var
+    units: List[List[Target]],
+    source: Source,
+    q: Prog,
+    errors: List[Diagnostic],
+    failed: Buffer[Str] := empty(),
+    bad: List[Str],
+    cache := no_cache()
   units_of(in found, overlays, out units)
   let files := files_of(found), several := size(files) > 1
   status := 0
@@ -727,7 +820,13 @@ procedure print_lints(
     let lines := Array(for line in split(text, '\n'))
     for d in find(source.mods, lambda d => d.name == sibling(q.main, file)) do
       for w in lints(d) do
-        os_println(in file ++ ": warning[" ++ show(w.lint) ++ "]: " ++ w.message ++ replacement_text(source, d.name, lines, w) ++ at_pos(w.pos))
+        os_println(in file
+          ++ ": warning["
+          ++ show(w.lint)
+          ++ "]: "
+          ++ w.message
+          ++ replacement_text(source, d.name, lines, w)
+          ++ at_pos(w.pos))
       end
     end
   end
@@ -735,7 +834,9 @@ procedure print_lints(
 function replacement_text(source: Source, m: Path, lines: Array[Str], w: Warning): Str :=
   match w.replacement
     case Some(r) =>
-      ", write " ++ format_module_expr(source, m, line_indentation(lines, replaced_start(w)), r)
+      ", write "
+        ++ format_module_expr(source, m, line_indentation(lines, replaced_start(w)), r)
+
     case None =>
       ""
   end
@@ -746,7 +847,10 @@ function replacement_text(source: Source, m: Path, lines: Array[Str], w: Warning
 procedure compile_target(in target: Target, output: Str, out status: Int) :=
   var source: Source, q: Prog, errors: List[Diagnostic], cache := no_cache()
   load_file(in target.path, Map(), false, false, false, out source, q, errors, ref cache)
-  let harmless := code_free_diagnostics(q) ++ List(for e in code_free_parse_errors(source) yield parse_diagnostic(e)), blocking := List(for d in errors if blocks_run(d) and not contains(d, harmless))
+  let
+    harmless := code_free_diagnostics(q)
+      ++ List(for e in code_free_parse_errors(source) yield parse_diagnostic(e)),
+    blocking := List(for d in errors if blocks_run(d) and not contains(d, harmless))
   report(in target.path, blocking, false)
   warn(in target.path, List(for d in errors if not contains(d, blocking)))
   status := if blocking == List() then 0 else load_status(q, blocking)
@@ -773,7 +877,17 @@ procedure compile_target(in target: Target, output: Str, out status: Int) :=
 // commands of each module are taken from the unit that it is a member of, with its tests, or else from the first unit that
 // loads it
 procedure compile_tests(in dir: Option[Str], output: Str, out status: Int) :=
-  var root: Str, found: List[Target], units: List[List[Target]], q: Prog, errors: List[Diagnostic], files: Buffer[TestFile] := empty(), own: Buffer[At[Cmd]] := empty(), others: Map[Path, List[At[Cmd]]] := empty(), members: Set[Path] := empty(), cache := no_cache()
+  var
+    root: Str,
+    found: List[Target],
+    units: List[List[Target]],
+    q: Prog,
+    errors: List[Diagnostic],
+    files: Buffer[TestFile] := empty(),
+    own: Buffer[At[Cmd]] := empty(),
+    others: Map[Path, List[At[Cmd]]] := empty(),
+    members: Set[Path] := empty(),
+    cache := no_cache()
   status := 0
   default_path(out root)
   targets_of(in List(for d in dir yield Target(d, None)), false, out found)
@@ -785,13 +899,15 @@ procedure compile_tests(in dir: Option[Str], output: Str, out status: Int) :=
       status := max(status, load_status(q, errors))
     else
       let modules := List(for file in files_of(unit) yield sibling(q.main, file))
-      files := files ++ List(for file in files_of(unit) yield TestFile(from_root(root, file), sibling(q.main, file))), own := own ++ List(for c in q.cmds if belongs(c.that, modules)), members := members ++ Set(for m in modules)
+      files := files
+        ++ List(for file in files_of(unit) yield TestFile(from_root(root, file), sibling(q.main, file))), own := own ++ List(for c in q.cmds if belongs(c.that, modules)), members := members ++ Set(for m in modules)
       others := others_of(q.cmds, modules, others)
     end
   end
   if status == 0 then
     try
-      compile_prog(in Prog(List(for m => cs in others if not contains(m, members) for c in cs yield c) ++ List(for c in own), List(), List(), List()), EntryTests(List(for f in files)), output)
+      compile_prog(in Prog(List(for m => cs in others if not contains(m, members) for c in cs yield c)
+        ++ List(for c in own), List(), List(), List()), EntryTests(List(for f in files)), output)
     catch
       // which only the entry of a procedure raises
       case UnknownEntry(name) =>
@@ -811,7 +927,8 @@ procedure compile_tests(in dir: Option[Str], output: Str, out status: Int) :=
 // others with the commands of cmds of the modules that are neither in modules nor in others yet, by their modules
 function others_of(cmds: List[At[Cmd]], modules: List[Path], others: Map[Path, List[At[Cmd]]]): Map[Path, List[At[Cmd]]] :=
   let fresh := List(for c in cmds for m in cmd_module(c.that) if not contains(m, modules) and get(m, others) == None yield (m, c)) in
-  others ++ foldl(reverse(fresh), empty(), lambda found, (m, c) => put(m, List(c; value_or(get(m, found), List())), found))
+  others
+    ++ foldl(reverse(fresh), empty(), lambda found, (m, c) => put(m, List(c; value_or(get(m, found), List())), found))
 
 // whether cmd is a command of one of the modules
 function belongs(cmd: Cmd, modules: List[Path]): Bool :=
@@ -830,7 +947,8 @@ function from_root(root: Str, file: Str): Str :=
     file
 
 test paths_from_root() :=
-  assert from_root(".", "./ulang/ulang.u") == "ulang/ulang.u" and from_root("../..", "../../a/b.u") == "a/b.u"
+  assert from_root(".", "./ulang/ulang.u") == "ulang/ulang.u"
+    and from_root("../..", "../../a/b.u") == "a/b.u"
 
 // runs the refactor script of the file, of stdin, or of the inline actions, a line each, where the last one, if it is a
 // @put, @patch, or @example, takes its fragment from stdin, and prints its reply
@@ -922,12 +1040,25 @@ procedure refactor_tests(
       listed: List[(Str, Diagnostic)],
   out tests: Tests
 ) :=
-  var units: List[List[Target]], source: Source, q: Prog, errors: List[Diagnostic], outcomes: List[Outcome], cache := no_cache()
-  var lines: Buffer[Str] := empty(), passed := 0, failed := 0, skipped := 0, unrun: Map[Str, Str] := Map()
+  var
+    units: List[List[Target]],
+    source: Source,
+    q: Prog,
+    errors: List[Diagnostic],
+    outcomes: List[Outcome],
+    cache := no_cache()
+  var
+    lines: Buffer[Str] := empty(),
+    passed := 0,
+    failed := 0,
+    skipped := 0,
+    unrun: Map[Str, Str] := Map()
   try
     var found: List[Target], compiled: List[Str]
     compiled_only_files(in paths, out compiled)
-    lines := lines ++ List(for path in compiled yield "no test of " ++ path ++ " ran, since its project runs its directory only compiled")
+    lines := lines ++ List(for path in compiled yield "no test of "
+      ++ path
+      ++ " ran, since its project runs its directory only compiled")
     // no target is the whole project to targets_of
     let runnable := List(for path in paths if not contains(path, compiled) yield Target(path, None))
     found := List()
@@ -947,16 +1078,25 @@ procedure refactor_tests(
     var constants: Map[Name, Val] := empty()
     for file in files_of(unit) do
       let m := sibling(source.main, file)
-      let declared := List(for d in find(source.mods, lambda d => d.name == m) for name in declared_tests(d) yield name), examples := sum(List(for d in find(source.mods, lambda d => d.name == m) yield example_count(d)))
+      let
+        declared := List(for d in find(source.mods, lambda d => d.name == m) for name in declared_tests(d) yield name),
+        examples := sum(List(for d in find(source.mods, lambda d => d.name == m) yield example_count(d)))
       if not is_runnable(q, errors) then
         skipped := skipped + size(declared) + examples, unrun := put(file, "all its tests, since its unit does not load far enough to run", unrun)
         lines := lines ++ List(
-          "no test of " ++ file ++ " ran, since its unit does not load far enough to run")
+          "no test of "
+            ++ file
+            ++ " ran, since its unit does not load far enough to run")
       else
         test_outcomes(in q, run, m, List(), out outcomes, ref constants)
         let misplaced := misplaced_tests(outcomes, diagnostics(q), file)
-        let names := List(for o in outcomes yield o.name), failures := List(for o in outcomes if o.message != "" and not contains(o.name, misplaced) yield failure_text(o, listed))
-        let missing := List(for name in declared if not contains(name, names)), absent := examples - size(List(for name in names if contains(".example.", name) yield name))
+        let
+          names := List(for o in outcomes yield o.name),
+          failures := List(for o in outcomes if o.message != "" and not contains(o.name, misplaced) yield failure_text(o, listed))
+        let
+          missing := List(for name in declared if not contains(name, names)),
+          absent := examples
+            - size(List(for name in names if contains(".example.", name) yield name))
         let members := value_or(map_option(find(source.packages, lambda p => contains(m, p.members)), lambda p => p.members), List(m))
         let lemmas := if is_generating(q, members) then
           List()
@@ -972,20 +1112,34 @@ procedure refactor_tests(
 
           case _ =>
             List(
-              "the tests of lemmas " ++ join(", ", lemmas) ++ ", if their formals are enumerable")
+              "the tests of lemmas "
+                ++ join(", ", lemmas)
+                ++ ", if their formals are enumerable")
         end
-        let not_run := List(for name in missing yield "test " ++ name) ++ (if absent > 0 then List(counted_text(absent, "example")) else List()) ++ lemma_tests, left := size(missing) + max(absent, 0) + size(misplaced)
+        let
+          not_run := List(for name in missing yield "test " ++ name)
+            ++ (if absent > 0 then List(counted_text(absent, "example")) else List())
+            ++ lemma_tests,
+          left := size(missing) + max(absent, 0) + size(misplaced)
         passed := passed + size(outcomes) - size(failures) - size(misplaced), failed := failed + size(failures), skipped := skipped + left
-        let counts := show(size(outcomes) - size(failures) - size(misplaced)) ++ " passed, " ++ show(size(failures)) ++ " failed" ++ (if left == 0 then "" else ", " ++ show(left) ++ " not run")
-        lines := lines ++ List("tested " ++ file ++ ": " ++ counts) ++ List(for f in failures yield "  " ++ f)
+        let counts := show(size(outcomes) - size(failures) - size(misplaced))
+          ++ " passed, "
+          ++ show(size(failures))
+          ++ " failed"
+          ++ (if left == 0 then "" else ", " ++ show(left) ++ " not run")
+        lines := lines
+          ++ List("tested " ++ file ++ ": " ++ counts)
+          ++ List(for f in failures yield "  " ++ f)
         if not_run != List() then
           unrun := put(file, join(", ", not_run), unrun)
           lines := lines ++ List(
-            "  not run, since the errors leave them out of the program: " ++ join(", ", not_run))
+            "  not run, since the errors leave them out of the program: "
+              ++ join(", ", not_run))
         end
         if misplaced != List() then
           lines := lines ++ List(
-            "  not run, since they are examples on definitions, which belong to the signatures in export: " ++ join(", ", misplaced))
+            "  not run, since they are examples on definitions, which belong to the signatures in export: "
+              ++ join(", ", misplaced))
         end
       end
     end
@@ -995,7 +1149,8 @@ procedure refactor_tests(
 // the names of the tests of outcomes that failed by reaching an example on a definition of file, which ds report as
 // ExampleOnDefinition, and which refactor_tests counts as not run
 function misplaced_tests(outcomes: List[Outcome], ds: List[Diagnostic], file: Str): List[Str] :=
-  List(for o in outcomes if o.message != "" and exists(ds, lambda d => d.code == "ExampleOnDefinition" and reaches(o.reached, file, d)) yield o.name)
+  List(for o in outcomes if o.message != ""
+    and exists(ds, lambda d => d.code == "ExampleOnDefinition" and reaches(o.reached, file, d)) yield o.name)
 
 // the paths of paths below the directories that their projects run only compiled (compiled_only_of), whose tests a
 // refactor script does not run, since the interpreter takes far too long for them, as check --test does not when it walks
@@ -1028,7 +1183,9 @@ test misplaced_examples() :=
 // generates only for a package whose check finds no errors but those of raises and unused imports (check_package of
 // ulang/check/check.u), which blocks_run of ulang/syntax/error.u tells apart
 function is_generating(q: Prog, members: List[Path]): Bool :=
-  not exists(diagnostics(q), lambda d => d.kind == TypeKind and blocks_run(d) and contains(value_or(d.module, q.main), members))
+  not exists(diagnostics(q), lambda d => d.kind == TypeKind
+    and blocks_run(d)
+    and contains(value_or(d.module, q.main), members))
 
 // the lemmas of d that claim to hold, which a test l.lemma tests where their formals are enumerable (enumerated_tests of
 // ulang/test/generate.u), whose tests are not among the tests names
@@ -1036,7 +1193,8 @@ function untested_lemmas(d: Mod, names: List[Str]): List[Str] :=
   List(for c in d.implemented if is_parsed(c) for name in claimed_lemma(c.that) if not contains(name ++ lemma_suffix(), names) yield name)
 
 function claimed_lemma(cmd: Cmd): Option[Str] :=
-  example claimed_lemma(CLemma(Name(List(), "l"), List(), List(), List(), ClaimHolds(List(), nowhere(ELit(LBool(true)))), None)) == Some("l")
+  example claimed_lemma(CLemma(Name(List(), "l"), List(), List(), List(), ClaimHolds(List(), nowhere(ELit(LBool(true)))), None))
+      == Some("l")
   match cmd
     case CLemma(name, _, _, List(), ClaimHolds(_, _), _) =>
       Some(name.base)
@@ -1159,20 +1317,28 @@ test reformat_errors() :=
   parse_text_recovering(in "procedure go() :=\n  skip\n", out other)
   assert reformat_error(p, p) == None
   assert map_option(reformat_error(p, q), lambda d => d.code) == Some("Unparsable")
-  assert map_option(reformat_error(p, other), lambda d => d.code) == Some("ParsesDifferently")
+  assert map_option(reformat_error(p, other), lambda d => d.code)
+    == Some("ParsesDifferently")
 
 function same_mod(d: Mod, e: Mod): Bool :=
-  d.name == e.name and import_ids(d) == import_ids(e) and same_sections(d, e) and comment_texts(d) == comment_texts(e)
+  d.name == e.name
+    and import_ids(d) == import_ids(e)
+    and same_sections(d, e)
+    and comment_texts(d) == comment_texts(e)
 
 function same_sections(d: Mod, e: Mod): Bool :=
-  same_cmds(d.exported, e.exported) and same_cmds(d.builtins, e.builtins) and same_cmds(d.implemented, e.implemented)
+  same_cmds(d.exported, e.exported)
+    and same_cmds(d.builtins, e.builtins)
+    and same_cmds(d.implemented, e.implemented)
 
 // whether the modules have the same names, imports, commands, and comments, whatever their positions
 function same_mods(mods: List[Mod], others: List[Mod]): Bool :=
-  size(mods) == size(others) and forall(zip(mods, others), lambda (d, e) => same_mod(d, e))
+  size(mods) == size(others)
+    and forall(zip(mods, others), lambda (d, e) => same_mod(d, e))
 
 function same_cmds(cmds: List[At[Cmd]], others: List[At[Cmd]]): Bool :=
-  size(cmds) == size(others) and forall(zip(cmds, others), lambda (c, other) => strip_cmd(c.that) == strip_cmd(other.that))
+  size(cmds) == size(others)
+    and forall(zip(cmds, others), lambda (c, other) => strip_cmd(c.that) == strip_cmd(other.that))
 
 function comment_texts(d: Mod): List[Str] :=
   List(for c in d.comments yield c.text)
@@ -1224,7 +1390,8 @@ procedure load_file(
     end
     if has_errors(source) then
       check_cached(in without_unparsed(source), unparsed_names(source), true, declared, if tested then enumerated_tests else no_tests, out q, _, _, ref checks)
-      errors := take(20, List(for e in parse_errors(source) yield parse_diagnostic(e)) ++ diagnostics(q))
+      errors := take(20, List(for e in parse_errors(source) yield parse_diagnostic(e))
+        ++ diagnostics(q))
     else
       check_cached(in source, empty(), false, declared, if tested then enumerated_tests else no_tests, out q, _, _, ref checks)
       errors := take(20, diagnostics(q))
@@ -1339,7 +1506,10 @@ procedure diagnostic_file(in file: Str, d: Diagnostic, out path: Str) :=
 // prints how many of the files passed if there are several
 procedure summarize(in files: List[Str], failed: List[Str]) :=
   if size(files) > 1 then
-    os_println(in show(size(files) - size(failed)) ++ " of " ++ show(size(files)) ++ " files passed")
+    os_println(in show(size(files) - size(failed))
+      ++ " of "
+      ++ show(size(files))
+      ++ " files passed")
   end
 
 // the targets of the targets, by default the root of the project, where a directory is a target without a name for each of
@@ -1350,7 +1520,11 @@ procedure targets_of(
       compiled_only: Bool,
   out found: List[Target]
 ) :=
-  var root: Str, files: List[Str], skipped: List[Str], buffer: Buffer[Target] := empty()
+  var
+    root: Str,
+    files: List[Str],
+    skipped: List[Str],
+    buffer: Buffer[Target] := empty()
   default_path(out root)
   for Target(path, name) in if targets == List() then List(Target(root, None)) else targets do
     match name
@@ -1471,13 +1645,18 @@ procedure walk_dir(
       here: Str,
   out files: List[Str]
 ) :=
-  var entries: List[(Str, Bool)], found: Buffer[Str] := empty(), below: List[Str]
+  var
+    entries: List[(Str, Bool)],
+    found: Buffer[Str] := empty(),
+    below: List[Str]
   os_list(in dir, out entries)
   for (name, is_folder) in entries do
     if not is_folder then
       found := found ++ List(os_join(dir, name))
     else
-      if not starts_with(name, ".") and name != "out" and not contains(absolute_path(here, os_join(dir, name)), skipped) then
+      if not starts_with(name, ".")
+        and name != "out"
+        and not contains(absolute_path(here, os_join(dir, name)), skipped) then
         walk_dir(in os_join(dir, name), skipped, here, out below)
         found := found ++ below
       end

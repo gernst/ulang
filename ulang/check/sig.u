@@ -16,7 +16,12 @@ data TypeAlias :=
 
 data ProcSig :=
   // where raises are the types that the procedure declares to raise
-  case ProcSig(params: List[Type], ins: List[Type], outs: List[Type], refs: List[Type], raised: List[Type])
+  case ProcSig(
+    params: List[Type],
+    ins: List[Type],
+    outs: List[Type],
+    refs: List[Type],
+    raised: List[Type])
 
 // a constructor of the datatype typ over params, with the types of its fields in their order
 data ConstrSig :=
@@ -30,13 +35,27 @@ data PatAlias :=
 // a lemma over params with the types of its formals, which only proofs cite, so that it is no value, where a claim
 // correct p(…) is cited by none
 data LemmaSig :=
-  case LemmaSig(params: List[Type], formals: List[Type], outs: List[Type], claim: Bool)
+  case LemmaSig(
+    params: List[Type],
+    formals: List[Type],
+    outs: List[Type],
+    claim: Bool)
 
 // named has the declarations of each base name, of any kind and module, but lemmas, which uses of names do not reach,
 // and fixed the positions of the params of each datatype that are not covariant, which are invariant, kept with the exported datatype,
 // also an abstract one, whose fields its importers do not see
 data Sig :=
-  case Sig(type_aliases: Map[Name, TypeAlias], funs: Map[Name, List[Scheme]], procs: Map[Name, ProcSig], datas: Map[Name, Int], members: Map[Name, List[Name]], constrs: Map[Name, ConstrSig], pat_aliases: Map[Name, PatAlias], lemmas: Map[Name, LemmaSig], named: Map[Id, List[Name]], fixed: Map[Name, Set[Int]])
+  case Sig(
+    type_aliases: Map[Name, TypeAlias],
+    funs: Map[Name, List[Scheme]],
+    procs: Map[Name, ProcSig],
+    datas: Map[Name, Int],
+    members: Map[Name, List[Name]],
+    constrs: Map[Name, ConstrSig],
+    pat_aliases: Map[Name, PatAlias],
+    lemmas: Map[Name, LemmaSig],
+    named: Map[Id, List[Name]],
+    fixed: Map[Name, Set[Int]])
 
 function empty(): Sig
 
@@ -148,7 +167,12 @@ function exported(sig: Sig, hidden_values: Set[Name], hidden_sorts: Set[Name]): 
   kept with named := Map(for k => v in sig.named if declared(kept, v) != List() yield k => declared(kept, v))
 
 function declares(sig: Sig, n: Name): Bool :=
-  is_type_alias(sig, n) or is_fun(sig, n) or is_proc(sig, n) or is_data(sig, n) or is_constr(sig, n) or is_pat_alias(sig, n)
+  is_type_alias(sig, n)
+    or is_fun(sig, n)
+    or is_proc(sig, n)
+    or is_data(sig, n)
+    or is_constr(sig, n)
+    or is_pat_alias(sig, n)
 
 function union_named(es: List[(Id, List[Name])], bs: Map[Id, List[Name]]): Map[Id, List[Name]] :=
   match es

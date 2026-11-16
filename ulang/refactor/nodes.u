@@ -46,7 +46,9 @@ function line_nodes(lines: Array[Str], decl: Decl): List[Span] :=
 // the nodes of cmd in the order of their starts, where those of the same start keep their order, the outer first, and a
 // line of a spec starts at its keyword
 function kinded_nodes(lines: Array[Str], decl: Decl): List[Node] :=
-  let placed := List(for node in head_nodes(lines, decl.cmd) ++ signature_heads(lines, decl.signatures) ++ cmd_nodes(decl.cmd) yield at_keyword(lines, node)) in
+  let placed := List(for node in head_nodes(lines, decl.cmd)
+    ++ signature_heads(lines, decl.signatures)
+    ++ cmd_nodes(decl.cmd) yield at_keyword(lines, node)) in
   let sorted := List(for (_, _, node) in sort(List(for (node, i) in numbered(placed) yield (node.span.start, i, node))) yield node) in
   first_starts(List(for node in sorted if node.span.start != node.span.stop and starts_line(lines, node.span.start) yield node), Set())
 
@@ -69,13 +71,14 @@ function head_nodes(lines: Array[Str], cmd: Cmd): List[Node] :=
 // which only a signature with a spec has, else to its end
 function signature_heads(lines: Array[Str], signatures: List[Span]): List[Node] :=
   example signature_heads(Array(
-      "function f(x: Int): Int :=",
-      "  example f(1) == 1",
-      "function g(",
-      "  x: Int",
-      "): Int"), List(Span(Pos(1, 1), Pos(2, 20)), Span(Pos(3, 1), Pos(5, 7)))) == List(
-      Node(Span(Pos(1, 1), Pos(1, 24)), KHead),
-      Node(Span(Pos(3, 1), Pos(5, 7)), KHead))
+        "function f(x: Int): Int :=",
+        "  example f(1) == 1",
+        "function g(",
+        "  x: Int",
+        "): Int"), List(Span(Pos(1, 1), Pos(2, 20)), Span(Pos(3, 1), Pos(5, 7))))
+      == List(
+        Node(Span(Pos(1, 1), Pos(1, 24)), KHead),
+        Node(Span(Pos(3, 1), Pos(5, 7)), KHead))
   List(for span in signatures for line in head_end(lines, span.start.line, span.stop.line) yield Node(Span(span.start, head_stop(lines, line, span)), KHead))
 
 // the last line of a head that starts at line and ends at stop at the latest, the first that ends in :=, else stop
@@ -93,20 +96,26 @@ function head_stop(lines: Array[Str], line: Int, span: Span): Pos :=
   if ends_with(text, " :=") then Pos(line, size(text) - 2) else span.stop
 
 function spec_spans(spec: Spec): List[Span] :=
-  List(for expr in spec.pre yield expr.span) ++ List(for expr in spec.post yield expr.span) ++ List(for x in spec.examples yield x.span)
+  List(for expr in spec.pre yield expr.span)
+    ++ List(for expr in spec.post yield expr.span)
+    ++ List(for x in spec.examples yield x.span)
 
 // the head whose last line is the first at or above line that is neither blank nor a comment nor a line of parts, the
 // lines of the spec, if it ends in :=, and whose first line, above it without a blank line between, starts with the
 // keyword of a function or procedure
 function head_above(lines: Array[Str], parts: List[Span], line: Int): List[Node] :=
-  example head_above(Array("function f(x: Int): Int :=", "  example f(1) == 1", "  x"), List(Span(Pos(2, 11), Pos(2, 20))), 2) == List(Node(Span(Pos(1, 1), Pos(1, 24)), KHead))
-  example head_above(Array("procedure p(", "  in  x: Int,", "  out y: Int", ") :=", "  y := x"), List(), 4) == List(Node(Span(Pos(1, 1), Pos(4, 2)), KHead))
+  example head_above(Array("function f(x: Int): Int :=", "  example f(1) == 1", "  x"), List(Span(Pos(2, 11), Pos(2, 20))), 2)
+      == List(Node(Span(Pos(1, 1), Pos(1, 24)), KHead))
+  example head_above(Array("procedure p(", "  in  x: Int,", "  out y: Int", ") :=", "  y := x"), List(), 4)
+      == List(Node(Span(Pos(1, 1), Pos(4, 2)), KHead))
   example head_above(Array("function f(): Int := 1"), List(), 0) == List()
   if line < 1 or line > size(lines) then
     List()
   else
     let text := at(line - 1, lines) in
-    if trim(text) == "" or starts_with(trim(text), "//") or exists(parts, lambda part => part.start.line <= line and line <= part.stop.line) then
+    if trim(text) == ""
+      or starts_with(trim(text), "//")
+      or exists(parts, lambda part => part.start.line <= line and line <= part.stop.line) then
       head_above(lines, parts, line - 1)
     else if ends_with(text, " :=") then
       match head_start(lines, line)
@@ -168,7 +177,9 @@ function first_starts(nodes: List[Node], seen: Set[Pos]): List[Node] :=
 
 // whether only spaces stand before pos on its line
 function starts_line(lines: Array[Str], pos: Pos): Bool :=
-  pos.line >= 1 and pos.line <= size(lines) and forall(chars(slice(at(pos.line - 1, lines), 0, pos.col - 1)), lambda c => c == ' ')
+  pos.line >= 1
+    and pos.line <= size(lines)
+    and forall(chars(slice(at(pos.line - 1, lines), 0, pos.col - 1)), lambda c => c == ' ')
 
 // the node, where a line of a spec starts at the first position of its line that is no space, its keyword
 function at_keyword(lines: Array[Str], node: Node): Node :=
@@ -259,7 +270,8 @@ function example_parts(x: Example): List[Node] :=
       expr_nodes(expr)
 
     case XCall(_, ins, outs, refs) =>
-      flat_map(ins ++ outs, expr_nodes) ++ flat_map(refs, lambda (before, after) => expr_nodes(before) ++ expr_nodes(after))
+      flat_map(ins ++ outs, expr_nodes)
+        ++ flat_map(refs, lambda (before, after) => expr_nodes(before) ++ expr_nodes(after))
 
     case XCallRaises(_, ins, _, befores, _) =>
       flat_map(ins ++ befores, expr_nodes)
@@ -310,7 +322,8 @@ function inner_stmt_nodes(stmt: Stmt): List[Node] :=
       flat_map(ins, expr_nodes)
 
     case SMatch(arg, cases) =>
-      expr_nodes(arg) ++ flat_map(cases, lambda branch => List(Node(branch.span, KCase); branch_nodes(branch, stmt_nodes)))
+      expr_nodes(arg)
+        ++ flat_map(cases, lambda branch => List(Node(branch.span, KCase); branch_nodes(branch, stmt_nodes)))
 
     case SAssert(cond) =>
       expr_nodes(cond)
@@ -322,7 +335,8 @@ function inner_stmt_nodes(stmt: Stmt): List[Node] :=
       expr_nodes(value)
 
     case STry(body, catches) =>
-      stmt_nodes(body) ++ flat_map(catches, lambda handler => List(Node(handler.span, KCase); catch_nodes(handler)))
+      stmt_nodes(body)
+        ++ flat_map(catches, lambda handler => List(Node(handler.span, KCase); catch_nodes(handler)))
 
     case SFor(gens, body) =>
       flat_map(gens, gen_nodes) ++ stmt_nodes(body)
@@ -403,13 +417,15 @@ function inner_expr_nodes(expr: Expr): List[Node] :=
       stmt_nodes(stmt)
 
     case ELet(bindings, body) =>
-      flat_map(bindings, lambda (_, value) => expr_nodes(value)) ++ expr_nodes(body)
+      flat_map(bindings, lambda (_, value) => expr_nodes(value))
+        ++ expr_nodes(body)
 
     case EIte(cond, then_expr, else_expr) =>
       expr_nodes(cond) ++ expr_nodes(then_expr) ++ expr_nodes(else_expr)
 
     case EMatch(arg, cases) =>
-      expr_nodes(arg) ++ flat_map(cases, lambda branch => List(Node(branch.span, KCase); branch_nodes(branch, expr_nodes)))
+      expr_nodes(arg)
+        ++ flat_map(cases, lambda branch => List(Node(branch.span, KCase); branch_nodes(branch, expr_nodes)))
 
     case ETuple(args) =>
       flat_map(args, expr_nodes)

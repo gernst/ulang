@@ -59,7 +59,8 @@ function skeleton[E](w: Widget[E]): Node
 
 // the attributes that their widgets lack, as "spacing of button", which Elm would ignore
 function misplaced[E](w: Widget[E]): List[Str] :=
-  example misplaced(row(List(spacing(4)), List(button(List(spacing(2), on_click(1)), List())))) == List("spacing of button")
+  example misplaced(row(List(spacing(4)), List(button(List(spacing(2), on_click(1)), List()))))
+      == List("spacing of button")
 
 // the event of the program that the event of the window means, for the tree on screen that the widget placed
 function handle[E](w: Widget[E], placed: Placed, event: Event): Option[E]
@@ -72,7 +73,8 @@ function click[E](caption: Str, w: Widget[E]): Option[E] :=
 
 // the event of the first entry after a text of the caption, as typing s into it
 function input[E](caption: Str, s: Str, w: Widget[E]): Option[E] :=
-  example input("Name", "Ada", column(List(), List(text("Name"), entry(List(on_input(lambda t => size(t))))))) == Some(3)
+  example input("Name", "Ada", column(List(), List(text("Name"), entry(List(on_input(lambda t => size(t)))))))
+      == Some(3)
 
 implementation
 
@@ -182,7 +184,8 @@ function prop_of[E](attr: Attr[E]): Option[Prop] :=
   end
 
 function misplaced[E](w: Widget[E]): List[Str] :=
-  List(for attr in w.attrs if not fits(w.kind, attr) yield attr_name(attr) ++ " of " ++ kind_name(w.kind)) ++ concat(List(for child in w.children yield misplaced(child)))
+  List(for attr in w.attrs if not fits(w.kind, attr) yield attr_name(attr) ++ " of " ++ kind_name(w.kind))
+    ++ concat(List(for child in w.children yield misplaced(child)))
 
 function fits[E](kind: Kind, attr: Attr[E]): Bool :=
   match (kind, attr)
@@ -293,7 +296,8 @@ function click[E](caption: Str, w: Widget[E]): Option[E] :=
   end
 
 function has_text[E](caption: Str, w: Widget[E]): Bool :=
-  has_caption(caption, w) or exists(w.children, lambda child => has_text(caption, child))
+  has_caption(caption, w)
+    or exists(w.children, lambda child => has_text(caption, child))
 
 function input[E](caption: Str, s: Str, w: Widget[E]): Option[E] :=
   entry_after(caption, s, false, flat(w))

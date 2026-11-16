@@ -325,7 +325,9 @@ procedure parse_class(out regex: Regex, ref s: Cursor) :=
         var low: Char, high: Char
         parse_class_char(out low, ref s)
         high := low
-        if peek(s) == Some('-') and get(s.pos + 1, s.text) != Some(']') and get(s.pos + 1, s.text) != None then
+        if peek(s) == Some('-')
+          and get(s.pos + 1, s.text) != Some(']')
+          and get(s.pos + 1, s.text) != None then
           advance(ref s)
           parse_class_char(out high, ref s)
           if high < low then
@@ -403,7 +405,8 @@ test occurring() :=
 // the derivatives of a* stay a*, not a growing sequence
 test finite_derivatives() :=
   assert derivative('a', star(literal("a"))) == star(literal("a"))
-  assert derivative('a', alt(star(literal("a")), star(literal("a")))) == star(literal("a"))
+  assert derivative('a', alt(star(literal("a")), star(literal("a"))))
+    == star(literal("a"))
 
 test errors() :=
   assert raises RegexError("unmatched (", 2) do

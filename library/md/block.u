@@ -127,7 +127,9 @@ function block(l: Str, rest: List[Str]): (Block, List[Str]) :=
 // # to ###### and a space, without a closing sequence of #
 function atx(t: Str): Option[(Int, Str)] :=
   let (hashes, after) := span(chars(t), lambda c => c == '#') in
-  if 1 <= size(hashes) and size(hashes) <= 6 and (after == List() or after.head == ' ') then
+  if 1 <= size(hashes)
+    and size(hashes) <= 6
+    and (after == List() or after.head == ' ') then
     Some((size(hashes), strip_closing(trim(str(after)))))
   else
     None
@@ -148,7 +150,9 @@ function fence(l: Str): Option[Start] :=
   let (run, after) := span(chars(t), lambda c => c == '`' or c == '~') in
   match run
     case List(c; _) =>
-      if size(run) >= 3 and forall(run, lambda d => d == c) and not (c == '`' and contains('`', after)) then
+      if size(run) >= 3
+        and forall(run, lambda d => d == c)
+        and not (c == '`' and contains('`', after)) then
         Some(FenceStart(c, size(run), indent_of(l), trim(str(after))))
       else
         None
@@ -194,7 +198,10 @@ function is_rule(l: Str): Bool :=
   let cs := List(for c in l if c != ' ' yield c) in
   match cs
     case List(c; _) =>
-      (c == '-' or c == '*' or c == '_') and size(cs) >= 3 and forall(cs, lambda d => d == c)
+      (c == '-' or c == '*' or c == '_')
+        and size(cs) >= 3
+        and forall(cs, lambda d => d == c)
+
     case List() =>
       false
   end
@@ -220,7 +227,10 @@ function quote_lines(lines: List[Str], acc: List[Str]): (List[Str], List[Str]) :
           quote_lines(rest, List(t; acc))
 
         case None =>
-          if not is_blank(l) and classify(l) == TextStart and acc != List() and not is_blank(acc.head) then
+          if not is_blank(l)
+            and classify(l) == TextStart
+            and acc != List()
+            and not is_blank(acc.head) then
             quote_lines(rest, List(l; acc))
           else
             (reverse(acc), lines)
@@ -274,7 +284,9 @@ function same_kind(a: Marker, b: Marker): Bool :=
 function list(m: Marker, l: Str, rest: List[Str]): (Block, List[Str]) :=
   let (items, loose, more) := list_items(m, l, rest) in
   let parsed := List(for it in items yield blocks_gap(it, false, false)) in
-  let tight := not loose and forall(parsed, lambda (_, g) => not g), bodies := List(for (bs, _) in parsed yield bs) in
+  let
+    tight := not loose and forall(parsed, lambda (_, g) => not g),
+    bodies := List(for (bs, _) in parsed yield bs) in
   if m.ordered then
     (Numbered(m.start, tight, bodies), more)
   else
@@ -422,7 +434,10 @@ function table_start(l: Str, rest: List[Str]): Option[List[Align]] :=
 
 function is_delimiter(c: Str): Bool :=
   let cs := chars(c) in
-  size(cs) >= 1 and forall(cs, lambda d => d == '-' or d == ':') and contains('-', cs) and forall(drop(1, take(size(cs) - 1, cs)), lambda d => d == '-')
+  size(cs) >= 1
+    and forall(cs, lambda d => d == '-' or d == ':')
+    and contains('-', cs)
+    and forall(drop(1, take(size(cs) - 1, cs)), lambda d => d == '-')
 
 function align_of(c: Str): Align :=
   if starts_with(c, ":") and ends_with(c, ":") then
@@ -451,12 +466,14 @@ function fit(row: List[Str], n: Int): List[Str] :=
   take(n, row ++ List(for _ in range(0, n) yield ""))
 
 test headings_and_code() :=
-  assert parse_blocks("# A #\n\nB\n===\n\n```ulang x\n  code\n```\n\n    four\n") == List(
-    Heading(1, "A"),
-    Heading(1, "B"),
-    CodeBlock("ulang x", "  code\n"),
-    CodeBlock("", "four\n"))
-  assert parse_blocks("#nope\n***\n> q\nlazy") == List(Paragraph("#nope"), Rule, Quote(List(Paragraph("q\nlazy"))))
+  assert parse_blocks("# A #\n\nB\n===\n\n```ulang x\n  code\n```\n\n    four\n")
+    == List(
+      Heading(1, "A"),
+      Heading(1, "B"),
+      CodeBlock("ulang x", "  code\n"),
+      CodeBlock("", "four\n"))
+  assert parse_blocks("#nope\n***\n> q\nlazy")
+    == List(Paragraph("#nope"), Rule, Quote(List(Paragraph("q\nlazy"))))
 
 test lists() :=
   assert parse_blocks("- a\n- b\n  - c\n\n1. x\n2. y") == List(
@@ -464,8 +481,10 @@ test lists() :=
       List(Paragraph("a")),
       List(Paragraph("b"), Bullets(true, List(List(Paragraph("c"))))))),
     Numbered(1, true, List(List(Paragraph("x")), List(Paragraph("y")))))
-  assert parse_blocks("- a\n\n- b") == List(Bullets(false, List(List(Paragraph("a")), List(Paragraph("b")))))
-  assert parse_blocks("3) a\nb") == List(Numbered(3, true, List(List(Paragraph("a\nb")))))
+  assert parse_blocks("- a\n\n- b")
+    == List(Bullets(false, List(List(Paragraph("a")), List(Paragraph("b")))))
+  assert parse_blocks("3) a\nb")
+    == List(Numbered(3, true, List(List(Paragraph("a\nb")))))
 
 test tables() :=
   assert parse_blocks("| a | b |\n|:--|--:|\n| 1 | 2 \\| 3 |\n| 4 |") == List(

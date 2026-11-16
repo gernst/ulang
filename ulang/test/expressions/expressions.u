@@ -190,7 +190,8 @@ function sign_name(n: Int): Str :=
 test negative_literals() :=
   let x := 3
   assert (-2) + 5 == 3 and 2 * -3 == -6 and -x == -3 and -(1 + 2) == -3
-  assert List(sign_name(-5), sign_name(0), sign_name(7)) == List("negative", "zero", "positive")
+  assert List(sign_name(-5), sign_name(0), sign_name(7))
+    == List("negative", "zero", "positive")
 
 // 0x and hexadecimal digits of either case are a number, also negative and in patterns, which show writes in decimal
 function hex_name(n: Int): Str :=
@@ -206,8 +207,13 @@ function hex_name(n: Int): Str :=
   end
 
 test hex_literals() :=
-  assert 0xFF == 255 and 0xD800 == 55296 and 0x0 == 0 and (-0x10) == -16 and 0x10 - 1 == 15
-  assert List(hex_name(255), hex_name(-16), hex_name(0x11)) == List("byte", "minus sixteen", "17")
+  assert 0xFF == 255
+    and 0xD800 == 55296
+    and 0x0 == 0
+    and (-0x10) == -16
+    and 0x10 - 1 == 15
+  assert List(hex_name(255), hex_name(-16), hex_name(0x11))
+    == List("byte", "minus sixteen", "17")
   assert 0xFFFFFFFFFFFFFFFFFF == 4722366482869645213695
 
 function fact(n: Int): Int :=
@@ -286,7 +292,9 @@ test char_patterns() :=
   assert vowel('a') and not vowel('b')
 
 test string_functions() :=
-  assert "ab" ++ "c" == "abc" and "ab" ++ "c" ++ "" == "abc" and List(1) ++ List(2) == List(1, 2)
+  assert "ab" ++ "c" == "abc"
+    and "ab" ++ "c" ++ "" == "abc"
+    and List(1) ++ List(2) == List(1, 2)
   assert size("hello") == 5
   assert join(", ", List("a", "b", "c")) == "a, b, c"
   assert join(", ", List()) == ""
@@ -294,7 +302,10 @@ test string_functions() :=
   assert split("a,b,,c", ',') == List("a", "b", "", "c")
   assert at(0, "abc") == 'a' and at(2, "abc") == 'c'
   assert contains('b', "abc") and not contains('d', "abc")
-  assert compare("ab", "b") == -1 and compare("b", "ab") == 1 and compare("a", "a") == 0 and compare("", "a") == -1
+  assert compare("ab", "b") == -1
+    and compare("b", "ab") == 1
+    and compare("a", "a") == 0
+    and compare("", "a") == -1
   assert show(42) == "42" and show(-7) == "-7" and show(0) == "0"
   assert quote("a\"b\\c\n") == "\"a\\\"b\\\\c\\n\"" and quote("it's") == "\"it's\""
   assert number("123") == Some(123) and number("-5") == Some(-5)
@@ -303,13 +314,30 @@ test string_functions() :=
 
 // strings are sequences of code points, of which a character is one, in UTF-8 in files
 test code_points() :=
-  assert size("ä→") == 2 and at(0, "ä→") == 'ä' and at(1, "ä→") == '→' and get(1, "ä→") == Some('→')
-  assert int('ä') == 228 and int('→') == 8594 and chr(8594) == '→' and int(chr(128512)) == 128512
-  assert chars("aä→") == List('a', 'ä', '→') and str(chars("aä→😀")) == "aä→😀" and str(List(chr(1000))) == "Ϩ"
-  assert slice("aä→😀b", 1, 4) == "ä→😀" and slice("a→b", 2, 3) == "b" and slice("→b", 1, 2) == "b"
-  assert contains('→', "a→") and not contains('ä', "a→") and split("a→b→", '→') == List("a", "b", "")
-  assert "ä" ++ "→" ++ "😀" == "ä→😀" and join("→", List("a", "ä")) == "a→ä" and size("😀" ++ "a") == 2
-  assert compare("ä", "→") == -1 and "→" < "😀" and "a" < "ä" and compare("😀", "→a") == 1
+  assert size("ä→") == 2
+    and at(0, "ä→") == 'ä'
+    and at(1, "ä→") == '→'
+    and get(1, "ä→") == Some('→')
+  assert int('ä') == 228
+    and int('→') == 8594
+    and chr(8594) == '→'
+    and int(chr(128512)) == 128512
+  assert chars("aä→") == List('a', 'ä', '→')
+    and str(chars("aä→😀")) == "aä→😀"
+    and str(List(chr(1000))) == "Ϩ"
+  assert slice("aä→😀b", 1, 4) == "ä→😀"
+    and slice("a→b", 2, 3) == "b"
+    and slice("→b", 1, 2) == "b"
+  assert contains('→', "a→")
+    and not contains('ä', "a→")
+    and split("a→b→", '→') == List("a", "b", "")
+  assert "ä" ++ "→" ++ "😀" == "ä→😀"
+    and join("→", List("a", "ä")) == "a→ä"
+    and size("😀" ++ "a") == 2
+  assert compare("ä", "→") == -1
+    and "→" < "😀"
+    and "a" < "ä"
+    and compare("😀", "→a") == 1
   assert show("ä→") == "\"ä→\"" and show('→') == "'→'" and quote("→\n") == "\"→\\n\""
   assert number("１") == None and is_letter('ä') == false
 
@@ -324,11 +352,18 @@ test no_characters() :=
 
 // bytes, made from and read as integers, and the UTF-8 of strings
 test bytes() :=
-  assert int(byte(0)) == 0 and int(byte(255)) == 255 and byte(1) < byte(2) and compare(byte(7), byte(7)) == 0
-  assert show(byte(65)) == "byte(65)" and show(Array(byte(1), byte(2))) == "Array(byte(1), byte(2))"
-  assert encode_utf8("aä→😀") == Array(for n in List(97, 195, 164, 226, 134, 146, 240, 159, 152, 128) yield byte(n))
-  assert decode_utf8(encode_utf8("aä→😀")) == Some("aä→😀") and decode_utf8(Array()) == Some("")
-  assert decode_utf8(Array(byte(255))) == None and decode_utf8(Array(byte(195))) == None
+  assert int(byte(0)) == 0
+    and int(byte(255)) == 255
+    and byte(1) < byte(2)
+    and compare(byte(7), byte(7)) == 0
+  assert show(byte(65)) == "byte(65)"
+    and show(Array(byte(1), byte(2))) == "Array(byte(1), byte(2))"
+  assert encode_utf8("aä→😀")
+    == Array(for n in List(97, 195, 164, 226, 134, 146, 240, 159, 152, 128) yield byte(n))
+  assert decode_utf8(encode_utf8("aä→😀")) == Some("aä→😀")
+    and decode_utf8(Array()) == Some("")
+  assert decode_utf8(Array(byte(255))) == None
+    and decode_utf8(Array(byte(195))) == None
   assert decode_utf8(Array(byte(237), byte(160), byte(128))) == None
   assert raises NoByte(256) do
     let b := byte(256)

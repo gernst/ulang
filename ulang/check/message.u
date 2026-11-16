@@ -68,7 +68,8 @@ function type_details(e: TypeError): List[(Str, Str)] :=
 
 // the part in which a definition differs from its signature, as the signature has it and as the definition has it
 function differing_text(part: Differing): Str :=
-  example differing_text(DifferingParams(List("A"), List())) == "which has the type parameters A where the definition has none"
+  example differing_text(DifferingParams(List("A"), List()))
+      == "which has the type parameters A where the definition has none"
   match part
     case DifferingParams(params, params_) =>
       which_has("the type parameters", params, params_)
@@ -84,7 +85,10 @@ function differing_text(part: Differing): Str :=
   end
 
 function which_has(what: Str, signed: List[Str], defined: List[Str]): Str :=
-  "which has " ++ items_text(what, signed) ++ " where the definition has " ++ items_text(what, defined)
+  "which has "
+    ++ items_text(what, signed)
+    ++ " where the definition has "
+    ++ items_text(what, defined)
 
 // the items after what, or none
 function items_text(what: Str, items: List[Str]): Str :=
@@ -111,7 +115,9 @@ function candidates_text(candidates: List[(Name, Scheme)]): Str :=
     ", among " ++ join(", ", List(for c in candidates yield candidate_text(c)))
 
 function container_message(typ: Type): Str :=
-  "the type " ++ format_type(typ) ++ " of the container of a generator is not known there, which an annotation can give"
+  "the type "
+    ++ format_type(typ)
+    ++ " of the container of a generator is not known there, which an annotation can give"
 
 function sort_module(typ: Type): Str :=
   match typ
@@ -128,7 +134,10 @@ function counted(n: Int, unit: Str): Str :=
   show(n) ++ " " ++ unit ++ (if n == 1 then "" else "s")
 
 function count_message(owner: Str, unit: Str, k: Int, actual: Int): Str :=
-  (if owner == "" then "expected " else owner ++ " expects ") ++ counted(k, unit) ++ ", got " ++ show(actual)
+  (if owner == "" then "expected " else owner ++ " expects ")
+    ++ counted(k, unit)
+    ++ ", got "
+    ++ show(actual)
 
 // the numbers of the arguments of a call by their modes, those that it has
 function passed_text(ins: Int, outs: Int, refs: Int): Str :=
@@ -169,19 +178,27 @@ function hint_of(e: TypeError): Str :=
       "; a type of the local, the formal, or the result that holds the value decides, as in let s: Set[Int] := empty()"
 
     case OrVariables(name, _) =>
-      "; bind " ++ name.base ++ " in every alternative, or write _ for it in each"
+      "; bind "
+        ++ name.base
+        ++ " in every alternative, or write _ for it in each"
 
     case QualifierLocal(_) =>
       "; name the local by its type or its role instead"
 
     case UnknownFieldOwner(field) if ends_with(field, ":=") =>
-      "; ascribe the type of the value, (e: T) with " ++ slice(without_update(field), 1, size(without_update(field))) ++ " := a"
+      "; ascribe the type of the value, (e: T) with "
+        ++ slice(without_update(field), 1, size(without_update(field)))
+        ++ " := a"
 
     case UnknownFieldOwner(field) =>
       "; ascribe the type of the value, (e: T)" ++ field
 
     case WiderRaise(typ) =>
-      "; add raises " ++ format_type(typ) ++ " to the procedure type that omits it, or catch " ++ format_type(typ) ++ " in the procedure"
+      "; add raises "
+        ++ format_type(typ)
+        ++ " to the procedure type that omits it, or catch "
+        ++ format_type(typ)
+        ++ " in the procedure"
 
     case CannotUnify(TSort(_, _), TFun(List(), _)) =>
       "; a value that is no function, such as a constructor without fields, is written without ()"
@@ -198,7 +215,9 @@ function hint_of(e: TypeError): Str :=
 
 // whether the types of candidates differ, so that a type decides between them
 function are_apart(candidates: List[(Name, Scheme)]): Bool :=
-  forall(candidates, lambda (_, sc) => sc.typ != THole) and size(Set(for (_, sc) in candidates yield format_type(sc.typ))) == size(candidates)
+  forall(candidates, lambda (_, sc) => sc.typ != THole)
+    and size(Set(for (_, sc) in candidates yield format_type(sc.typ)))
+      == size(candidates)
 
 function plain_message(e: TypeError): Str :=
   match e
@@ -232,7 +251,10 @@ function plain_message(e: TypeError): Str :=
       end
 
     case InfiniteType(meta, typ, Some(x)) =>
-      "the type of " ++ x.base ++ " would contain itself, " ++ join(" = ", format_types_apart(List(meta, typ)))
+      "the type of "
+        ++ x.base
+        ++ " would contain itself, "
+        ++ join(" = ", format_types_apart(List(meta, typ)))
 
     case InfiniteType(meta, typ, None) =>
       "infinite type " ++ join(" = ", format_types_apart(List(meta, typ)))
@@ -241,7 +263,11 @@ function plain_message(e: TypeError): Str :=
       "unknown variable " ++ name.base
 
     case NoOverload(name, typ, candidates) =>
-      "no declaration of " ++ name.base ++ " has the type " ++ format_type(typ) ++ candidates_text(candidates)
+      "no declaration of "
+        ++ name.base
+        ++ " has the type "
+        ++ format_type(typ)
+        ++ candidates_text(candidates)
 
     case WrongArity(name, arity) =>
       name.base ++ " does not take " ++ counted(arity, "argument")
@@ -253,28 +279,45 @@ function plain_message(e: TypeError): Str :=
       "duplicate " ++ what ++ " " ++ item
 
     case Ambiguous(name, candidates) =>
-      name.base ++ " is ambiguous: " ++ join(", ", List(for c in candidates yield candidate_text(c)))
+      name.base
+        ++ " is ambiguous: "
+        ++ join(", ", List(for c in candidates yield candidate_text(c)))
 
     case UnknownField(name) =>
       field_message(name)
 
     case UnknownFieldType(field, typ) =>
-      "the type " ++ format_type(typ) ++ " of the value of " ++ without_update(field) ++ " has no fields"
+      "the type "
+        ++ format_type(typ)
+        ++ " of the value of "
+        ++ without_update(field)
+        ++ " has no fields"
 
     case UnknownFieldOwner(field) =>
-      "the type of the value of " ++ without_update(field) ++ " is not known there, which an annotation can give"
+      "the type of the value of "
+        ++ without_update(field)
+        ++ " is not known there, which an annotation can give"
 
     case UnknownContainer(typ) =>
       container_message(typ)
 
     case NoFold(typ, fold) =>
-      format_type(typ) ++ " is no container: " ++ sort_module(typ) ++ " declares no " ++ fold
+      format_type(typ)
+        ++ " is no container: "
+        ++ sort_module(typ)
+        ++ " declares no "
+        ++ fold
 
     case CountMismatch(owner, unit, k, actual) =>
       count_message(owner, unit, k, actual)
 
     case CallMismatch(proc, typ, ins, outs, refs) =>
-      "procedure " ++ proc.base ++ " takes " ++ format_type(typ) ++ ", but the call passes " ++ passed_text(ins, outs, refs)
+      "procedure "
+        ++ proc.base
+        ++ " takes "
+        ++ format_type(typ)
+        ++ ", but the call passes "
+        ++ passed_text(ins, outs, refs)
 
     case UnknownConstructor(name) =>
       "unknown constructor " ++ name.base
@@ -307,43 +350,66 @@ function plain_message(e: TypeError): Str :=
       "the contract of " ++ name.base ++ " belongs to its signature in export"
 
     case ClaimOuts(name) =>
-      "the outs of the claim of " ++ name.base ++ " are the outs of the lemma in their order"
+      "the outs of the claim of "
+        ++ name.base
+        ++ " are the outs of the lemma in their order"
 
     case ClaimOrder(proc) =>
-      "a claim of " ++ proc.base ++ " follows the definition of " ++ proc.base ++ " in its package"
+      "a claim of "
+        ++ proc.base
+        ++ " follows the definition of "
+        ++ proc.base
+        ++ " in its package"
 
     case ClaimStep(name) =>
-      "the proof of the claim " ++ name.base ++ " has only invariants, one per while of the procedure"
+      "the proof of the claim "
+        ++ name.base
+        ++ " has only invariants, one per while of the procedure"
 
     case InvariantOutsideClaim =>
       "an invariant belongs to the proof of a claim correct p(…)"
 
     case ClaimCalled(name) =>
-      "the claim " ++ name.base ++ " is no lemma to call, since it holds only for the runs that end"
+      "the claim "
+        ++ name.base
+        ++ " is no lemma to call, since it holds only for the runs that end"
 
     case Unassigned(name) =>
       name.base ++ " is not assigned on every path"
 
     case OutputUnassigned(x, proc) =>
-      "output " ++ x.base ++ " of " ++ proc.base ++ " is not assigned on every path"
+      "output "
+        ++ x.base
+        ++ " of "
+        ++ proc.base
+        ++ " is not assigned on every path"
 
     case MissingDefinition(name) =>
       name.base ++ " is exported but not defined"
 
     case SignatureMismatch(name, part) =>
-      "the definition of " ++ name.base ++ " differs from its signature, " ++ differing_text(part)
+      "the definition of "
+        ++ name.base
+        ++ " differs from its signature, "
+        ++ differing_text(part)
 
     case PartlyExported(name) =>
       name.base ++ " is exported, but not with each of its numbers of arguments"
 
     case PrivateType(name, sort) =>
-      "the signature of " ++ name.base ++ " names the private type " ++ sort.base
+      "the signature of "
+        ++ name.base
+        ++ " names the private type "
+        ++ sort.base
 
     case HiddenLocal(name) =>
       name.base ++ " hides a local of the same name"
 
     case QualifierLocal(name) =>
-      name.base ++ " is the first name of a path that the module sees, of which " ++ name.base ++ ".x is a qualified name"
+      name.base
+        ++ " is the first name of a path that the module sees, of which "
+        ++ name.base
+        ++ ".x is a qualified name"
 
     case VisibleEquality(sort) =>
       sort.base ++ " declares ==, which only abstract types may"
@@ -355,19 +421,28 @@ function plain_message(e: TypeError): Str :=
       fun.base ++ " of the exported type " ++ sort.base ++ " is not exported"
 
     case AliasVariables(name) =>
-      "the variables of the pattern alias " ++ name.base ++ " are not its formals, each once"
+      "the variables of the pattern alias "
+        ++ name.base
+        ++ " are not its formals, each once"
 
     case OrVariables(name, binds) =>
       if binds then
-        "the alternative binds " ++ name.base ++ ", which the first alternative does not bind"
+        "the alternative binds "
+          ++ name.base
+          ++ ", which the first alternative does not bind"
       else
-        "the alternative does not bind " ++ name.base ++ ", which the first alternative binds"
+        "the alternative does not bind "
+          ++ name.base
+          ++ ", which the first alternative binds"
 
     case RaisesVariables(name) =>
-      "the pattern of assert raises binds " ++ name.base ++ ", which only _ may stand for without a guard"
+      "the pattern of assert raises binds "
+        ++ name.base
+        ++ ", which only _ may stand for without a guard"
 
     case NotAnException(typ) =>
-      "only values of datatypes without type parameters are raised, not of " ++ format_type(typ)
+      "only values of datatypes without type parameters are raised, not of "
+        ++ format_type(typ)
 
     case UndeclaredRaise(name, typ) =>
       name.base ++ " raises " ++ format_type(typ) ++ ", which its raises omit"
@@ -376,22 +451,37 @@ function plain_message(e: TypeError): Str :=
       "the module uses nothing of the imported package " ++ path_text(package)
 
     case UntypedRaise(name, typ) =>
-      "the procedure value " ++ name.base ++ " raises " ++ format_type(typ) ++ ", which its type omits"
+      "the procedure value "
+        ++ name.base
+        ++ " raises "
+        ++ format_type(typ)
+        ++ ", which its type omits"
 
     case WiderRaise(typ) =>
-      "this procedure value may raise " ++ format_type(typ) ++ " by its type, but it reaches a place whose type omits " ++ format_type(typ)
+      "this procedure value may raise "
+        ++ format_type(typ)
+        ++ " by its type, but it reaches a place whose type omits "
+        ++ format_type(typ)
 
     case NeverRaised(typ) =>
-      "the handler of " ++ format_type(typ) ++ " is unreachable, since nothing in the body raises " ++ format_type(typ)
+      "the handler of "
+        ++ format_type(typ)
+        ++ " is unreachable, since nothing in the body raises "
+        ++ format_type(typ)
 
     case UnparsedDeclaration(name) =>
       "the declaration of " ++ name.base ++ " does not parse"
 
     case PatternOnly(name) =>
-      "the pattern alias " ++ name.base ++ " has _ or alternatives and builds no value"
+      "the pattern alias "
+        ++ name.base
+        ++ " has _ or alternatives and builds no value"
 
     case PrivateConstructor(name, constr) =>
-      "the exported pattern alias " ++ name.base ++ " matches the private constructor " ++ constr.base
+      "the exported pattern alias "
+        ++ name.base
+        ++ " matches the private constructor "
+        ++ constr.base
 
     case Located(_, _, error) =>
       type_message(error)
@@ -399,7 +489,11 @@ function plain_message(e: TypeError): Str :=
 
 function hook_message(hook: Hook): Str :=
   let values := if hook_arity(hook) == 1 then "one value" else "two values" in
-  hook_name(hook) ++ " must take " ++ values ++ " T[A, …] of a datatype T of its module, with distinct type parameters, and give " ++ format_type(hook_result(hook))
+  hook_name(hook)
+    ++ " must take "
+    ++ values
+    ++ " T[A, …] of a datatype T of its module, with distinct type parameters, and give "
+    ++ format_type(hook_result(hook))
 
 // the accessor T.f, or the updater T.f:=, of an unknown field f
 function field_message(name: Name): Str :=
@@ -415,78 +509,147 @@ function without_update(f: Str): Str :=
 
 // the messages of the type errors, one of each kind, as a run of the cases of ulang/test/errors/ gave them
 test messages() :=
-  assert located_message(Located(None, Pos(1, 1), AliasVariables(Name(List("ulang", "test", "errors", "pattern-alias-variables"), "Pair")))) == "the variables of the pattern alias Pair are not its formals, each once at 1.1"
-  assert located_message(AlreadyDefined(Name(List("ulang", "test", "errors", "duplicate-signature"), "f"))) == "f is already defined"
+  assert located_message(Located(None, Pos(1, 1), AliasVariables(Name(List("ulang", "test", "errors", "pattern-alias-variables"), "Pair"))))
+    == "the variables of the pattern alias Pair are not its formals, each once at 1.1"
+  assert located_message(AlreadyDefined(Name(List("ulang", "test", "errors", "duplicate-signature"), "f")))
+    == "f is already defined"
   assert located_message(Located(None, Pos(6, 1), Ambiguous(Name(List(), "helper"), List(
-    (Name(List("ulang", "test", "modules", "left", "left"), "helper"), Scheme(List(), TFun(List(TSort(Name(List("prelude", "prelude"), "Int"), List())), TSort(Name(List("prelude", "prelude"), "Int"), List())))),
-    (Name(List("ulang", "test", "errors", "own-name"), "helper"), Scheme(List(), TFun(List(TSort(Name(List("prelude", "prelude"), "Int"), List())), TSort(Name(List("prelude", "prelude"), "Int"), List())))))))) == "helper is ambiguous: ulang.test.modules.left.left.helper: Int -> Int, ulang.test.errors.own-name.helper: Int -> Int at 6.1"
-  assert located_message(Located(None, Pos(1, 1), CannotUnify(TParam("A"), TParam("B")))) == "cannot unify A and B at 1.1"
-  assert type_message(Mismatch(TBool(), TInt(), "the condition of if")) == "expected Bool but found Int in the condition of if"
-  assert type_diagnostic(Located(Some(List("m")), Pos(2, 3), Mismatch(TBool(), TInt(), "the guard"))) == Diagnostic(TypeKind, "Mismatch", Some(List("m")), Pos(2, 3), "expected Bool but found Int in the guard", List(("expected", "Bool"), ("found", "Int")))
-  assert located_message(Located(None, Pos(4, 1), CountMismatch("procedure p", "in", 1, 2))) == "procedure p expects 1 in, got 2 at 4.1"
-  assert located_message(Located(None, Pos(4, 1), CountMismatch("function f", "argument", 2, 1))) == "function f expects 2 arguments, got 1 at 4.1"
-  assert located_message(Located(None, Pos(7, 1), WrongArity(Name(List(), "f"), 1))) == "f does not take 1 argument at 7.1"
-  assert located_message(Located(None, Pos(4, 1), CallMismatch(Name(List(), "p"), TProc(List(TInt()), List(TInt()), List(), RSet(empty())), 2, 0, 0))) == "procedure p takes (in Int, out Int), but the call passes 2 ins at 4.1"
+      (Name(List("ulang", "test", "modules", "left", "left"), "helper"), Scheme(List(), TFun(List(TSort(Name(List("prelude", "prelude"), "Int"), List())), TSort(Name(List("prelude", "prelude"), "Int"), List())))),
+      (Name(List("ulang", "test", "errors", "own-name"), "helper"), Scheme(List(), TFun(List(TSort(Name(List("prelude", "prelude"), "Int"), List())), TSort(Name(List("prelude", "prelude"), "Int"), List()))))))))
+    == "helper is ambiguous: ulang.test.modules.left.left.helper: Int -> Int, ulang.test.errors.own-name.helper: Int -> Int at 6.1"
+  assert located_message(Located(None, Pos(1, 1), CannotUnify(TParam("A"), TParam("B"))))
+    == "cannot unify A and B at 1.1"
+  assert type_message(Mismatch(TBool(), TInt(), "the condition of if"))
+    == "expected Bool but found Int in the condition of if"
+  assert type_diagnostic(Located(Some(List("m")), Pos(2, 3), Mismatch(TBool(), TInt(), "the guard")))
+    == Diagnostic(TypeKind, "Mismatch", Some(List("m")), Pos(2, 3), "expected Bool but found Int in the guard", List(("expected", "Bool"), ("found", "Int")))
+  assert located_message(Located(None, Pos(4, 1), CountMismatch("procedure p", "in", 1, 2)))
+    == "procedure p expects 1 in, got 2 at 4.1"
+  assert located_message(Located(None, Pos(4, 1), CountMismatch("function f", "argument", 2, 1)))
+    == "function f expects 2 arguments, got 1 at 4.1"
+  assert located_message(Located(None, Pos(7, 1), WrongArity(Name(List(), "f"), 1)))
+    == "f does not take 1 argument at 7.1"
+  assert located_message(Located(None, Pos(4, 1), CallMismatch(Name(List(), "p"), TProc(List(TInt()), List(TInt()), List(), RSet(empty())), 2, 0, 0)))
+    == "procedure p takes (in Int, out Int), but the call passes 2 ins at 4.1"
   assert located_message(Duplicate("declaration", "a")) == "duplicate declaration a"
-  assert located_message(Located(None, Pos(4, 1), HiddenLocal(Name(List(), "m")))) == "m hides a local of the same name at 4.1"
-  assert located_message(Located(None, Pos(2, 7), QualifierLocal(Name(List(), "ulang")))) == "ulang is the first name of a path that the module sees, of which ulang.x is a qualified name; name the local by its type or its role instead at 2.7"
-  assert located_message(Located(None, Pos(4, 1), MisshapenHook(Name(List("ulang", "test", "errors", "misshapen-hook"), "show"), HookShow))) == "show must take one value T[A, …] of a datatype T of its module, with distinct type parameters, and give Str at 4.1"
-  assert located_message(MissingDefinition(Name(List("ulang", "test", "errors", "abstract-undefined"), "T"))) == "T is exported but not defined"
-  assert located_message(Located(None, Pos(1, 1), MissingType(Name(List(), "x")))) == "missing type for x at 1.1"
-  assert located_message(Located(None, Pos(1, 1), Hinted(MissingType(Name(List(), "x")), "only the call right after the declaration gives a local without a value its type, so declare each before its call or write its type"))) == "missing type for x; only the call right after the declaration gives a local without a value its type, so declare each before its call or write its type at 1.1"
-  assert located_message(Located(None, Pos(2, 12), Hinted(CannotUnify(TSort(Name(List("prelude", "list"), "List"), List(TSort(Name(List("prelude", "prelude"), "Str"), List()))), TFun(List(TSort(Name(List("prelude", "prelude"), "Str"), List())), TMeta(3))), "the variable lines hides the function prelude.str.lines, so rename the variable to call it"))) == "cannot unify List[Str] and Str -> ?3; the variable lines hides the function prelude.str.lines, so rename the variable to call it at 2.12"
-  assert located_message(Located(None, Pos(1, 1), NoFold(TSort(Name(List("prelude", "prelude"), "Int"), List()), "foldr"))) == "Int is no container: prelude.prelude declares no foldr at 1.1"
-  assert located_message(Located(None, Pos(1, 1), NotAssignable(Name(List(), "k")))) == "k is not assignable at 1.1"
-  assert located_message(Located(None, Pos(1, 1), NotExhaustive(PWild))) == "match is not exhaustive, missing _; add case _ => at 1.1"
-  assert located_message(Located(None, Pos(1, 1), OutputUnassigned(Name(List(), "y"), Name(List(), "lambda")))) == "output y of lambda is not assigned on every path at 1.1"
-  assert located_message(PartlyExported(Name(List("ulang", "test", "errors", "partly-exported"), "f"))) == "f is exported, but not with each of its numbers of arguments"
-  assert located_message(Located(None, Pos(3, 20), OrVariables(Name(List(), "n"), false))) == "the alternative does not bind n, which the first alternative binds; bind n in every alternative, or write _ for it in each at 3.20"
-  assert located_message(Located(None, Pos(4, 1), PatternOnly(Name(List(), "First")))) == "the pattern alias First has _ or alternatives and builds no value at 4.1"
-  assert located_message(Located(None, Pos(7, 1), PrivateConstructor(Name(List("ulang", "test", "errors", "pattern-alias-abstract"), "Small"), Name(List("ulang", "test", "errors", "pattern-alias-abstract"), "Box")))) == "the exported pattern alias Small matches the private constructor Box at 7.1"
-  assert located_message(PrivateType(Name(List("ulang", "test", "errors", "private-type"), "f"), Name(List("ulang", "test", "errors", "private-type"), "Hidden"))) == "the signature of f names the private type Hidden"
-  assert located_message(Located(None, Pos(1, 1), RaisesVariables(Name(List(), "n")))) == "the pattern of assert raises binds n, which only _ may stand for without a guard at 1.1"
-  assert located_message(Located(None, Pos(2, 3), NotAnException(TSort(Name(List("prelude", "prelude"), "Int"), List())))) == "only values of datatypes without type parameters are raised, not of Int at 2.3"
-  assert located_message(Located(None, Pos(3, 1), UnusedImport(List("ulang", "syntax")))) == "the module uses nothing of the imported package ulang.syntax at 3.1"
-  assert located_message(Located(None, Pos(2, 3), UndeclaredRaise(Name(List("a"), "p"), TSort(Name(List("a"), "Failed"), List())))) == "p raises Failed, which its raises omit at 2.3"
-  assert located_message(Located(None, Pos(2, 3), UntypedRaise(Name(List(), "lambda"), TSort(Name(List("a"), "Failed"), List())))) == "the procedure value lambda raises Failed, which its type omits at 2.3"
-  assert located_message(Located(None, Pos(2, 3), WiderRaise(TSort(Name(List("a"), "Failed"), List())))) == "this procedure value may raise Failed by its type, but it reaches a place whose type omits Failed; add raises Failed to the procedure type that omits it, or catch Failed in the procedure at 2.3"
-  assert located_message(Located(None, Pos(2, 3), NeverRaised(TSort(Name(List("a"), "Failed"), List())))) == "the handler of Failed is unreachable, since nothing in the body raises Failed at 2.3"
-  assert located_message(SignatureMismatch(Name(List("ulang", "test", "errors", "abstract-arity"), "T"), DifferingParams(List("A"), List()))) == "the definition of T differs from its signature, which has the type parameters A where the definition has none"
-  assert located_message(SignatureMismatch(Name(List("m"), "config_of"), DifferingRaises(List(TSort(Name(List("m"), "ConfigError"), List())), List()))) == "the definition of config_of differs from its signature, which has raises ConfigError where the definition has none"
+  assert located_message(Located(None, Pos(4, 1), HiddenLocal(Name(List(), "m"))))
+    == "m hides a local of the same name at 4.1"
+  assert located_message(Located(None, Pos(2, 7), QualifierLocal(Name(List(), "ulang"))))
+    == "ulang is the first name of a path that the module sees, of which ulang.x is a qualified name; name the local by its type or its role instead at 2.7"
+  assert located_message(Located(None, Pos(4, 1), MisshapenHook(Name(List("ulang", "test", "errors", "misshapen-hook"), "show"), HookShow)))
+    == "show must take one value T[A, …] of a datatype T of its module, with distinct type parameters, and give Str at 4.1"
+  assert located_message(MissingDefinition(Name(List("ulang", "test", "errors", "abstract-undefined"), "T")))
+    == "T is exported but not defined"
+  assert located_message(Located(None, Pos(1, 1), MissingType(Name(List(), "x"))))
+    == "missing type for x at 1.1"
+  assert located_message(Located(None, Pos(1, 1), Hinted(MissingType(Name(List(), "x")), "only the call right after the declaration gives a local without a value its type, so declare each before its call or write its type")))
+    == "missing type for x; only the call right after the declaration gives a local without a value its type, so declare each before its call or write its type at 1.1"
+  assert located_message(Located(None, Pos(2, 12), Hinted(CannotUnify(TSort(Name(List("prelude", "list"), "List"), List(TSort(Name(List("prelude", "prelude"), "Str"), List()))), TFun(List(TSort(Name(List("prelude", "prelude"), "Str"), List())), TMeta(3))), "the variable lines hides the function prelude.str.lines, so rename the variable to call it")))
+    == "cannot unify List[Str] and Str -> ?3; the variable lines hides the function prelude.str.lines, so rename the variable to call it at 2.12"
+  assert located_message(Located(None, Pos(1, 1), NoFold(TSort(Name(List("prelude", "prelude"), "Int"), List()), "foldr")))
+    == "Int is no container: prelude.prelude declares no foldr at 1.1"
+  assert located_message(Located(None, Pos(1, 1), NotAssignable(Name(List(), "k"))))
+    == "k is not assignable at 1.1"
+  assert located_message(Located(None, Pos(1, 1), NotExhaustive(PWild)))
+    == "match is not exhaustive, missing _; add case _ => at 1.1"
+  assert located_message(Located(None, Pos(1, 1), OutputUnassigned(Name(List(), "y"), Name(List(), "lambda"))))
+    == "output y of lambda is not assigned on every path at 1.1"
+  assert located_message(PartlyExported(Name(List("ulang", "test", "errors", "partly-exported"), "f")))
+    == "f is exported, but not with each of its numbers of arguments"
+  assert located_message(Located(None, Pos(3, 20), OrVariables(Name(List(), "n"), false)))
+    == "the alternative does not bind n, which the first alternative binds; bind n in every alternative, or write _ for it in each at 3.20"
+  assert located_message(Located(None, Pos(4, 1), PatternOnly(Name(List(), "First"))))
+    == "the pattern alias First has _ or alternatives and builds no value at 4.1"
+  assert located_message(Located(None, Pos(7, 1), PrivateConstructor(Name(List("ulang", "test", "errors", "pattern-alias-abstract"), "Small"), Name(List("ulang", "test", "errors", "pattern-alias-abstract"), "Box"))))
+    == "the exported pattern alias Small matches the private constructor Box at 7.1"
+  assert located_message(PrivateType(Name(List("ulang", "test", "errors", "private-type"), "f"), Name(List("ulang", "test", "errors", "private-type"), "Hidden")))
+    == "the signature of f names the private type Hidden"
+  assert located_message(Located(None, Pos(1, 1), RaisesVariables(Name(List(), "n"))))
+    == "the pattern of assert raises binds n, which only _ may stand for without a guard at 1.1"
+  assert located_message(Located(None, Pos(2, 3), NotAnException(TSort(Name(List("prelude", "prelude"), "Int"), List()))))
+    == "only values of datatypes without type parameters are raised, not of Int at 2.3"
+  assert located_message(Located(None, Pos(3, 1), UnusedImport(List("ulang", "syntax"))))
+    == "the module uses nothing of the imported package ulang.syntax at 3.1"
+  assert located_message(Located(None, Pos(2, 3), UndeclaredRaise(Name(List("a"), "p"), TSort(Name(List("a"), "Failed"), List()))))
+    == "p raises Failed, which its raises omit at 2.3"
+  assert located_message(Located(None, Pos(2, 3), UntypedRaise(Name(List(), "lambda"), TSort(Name(List("a"), "Failed"), List()))))
+    == "the procedure value lambda raises Failed, which its type omits at 2.3"
+  assert located_message(Located(None, Pos(2, 3), WiderRaise(TSort(Name(List("a"), "Failed"), List()))))
+    == "this procedure value may raise Failed by its type, but it reaches a place whose type omits Failed; add raises Failed to the procedure type that omits it, or catch Failed in the procedure at 2.3"
+  assert located_message(Located(None, Pos(2, 3), NeverRaised(TSort(Name(List("a"), "Failed"), List()))))
+    == "the handler of Failed is unreachable, since nothing in the body raises Failed at 2.3"
+  assert located_message(SignatureMismatch(Name(List("ulang", "test", "errors", "abstract-arity"), "T"), DifferingParams(List("A"), List())))
+    == "the definition of T differs from its signature, which has the type parameters A where the definition has none"
+  assert located_message(SignatureMismatch(Name(List("m"), "config_of"), DifferingRaises(List(TSort(Name(List("m"), "ConfigError"), List())), List())))
+    == "the definition of config_of differs from its signature, which has raises ConfigError where the definition has none"
   assert located_message(SignatureMismatch(Name(List("m"), "f"), DifferingFormals("ins", List(
-    Var(Name(List(), "n"), TSort(Name(List("prelude", "prelude"), "Int"), List()))), List(
-    Var(Name(List(), "x"), TSort(Name(List("prelude", "prelude"), "Int"), List())))))) == "the definition of f differs from its signature, which has the ins n: Int where the definition has the ins x: Int"
-  assert located_message(Located(None, Pos(1, 1), SortArity(Name(List("prelude", "prelude"), "Int"), 0, 1))) == "type Int expects 0 arguments, got 1 at 1.1"
-  assert located_message(Located(None, Pos(2, 3), ExampleOnDefinition(Name(List("m"), "f")))) == "the examples of f belong to its signature in export at 2.3"
-  assert located_message(Located(None, Pos(2, 3), ContractOnDefinition(Name(List("m"), "p")))) == "the contract of p belongs to its signature in export at 2.3"
-  assert located_message(Located(None, Pos(1, 1), ClaimOuts(Name(List(), "l")))) == "the outs of the claim of l are the outs of the lemma in their order at 1.1"
-  assert located_message(Located(None, Pos(1, 1), ClaimOrder(Name(List(), "p")))) == "a claim of p follows the definition of p in its package at 1.1"
-  assert located_message(Located(None, Pos(1, 1), ClaimStep(Name(List(), "l")))) == "the proof of the claim l has only invariants, one per while of the procedure at 1.1"
-  assert located_message(Located(None, Pos(1, 1), InvariantOutsideClaim)) == "an invariant belongs to the proof of a claim correct p(…) at 1.1"
-  assert located_message(Located(None, Pos(1, 1), ClaimCalled(Name(List(), "l")))) == "the claim l is no lemma to call, since it holds only for the runs that end at 1.1"
-  assert located_message(Located(None, Pos(1, 1), Unassigned(Name(List(), "x")))) == "x is not assigned on every path at 1.1"
-  assert located_message(Located(None, Pos(15, 1), UnexportedOrder(Name(List("ulang", "test", "errors", "unexported-order"), "compare"), Name(List("ulang", "test", "errors", "unexported-order"), "T")))) == "compare of the exported type T is not exported at 15.1"
-  assert located_message(Located(None, Pos(1, 1), UnknownConstructor(Name(List(), "f")))) == "unknown constructor f at 1.1"
-  assert located_message(Located(None, Pos(1, 1), UnknownException(TMeta(2)))) == "the type ?2 of an exception is not fully known at 1.1"
-  assert located_message(Located(None, Pos(4, 1), UnknownField(Owned(List("ulang", "test", "errors", "unknown-field"), List("Point"), "z")))) == "unknown field z of Point at 4.1"
-  assert located_message(Located(None, Pos(1, 1), UnknownFieldOwner(".x"))) == "the type of the value of .x is not known there, which an annotation can give; ascribe the type of the value, (e: T).x at 1.1"
-  assert located_message(Located(None, Pos(1, 1), UnknownFieldOwner(".x:="))) == "the type of the value of .x is not known there, which an annotation can give; ascribe the type of the value, (e: T) with x := a at 1.1"
-  assert located_message(Located(None, Pos(1, 1), UnknownFieldType(".x:=", TTuple(List(TInt(), TStr()))))) == "the type (Int, Str) of the value of .x has no fields at 1.1"
-  assert located_message(Located(None, Pos(1, 1), InfiniteType(TMeta(1), TList(TMeta(1)), None))) == "infinite type ?1 = List[?1] at 1.1"
-  assert located_message(Located(None, Pos(1, 1), InfiniteType(TMeta(1), TFun(List(TMeta(1)), TMeta(2)), Some(Name(List(), "x"))))) == "the type of x would contain itself, ?1 = ?1 -> ?2 at 1.1"
-  assert located_message(Located(None, Pos(1, 1), NoOverload(Name(List(), "size"), TFun(List(TInt()), TInt()), List()))) == "no declaration of size has the type Int -> Int at 1.1"
+      Var(Name(List(), "n"), TSort(Name(List("prelude", "prelude"), "Int"), List()))), List(
+      Var(Name(List(), "x"), TSort(Name(List("prelude", "prelude"), "Int"), List()))))))
+    == "the definition of f differs from its signature, which has the ins n: Int where the definition has the ins x: Int"
+  assert located_message(Located(None, Pos(1, 1), SortArity(Name(List("prelude", "prelude"), "Int"), 0, 1)))
+    == "type Int expects 0 arguments, got 1 at 1.1"
+  assert located_message(Located(None, Pos(2, 3), ExampleOnDefinition(Name(List("m"), "f"))))
+    == "the examples of f belong to its signature in export at 2.3"
+  assert located_message(Located(None, Pos(2, 3), ContractOnDefinition(Name(List("m"), "p"))))
+    == "the contract of p belongs to its signature in export at 2.3"
+  assert located_message(Located(None, Pos(1, 1), ClaimOuts(Name(List(), "l"))))
+    == "the outs of the claim of l are the outs of the lemma in their order at 1.1"
+  assert located_message(Located(None, Pos(1, 1), ClaimOrder(Name(List(), "p"))))
+    == "a claim of p follows the definition of p in its package at 1.1"
+  assert located_message(Located(None, Pos(1, 1), ClaimStep(Name(List(), "l"))))
+    == "the proof of the claim l has only invariants, one per while of the procedure at 1.1"
+  assert located_message(Located(None, Pos(1, 1), InvariantOutsideClaim))
+    == "an invariant belongs to the proof of a claim correct p(…) at 1.1"
+  assert located_message(Located(None, Pos(1, 1), ClaimCalled(Name(List(), "l"))))
+    == "the claim l is no lemma to call, since it holds only for the runs that end at 1.1"
+  assert located_message(Located(None, Pos(1, 1), Unassigned(Name(List(), "x"))))
+    == "x is not assigned on every path at 1.1"
+  assert located_message(Located(None, Pos(15, 1), UnexportedOrder(Name(List("ulang", "test", "errors", "unexported-order"), "compare"), Name(List("ulang", "test", "errors", "unexported-order"), "T"))))
+    == "compare of the exported type T is not exported at 15.1"
+  assert located_message(Located(None, Pos(1, 1), UnknownConstructor(Name(List(), "f"))))
+    == "unknown constructor f at 1.1"
+  assert located_message(Located(None, Pos(1, 1), UnknownException(TMeta(2))))
+    == "the type ?2 of an exception is not fully known at 1.1"
+  assert located_message(Located(None, Pos(4, 1), UnknownField(Owned(List("ulang", "test", "errors", "unknown-field"), List("Point"), "z"))))
+    == "unknown field z of Point at 4.1"
+  assert located_message(Located(None, Pos(1, 1), UnknownFieldOwner(".x")))
+    == "the type of the value of .x is not known there, which an annotation can give; ascribe the type of the value, (e: T).x at 1.1"
+  assert located_message(Located(None, Pos(1, 1), UnknownFieldOwner(".x:=")))
+    == "the type of the value of .x is not known there, which an annotation can give; ascribe the type of the value, (e: T) with x := a at 1.1"
+  assert located_message(Located(None, Pos(1, 1), UnknownFieldType(".x:=", TTuple(List(TInt(), TStr())))))
+    == "the type (Int, Str) of the value of .x has no fields at 1.1"
+  assert located_message(Located(None, Pos(1, 1), InfiniteType(TMeta(1), TList(TMeta(1)), None)))
+    == "infinite type ?1 = List[?1] at 1.1"
+  assert located_message(Located(None, Pos(1, 1), InfiniteType(TMeta(1), TFun(List(TMeta(1)), TMeta(2)), Some(Name(List(), "x")))))
+    == "the type of x would contain itself, ?1 = ?1 -> ?2 at 1.1"
+  assert located_message(Located(None, Pos(1, 1), NoOverload(Name(List(), "size"), TFun(List(TInt()), TInt()), List())))
+    == "no declaration of size has the type Int -> Int at 1.1"
   assert located_message(Located(None, Pos(1, 1), NoOverload(Name(List(), "size"), TFun(List(TInt()), TInt()), List(
-    (Name(List("prelude", "list"), "size"), Scheme(List(TParam("A")), TFun(List(TList(TParam("A"))), TInt()))))))) == "no declaration of size has the type Int -> Int, among prelude.list.size: List[A] -> Int at 1.1"
-  assert located_message(Located(None, Pos(1, 1), UnknownContainer(TMeta(1)))) == "the type ?1 of the container of a generator is not known there, which an annotation can give at 1.1"
-  assert located_message(Located(None, Pos(1, 1), UnparsedDeclaration(Name(List(), "x")))) == "the declaration of x does not parse at 1.1"
-  assert located_message(Located(None, Pos(1, 1), SortDefined(Name(List("m"), "T")))) == "type T is already defined at 1.1"
-  assert located_message(Located(None, Pos(1, 1), UndeclaredParams(Name(List("m"), "f"), List(TParam("A"))))) == "f has undeclared type parameters A at 1.1"
-  assert located_message(Located(None, Pos(1, 1), Hinted(UnknownVariable(Name(List(), "lenght")), "did you mean length?"))) == "unknown variable lenght; did you mean length? at 1.1"
-  assert located_message(Located(None, Pos(1, 1), UnknownProcedure(Name(List(), "r")))) == "unknown procedure r at 1.1"
-  assert located_message(Located(None, Pos(1, 1), UnknownLemma(Name(List(), "l")))) == "unknown lemma l at 1.1"
-  assert located_message(Located(None, Pos(1, 1), NotInducible(Name(List(), "n")))) == "induction on n, which is no formal of a datatype at 1.1"
-  assert located_message(Located(None, Pos(1, 1), UnknownSort(Name(List(), "A")))) == "unknown type A at 1.1"
-  assert located_message(Located(None, Pos(1, 1), UnknownVariable(Name(List(), "y")))) == "unknown variable y at 1.1"
-  assert located_message(Located(None, Pos(1, 1), Unreachable(PWild))) == "unreachable case _ at 1.1"
-  assert located_message(Located(None, Pos(4, 1), VisibleEquality(Name(List("ulang", "test", "errors", "visible-equality"), "Pair")))) == "Pair declares ==, which only abstract types may at 4.1"
-  assert located_message(Located(None, Pos(7, 1), WrongArity(Name(List(), "f"), 3))) == "f does not take 3 arguments at 7.1"
+      (Name(List("prelude", "list"), "size"), Scheme(List(TParam("A")), TFun(List(TList(TParam("A"))), TInt())))))))
+    == "no declaration of size has the type Int -> Int, among prelude.list.size: List[A] -> Int at 1.1"
+  assert located_message(Located(None, Pos(1, 1), UnknownContainer(TMeta(1))))
+    == "the type ?1 of the container of a generator is not known there, which an annotation can give at 1.1"
+  assert located_message(Located(None, Pos(1, 1), UnparsedDeclaration(Name(List(), "x"))))
+    == "the declaration of x does not parse at 1.1"
+  assert located_message(Located(None, Pos(1, 1), SortDefined(Name(List("m"), "T"))))
+    == "type T is already defined at 1.1"
+  assert located_message(Located(None, Pos(1, 1), UndeclaredParams(Name(List("m"), "f"), List(TParam("A")))))
+    == "f has undeclared type parameters A at 1.1"
+  assert located_message(Located(None, Pos(1, 1), Hinted(UnknownVariable(Name(List(), "lenght")), "did you mean length?")))
+    == "unknown variable lenght; did you mean length? at 1.1"
+  assert located_message(Located(None, Pos(1, 1), UnknownProcedure(Name(List(), "r"))))
+    == "unknown procedure r at 1.1"
+  assert located_message(Located(None, Pos(1, 1), UnknownLemma(Name(List(), "l"))))
+    == "unknown lemma l at 1.1"
+  assert located_message(Located(None, Pos(1, 1), NotInducible(Name(List(), "n"))))
+    == "induction on n, which is no formal of a datatype at 1.1"
+  assert located_message(Located(None, Pos(1, 1), UnknownSort(Name(List(), "A"))))
+    == "unknown type A at 1.1"
+  assert located_message(Located(None, Pos(1, 1), UnknownVariable(Name(List(), "y"))))
+    == "unknown variable y at 1.1"
+  assert located_message(Located(None, Pos(1, 1), Unreachable(PWild)))
+    == "unreachable case _ at 1.1"
+  assert located_message(Located(None, Pos(4, 1), VisibleEquality(Name(List("ulang", "test", "errors", "visible-equality"), "Pair"))))
+    == "Pair declares ==, which only abstract types may at 4.1"
+  assert located_message(Located(None, Pos(7, 1), WrongArity(Name(List(), "f"), 3)))
+    == "f does not take 3 arguments at 7.1"

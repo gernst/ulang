@@ -67,7 +67,8 @@ procedure read_table(in path: Str, out table: Table) raises OsError, CsvError :=
 
 function format_table(table: Table): Str :=
   let lines := sort(List(for row in table.rows yield fields_of(table.columns, row))) in
-  join("\n", List(for fields in List(table.columns; lines) yield join(",", fields))) ++ "\n"
+  join("\n", List(for fields in List(table.columns; lines) yield join(",", fields)))
+    ++ "\n"
 
 function fields_of(cols: List[Str], row: Row): List[Str] :=
   List(for col in cols yield value_or(get(col, row), ""))
@@ -79,11 +80,15 @@ procedure require_columns(in cols: List[Str], table: Table) raises CsvError :=
 
 procedure require_same_columns(in a: Table, b: Table) raises CsvError :=
   if Set(for col in a.columns) != Set(for col in b.columns) then
-    raise CsvError("different columns " ++ join(",", a.columns) ++ " and " ++ join(",", b.columns))
+    raise CsvError("different columns "
+      ++ join(",", a.columns)
+      ++ " and "
+      ++ join(",", b.columns))
   end
 
 test parsing() :=
-  assert format_table(table_of("name,city\nalan,london\nada,london\n")) == "name,city\nada,london\nalan,london\n"
+  assert format_table(table_of("name,city\nalan,london\nada,london\n"))
+    == "name,city\nada,london\nalan,london\n"
 
 test parse_errors() :=
   assert raises CsvError("no header") do

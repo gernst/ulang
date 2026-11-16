@@ -29,7 +29,8 @@ function extensions(): List[Str] :=
   List(".u", ".c", ".h", ".js", ".sh")
 
 function is_file(span: Str): Bool :=
-  not contains(' ', span) and exists(extensions(), lambda e => ends_with(span, e))
+  not contains(' ', span)
+    and exists(extensions(), lambda e => ends_with(span, e))
 
 function is_path(span: Str): Bool :=
   contains('/', span) or is_file(span)
@@ -109,7 +110,8 @@ function is_declared(name: Str, decls: Decls): Bool :=
         contains(base, names_of(decls))
 
       case (List(base, member), DModule(names, fields)) =>
-        contains(base, names) and (is_hook_name(member) or contains(without_update(member), value_or(get(base, fields), Set())))
+        contains(base, names) and (is_hook_name(member)
+          or contains(without_update(member), value_or(get(base, fields), Set())))
 
       case (List(base, _), DWords(words)) =>
         contains(base, words)
@@ -231,18 +233,33 @@ procedure problems_of(
       case Some(d) =>
         if not is_declared(r.name, d) then
           found := found ++ List(
-            doc ++ ":" ++ show(r.line) ++ ": `" ++ r.name ++ "` is not declared in " ++ r.file)
+            doc
+              ++ ":"
+              ++ show(r.line)
+              ++ ": `"
+              ++ r.name
+              ++ "` is not declared in "
+              ++ r.file)
         end
 
       case None =>
         found := found ++ List(
-          doc ++ ":" ++ show(r.line) ++ ": " ++ r.file ++ " cannot be read or parsed")
+          doc
+            ++ ":"
+            ++ show(r.line)
+            ++ ": "
+            ++ r.file
+            ++ " cannot be read or parsed")
     end
   end
   problems := List(for p in found)
 
 test recognized() :=
-  assert refs_in(1, "(`a` and `b` of `x/y.u`), `p/q.u`, `c` of `z.u`, `d` in `w.u`") == List(DocRef(1, "a", "x/y.u"), DocRef(1, "b", "x/y.u"), DocRef(1, "c", "z.u"))
+  assert refs_in(1, "(`a` and `b` of `x/y.u`), `p/q.u`, `c` of `z.u`, `d` in `w.u`")
+    == List(
+      DocRef(1, "a", "x/y.u"),
+      DocRef(1, "b", "x/y.u"),
+      DocRef(1, "c", "z.u"))
   assert refs_in(2, "`a`, `b`, and `c` of `f.c`; `e`, `f` of `g.js`") == List(
     DocRef(2, "a", "f.c"),
     DocRef(2, "b", "f.c"),
@@ -251,10 +268,17 @@ test recognized() :=
     DocRef(2, "f", "g.js"))
 
 test checked() :=
-  assert is_checked("u_text_*") and is_checked("T.f") and is_checked("T.==") and is_checked("parse_file")
-  assert not is_checked("test paths()") and not is_checked("Ctx(…)") and not is_checked("a.b.c")
-  assert is_declared("T.f:=", DModule(Set("T"), Map("T" => Set("f")))) and is_declared("T.compare", DModule(Set("T"), Map()))
-  assert not is_declared("T.g", DModule(Set("T"), Map("T" => Set("f")))) and is_declared("u_*", DWords(Set("u_text")))
+  assert is_checked("u_text_*")
+    and is_checked("T.f")
+    and is_checked("T.==")
+    and is_checked("parse_file")
+  assert not is_checked("test paths()")
+    and not is_checked("Ctx(…)")
+    and not is_checked("a.b.c")
+  assert is_declared("T.f:=", DModule(Set("T"), Map("T" => Set("f"))))
+    and is_declared("T.compare", DModule(Set("T"), Map()))
+  assert not is_declared("T.g", DModule(Set("T"), Map("T" => Set("f"))))
+    and is_declared("u_*", DWords(Set("u_text")))
 
 // the start of the line of doc/language.md that lists the keywords, in backticks after this, up to the one before a
 // semicolon
@@ -275,7 +299,8 @@ function listed_keywords(line: Str): Set[Str] :=
   Set(for k in listed_from(from_list(split(line, '`')), 1))
 
 test listed() :=
-  assert listed_keywords("- Keywords are no names: `_`, `if`, and `end`; `and` is a name") == Set("_", "if", "end")
+  assert listed_keywords("- Keywords are no names: `_`, `if`, and `end`; `and` is a name")
+    == Set("_", "if", "end")
 
 // the keywords of the lexer that the document does not list, and the words that it lists that are none
 procedure keyword_problems(in doc: Str, out problems: List[Str]) :=
@@ -284,7 +309,8 @@ procedure keyword_problems(in doc: Str, out problems: List[Str]) :=
   match List(for line in split(text, '\n') if starts_with(line, keywords_start()))
     case List(line) =>
       let listed := listed_keywords(line)
-      problems := List(for k in keywords() -- listed yield doc ++ ": the keyword `" ++ k ++ "` is not listed") ++ List(for k in listed -- keywords() yield doc ++ ": `" ++ k ++ "` is listed as a keyword but is none")
+      problems := List(for k in keywords() -- listed yield doc ++ ": the keyword `" ++ k ++ "` is not listed")
+        ++ List(for k in listed -- keywords() yield doc ++ ": `" ++ k ++ "` is listed as a keyword but is none")
 
     case _ =>
       problems := List(doc ++ ": not one line starts with " ++ keywords_start())
@@ -309,7 +335,8 @@ function blocks_from(lines: List[Str], n: Int): List[Block] :=
   end
 
 test blocks() :=
-  assert blocks_from(List("a", "```u", "x", "y", "```", "```", "z", "```", "```u", "w", "```"), 1) == List(Block(2, List("x", "y")), Block(9, List("w")))
+  assert blocks_from(List("a", "```u", "x", "y", "```", "```", "z", "```", "```u", "w", "```"), 1)
+    == List(Block(2, List("x", "y")), Block(9, List("w")))
 
 // the blocks of u in the document that fail to parse, check, keep their format, or pass their tests, each run as a file of
 // its own in checks/, alone in its package
@@ -356,9 +383,11 @@ procedure block_problems(in doc: Str, out problems: List[Str]) :=
 // languages, such as the classes of regular expressions
 function old_forms(text: Str): List[Str] :=
   example old_forms("with_bags([cmd]) and [a, b; xs]") == List("[cmd]", "[a, b; xs]")
-  example old_forms("sets {a, b} and maps {k => v; m}") == List("{a, b}", "{k => v; m}")
+  example old_forms("sets {a, b} and maps {k => v; m}")
+      == List("{a, b}", "{k => v; m}")
   example old_forms("arrays |a, b|, not -|k| < r or ||") == List("|a, b|")
-  example old_forms("List[Int], [A, B] of a declaration, ([eE] [0-9]+), jq [0] and [-1], usage [-c] [output.html]") == List()
+  example old_forms("List[Int], [A, B] of a declaration, ([eE] [0-9]+), jq [0] and [-1], usage [-c] [output.html]")
+      == List()
   List(for i in range(0, size(text)) for close in closer(at(i, text)) for k in index_of(close, slice(text, i + 1, size(text))) if is_old_form(text, i, slice(text, i + 1, i + 1 + k)) yield slice(text, i, i + k + 2))
 
 // the character that closes a container opened by c in a form of other languages
@@ -376,7 +405,11 @@ function closer(c: Char): Option[Str] :=
 function is_old_form(text: Str, i: Int, inner: Str): Bool :=
   let c := at(i, text) in
   if c == '[' then
-    not (i > 0 and (is_word_char(at(i - 1, text)) or at(i - 1, text) == ']')) and (is_name_list(inner) or is_lower_name(inner) and i > 1 and at(i - 1, text) == '(' and is_word_char(at(i - 2, text)))
+    not (i > 0 and (is_word_char(at(i - 1, text)) or at(i - 1, text) == ']'))
+      and (is_name_list(inner) or is_lower_name(inner)
+        and i > 1
+        and at(i - 1, text) == '('
+        and is_word_char(at(i - 2, text)))
   else if c == '{' then
     contains(",", inner) or contains(";", inner) or contains("=>", inner)
   else
@@ -419,7 +452,12 @@ procedure comment_problems(out problems: List[Str]) raises OsError :=
     var comments: List[Comment]
     lex_all(in text, out _, comments)
     for c in comments do
-      found := found ++ List(for form in old_forms(c.text) yield file ++ ":" ++ show(c.pos.line) ++ ": the comment writes " ++ form ++ ", a form that ulang does not have")
+      found := found ++ List(for form in old_forms(c.text) yield file
+        ++ ":"
+        ++ show(c.pos.line)
+        ++ ": the comment writes "
+        ++ form
+        ++ ", a form that ulang does not have")
     end
   end
   problems := List(for p in found)
@@ -429,12 +467,17 @@ procedure comment_problems(out problems: List[Str]) raises OsError :=
 // that doc/language.md does not list as such; the blocks of u in doc/language.md that fail; and the comments of the
 // sources that write containers in forms that ulang does not have
 procedure main() raises OsError :=
-  var cache: Map[Str, Option[Decls]] := empty(), found: List[Str] := List(), entries: List[(Str, Bool)], docs: List[(Str, Bool)]
+  var
+    cache: Map[Str, Option[Decls]] := empty(),
+    found: List[Str] := List(),
+    entries: List[(Str, Bool)],
+    docs: List[(Str, Bool)]
   os_list(in "ideas", out entries)
   os_list(in "doc", out docs)
   for doc in List(
     "CLAUDE.md",
-    "README.md"; List(for (name, is_dir) in docs if not is_dir and ends_with(name, ".md") yield "doc/" ++ name) ++ List(for (name, is_dir) in entries if not is_dir and ends_with(name, ".md") yield "ideas/" ++ name)) do
+    "README.md"; List(for (name, is_dir) in docs if not is_dir and ends_with(name, ".md") yield "doc/" ++ name)
+      ++ List(for (name, is_dir) in entries if not is_dir and ends_with(name, ".md") yield "ideas/" ++ name)) do
     var problems: List[Str]
     problems_of(in doc, out problems, ref cache)
     found := found ++ problems

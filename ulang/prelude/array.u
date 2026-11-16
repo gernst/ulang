@@ -68,8 +68,17 @@ function contains[A](x: A, a: Array[A]): Bool :=
 
 test arrays() :=
   let a := Array(1, 2, 3)
-  assert size(a) == 3 and at(0, a) == 1 and at(2, a) == 3 and get(1, a) == Some(2) and get(3, a) == None and get(-1, a) == None
-  assert List(for x in a) == List(1, 2, 3) and List(for x in Array(for x in List())) == List() and contains(2, a) and not contains(4, a)
+  assert size(a) == 3
+    and at(0, a) == 1
+    and at(2, a) == 3
+    and get(1, a) == Some(2)
+    and get(3, a) == None
+    and get(-1, a) == None
+  assert List(for x in a) == List(1, 2, 3)
+    and List(for x in Array(for x in List())) == List()
+    and contains(2, a)
+    and not contains(4, a)
   assert List(for x in a) == List(1, 2, 3)
   assert List(for x in slice(a, 1, 3)) == List(2, 3) and size(slice(a, 1, 1)) == 0
-  assert foldr(a, List(), Cons) == List(1, 2, 3) and foldl(a, 0, lambda n, x => 10 * n + x) == 123
+  assert foldr(a, List(), Cons) == List(1, 2, 3)
+    and foldl(a, 0, lambda n, x => 10 * n + x) == 123

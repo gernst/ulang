@@ -63,7 +63,13 @@ test removes() :=
 
 // streams in the three modes, read by lines, bytes, and to the end, which are equal by identity and shown by their paths
 test streams() :=
-  var io: IO, other: IO, line: Option[Str], text: Str, bytes: Array[Byte], home: Str
+  var
+    io: IO,
+    other: IO,
+    line: Option[Str],
+    text: Str,
+    bytes: Array[Byte],
+    home: Str
   enter_scratch(out home)
   io_open(in "streams/a.txt", IoWrite, out io)
   io_write_utf8(in io, "one\nzwei ä\n")
@@ -148,7 +154,8 @@ test walking() :=
   os_list(in "walk", out entries)
   assert entries == List(("a.txt", false), ("sub", true), ("z.txt", false))
   os_walk(in "walk", out files)
-  assert files == List("walk/a.txt", "walk/sub/b.txt", "walk/sub/deep/c.txt", "walk/z.txt")
+  assert files
+    == List("walk/a.txt", "walk/sub/b.txt", "walk/sub/deep/c.txt", "walk/z.txt")
   os_walk(in "walk/sub/", out files)
   assert files == List("walk/sub/b.txt", "walk/sub/deep/c.txt")
   os_walk(in "walk/a.txt", out files)

@@ -28,7 +28,15 @@ type Slots :=
 // the code of the function being translated with its number of slots, the lines of the functions and data translated so
 // far, the number of labels, and the labels of the objects of string literals and of C strings, shared by their texts
 data Emit :=
-  case Emit(code: Buffer[Line], slots: Int, funs: Buffer[Line], writable: Buffer[Line], readonly: Buffer[Line], labels: Int, strs: Map[Str, Str], cstrs: Map[Str, Str])
+  case Emit(
+    code: Buffer[Line],
+    slots: Int,
+    funs: Buffer[Line],
+    writable: Buffer[Line],
+    readonly: Buffer[Line],
+    labels: Int,
+    strs: Map[Str, Str],
+    cstrs: Map[Str, Str])
 
 // an argument of a call, the value of an operand or its address
 data Arg :=
@@ -199,7 +207,10 @@ procedure end_function(
   if frame > 0 then
     head := head ++ List(LInstr(ISub(OImm(frame), OReg(Rsp))))
   end
-  e := e with funs := e.funs ++ head ++ List(for line in e.code) ++ List(LInstr(ILeave), LInstr(IRet))
+  e := e with funs := e.funs
+    ++ head
+    ++ List(for line in e.code)
+    ++ List(LInstr(ILeave), LInstr(IRet))
   e := e with code := first(outer), slots := second(outer)
 
 // the slots of the first n formals of a function, those in registers stored into slots of the frame and the others
@@ -633,7 +644,9 @@ procedure operand_of(
 
 // the value of a constructor without fields, which global_value and compile_named take for n of arity k
 function unit_operand(defs: Defs, n: Name, k: Int): Option[Arg] :=
-  if not is_global_fun(defs, n, k) and not contains((n, k), defs.fields) and fields_count(defs, n) == Some(0) then
+  if not is_global_fun(defs, n, k)
+    and not contains((n, k), defs.fields)
+    and fields_count(defs, n) == Some(0) then
     Some(AAddr(ORip(unit_name(n))))
   else
     None
@@ -1015,7 +1028,9 @@ procedure compile_named(
           else
             if fields_count(defs, n) == Some(k) then
               let (maker, sized) := construction(false, k)
-              call_runtime(in maker, List(AAddr(ORip(descriptor_name(n)))) ++ (if sized then List(AVal(OImm(k))) else List()) ++ as, ref e)
+              call_runtime(in maker, List(AAddr(ORip(descriptor_name(n))))
+                ++ (if sized then List(AVal(OImm(k))) else List())
+                ++ as, ref e)
             else
               match get(n, builtin_functions())
                 case Some((b, j)) if j == k =>
@@ -1095,7 +1110,9 @@ procedure compile_lambda(
       body: At[Expr],
   ref e: Emit
 ) :=
-  let names := var_names(xs), caps: List[Name] := captured(env, free_vars(body, names))
+  let
+    names := var_names(xs),
+    caps: List[Name] := captured(env, free_vars(body, names))
   var f: Str, outer: (Buffer[Line], Int), fs: List[Int], cs: Slots, as: Slots
   new_symbol(in "lam", out f, ref e)
   begin_function(out outer, ref e)
@@ -1153,8 +1170,18 @@ procedure compile_proc_lambda(
       stmt: At[Stmt],
   ref e: Emit
 ) :=
-  let in_names := var_names(ins), pointer_names := var_names(outs ++ refs), caps: List[Name] := captured(env, free_in_stmt(stmt, in_names ++ pointer_names))
-  var f: Str, outer: (Buffer[Line], Int), fs: List[Int], cs: Slots, is: Slots, ps: Slots, vs: Slots
+  let
+    in_names := var_names(ins),
+    pointer_names := var_names(outs ++ refs),
+    caps: List[Name] := captured(env, free_in_stmt(stmt, in_names ++ pointer_names))
+  var
+    f: Str,
+    outer: (Buffer[Line], Int),
+    fs: List[Int],
+    cs: Slots,
+    is: Slots,
+    ps: Slots,
+    vs: Slots
   new_symbol(in "proc", out f, ref e)
   begin_function(out outer, ref e)
   formal_slots(in 3, out fs, ref e)
@@ -1668,7 +1695,8 @@ procedure proc_wrapper(in n: Name, k: Int, m: Int, ref e: Emit) :=
   var outer: (Buffer[Line], Int)
   begin_function(out outer, ref e)
   emit_all(in List(IMov(OReg(Rsi), OReg(R10)), IMov(OReg(Rdx), OReg(R11))), ref e)
-  emit_call(in proc_callee(n), List(for i in range(0, k) yield AVal(OMem(R10, 8 * i))) ++ List(for i in range(0, m) yield AVal(OMem(R11, 8 * i))), false, ref e)
+  emit_call(in proc_callee(n), List(for i in range(0, k) yield AVal(OMem(R10, 8 * i)))
+    ++ List(for i in range(0, m) yield AVal(OMem(R11, 8 * i))), false, ref e)
   end_function(in "wp_" ++ mangle(n), false, outer, ref e)
 
 // constructors without fields are no functions
@@ -1698,7 +1726,8 @@ procedure wrappers(in defs: Defs, ref e: Emit) :=
 
 // a label of data, global if the runtime refers to it
 function data_label(symbol: Str, global: Bool): List[Line] :=
-  (if global then List(LDirective(DGlobal(symbol))) else List()) ++ List(LDirective(DAlign(8)), LLabel(symbol))
+  (if global then List(LDirective(DGlobal(symbol))) else List())
+    ++ List(LDirective(DAlign(8)), LLabel(symbol))
 
 // the descriptors of the datatypes of cmds and their constructors that the runtime does not define, and the values of the
 // constructors without arguments
@@ -1792,8 +1821,11 @@ procedure test_tables(in files: List[TestFile], cmds: List[Cmd], ref e: Emit) :=
       end
     end
   end
-  add_writable(in data_label("u_files", false) ++ List(LDirective(DAddrs(List(for p in paths) ++ List("0")))), ref e)
-  add_writable(in data_label("u_tests", false) ++ List(for r in rows) ++ List(LDirective(DZero(24))), ref e)
+  add_writable(in data_label("u_files", false)
+    ++ List(LDirective(DAddrs(List(for p in paths) ++ List("0")))), ref e)
+  add_writable(in data_label("u_tests", false)
+    ++ List(for r in rows)
+    ++ List(LDirective(DZero(24))), ref e)
 
 // main(argc, argv), which gives the arguments to the runtime and calls the procedure of the entry or runs the tests
 procedure main_function(in m: Path, entry: Entry, ref e: Emit) :=
@@ -1838,4 +1870,10 @@ procedure assemble_program(
   data_decls(in defs, cmds, ref e)
   field_tables(in defs, ref e)
   texts(ref e)
-  f := AsmFile(List(LDirective(DText)) ++ List(for line in e.funs) ++ List(LDirective(DData)) ++ List(for line in e.writable) ++ List(LDirective(DRodata)) ++ List(for line in e.readonly) ++ List(LDirective(DNoExecStack)))
+  f := AsmFile(List(LDirective(DText))
+    ++ List(for line in e.funs)
+    ++ List(LDirective(DData))
+    ++ List(for line in e.writable)
+    ++ List(LDirective(DRodata))
+    ++ List(for line in e.readonly)
+    ++ List(LDirective(DNoExecStack)))

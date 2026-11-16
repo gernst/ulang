@@ -4,7 +4,10 @@
 export
 
 data Notation :=
-  case Notation(prefix_ops: Map[Id, Int], postfix_ops: Map[Id, Int], infix_ops: Map[Id, (Fixity, Int)])
+  case Notation(
+    prefix_ops: Map[Id, Int],
+    postfix_ops: Map[Id, Int],
+    infix_ops: Map[Id, (Fixity, Int)])
 
 function empty_notation(): Notation
 
@@ -73,7 +76,9 @@ function notation_of(notation: Notation, f: Fixity, op: Id): Option[(Fixity, Int
   end
 
 function is_operator(notation: Notation, op: Id): Bool :=
-  contains(op, notation.prefix_ops) or contains(op, notation.postfix_ops) or contains(op, notation.infix_ops)
+  contains(op, notation.prefix_ops)
+    or contains(op, notation.postfix_ops)
+    or contains(op, notation.infix_ops)
 
 function with_notation(notation: Notation, cmds: List[Cmd]): Notation :=
   match cmds

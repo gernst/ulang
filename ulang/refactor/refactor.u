@@ -45,7 +45,12 @@ procedure run_script(
 // that did not run, since the errors left them out of the program
 data Tests :=
   // unrun has the files whose tests the errors left out of the program, each with those tests
-  case Tests(lines: List[Str], passed: Int, failed: Int, skipped: Int, unrun: Map[Str, Str])
+  case Tests(
+    lines: List[Str],
+    passed: Int,
+    failed: Int,
+    skipped: Int,
+    unrun: Map[Str, Str])
 
 // run_script, which runs the tests of the files tested by tester, given the files and the diagnostics that the reply lists,
 // so that a test that only reaches one of them is counted, not repeated, and counts them in the first line, where a test
@@ -81,7 +86,15 @@ data Range :=
 // state, the files whose uses must resolve after the writes to the names given, in order, else the script is undone,
 // and whether to run the tests
 data Edits :=
-  case Edits(files: Map[Str, Str], notes: Buffer[Str], checked: List[Str], handles: Handles, undone: List[Int], state: Str, expected: List[(Str, List[Name])], tests: Bool)
+  case Edits(
+    files: Map[Str, Str],
+    notes: Buffer[Str],
+    checked: List[Str],
+    handles: Handles,
+    undone: List[Int],
+    state: Str,
+    expected: List[(Str, List[Name])],
+    tests: Bool)
 
 // the handles that the scripts so far have shown, kept in out/refactor/handles.txt of the root, the next number, and
 // whether the script changed it
@@ -97,7 +110,13 @@ data Handle :=
 
 // a node that a handle names, in the current text of its file, with the number of the declarations of its module
 data Place :=
-  case Place(path: Str, lines: Array[Str], key: Key, cmd: Decl, span: Span, decls: Int)
+  case Place(
+    path: Str,
+    lines: Array[Str],
+    key: Key,
+    cmd: Decl,
+    span: Span,
+    decls: Int)
 
 function actions(script: Str): List[Action] :=
   actions_of(List(for (line, i) in numbered(split(script, '\n')) yield (line, i + 1)))
@@ -137,11 +156,20 @@ function is_action_line(line: Str): Bool :=
 // the refusal of an action that takes a fragment and has none, where the next action of the script, if there is one, is
 // the line after it that starts with @, which may have been meant as the fragment
 function fragment_refusal(action: Action, next: Option[Action]): Option[Str] :=
-  example fragment_refusal(Action(1, List("patch", "a.u:f"), ""), Some(Action(2, List("drop", "T"), ""))) == Some("@patch a.u:f has no fragment, since line 2 of the script, @drop T, starts with @, which starts an action; write a fragment line that starts with @ as @@")
-  example fragment_refusal(Action(1, List("drop", "a.u:f"), ""), Some(Action(2, List("drop", "T"), ""))) == None
+  example fragment_refusal(Action(1, List("patch", "a.u:f"), ""), Some(Action(2, List("drop", "T"), "")))
+      == Some("@patch a.u:f has no fragment, since line 2 of the script, @drop T, starts with @, which starts an action; write a fragment line that starts with @ as @@")
+  example fragment_refusal(Action(1, List("drop", "a.u:f"), ""), Some(Action(2, List("drop", "T"), "")))
+      == None
   match (action.words, next)
     case (List("put" | "patch" | "example"; _), Some(after)) if action.fragment == "" =>
-      Some("@" ++ join(" ", action.words) ++ " has no fragment, since line " ++ show(after.line) ++ " of the script, @" ++ join(" ", after.words) ++ ", starts with @, which starts an action; write a fragment line that starts with @ as @@")
+      Some("@"
+        ++ join(" ", action.words)
+        ++ " has no fragment, since line "
+        ++ show(after.line)
+        ++ " of the script, @"
+        ++ join(" ", after.words)
+        ++ ", starts with @, which starts an action; write a fragment line that starts with @ as @@")
+
     case _ =>
       None
   end
@@ -164,11 +192,15 @@ function is_blank(line: Str): Bool :=
 // the words of line, split at spaces, but for the text from its first quote to its last, which is one word, with its
 // quotes, the text of a node that @put and @drop address
 function words_of(line: Str): List[Str] :=
-  example words_of("put before a.u:f \"case  X(\"a\")\" ") == List("put", "before", "a.u:f", "\"case  X(\"a\")\"")
+  example words_of("put before a.u:f \"case  X(\"a\")\" ")
+      == List("put", "before", "a.u:f", "\"case  X(\"a\")\"")
   let quotes := List(for (c, i) in numbered(chars(line)) if c == '"' yield i) in
   match (quotes, last(quotes))
     case (List(first, _; _), Some(final)) =>
-      plain_words(slice(line, 0, first)) ++ List(slice(line, first, final + 1)) ++ plain_words(slice(line, final + 1, size(line)))
+      plain_words(slice(line, 0, first))
+        ++ List(slice(line, first, final + 1))
+        ++ plain_words(slice(line, final + 1, size(line)))
+
     case _ =>
       plain_words(line)
   end
@@ -229,8 +261,24 @@ function selector_text(key: Key): Str :=
 // decls with their commands, each named with its kind and the target that names it alone
 function several_text(action: Str, word: Str, path: Str, decls: List[(Key, Cmd)]): Str :=
   let keys := distinct(List(for (key, _) in decls yield key)) in
-  let named := List(for key in keys for (_, c) in find(decls, lambda (k, _) => k == key) yield "the " ++ decl_kind(c) ++ " " ++ key_text(key) ++ ", which " ++ path ++ ":" ++ key.base ++ "/" ++ selector_text(key) ++ " takes") in
-  action ++ " takes one declaration, while " ++ word ++ " names " ++ show(size(keys)) ++ ": " ++ join(", ", named)
+  let named := List(for key in keys for (_, c) in find(decls, lambda (k, _) => k == key) yield "the "
+    ++ decl_kind(c)
+    ++ " "
+    ++ key_text(key)
+    ++ ", which "
+    ++ path
+    ++ ":"
+    ++ key.base
+    ++ "/"
+    ++ selector_text(key)
+    ++ " takes") in
+  action
+    ++ " takes one declaration, while "
+    ++ word
+    ++ " names "
+    ++ show(size(keys))
+    ++ ": "
+    ++ join(", ", named)
 
 // the form of @put place file:name that names the declaration of word in file
 function anchored_form(file: Str, place: Str, word: Str): Str :=
@@ -314,7 +362,8 @@ function key_text(key: Key): Str :=
 // whether the declaration of key is the one that name and arity select, where an arity below -1 selects a kind without
 // formals (kind_arity)
 function is_selected(key: Key, name: Str, arity: Option[Int]): Bool :=
-  key.base == name and forall(arity, lambda n => if n < -1 then n == kind_arity(key.kind) else n == key.arity)
+  key.base == name
+    and forall(arity, lambda n => if n < -1 then n == kind_arity(key.kind) else n == key.arity)
 
 function main_mod(source: Source): Mod :=
   match find(source.mods, lambda d => d.name == source.main)
@@ -401,7 +450,9 @@ function head_lines(lines: List[Str]): List[Str] :=
 // the range of the head of the signature cmd, up to its :=, which only a signature with a spec has, else all of it
 function head_range(lines: Array[Str], cmd: At[Cmd]): Range :=
   let start := cmd.span.start.line in
-  Range(start, start + size(head_lines(lines_in(lines, Range(start, cmd.span.stop.line)))) - 1)
+  Range(start, start
+    + size(head_lines(lines_in(lines, Range(start, cmd.span.stop.line))))
+    - 1)
 
 // lines with each splice, a range and the lines that replace it, where the ranges do not overlap
 function spliced(lines: List[Str], splices: List[(Range, List[Str])]): List[Str] :=
@@ -445,7 +496,9 @@ procedure parsed(
 function shown_errors(fragment: List[(Range, Int)], ds: List[Diagnostic]): List[Diagnostic] :=
   let inside := List(for d in ds if exists(fragment, lambda (r, _) => r.first <= d.pos.line and d.pos.line <= r.last)) in
   let kept := if inside == List() then ds else inside in
-  List(for d in kept if not exists(kept, lambda k => is_keyword_error(k) and k.pos.line == d.pos.line and (k.pos.col < d.pos.col or k.pos.col == d.pos.col and not is_keyword_error(d))))
+  List(for d in kept if not exists(kept, lambda k => is_keyword_error(k)
+    and k.pos.line == d.pos.line
+    and (k.pos.col < d.pos.col or k.pos.col == d.pos.col and not is_keyword_error(d))))
 
 // whether d is the error of a keyword where a name is expected
 function is_keyword_error(d: Diagnostic): Bool :=
@@ -458,7 +511,13 @@ function parse_message(path: Str, fragment: List[(Range, Int)], d: Diagnostic): 
   let line := d.pos.line in
   match find(fragment, lambda (r, _) => r.first <= line and line <= r.last)
     case Some((r, first)) =>
-      "fragment " ++ show(line - r.first + first) ++ "." ++ show(d.pos.col) ++ ": " ++ d.message
+      "fragment "
+        ++ show(line - r.first + first)
+        ++ "."
+        ++ show(d.pos.col)
+        ++ ": "
+        ++ d.message
+
     case None =>
       path ++ ":" ++ show(line) ++ "." ++ show(d.pos.col) ++ ": " ++ d.message
   end
@@ -497,7 +556,8 @@ procedure perform(
     case List("show", word) =>
       show_target(in word, ref edits)
 
-    case List("put", place; address) if contains(place, List("before", "after", "into")) and is_node_address(address) =>
+    case List("put", place; address) if contains(place, List("before", "after", "into"))
+      and is_node_address(address) =>
       put_at(in place, address, action.fragment, ref edits)
 
     case List("put"; address) if is_node_address(address) =>
@@ -518,7 +578,16 @@ procedure perform(
     case List("put", file, place, word) if contains(place, List("before", "after")) =>
       let (path, name, arity) := target_of(word)
       if path != file then
-        raise Refused("@put " ++ file ++ " " ++ place ++ " takes a declaration of " ++ file ++ ", not " ++ word ++ ", so write " ++ anchored_form(file, place, word))
+        raise Refused("@put "
+          ++ file
+          ++ " "
+          ++ place
+          ++ " takes a declaration of "
+          ++ file
+          ++ ", not "
+          ++ word
+          ++ ", so write "
+          ++ anchored_form(file, place, word))
       end
       put(in path, action.fragment, Anchor(place, value_or(name, ""), arity), ref edits)
 
@@ -581,7 +650,13 @@ procedure perform(
 
     case _ =>
       let actions := "@show T, @put F, @put F:name, @put [before|after] F:name, @put [before|after|into] N, @drop T, where a node N is #h, F:name #h, F:name \"text\", or F:L.C, @patch T of hunks of lines - old and + new, @example F:name, @rename T new, @outline F, @refs T, @sig name, @sig M, @resolve F:L.C, @export T, @unexport T, @fix T [Rule ...], @undo [n], @check [test] [F]"
-      raise Refused("line " ++ show(action.line) ++ ": unknown action @" ++ join(" ", action.words) ++ ", which is one of " ++ actions ++ "; a line of a script that starts with @ starts an action, so a fragment line that starts with @ is written @@")
+      raise Refused("line "
+        ++ show(action.line)
+        ++ ": unknown action @"
+        ++ join(" ", action.words)
+        ++ ", which is one of "
+        ++ actions
+        ++ "; a line of a script that starts with @ starts an action, so a fragment line that starts with @ is written @@")
   end
 
 // the definition of key in d, with the lines of the specs of its signatures as its own, for its nodes, so that the
@@ -666,7 +741,8 @@ function margin_width(greatest: Int): Int :=
 // lines of code that @show printed with handles, without the margin, which a fragment may keep
 function unmarked(lines: List[Str]): List[Str] :=
   if exists(lines, has_handle) then
-    let width := margin_width(foldl(lines, 0, lambda w, line => if has_handle(line) then max(w, handle_size(line)) else w) - 1) in
+    let width := margin_width(foldl(lines, 0, lambda w, line => if has_handle(line) then max(w, handle_size(line)) else w)
+      - 1) in
     List(for line in lines yield without_margin(line, width))
   else
     lines
@@ -724,8 +800,10 @@ procedure mark(
 // region with the comments right above it at the indentation of its first line, on lines of their own and over the blank
 // lines between them, which format places before the node that starts region
 function with_comments(lines: Array[Str], region: Range): Range :=
-  example with_comments(Array("f :=", "  // a", "", "  // b", "  x"), Range(5, 5)) == Range(2, 5)
-  example with_comments(Array("  a", "    // tail", "  b"), Range(3, 3)) == Range(3, 3)
+  example with_comments(Array("f :=", "  // a", "", "  // b", "  x"), Range(5, 5))
+      == Range(2, 5)
+  example with_comments(Array("  a", "    // tail", "  b"), Range(3, 3))
+      == Range(3, 3)
   region with first := comment_start(lines, region.first - 1, region.first, indent_of(line_at(lines, region.first)))
 
 // the first line of the comments at indent from line upward, or first if line is none of them
@@ -775,7 +853,13 @@ procedure resolved(
                 " is gone, since an edit removed its node"
               else
                 " is stale, since its node changed"
-              raise Refused(word ++ why ++ " in " ++ key_text(h.key) ++ " of " ++ h.path ++ ", so @show it again")
+              raise Refused(word
+                ++ why
+                ++ " in "
+                ++ key_text(h.key)
+                ++ " of "
+                ++ h.path
+                ++ ", so @show it again")
           end
       end
   end
@@ -859,8 +943,16 @@ procedure resolved_address(
       if starts_with(word, "#") then
         let (path, name, arity) := target_of(scope)
         resolved(in word, edits, out place)
-        if place.path != path or not forall(name, lambda base => is_selected(place.key, base, arity)) then
-          raise Refused(word ++ " is a node of " ++ place_text(place) ++ ", not of " ++ scope ++ ", so @show " ++ scope ++ " for its handles")
+        if place.path != path
+          or not forall(name, lambda base => is_selected(place.key, base, arity)) then
+          raise Refused(word
+            ++ " is a node of "
+            ++ place_text(place)
+            ++ ", not of "
+            ++ scope
+            ++ ", so @show "
+            ++ scope
+            ++ " for its handles")
         end
       else
         node_by_text(in scope, slice(word, 1, size(word) - 1), edits.files, out place)
@@ -868,7 +960,9 @@ procedure resolved_address(
       label := place_text(place) ++ " " ++ word
 
     case _ =>
-      raise Refused("no node " ++ join(" ", address) ++ ", which is #n, F:name #n, F:name \"text\", or F:L.C")
+      raise Refused("no node "
+        ++ join(" ", address)
+        ++ ", which is #n, F:name #n, F:name \"text\", or F:L.C")
   end
 
 // the node of the declaration scope, F:name[/n], whose text starts with text, which must be the only one
@@ -901,11 +995,25 @@ procedure node_by_text(
           place := Place(path, lines, key, cmd, span, size(placed_of(d)))
 
         case List() =>
-          raise Refused("no node of " ++ path ++ ":" ++ key_text(key) ++ " starts with " ++ quote(text))
+          raise Refused("no node of "
+            ++ path
+            ++ ":"
+            ++ key_text(key)
+            ++ " starts with "
+            ++ quote(text))
 
         case _ =>
           let at := join(", ", List(for span in found yield show(span.start.line)))
-          raise Refused(show(size(found)) ++ " nodes of " ++ path ++ ":" ++ key_text(key) ++ " start with " ++ quote(text) ++ ", at lines " ++ at ++ ", so give more of the text, or a handle")
+          raise Refused(show(size(found))
+            ++ " nodes of "
+            ++ path
+            ++ ":"
+            ++ key_text(key)
+            ++ " start with "
+            ++ quote(text)
+            ++ ", at lines "
+            ++ at
+            ++ ", so give more of the text, or a handle")
       end
 
     case _ =>
@@ -955,8 +1063,19 @@ procedure node_at_position(
       match last(List(for span in line_nodes(lines, cmd) if is_within(pos, span)))
         case Some(span) =>
           place := Place(path, lines, key, cmd, span, size(placed_of(d)))
+
         case None =>
-          raise Refused("no node of " ++ path ++ ":" ++ key_text(key) ++ " holds " ++ where ++ ", which @show " ++ path ++ ":" ++ key_text(key) ++ " shows")
+          raise Refused("no node of "
+            ++ path
+            ++ ":"
+            ++ key_text(key)
+            ++ " holds "
+            ++ where
+            ++ ", which @show "
+            ++ path
+            ++ ":"
+            ++ key_text(key)
+            ++ " shows")
       end
 
     case List() =>
@@ -1000,8 +1119,10 @@ function aligned(old: List[(Span, Int)], new: List[(Span, Int)], region: Range):
       (Span(Pos(5, 1), Pos(6, 1)), 8)), Range(3, 2)) == Some((1, 1))
   let before := size(List(for (span, _) in old if span.start.line < region.first yield span)) in
   let after := size(List(for (span, _) in old if span.start.line > region.last yield span)) in
-  let kept := zip(take(before, old), take(before, new)) ++ zip(drop(size(old) - after, old), drop(size(new) - after, new)) in
-  if before + after <= size(new) and forall(kept, lambda ((span, hash), (_, new_hash)) => hash == new_hash or is_around(span, region)) then
+  let kept := zip(take(before, old), take(before, new))
+    ++ zip(drop(size(old) - after, old), drop(size(new) - after, new)) in
+  if before + after <= size(new)
+    and forall(kept, lambda ((span, hash), (_, new_hash)) => hash == new_hash or is_around(span, region)) then
     Some((before, after))
   else
     None
@@ -1041,10 +1162,14 @@ procedure rebase(
       keep: Bool,
   ref handles: Handles
 ) :=
-  let old_nodes := line_nodes(old, old_cmd), new_nodes := line_nodes(new, new_cmd)
+  let
+    old_nodes := line_nodes(old, old_cmd),
+    new_nodes := line_nodes(new, new_cmd)
   let old_hashes := List(for span in old_nodes yield hash_of(node_text(old, span)))
   let new_hashes := List(for span in new_nodes yield hash_of(node_text(new, span)))
-  let old_paths := paths_of(old_nodes, List(), 0), new_paths := paths_of(new_nodes, List(), 0)
+  let
+    old_paths := paths_of(old_nodes, List(), 0),
+    new_paths := paths_of(new_nodes, List(), 0)
   let new_table := zip(zip(numbered(new_nodes), new_hashes), new_paths)
   let alignment := aligned(zip(old_nodes, old_hashes), zip(new_nodes, new_hashes), region)
   // the nodes of region, if the edit gave them the texts they had, as a node replaced by its own text, which keep their
@@ -1065,7 +1190,9 @@ procedure rebase(
     var moved := h
     match node_of(h, old, old_cmd)
       case Some(span) if h.path == path and h.key == key =>
-        let i := value_or(index_of(span, old_nodes), -1), hash := value_or(get_at(i, old_hashes), 0)
+        let
+          i := value_or(index_of(span, old_nodes), -1),
+          hash := value_or(get_at(i, old_hashes), 0)
         let rank := size(List(for x in take(i, old_hashes) if x == hash yield x))
         let same_text := List(for (((_, j), x), _) in new_table if x == hash yield j)
         let at_path := List(for (((_, j), _), p) in new_table if Some(p) == get_at(i, old_paths) yield j)
@@ -1104,16 +1231,20 @@ procedure rebase(
 function is_removed(span: Span, region: Range, keep: Bool): Bool :=
   example is_removed(Span(Pos(4, 3), Pos(5, 9)), Range(4, 5), false)
   let start := span.start.line, stop := span.stop.line in
-  region.first <= region.last and region.first <= start and stop <= region.last and not (keep and start == region.first and stop == region.last)
+  region.first <= region.last
+    and region.first <= start
+    and stop <= region.last
+    and not (keep and start == region.first and stop == region.last)
 
 // the paths of nodes, which are in preorder, in the tree of their containment, the indices among the children of the
 // nodes around each, where stack has the nodes around the next one with their paths and numbers of children so far, and
 // roots the number of nodes around none so far
 function paths_of(spans: List[Span], stack: List[(Span, List[Int], Int)], roots: Int): List[List[Int]] :=
   example paths_of(List(
-      Span(Pos(1, 1), Pos(5, 1)),
-      Span(Pos(2, 3), Pos(3, 1)),
-      Span(Pos(4, 3), Pos(5, 1))), List(), 0) == List(List(0), List(0, 0), List(0, 1))
+        Span(Pos(1, 1), Pos(5, 1)),
+        Span(Pos(2, 3), Pos(3, 1)),
+        Span(Pos(4, 3), Pos(5, 1))), List(), 0)
+      == List(List(0), List(0, 0), List(0, 1))
   match (spans, stack)
     case (List(), _) =>
       List()
@@ -1135,11 +1266,18 @@ procedure show_node(
   in  address: List[Str],
   ref edits: Edits
 ) raises Refused, OsError :=
-  var place: Place, label: Str, handles := edits.handles, marks: Map[Int, Int] := Map()
+  var
+    place: Place,
+    label: Str,
+    handles := edits.handles,
+    marks: Map[Int, Int] := Map()
   resolved_address(in address, edits, out place, label)
   let region := Range(place.span.start.line, place.span.stop.line)
   mark(in place.path, place.lines, place.key, place.cmd, region, ref handles, marks)
-  note(in "@show " ++ label ++ "\n" ++ join("\n", rendered(place.lines, with_comments(place.lines, region), marks)), ref edits)
+  note(in "@show "
+    ++ label
+    ++ "\n"
+    ++ join("\n", rendered(place.lines, with_comments(place.lines, region), marks)), ref edits)
   edits := edits with handles := handles
 
 procedure show_target(in word: Str, ref edits: Edits) raises Refused, OsError :=
@@ -1180,17 +1318,36 @@ procedure put_at(
 ) raises Refused, OsError :=
   let word := join(" ", address)
   if place_word != "drop" and is_blank(fragment) then
-    raise Refused("@put " ++ word ++ " takes a fragment, the lines after it, and @drop removes a node")
+    raise Refused("@put "
+      ++ word
+      ++ " takes a fragment, the lines after it, and @drop removes a node")
   end
-  var place: Place, label: Str, result: Str, source: Source, handles := edits.handles, marks: Map[Int, Int] := Map()
+  var
+    place: Place,
+    label: Str,
+    result: Str,
+    source: Source,
+    handles := edits.handles,
+    marks: Map[Int, Int] := Map()
   resolved_address(in address, edits, out place, label)
   // a head is only replaced, since what goes next to it or into it is no part of a head
   let is_head := exists(find(kinded_nodes(place.lines, place.cmd), lambda node => node.span == place.span), lambda node => node.kind == KHead)
   if is_head and place_word != "replace" then
-    raise Refused("@" ++ (if place_word == "drop" then "drop " else "put " ++ place_word ++ " ") ++ word ++ " takes no head, which only @put " ++ word ++ " replaces")
+    raise Refused("@"
+      ++ (if place_word == "drop" then "drop " else "put " ++ place_word ++ " ")
+      ++ word
+      ++ " takes no head, which only @put "
+      ++ word
+      ++ " replaces")
   end
-  let lines := place.lines, start := place.span.start.line, stop := place.span.stop.line, indent := place.span.start.col - 1
-  let inner := indent + 2, last_line := str(drop_spaces(chars(line_at(lines, stop))))
+  let
+    lines := place.lines,
+    start := place.span.start.line,
+    stop := place.span.stop.line,
+    indent := place.span.start.col - 1
+  let
+    inner := indent + 2,
+    last_line := str(drop_spaces(chars(line_at(lines, stop))))
   let (region, depth) := match place_word
     case "before" =>
       (Range(start, start - 1), indent)
@@ -1199,7 +1356,8 @@ procedure put_at(
       (Range(stop + 1, stop), indent)
 
     case "into" =>
-      if starts_with(str(drop_spaces(chars(line_at(lines, start)))), "case ") or last_line != "end" then
+      if starts_with(str(drop_spaces(chars(line_at(lines, start)))), "case ")
+        or last_line != "end" then
         (Range(stop + 1, stop), inner)
       else
         (Range(stop, stop - 1), inner)
@@ -1219,7 +1377,9 @@ procedure put_at(
   // the head of a definition of another name or arity moves its declaration to the key of the head, and the signature
   // follows the head of a definition, while that of a signature is replaced alone
   let headed := if is_head then
-    find(keyed(placed_of(main_mod(source))), lambda (_, cmd, c) => not is_signature(c) and cmd.span.start.line <= start and start <= cmd.span.stop.line)
+    find(keyed(placed_of(main_mod(source))), lambda (_, cmd, c) => not is_signature(c)
+      and cmd.span.start.line <= start
+      and start <= cmd.span.stop.line)
   else
     None
   let key := value_or(map_option(headed, lambda (k, _, _) => k), place.key)
@@ -1228,7 +1388,9 @@ procedure put_at(
     with_signatures(in place.path, List((place.key, key)), List(), edits.files, ref result, signed)
     parsed(in place.path, result, edits.files, no_fragment(), out source)
   end
-  let d := main_mod(source), result_lines := Array(for line in split(result, '\n'))
+  let
+    d := main_mod(source),
+    result_lines := Array(for line in split(result, '\n'))
   let verb := match place_word
     case "replace" =>
       "@put"
@@ -1240,10 +1402,24 @@ procedure put_at(
       "@put " ++ place_word
   end
   if size(placed_of(d)) != place.decls then
-    raise Refused(verb ++ " " ++ word ++ " writes declarations beyond its node, which @put F writes")
+    raise Refused(verb
+      ++ " "
+      ++ word
+      ++ " writes declarations beyond its node, which @put F writes")
   end
-  if key != place.key and size(List(for (k, _, c) in keyed(placed_of(d)) if k == key and not is_signature(c) yield k)) > 1 then
-    raise Refused(verb ++ " " ++ word ++ " gives " ++ label ++ " the head of " ++ key_text(key) ++ ", which " ++ place.path ++ " declares already")
+  if key != place.key
+    and size(List(for (k, _, c) in keyed(placed_of(d)) if k == key and not is_signature(c) yield k))
+      > 1 then
+    raise Refused(verb
+      ++ " "
+      ++ word
+      ++ " gives "
+      ++ label
+      ++ " the head of "
+      ++ key_text(key)
+      ++ ", which "
+      ++ place.path
+      ++ " declares already")
   end
   edits := edits with files := Map(place.path => result; edits.files)
   let done := match place_word
@@ -1257,22 +1433,36 @@ procedure put_at(
       "put " ++ place_word ++ " "
   end
   note(in join(", ", List(
-    done ++ label ++ (if key == place.key then "" else ", now " ++ key_text(key)); signed)), ref edits)
+    done
+      ++ label
+      ++ (if key == place.key then "" else ", now " ++ key_text(key)); signed)), ref edits)
   let held := handles
   for (_, cmd) in decl_of(d, key) do
     rebase(in place.path, place.key, lines, place.cmd, result_lines, cmd, region, place_word == "replace", ref handles)
     handles := rekeyed(handles, place.path, place.key, key)
-    let olds := kinded_nodes(lines, place.cmd), news := kinded_nodes(result_lines, cmd)
+    let
+      olds := kinded_nodes(lines, place.cmd),
+      news := kinded_nodes(result_lines, cmd)
     let alignment := aligned(hashed(lines, List(for node in olds yield node.span)), hashed(result_lines, List(for node in news yield node.span)), region)
     let placed := match alignment
       case Some((before, after)) =>
         outermost(take(size(news) - after - before, drop(before, news)))
+
       case None =>
-        List(for node in find(news, lambda node => node.span.start.line >= (if place_word == "after" then stop + 1 else start)) if place_word != "drop")
+        List(for node in find(news, lambda node => node.span.start.line
+          >= (if place_word == "after" then stop + 1 else start)) if place_word != "drop")
     end
     for expected in expected_kind(place_word, place.span, olds) do
       for node in placed if node.kind != expected and alignment != None do
-        raise Refused(verb ++ " " ++ word ++ " places " ++ kind_text(node.kind) ++ " where " ++ label ++ " takes " ++ kind_text(expected))
+        raise Refused(verb
+          ++ " "
+          ++ word
+          ++ " places "
+          ++ kind_text(node.kind)
+          ++ " where "
+          ++ label
+          ++ " takes "
+          ++ kind_text(expected))
       end
     end
     match (placed, last(placed))
@@ -1294,14 +1484,21 @@ procedure put_at(
 // #9 (replaced by #31), with the handles placed of the nodes that the edit placed, so that a script that held the old
 // handle learns the new one
 function gone_text(before: Handles, after: Handles, placed: List[Int]): Option[Str] :=
-  example gone_text(Handles(List(Handle(9, "a.u", Key("value", "f", 1), 2, 0)), 10, false), Handles(List(Handle(9, "a.u", Key("value", "f", 1), -1, 0)), 10, true), List(31)) == Some("gone #9 (replaced by #31)")
-  example gone_text(Handles(List(Handle(9, "a.u", Key("value", "f", 1), 2, 0)), 10, false), Handles(List(Handle(9, "a.u", Key("value", "f", 1), -1, 0)), 10, true), List()) == Some("gone #9")
+  example gone_text(Handles(List(Handle(9, "a.u", Key("value", "f", 1), 2, 0)), 10, false), Handles(List(Handle(9, "a.u", Key("value", "f", 1), -1, 0)), 10, true), List(31))
+      == Some("gone #9 (replaced by #31)")
+  example gone_text(Handles(List(Handle(9, "a.u", Key("value", "f", 1), 2, 0)), 10, false), Handles(List(Handle(9, "a.u", Key("value", "f", 1), -1, 0)), 10, true), List())
+      == Some("gone #9")
   let gone := List(for h in after.entries if h.index < 0 for b in find(before.entries, lambda e => e.number == h.number) if b.index >= 0 yield "#" ++ show(h.number)) in
   let fresh := List(for n in placed if not contains(n, List(for h in after.entries if h.index >= 0 for b in find(before.entries, lambda e => e.number == h.number) if b.index >= 0 yield h.number)) yield "#" ++ show(n)) in
   if gone == List() then
     None
   else
-    Some("gone " ++ join(", ", gone) ++ (if fresh == List() then "" else " (replaced by " ++ join(", ", fresh) ++ ")"))
+    Some("gone "
+      ++ join(", ", gone)
+      ++ (if fresh == List() then
+        ""
+      else
+        " (replaced by " ++ join(", ", fresh) ++ ")"))
 
 // handles with those of the declaration key of path moved to the declaration new_key, as a head of another arity moves
 // them
@@ -1323,8 +1520,12 @@ procedure closed_heads(
   if place_word == "drop" then
     var d: Mod
     module_of(in place.path, files, out _, d)
-    for (_, cmd, c) in keyed(placed_of(d)) if is_signature(c) and is_within(place.span.start, cmd.span) and forall(spec_parts(c), lambda part => is_inside(part, place.span)) do
-      let head := head_range(place.lines, cmd), line := line_at(place.lines, head.last)
+    for (_, cmd, c) in keyed(placed_of(d)) if is_signature(c)
+      and is_within(place.span.start, cmd.span)
+      and forall(spec_parts(c), lambda part => is_inside(part, place.span)) do
+      let
+        head := head_range(place.lines, cmd),
+        line := line_at(place.lines, head.last)
       closing := List(
         (Range(head.last, head.last), List(
           if ends_with(line, " :=") then
@@ -1341,15 +1542,24 @@ procedure closed_heads(
 // the comma between them, where a fragment that writes the comma itself is taken as well, while a comment at the end of
 // a line stays with the element that it follows, and a dropped element takes its own
 function span_splice(place_word: Str, lines: Array[Str], span: Span, region: Range, new: List[Str]): (Range, List[Str]) :=
-  example span_splice("replace", Array("f(", "  a,", "  b)"), Span(Pos(3, 3), Pos(3, 4)), Range(3, 3), List("  c")) == (Range(3, 3), List("  c)"))
-  example span_splice("before", Array("f(", "  a,", "  b)"), Span(Pos(3, 3), Pos(3, 4)), Range(3, 2), List("  c")) == (Range(3, 2), List("  c,"))
-  example span_splice("after", Array("f(", "  a,", "  b)"), Span(Pos(3, 3), Pos(3, 4)), Range(4, 3), List("  c")) == (Range(3, 3), List("  b,", "  c)"))
-  example span_splice("after", Array("f(", "  a,", "  b) // b"), Span(Pos(3, 3), Pos(3, 4)), Range(4, 3), List("  c")) == (Range(3, 3), List("  b, // b", "  c)"))
-  example span_splice("after", Array("f(", "  a,", "  b)"), Span(Pos(2, 3), Pos(2, 4)), Range(3, 2), List("  c,")) == (Range(3, 2), List("  c,"))
-  example span_splice("drop", Array("f(", "  a,", "  b)"), Span(Pos(3, 3), Pos(3, 4)), Range(3, 3), List()) == (Range(2, 3), List("  a)"))
-  example span_splice("drop", Array("f(", "  a, // a", "  b) // b"), Span(Pos(3, 3), Pos(3, 4)), Range(3, 3), List()) == (Range(2, 3), List("  a) // a"))
+  example span_splice("replace", Array("f(", "  a,", "  b)"), Span(Pos(3, 3), Pos(3, 4)), Range(3, 3), List("  c"))
+      == (Range(3, 3), List("  c)"))
+  example span_splice("before", Array("f(", "  a,", "  b)"), Span(Pos(3, 3), Pos(3, 4)), Range(3, 2), List("  c"))
+      == (Range(3, 2), List("  c,"))
+  example span_splice("after", Array("f(", "  a,", "  b)"), Span(Pos(3, 3), Pos(3, 4)), Range(4, 3), List("  c"))
+      == (Range(3, 3), List("  b,", "  c)"))
+  example span_splice("after", Array("f(", "  a,", "  b) // b"), Span(Pos(3, 3), Pos(3, 4)), Range(4, 3), List("  c"))
+      == (Range(3, 3), List("  b, // b", "  c)"))
+  example span_splice("after", Array("f(", "  a,", "  b)"), Span(Pos(2, 3), Pos(2, 4)), Range(3, 2), List("  c,"))
+      == (Range(3, 2), List("  c,"))
+  example span_splice("drop", Array("f(", "  a,", "  b)"), Span(Pos(3, 3), Pos(3, 4)), Range(3, 3), List())
+      == (Range(2, 3), List("  a)"))
+  example span_splice("drop", Array("f(", "  a, // a", "  b) // b"), Span(Pos(3, 3), Pos(3, 4)), Range(3, 3), List())
+      == (Range(2, 3), List("  a) // a"))
   let stop_line := line_at(lines, span.stop.line) in
-  let head := slice(stop_line, 0, span.stop.col - 1), tail := slice(stop_line, span.stop.col - 1, size(stop_line)) in
+  let
+    head := slice(stop_line, 0, span.stop.col - 1),
+    tail := slice(stop_line, span.stop.col - 1, size(stop_line)) in
   let (code, note) := commented(tail) in
   let parted := starts_with(tail, ","), closed := starts_with(tail, ")") in
   match place_word
@@ -1437,7 +1647,10 @@ data Anchor :=
 function anchor_form(path: Str, anchor: Anchor): Str :=
   example anchor_form("a.u", Anchor("instead", "f", Some(2))) == "@put a.u:f/2"
   example anchor_form("a.u", Anchor("after", "f", None)) == "@put after a.u:f"
-  let target := path ++ ":" ++ anchor.name ++ value_or(map_option(anchor.arity, lambda n => "/" ++ show(n)), "") in
+  let target := path
+    ++ ":"
+    ++ anchor.name
+    ++ value_or(map_option(anchor.arity, lambda n => "/" ++ show(n)), "") in
   if anchor.side == "instead" then
     "@put " ++ target
   else
@@ -1512,8 +1725,14 @@ procedure with_fixed_imports(
   for i in main_mod(source).imports if import_failures(i) != List() do
     match find(code, lambda line => starts_with(line, "import ") and Some(imported_base(line)) == last(i.that))
       case Some(line) =>
-        lines := take(i.pos.line - 1, lines) ++ List(trim(line)) ++ drop(i.pos.line, lines)
-        note(in path ++ ": replaced import " ++ path_text(i.that) ++ " by " ++ trim(line), ref edits)
+        lines := take(i.pos.line - 1, lines)
+          ++ List(trim(line))
+          ++ drop(i.pos.line, lines)
+        note(in path
+          ++ ": replaced import "
+          ++ path_text(i.that)
+          ++ " by "
+          ++ trim(line), ref edits)
 
       case None =>
         skip
@@ -1528,7 +1747,12 @@ function imported_base(line: Str): Str :=
 
 // the parts of the lines of a fragment, each line with its number in the fragment
 data Parts :=
-  case Parts(imports: List[Str], exported: List[(Str, Int)], builtins: List[(Str, Int)], implemented: List[(Str, Int)], strays: List[Int])
+  case Parts(
+    imports: List[Str],
+    exported: List[(Str, Int)],
+    builtins: List[(Str, Int)],
+    implemented: List[(Str, Int)],
+    strays: List[Int])
 
 // the parts of the lines of a fragment, where the lines under no line of a section go to the section unheaded
 function parts_of(code: List[Str], unheaded: Str): Parts :=
@@ -1550,7 +1774,9 @@ function parts_from(lines: List[(Str, Int)], section: Str, parts: Parts): Parts 
         parts_from(rest, section, parts with implemented := parts.implemented ++ List((line, i)))
 
     case List() =>
-      parts with strays := strays_of(parts.exported) ++ strays_of(parts.builtins) ++ strays_of(parts.implemented)
+      parts with strays := strays_of(parts.exported)
+        ++ strays_of(parts.builtins)
+        ++ strays_of(parts.implemented)
   end
 
 // the lines of the comments at the first column that a blank line, or the end, follows before the next declaration,
@@ -1606,7 +1832,9 @@ procedure put_anchored(
   try
     put_sections(in path, text, code, anchor, "", ref edits)
   catch
-    case Refused(message) if anchor.side != "end" and index_of("belong to the export", message) != None and not exists(code, lambda line => contains(line, List("export", "builtin", "implementation"))) =>
+    case Refused(message) if anchor.side != "end"
+      and index_of("belong to the export", message) != None
+      and not exists(code, lambda line => contains(line, List("export", "builtin", "implementation"))) =>
       put_sections(in path, text, code, anchor, "export", ref edits)
   end
 
@@ -1624,7 +1852,11 @@ procedure put_sections(
       unheaded: Str,
   ref edits: Edits
 ) raises Refused, OsError :=
-  var source: Source, combined: Source, result: Str, anchor_key: Option[Key] := None
+  var
+    source: Source,
+    combined: Source,
+    result: Str,
+    anchor_key: Option[Key] := None
   parsed(in path, text, edits.files, no_fragment(), out source)
   let d := main_mod(source), lines := Array(for line in split(text, '\n'))
   if anchor.side != "end" then
@@ -1640,7 +1872,9 @@ procedure put_sections(
     end
   end
   let is_anchor := lambda c: At[Cmd] => anchor_key != None and cmd_key(c) == anchor_key
-  let export_anchor := find(d.exported, is_anchor), builtin_anchor := find(d.builtins, is_anchor)
+  let
+    export_anchor := find(d.exported, is_anchor),
+    builtin_anchor := find(d.builtins, is_anchor)
   let impl_anchor := find(d.implemented, lambda c => is_anchor(c) and not is_signature_at(c))
   let parts := parts_of(code, if unheaded == "export" and export_anchor != None then
     "export"
@@ -1649,19 +1883,31 @@ procedure put_sections(
   else
     "implementation")
   if parts.strays != List() then
-    raise Refused("fragment " ++ join(", ", List(for i in parts.strays yield show(i))) ++ ": a comment that is no doc of a declaration, which @put writes only into a new file")
+    raise Refused("fragment "
+      ++ join(", ", List(for i in parts.strays yield show(i)))
+      ++ ": a comment that is no doc of a declaration, which @put writes only into a new file")
   end
-  let exported_at := keyword_line(lines, "export"), builtin_at := keyword_line(lines, "builtin")
+  let
+    exported_at := keyword_line(lines, "export"),
+    builtin_at := keyword_line(lines, "builtin")
   let implemented_at := keyword_line(lines, "implementation")
   let has_sections := exported_at != None or implemented_at != None or builtin_at != None
   let imports := distinct(List(for line in parts.imports if not contains(trim(line), List(for l in lines yield trim(l))) yield trim(line)))
   let code_at := first_code_line(lines)
   let import_at := value_or(map_option(last(List(for i in range(1, size(lines) + 1) if starts_with(line_at(lines, i), "import ") yield i)), lambda i => i + 1), code_at)
-  let export_lines := firsts(parts.exported), export_first := value_or(map_option(get_at(0, parts.exported), lambda (_, i) => i), 1)
-  let builtin_lines := firsts(parts.builtins), builtin_first := value_or(map_option(get_at(0, parts.builtins), lambda (_, i) => i), 1)
-  let impl_lines := firsts(parts.implemented), impl_first := value_or(map_option(get_at(0, parts.implemented), lambda (_, i) => i), 1)
+  let
+    export_lines := firsts(parts.exported),
+    export_first := value_or(map_option(get_at(0, parts.exported), lambda (_, i) => i), 1)
+  let
+    builtin_lines := firsts(parts.builtins),
+    builtin_first := value_or(map_option(get_at(0, parts.builtins), lambda (_, i) => i), 1)
+  let
+    impl_lines := firsts(parts.implemented),
+    impl_first := value_or(map_option(get_at(0, parts.implemented), lambda (_, i) => i), 1)
   let end_at := size(lines) + 1
-  let has_exports := not is_blank(join("", export_lines)), has_builtins := not is_blank(join("", builtin_lines))
+  let
+    has_exports := not is_blank(join("", export_lines)),
+    has_builtins := not is_blank(join("", builtin_lines))
   let export_inserts := if not has_exports then
     List()
   else
@@ -1716,12 +1962,20 @@ procedure put_sections(
   else
     List(
       anchored_insert(lines, impl_anchor, anchor.side, end_at, impl_lines, impl_first, "implementation"))
-  let inserts := List(Insert(import_at, imports, 0, "")) ++ export_inserts ++ builtin_inserts ++ header_inserts ++ impl_inserts
+  let inserts := List(Insert(import_at, imports, 0, ""))
+    ++ export_inserts
+    ++ builtin_inserts
+    ++ header_inserts
+    ++ impl_inserts
   let (all_lines_list, blocks) := inserted(List(for line in lines), inserts)
   let all_text := join("\n", all_lines_list)
   parsed(in path, all_text, edits.files, List(for (r, ins) in blocks if ins.role != "" yield (r, ins.first)), out combined)
-  let all := main_mod(combined), all_lines := Array(for line in split(all_text, '\n'))
-  let block_of := lambda cmd: At[Cmd] => find(blocks, lambda (r, ins) => ins.role != "" and r.first <= cmd.span.start.line and cmd.span.start.line <= r.last)
+  let
+    all := main_mod(combined),
+    all_lines := Array(for line in split(all_text, '\n'))
+  let block_of := lambda cmd: At[Cmd] => find(blocks, lambda (r, ins) => ins.role != ""
+    and r.first <= cmd.span.start.line
+    and cmd.span.start.line <= r.last)
   let added := List(for cmd in placed_of(all) for (r, ins) in block_of(cmd) yield (cmd, r, ins.role))
   let olds := List(for cmd in placed_of(all) if block_of(cmd) == None yield cmd)
   if size(olds) != size(placed_of(d)) then
@@ -1738,19 +1992,43 @@ procedure put_sections(
     None
   else
     sole(List(for k in sole(fragment_keys) for a in anchor_key if k.kind == a.kind yield k))
-  let instead := lambda cmd: At[Cmd] => anchor.side == "instead" and (is_named(cmd) or renamed != None and cmd_key(cmd) == renamed)
+  let instead := lambda cmd: At[Cmd] => anchor.side == "instead"
+    and (is_named(cmd) or renamed != None and cmd_key(cmd) == renamed)
   let replacing := List(for (cmd, _, role) in added if instead(cmd) yield role)
   for role in repeated(replacing) do
-    raise Refused("the fragment declares several " ++ anchor.name ++ " in " ++ role ++ ", which @put " ++ path ++ ":" ++ anchor.name ++ " replaces by one")
+    raise Refused("the fragment declares several "
+      ++ anchor.name
+      ++ " in "
+      ++ role
+      ++ ", which @put "
+      ++ path
+      ++ ":"
+      ++ anchor.name
+      ++ " replaces by one")
   end
   if anchor.side == "instead" and replacing == List() then
-    raise Refused("the fragment declares no " ++ anchor.name ++ ", which @put " ++ path ++ ":" ++ anchor.name ++ " replaces" ++ (if fragment_keys == List() then
-      ""
-    else
-      ", but " ++ join(", ", List(for k in fragment_keys yield key_text(k))) ++ ", while a declaration of another name replaces it only as the one declaration of the fragment, of its kind"))
+    raise Refused("the fragment declares no "
+      ++ anchor.name
+      ++ ", which @put "
+      ++ path
+      ++ ":"
+      ++ anchor.name
+      ++ " replaces"
+      ++ (if fragment_keys == List() then
+        ""
+      else
+        ", but "
+          ++ join(", ", List(for k in fragment_keys yield key_text(k)))
+          ++ ", while a declaration of another name replaces it only as the one declaration of the fragment, of its kind"))
   end
-  var splices: List[(Range, List[Str])] := List(), entries: List[(Str, Str, Str, Str, Str)] := List(), replaced_keys: List[(Key, Key)] := List()
-  var exported_keys: List[Key] := List(), spec_keys: List[Key] := List(), defined_keys: List[(Key, Key)] := List()
+  var
+    splices: List[(Range, List[Str])] := List(),
+    entries: List[(Str, Str, Str, Str, Str)] := List(),
+    replaced_keys: List[(Key, Key)] := List()
+  var
+    exported_keys: List[Key] := List(),
+    spec_keys: List[Key] := List(),
+    defined_keys: List[(Key, Key)] := List()
   let section_cmds := lambda role: Str => if role == "export" then
     all.exported
   else if role == "builtin" then
@@ -1791,19 +2069,35 @@ procedure put_sections(
     let has_doc := range.first < cmd.span.start.line, new_key := cmd_key(cmd)
     let wanted := if instead(cmd) then anchor_key else new_key
     if wanted != new_key and exists(olds, lambda c => cmd_key(c) == new_key) then
-      raise Refused(path ++ " declares " ++ value_or(map_option(new_key, key_text), "") ++ " already, so the fragment cannot replace " ++ value_or(map_option(wanted, key_text), "") ++ " by it")
+      raise Refused(path
+        ++ " declares "
+        ++ value_or(map_option(new_key, key_text), "")
+        ++ " already, so the fragment cannot replace "
+        ++ value_or(map_option(wanted, key_text), "")
+        ++ " by it")
     end
-    let is_old := lambda c: At[Cmd] => contains(c, olds) and cmd_key(c) == wanted and is_signature_at(c) == is_signature_at(cmd)
+    let is_old := lambda c: At[Cmd] => contains(c, olds)
+      and cmd_key(c) == wanted
+      and is_signature_at(c) == is_signature_at(cmd)
     let old := or_else(find(section_cmds(role), is_old), find(olds, is_old))
     let writes_signature := exists(added, lambda (c, _, other) => other == "export" and cmd_key(c) == new_key)
     // a signature that the fragment writes without its definition, whose head the definition then repeats
-    let signs_definition := role == "export" and is_signature_at(cmd) and not exists(added, lambda (c, _, _) => cmd_key(c) == new_key and not is_signature_at(c))
+    let signs_definition := role == "export"
+      and is_signature_at(cmd)
+      and not exists(added, lambda (c, _, _) => cmd_key(c) == new_key and not is_signature_at(c))
     let has_own_doc := exists(old, lambda o => cmd_range(all_lines, o, 0, true).first < o.span.start.line)
     // the signature in export that takes the doc of a definition that the fragment writes without the signature, unless
     // the definition has a doc of its own, which the doc of the fragment replaces, or is a datatype, whose abstract type in
     // export has a doc of its own, for its importers
-    let doc_signature := if has_doc and wanted != None and not is_signature_at(cmd) and not writes_signature and not has_own_doc then
-      find(all.exported, lambda c => contains(c, olds) and cmd_key(c) == wanted and is_signature_at(c) and not exists(cmd_of(c), is_abstract))
+    let doc_signature := if has_doc
+      and wanted != None
+      and not is_signature_at(cmd)
+      and not writes_signature
+      and not has_own_doc then
+      find(all.exported, lambda c => contains(c, olds)
+        and cmd_key(c) == wanted
+        and is_signature_at(c)
+        and not exists(cmd_of(c), is_abstract))
     else
       None
     let doc := lines_in(all_lines, Range(range.first, cmd.span.start.line - 1))
@@ -1822,14 +2116,17 @@ procedure put_sections(
         let old_key := cmd_key(o), section := section_of(o)
         splices := splices ++ List((replaced, new), (range, List()))
         let kept := if exists(old_key, lambda k => exists(new_key, lambda n => n.base != k.base)) then
-          ", whose uses keep the name " ++ anchor.name ++ ", which @rename changes"
+          ", whose uses keep the name "
+            ++ anchor.name
+            ++ ", which @rename changes"
         else
           ""
         // a declaration that a targeted @put replaces besides its target, as a helper of the same name elsewhere in the
         // file, says where it stood, so that the reply tells it from the additions around it
         let away := anchor.side != "end" and not instead(cmd)
         let at_line := if away then
-          " at line " ++ show(value_or(map_option(find(placed_of(d), lambda c => cmd_key(c) == old_key), lambda c => c.span.start.line), 0))
+          " at line "
+            ++ show(value_or(map_option(find(placed_of(d), lambda c => cmd_key(c) == old_key), lambda c => c.span.start.line), 0))
         else
           ""
         let untargeted := if away then
@@ -1837,7 +2134,10 @@ procedure put_sections(
         else
           ""
         let entry := if old_key != new_key then
-          ("replaced " ++ value_or(map_option(old_key, key_text), "") ++ " by " ++ value_or(map_option(new_key, key_text), ""), moved ++ kept)
+          ("replaced "
+            ++ value_or(map_option(old_key, key_text), "")
+            ++ " by "
+            ++ value_or(map_option(new_key, key_text), ""), moved ++ kept)
         else if new == lines_in(all_lines, replaced) and doc_signature == None then
           ("unchanged " ++ value_or(map_option(new_key, key_text), "a notation"), "")
         else if map_option(cmd_of(o), head_type) != map_option(cmd_of(cmd), head_type) then
@@ -1845,9 +2145,13 @@ procedure put_sections(
         else
           ("replaced " ++ value_or(map_option(new_key, key_text), "a notation"), at_line ++ moved ++ untargeted)
         entries := entries ++ List((first(entry), second(entry), section, role, ""))
-        replaced_keys := replaced_keys ++ List(for k in new_key for o_k in old_key if section == "implementation" yield (o_k, k))
-        spec_keys := spec_keys ++ List(for k in new_key if section == "implementation" and not is_signature_at(cmd) and not writes_signature yield k)
-        defined_keys := defined_keys ++ List(for k in new_key for o_k in old_key if section == "export" and signs_definition yield (o_k, k))
+        replaced_keys := replaced_keys
+          ++ List(for k in new_key for o_k in old_key if section == "implementation" yield (o_k, k))
+        spec_keys := spec_keys ++ List(for k in new_key if section == "implementation"
+          and not is_signature_at(cmd)
+          and not writes_signature yield k)
+        defined_keys := defined_keys
+          ++ List(for k in new_key for o_k in old_key if section == "export" and signs_definition yield (o_k, k))
 
       case None =>
         if doc_signature != None then
@@ -1861,7 +2165,8 @@ procedure put_sections(
     end
   end
   let plain := not (has_sections or has_exports or has_builtins)
-  var done := List(for line in imports yield "added " ++ line) ++ List(for (what, suffix) in distinct(List(for (w, s, _, _, _) in entries yield (w, s))) for line in Some(done_text(what, suffix, entries, plain)) if line != "" yield line)
+  var done := List(for line in imports yield "added " ++ line)
+    ++ List(for (what, suffix) in distinct(List(for (w, s, _, _, _) in entries yield (w, s))) for line in Some(done_text(what, suffix, entries, plain)) if line != "" yield line)
   formatted(in path, join("\n", spliced(all_lines_list, splices)), edits.files, no_fragment(), out result, source)
   with_signatures(in path, replaced_keys, spec_keys, edits.files, ref result, done)
   with_definitions(in path, defined_keys, edits.files, ref result, done)
@@ -1903,7 +2208,8 @@ function done_text(what: Str, suffix: Str, entries: List[(Str, Str, Str, Str, St
       case _ =>
         what ++ place ++ sections_text(sections) ++ suffix
     end
-  else if starts_with(what, "unchanged ") and sections_of("replaced ", slice(what, 10, size(what))) != List() then
+  else if starts_with(what, "unchanged ")
+    and sections_of("replaced ", slice(what, 10, size(what))) != List() then
     ""
   else
     let unchanged := if starts_with(what, "replaced ") then
@@ -1989,11 +2295,14 @@ procedure with_signatures(
     let signature := or_else(find(signatures, lambda (k, _, _) => k == old), find(signatures, lambda (k, _, _) => k == key))
     match (definition, signature)
       case (Some((_, def, def_c)), Some((_, sig, c))) =>
-        let head := head_range(lines, sig), new_head := head_lines(lines_in(lines, cmd_range(lines, def, 0, false)))
+        let
+          head := head_range(lines, sig),
+          new_head := head_lines(lines_in(lines, cmd_range(lines, def, 0, false)))
         let moved := if contains(key, specs) then spec_range(lines, def, def_c) else None
         let written := if has_spec(c) or moved != None then with_assign(new_head) else new_head
         // the head changed if it differs by more than the := that the spec moved to it needs
-        if (if has_spec(c) then with_assign(new_head) else new_head) != lines_in(lines, head) then
+        if (if has_spec(c) then with_assign(new_head) else new_head)
+          != lines_in(lines, head) then
           done := done ++ List("with the signature of " ++ key_text(key))
         end
         match (moved, spec_range(lines, sig, c))
@@ -2004,14 +2313,19 @@ procedure with_signatures(
               (range, List()))
 
           case (Some(range), None) =>
-            splices := splices ++ List((head, written ++ lines_in(lines, range)), (range, List()))
+            splices := splices
+              ++ List((head, written ++ lines_in(lines, range)), (range, List()))
 
           case (None, _) =>
             splices := splices ++ List((head, written))
         end
         if moved != None then
           done := done ++ List(
-            "the " ++ spec_word(def_c) ++ " of " ++ key_text(key) ++ " on its signature")
+            "the "
+              ++ spec_word(def_c)
+              ++ " of "
+              ++ key_text(key)
+              ++ " on its signature")
         end
 
       case _ =>
@@ -2041,7 +2355,9 @@ procedure with_definitions(
     let signature := find(keyed(d.exported), lambda (k, _, c) => k == key and is_signature(c) and not is_abstract(c))
     match (definition, signature)
       case (Some((_, def)), Some((_, sig, _))) =>
-        let head := head_range(lines, def), new_head := with_assign(head_lines(lines_in(lines, head_range(lines, sig))))
+        let
+          head := head_range(lines, def),
+          new_head := with_assign(head_lines(lines_in(lines, head_range(lines, sig))))
         if new_head != lines_in(lines, head) then
           splices := splices ++ List((head, new_head))
           done := done ++ List("with the head of the definition of " ++ key_text(key))
@@ -2080,7 +2396,11 @@ procedure with_exported_raises(
   ref text: Str,
       done: List[Str]
 ) raises Refused, OsError :=
-  var source: Source, splices: List[(Range, List[Str])] := List(), found: List[Hint] := List(), hinted := false
+  var
+    source: Source,
+    splices: List[(Range, List[Str])] := List(),
+    found: List[Hint] := List(),
+    hinted := false
   parsed(in path, text, files, no_fragment(), out source)
   let d := main_mod(source), lines := Array(for line in split(text, '\n'))
   for key in keys do
@@ -2097,7 +2417,9 @@ procedure with_exported_raises(
         else
           join(", ", List(for t in signed yield format_type(t)))
         if raised != "" then
-          let def_range := head_range(lines, def), sig_range := head_range(lines, sig)
+          let
+            def_range := head_range(lines, def),
+            sig_range := head_range(lines, sig)
           splices := splices ++ List(
             (def_range, with_raises(with_assign(head_lines(lines_in(lines, def_range))), raised)))
           if signed == List() then
@@ -2202,11 +2524,16 @@ procedure drop_target(in word: Str, ref edits: Edits) raises Refused, OsError :=
 // the sections of the declarations that an edit took, if there are several, since a datatype in export and one in
 // implementation, or a signature and its definition, share a name
 function sections_text(sections: List[Str]): Str :=
-  example sections_text(List("export", "implementation")) == " (export and implementation)"
+  example sections_text(List("export", "implementation"))
+      == " (export and implementation)"
   match sections
     case List(_, _; _) =>
       if size(distinct(sections)) == 1 then
-        " (" ++ show(size(sections)) ++ " in " ++ join("", take(1, sections)) ++ ")"
+        " ("
+          ++ show(size(sections))
+          ++ " in "
+          ++ join("", take(1, sections))
+          ++ ")"
       else
         " (" ++ join(" and ", sections) ++ ")"
 
@@ -2227,10 +2554,23 @@ procedure patch(
       fragment: Str,
   ref edits: Edits
 ) raises Refused, OsError :=
-  var path: Str, lines: Array[Str], parts: List[(Range, Str)], source: Source, result: Str, key := Key("", "", -1), old_cmd: Option[Decl] := None, whole: Option[Source] := None, label: Str, handles := edits.handles
+  var
+    path: Str,
+    lines: Array[Str],
+    parts: List[(Range, Str)],
+    source: Source,
+    result: Str,
+    key := Key("", "", -1),
+    old_cmd: Option[Decl] := None,
+    whole: Option[Source] := None,
+    label: Str,
+    handles := edits.handles
   let word := join(" ", address)
   if is_blank(fragment) then
-    raise Refused("@patch " ++ word ++ " takes a fragment of hunks, each old lines that start with - and the new lines after them that start with +, as\n" ++ patch_form())
+    raise Refused("@patch "
+      ++ word
+      ++ " takes a fragment of hunks, each old lines that start with - and the new lines after them that start with +, as\n"
+      ++ patch_form())
   end
   var hunks: List[Hunk]
   patch_hunks(in split(fragment, '\n'), out hunks)
@@ -2242,7 +2582,8 @@ procedure patch(
   else
     var text: Str
     if size(address) != 1 then
-      raise Refused("@patch takes a node, #n, F:name #n, F:name \"text\", or F:L.C, a declaration file.u:name[/arity], or a file, not " ++ word)
+      raise Refused("@patch takes a node, #n, F:name #n, F:name \"text\", or F:L.C, a declaration file.u:name[/arity], or a file, not "
+        ++ word)
     end
     let (file, name, arity) := target_of(word)
     current_text(in file, edits.files, out text)
@@ -2268,8 +2609,13 @@ procedure patch(
         parts := file_parts(lines, main_mod(source))
     end
   end
-  var regions := List(for (region, _) in parts yield region), labels := List(for (_, what) in parts yield what)
-  var patched := List(for region in regions yield join("\n", lines_in(lines, region))), changed := Range(1, 0), every: List[Str] := List()
+  var
+    regions := List(for (region, _) in parts yield region),
+    labels := List(for (_, what) in parts yield what)
+  var
+    patched := List(for region in regions yield join("\n", lines_in(lines, region))),
+    changed := Range(1, 0),
+    every: List[Str] := List()
   let original := patched
   for (hunk, h) in numbered(hunks) do
     let old := unmarked(hunk.old), new := unmarked(hunk.new)
@@ -2278,24 +2624,37 @@ procedure patch(
       "@patch, the hunk of fragment line " ++ show(hunk.first) ++ ":"
     else
       "@patch:"
-    if List(for line in old yield trim(line)) == List(for line in new yield trim(line)) then
-      raise Refused("@patch: the hunk of fragment line " ++ show(hunk.first) ++ " changes nothing, since its new lines are its old lines")
+    if List(for line in old yield trim(line))
+      == List(for line in new yield trim(line)) then
+      raise Refused("@patch: the hunk of fragment line "
+        ++ show(hunk.first)
+        ++ " changes nothing, since its new lines are its old lines")
     end
     if hunk.every then
-      let text := value_or(get_at(0, hunk.old), ""), count := foldl(List(for t in patched yield size(occurrences(t, text))), 0, lambda a, b => a + b)
+      let
+        text := value_or(get_at(0, hunk.old), ""),
+        count := foldl(List(for t in patched yield size(occurrences(t, text))), 0, lambda a, b => a + b)
       if count > 0 then
         patched := List(for t in patched yield substituted(t, text, value_or(get_at(0, hunk.new), "")))
-        every := every ++ List("replaced " ++ quote(text) ++ " " ++ counted(count, "time"))
+        every := every
+          ++ List("replaced " ++ quote(text) ++ " " ++ counted(count, "time"))
       else
         var context: Str
         absent_context(in path, key, List(text), lines, regions, if h > 0 then original else List(), edits, out context)
-        raise Refused(refusal ++ " the old text " ++ quote(text) ++ " occurs nowhere in the target" ++ context)
+        raise Refused(refusal
+          ++ " the old text "
+          ++ quote(text)
+          ++ " occurs nowhere in the target"
+          ++ context)
       end
     else
       var at: List[(Int, Int, Int)], found: Bool
       try
         patch_hunk(in old, new, labels, out at, found, ref patched)
-        if not found and whole != None and size(regions) > 1 and size(drop_blank(old)) > 1 then
+        if not found
+          and whole != None
+          and size(regions) > 1
+          and size(drop_blank(old)) > 1 then
           // old lines across declarations of a file occur in no part of it, so the file is one part for them and the
           // hunks after them
           patched := List(join("\n", patched)), regions := List(Range(1, size(lines))), labels := List("the file")
@@ -2313,9 +2672,17 @@ procedure patch(
         let wanted := List(for line in old yield trim(line))
         absent_context(in path, key, wanted, lines, regions, if h > 0 then original else List(), edits, out context)
         if size(drop_blank(old)) == 1 then
-          raise Refused(refusal ++ " the old text " ++ quote(join("", drop_blank(wanted))) ++ " occurs nowhere in the target" ++ context)
+          raise Refused(refusal
+            ++ " the old text "
+            ++ quote(join("", drop_blank(wanted)))
+            ++ " occurs nowhere in the target"
+            ++ context)
         else
-          raise Refused(refusal ++ " the old lines, " ++ quote(join("\n", wanted)) ++ ", occur in no line of the target as whole lines" ++ context)
+          raise Refused(refusal
+            ++ " the old lines, "
+            ++ quote(join("\n", wanted))
+            ++ ", occur in no line of the target as whole lines"
+            ++ context)
         end
       end
       // the definition follows the signature, and only it has nodes
@@ -2330,7 +2697,12 @@ procedure patch(
     formatted(in path, join("\n", spliced(List(for line in lines), splices)), edits.files, no_fragment(), out result, source)
   catch
     case Refused(message) =>
-      raise Refused("@patch " ++ word ++ " writes a text that does not parse:\n" ++ message ++ "\n" ++ new_lines_text(hunks))
+      raise Refused("@patch "
+        ++ word
+        ++ " writes a text that does not parse:\n"
+        ++ message
+        ++ "\n"
+        ++ new_lines_text(hunks))
   end
   if result == join("\n", List(for line in lines)) then
     raise Refused("@patch " ++ word ++ " changes nothing, once formatted")
@@ -2353,7 +2725,9 @@ procedure patch(
       else
         List("the lines of no declaration")
       edits := edits with files := Map(path => result; edits.files), handles := handles
-      note(in path ++ ": patched " ++ join(", ", List(for k in touched yield key_text(k)) ++ outside ++ every), ref edits)
+      note(in path
+        ++ ": patched "
+        ++ join(", ", List(for k in touched yield key_text(k)) ++ outside ++ every), ref edits)
 
     case None =>
       var shown: List[Str] := List(), marks: Map[Int, Int] := Map()
@@ -2422,7 +2796,12 @@ procedure patch_hunks(in code: List[Str], out hunks: List[Hunk]) raises Refused 
     match (patch_marker(line), open)
       case (None, _) =>
         if not is_blank(line) then
-          raise Refused("@patch: fragment line " ++ show(n) ++ ", " ++ quote(line) ++ ", starts with neither - nor +, while a @patch takes hunks, each old lines that start with - and the new lines after them that start with +, the rest of each line taken as written, as\n" ++ patch_form())
+          raise Refused("@patch: fragment line "
+            ++ show(n)
+            ++ ", "
+            ++ quote(line)
+            ++ ", starts with neither - nor +, while a @patch takes hunks, each old lines that start with - and the new lines after them that start with +, the rest of each line taken as written, as\n"
+            ++ patch_form())
         end
         hunks := hunks ++ List(for hunk in open yield hunk), open := None
 
@@ -2430,11 +2809,19 @@ procedure patch_hunks(in code: List[Str], out hunks: List[Hunk]) raises Refused 
         open := Some(hunk with new := hunk.new ++ List(text), last := n)
 
       case (Some(("+", _)), None) =>
-        raise Refused("@patch: fragment line " ++ show(n) ++ ", " ++ quote(line) ++ ", is a line + that follows no line -, while the new lines of a hunk follow its old lines")
+        raise Refused("@patch: fragment line "
+          ++ show(n)
+          ++ ", "
+          ++ quote(line)
+          ++ ", is a line + that follows no line -, while the new lines of a hunk follow its old lines")
 
       case (Some((marker, text)), Some(hunk)) if hunk.new == List() =>
         if hunk.every or marker == "-*" then
-          raise Refused("@patch: fragment line " ++ show(n) ++ ", " ++ quote(line) ++ ", follows a line - or -* right before it, while a line -* is a hunk of its own, whose text it replaces everywhere")
+          raise Refused("@patch: fragment line "
+            ++ show(n)
+            ++ ", "
+            ++ quote(line)
+            ++ ", follows a line - or -* right before it, while a line -* is a hunk of its own, whose text it replaces everywhere")
         end
         open := Some(hunk with old := hunk.old ++ List(text), last := n)
 
@@ -2444,7 +2831,9 @@ procedure patch_hunks(in code: List[Str], out hunks: List[Hunk]) raises Refused 
   end
   hunks := hunks ++ List(for hunk in open yield hunk)
   for hunk in hunks if hunk.every and (size(hunk.new) > 1 or is_blank(join("", hunk.old))) do
-    raise Refused("@patch: the hunk -* of fragment line " ++ show(hunk.first) ++ " replaces a text of one line, which it takes, by a new line or by nothing")
+    raise Refused("@patch: the hunk -* of fragment line "
+      ++ show(hunk.first)
+      ++ " replaces a text of one line, which it takes, by a new line or by nothing")
   end
 
 // substitutes in texts, the parts of one target with their labels, the old lines by the new lines as whole lines, see
@@ -2470,7 +2859,11 @@ procedure patch_hunk(
         let replacement := join("\n", List(for line in drop_blank(new) yield trim(line)))
         texts := List(for text in texts yield substituted(text, part, replacement))
       else
-        raise Refused("@patch: the old text " ++ quote(part) ++ " occurs " ++ occurrence_text(counts, labels) ++ ", so it takes more of its line")
+        raise Refused("@patch: the old text "
+          ++ quote(part)
+          ++ " occurs "
+          ++ occurrence_text(counts, labels)
+          ++ ", so it takes more of its line")
       end
     end
   end
@@ -2516,17 +2909,30 @@ procedure absent_context(
         if one then
           context := ", but in the lines of no declaration of " ++ path
         else
-          context := ", but in the file outside the target, which @patch " ++ path ++ " takes, while the target is:\n" ++ join("\n", searched)
+          context := ", but in the file outside the target, which @patch "
+            ++ path
+            ++ " takes, while the target is:\n"
+            ++ join("\n", searched)
         end
       end
     else
       earlier_action(in path, Key("", "", -1), occurs, edits, out context)
       if context == "" then
         for (n, line) in nearest_line(lines, regions, value_or(get_at(0, drop_blank(wanted)), "")) do
-          context := ", and the line of the target that starts most like " ++ (if one then "it" else "the first of them") ++ " is " ++ path ++ ":" ++ show(n) ++ ", " ++ quote(trim(line))
+          context := ", and the line of the target that starts most like "
+            ++ (if one then "it" else "the first of them")
+            ++ " is "
+            ++ path
+            ++ ":"
+            ++ show(n)
+            ++ ", "
+            ++ quote(trim(line))
         end
-        if not one and exists(wanted, lambda line => not is_blank(line) and contains(line, trimmed)) then
-          context := context ++ ", while some of them occur in the target, which is:\n" ++ join("\n", searched)
+        if not one
+          and exists(wanted, lambda line => not is_blank(line) and contains(line, trimmed)) then
+          context := context
+            ++ ", while some of them occur in the target, which is:\n"
+            ++ join("\n", searched)
         end
       end
     end
@@ -2534,8 +2940,10 @@ procedure absent_context(
 
 // the note of a @patch whose text does not parse: the fragment lines that its hunks took as their new lines
 function new_lines_text(hunks: List[Hunk]): Str :=
-  example new_lines_text(List(Hunk(List("a"), List("b", "c"), false, 1, 3))) == "its new lines are fragment lines 2 to 3"
-  example new_lines_text(List(Hunk(List("a"), List(), false, 1, 1))) == "its hunks have no new lines"
+  example new_lines_text(List(Hunk(List("a"), List("b", "c"), false, 1, 3)))
+      == "its new lines are fragment lines 2 to 3"
+  example new_lines_text(List(Hunk(List("a"), List(), false, 1, 1)))
+      == "its hunks have no new lines"
   let spans := List(for hunk in hunks if hunk.new != List() yield (hunk.last - size(hunk.new) + 1, hunk.last)) in
   let texts := List(for (first, last) in spans yield if first == last then show(first) else show(first) ++ " to " ++ show(last)) in
   if texts == List() then
@@ -2552,24 +2960,30 @@ function new_lines_text(hunks: List[Hunk]): Str :=
 // around them, so that an edit of a head alone changed none
 function changed_nodes(old: Array[Str], new: Array[Str], nodes: List[(Span, Span)]): List[Span] :=
   example changed_nodes(Array("a", "  b", "  c"), Array("a", "  b", "  d"), List(
-      (Span(Pos(2, 3), Pos(3, 4)), Span(Pos(2, 3), Pos(3, 4))),
-      (Span(Pos(3, 3), Pos(3, 4)), Span(Pos(3, 3), Pos(3, 4))))) == List(Span(Pos(3, 3), Pos(3, 4)))
+        (Span(Pos(2, 3), Pos(3, 4)), Span(Pos(2, 3), Pos(3, 4))),
+        (Span(Pos(3, 3), Pos(3, 4)), Span(Pos(3, 3), Pos(3, 4)))))
+      == List(Span(Pos(3, 3), Pos(3, 4)))
   example changed_nodes(Array("a", "  b", "  c"), Array("a", "  c"), List(
-      (Span(Pos(1, 1), Pos(2, 4)), Span(Pos(1, 1), Pos(2, 4))),
-      (Span(Pos(2, 3), Pos(2, 4)), Span(Pos(2, 3), Pos(2, 4))))) == List(Span(Pos(1, 1), Pos(2, 4)))
+        (Span(Pos(1, 1), Pos(2, 4)), Span(Pos(1, 1), Pos(2, 4))),
+        (Span(Pos(2, 3), Pos(2, 4)), Span(Pos(2, 3), Pos(2, 4)))))
+      == List(Span(Pos(1, 1), Pos(2, 4)))
   example changed_nodes(Array("a", "  // x", "  b"), Array("a", "  // y", "  b"), List(
-      (Span(Pos(1, 1), Pos(3, 4)), Span(Pos(1, 1), Pos(3, 4))),
-      (Span(Pos(3, 3), Pos(3, 4)), Span(Pos(3, 3), Pos(3, 4))))) == List(Span(Pos(3, 3), Pos(3, 4)))
+        (Span(Pos(1, 1), Pos(3, 4)), Span(Pos(1, 1), Pos(3, 4))),
+        (Span(Pos(3, 3), Pos(3, 4)), Span(Pos(3, 3), Pos(3, 4)))))
+      == List(Span(Pos(3, 3), Pos(3, 4)))
   example changed_nodes(Array("let a := 1 in", "a"), Array("let a := 2 in", "a"), List(
-      (Span(Pos(1, 1), Pos(2, 2)), Span(Pos(1, 1), Pos(1, 14))),
-      (Span(Pos(2, 1), Pos(2, 2)), Span(Pos(2, 1), Pos(2, 2))))) == List(Span(Pos(1, 1), Pos(1, 14)))
+        (Span(Pos(1, 1), Pos(2, 2)), Span(Pos(1, 1), Pos(1, 14))),
+        (Span(Pos(2, 1), Pos(2, 2)), Span(Pos(2, 1), Pos(2, 2)))))
+      == List(Span(Pos(1, 1), Pos(1, 14)))
   example changed_nodes(Array("let a := 1 in", "a"), Array("let a := 2 in", "b"), List(
-      (Span(Pos(1, 1), Pos(2, 2)), Span(Pos(1, 1), Pos(1, 14))),
-      (Span(Pos(2, 1), Pos(2, 2)), Span(Pos(2, 1), Pos(2, 2))))) == List(Span(Pos(1, 1), Pos(2, 2)))
+        (Span(Pos(1, 1), Pos(2, 2)), Span(Pos(1, 1), Pos(1, 14))),
+        (Span(Pos(2, 1), Pos(2, 2)), Span(Pos(2, 1), Pos(2, 2)))))
+      == List(Span(Pos(1, 1), Pos(2, 2)))
   example changed_nodes(Array("p :=", "  a", "  b", "  c"), Array("p :=", "  x", "  b", "  y"), List(
-      (Span(Pos(2, 3), Pos(2, 4)), Span(Pos(2, 3), Pos(2, 4))),
-      (Span(Pos(3, 3), Pos(3, 4)), Span(Pos(3, 3), Pos(3, 4))),
-      (Span(Pos(4, 3), Pos(4, 4)), Span(Pos(4, 3), Pos(4, 4))))) == List(Span(Pos(2, 3), Pos(2, 4)), Span(Pos(4, 3), Pos(4, 4)))
+        (Span(Pos(2, 3), Pos(2, 4)), Span(Pos(2, 3), Pos(2, 4))),
+        (Span(Pos(3, 3), Pos(3, 4)), Span(Pos(3, 3), Pos(3, 4))),
+        (Span(Pos(4, 3), Pos(4, 4)), Span(Pos(4, 3), Pos(4, 4)))))
+      == List(Span(Pos(2, 3), Pos(2, 4)), Span(Pos(4, 3), Pos(4, 4)))
   let olds := List(for line in old), news := List(for line in new) in
   let shared := common_prefix(olds, news) in
   let suffix := min(common_prefix(reverse(olds), reverse(news)), min(size(olds), size(news)) - shared) in
@@ -2582,7 +2996,8 @@ function changed_nodes(old: Array[Str], new: Array[Str], nodes: List[(Span, Span
 // the nodes of nodes in new that an edit of the lines from first to final changed, as changed_nodes takes them, where
 // final is first - 1 if the edit removed lines before first
 function run_nodes(new: Array[Str], nodes: List[(Span, Span)], first: Int, final: Int): List[Span] :=
-  let starting := List(for (span, counted) in nodes if first <= span.start.line and with_comments(new, Range(span.start.line, span.stop.line)).first <= final yield (span, counted)) in
+  let starting := List(for (span, counted) in nodes if first <= span.start.line
+    and with_comments(new, Range(span.start.line, span.stop.line)).first <= final yield (span, counted)) in
   let shown := List(for (span, counted) in starting yield if exists(starting, lambda (other, _) => other != span and is_inside(other, span) and not is_inside(other, counted)) then
     span
   else
@@ -2596,12 +3011,15 @@ function run_nodes(new: Array[Str], nodes: List[(Span, Span)], first: Int, final
 // rows gives (lcs_rows), from the index j of ys on, each the range of its lines in ys from 1, which is empty after the
 // line before which the edit removed lines, where open is the run that the lines before j started
 function edit_runs(xs: List[Str], rows: List[Array[Int]], ys: Array[Str], j: Int, open: Option[Range]): List[Range] :=
-  example edit_runs(List("a", "b", "c"), lcs_rows(List("a", "b", "c"), Array("a", "x", "c", "y")), Array("a", "x", "c", "y"), 0, None) == List(Range(2, 2), Range(4, 4))
-  example edit_runs(List("a", "b"), lcs_rows(List("a", "b"), Array("b")), Array("b"), 0, None) == List(Range(1, 0))
+  example edit_runs(List("a", "b", "c"), lcs_rows(List("a", "b", "c"), Array("a", "x", "c", "y")), Array("a", "x", "c", "y"), 0, None)
+      == List(Range(2, 2), Range(4, 4))
+  example edit_runs(List("a", "b"), lcs_rows(List("a", "b"), Array("b")), Array("b"), 0, None)
+      == List(Range(1, 0))
   match (xs, rows)
     case (List(x; xs_), List(row, below; rest)) =>
       if j < size(ys) and x == at(j, ys) then
-        List(for run in open) ++ edit_runs(xs_, List(below; rest), ys, j + 1, None)
+        List(for run in open)
+          ++ edit_runs(xs_, List(below; rest), ys, j + 1, None)
       else if at(j, below) == at(j, row) then
         edit_runs(xs_, List(below; rest), ys, j, Some(value_or(open, Range(j + 1, j))))
       else
@@ -2618,7 +3036,8 @@ function edit_runs(xs: List[Str], rows: List[Array[Int]], ys: Array[Str], j: Int
 // the lengths of the longest common subsequences of each suffix of xs, from the longest, with each suffix of ys, a row
 // per suffix of xs with an entry per start of the suffix of ys and one for the empty suffix
 function lcs_rows(xs: List[Str], ys: Array[Str]): List[Array[Int]] :=
-  example lcs_rows(List("a", "b"), Array("b")) == List(Array(1, 0), Array(1, 0), Array(0, 0))
+  example lcs_rows(List("a", "b"), Array("b"))
+      == List(Array(1, 0), Array(1, 0), Array(0, 0))
   match xs
     case List(x; rest) =>
       let rows := lcs_rows(rest, ys) in
@@ -2654,8 +3073,10 @@ function counted_nodes(lines: Array[Str], nodes: List[Node]): List[(Span, Span)]
 function counted_span(lines: Array[Str], node: Node, nodes: List[Node]): Span :=
   let span := node.span in
   match find(nodes, lambda other => other.span.stop == span.stop and other.span.start.line > span.start.line)
-    case Some(body) if node.kind == KExpression and starts_with(trim(line_at(lines, span.start.line)), "let ") =>
+    case Some(body) if node.kind == KExpression
+      and starts_with(trim(line_at(lines, span.start.line)), "let ") =>
       Span(span.start, Pos(body.span.start.line - 1, size(line_at(lines, body.span.start.line - 1)) + 1))
+
     case _ =>
       span
   end
@@ -2668,18 +3089,27 @@ procedure add_examples(
       fragment: Str,
   ref edits: Edits
 ) raises Refused, OsError :=
-  var text: Str, source: Source, handles := edits.handles, marks: Map[Int, Int] := Map()
+  var
+    text: Str,
+    source: Source,
+    handles := edits.handles,
+    marks: Map[Int, Int] := Map()
   let code := drop_blank(unmarked(split(fragment, '\n')))
   let added := size(List(for line in code if starts_with(trim(line), "example ") yield line))
   if not starts_with(trim(value_or(get_at(0, code), "")), "example ") then
-    raise Refused("@example " ++ word ++ " takes a fragment of examples, each starting with example")
+    raise Refused("@example "
+      ++ word
+      ++ " takes a fragment of examples, each starting with example")
   end
   let (path, name, arity) := target_of(word)
   current_text(in path, edits.files, out text)
   parsed(in path, text, edits.files, no_fragment(), out source)
   let d := main_mod(source), lines := Array(for line in split(text, '\n'))
-  let selected := List(for (key, cmd, c) in keyed(placed_of(d)) if name != None and forall(name, lambda base => is_selected(key, base, arity)) and spec_holder(c) yield (key, cmd, c))
-  let ordered := List(for (key, cmd, c) in selected if is_signature(c) yield (key, cmd, c)) ++ List(for (key, cmd, c) in selected if not is_signature(c) yield (key, cmd, c))
+  let selected := List(for (key, cmd, c) in keyed(placed_of(d)) if name != None
+    and forall(name, lambda base => is_selected(key, base, arity))
+    and spec_holder(c) yield (key, cmd, c))
+  let ordered := List(for (key, cmd, c) in selected if is_signature(c) yield (key, cmd, c))
+    ++ List(for (key, cmd, c) in selected if not is_signature(c) yield (key, cmd, c))
   match (distinct(List(for (key, _, _) in selected yield key)), ordered)
     case (List(key), List((_, cmd, c); _)) =>
       var result: Str
@@ -2696,24 +3126,42 @@ procedure add_examples(
           (Range(head.last, head.last), List(line_at(lines, head.last) ++ " :=")))
       else
         List()
-      let new := indented(dedented(code), indent_of(line_at(lines, cmd.span.start.line)) + 2), region := Range(at + 1, at)
+      let
+        new := indented(dedented(code), indent_of(line_at(lines, cmd.span.start.line)) + 2),
+        region := Range(at + 1, at)
       formatted(in path, join("\n", spliced(List(for line in lines), opened ++ List((region, new)))), edits.files, List((Range(at + 1, at + size(new)), 1)), out result, source)
-      let after := main_mod(source), result_lines := Array(for line in split(result, '\n'))
+      let
+        after := main_mod(source),
+        result_lines := Array(for line in split(result, '\n'))
       let held := List(for (k, _, other) in keyed(placed_of(after)) if k == key and is_signature(other) == is_signature(c) yield size(spec_of(other).examples))
-      if size(placed_of(after)) != size(placed_of(d)) or held != List(size(spec_of(c).examples) + added) then
-        raise Refused("@example " ++ word ++ " takes examples alone, while the fragment writes other code")
+      if size(placed_of(after)) != size(placed_of(d))
+        or held != List(size(spec_of(c).examples) + added) then
+        raise Refused("@example "
+          ++ word
+          ++ " takes examples alone, while the fragment writes other code")
       end
       let target := if is_signature(c) then "its signature" else "its definition"
       edits := edits with files := Map(path => result; edits.files)
-      note(in path ++ ":" ++ key_text(key) ++ ": added " ++ counted(added, "example") ++ " to " ++ target, ref edits)
+      note(in path
+        ++ ":"
+        ++ key_text(key)
+        ++ ": added "
+        ++ counted(added, "example")
+        ++ " to "
+        ++ target, ref edits)
       for ((_, old_cmd), (_, new_cmd)) in zip(List(for decl in decl_of(d, key)), List(for decl in decl_of(after, key))) do
         rebase(in path, key, lines, old_cmd, result_lines, new_cmd, region, false, ref handles)
-        let olds := kinded_nodes(lines, old_cmd), news := kinded_nodes(result_lines, new_cmd)
+        let
+          olds := kinded_nodes(lines, old_cmd),
+          news := kinded_nodes(result_lines, new_cmd)
         let placed := match aligned(hashed(lines, List(for node in olds yield node.span)), hashed(result_lines, List(for node in news yield node.span)), region)
           case Some((before, kept)) =>
             outermost(take(size(news) - kept - before, drop(before, news)))
+
           case None =>
-            List(for node in news if node.kind == KSpec and node.span.start.line > at and node.span.start.line <= at + size(new))
+            List(for node in news if node.kind == KSpec
+              and node.span.start.line > at
+              and node.span.start.line <= at + size(new))
         end
         match (placed, last(placed))
           case (List(first; _), Some(final)) =>
@@ -2728,7 +3176,10 @@ procedure add_examples(
       edits := edits with handles := handles
 
     case (List(), _) =>
-      raise Refused(path ++ " declares no function or procedure " ++ value_or(name, "") ++ ", whose spec @example writes")
+      raise Refused(path
+        ++ " declares no function or procedure "
+        ++ value_or(name, "")
+        ++ ", whose spec @example writes")
 
     case _ =>
       raise Refused(several_text("@example", word, path, List(for (key, _, c) in selected yield (key, c))))
@@ -2756,10 +3207,13 @@ function file_parts(lines: Array[Str], d: Mod): List[(Range, Str)] :=
 
 // the runs of the lines from 1 to last that no range of covered holds, where the ranges do not overlap
 function gaps(covered: List[Range], last: Int): List[Range] :=
-  example gaps(List(Range(7, 7), Range(3, 4)), 8) == List(Range(1, 2), Range(5, 6), Range(8, 8))
+  example gaps(List(Range(7, 7), Range(3, 4)), 8)
+      == List(Range(1, 2), Range(5, 6), Range(8, 8))
   example gaps(List(Range(1, 2)), 2) == List()
   let sorted := sort(covered) in
-  let starts := List(1; List(for r in sorted yield r.last + 1)), stops := List(for r in sorted yield r.first - 1) ++ List(last) in
+  let
+    starts := List(1; List(for r in sorted yield r.last + 1)),
+    stops := List(for r in sorted yield r.first - 1) ++ List(last) in
   List(for (first, stop) in zip(starts, stops) if first <= stop yield Range(first, stop))
 
 // the lines of the declaration key in lines, whose module is d, with its doc, its signature and definition alike
@@ -2782,16 +3236,20 @@ function is_once_each(counts: List[Int]): Bool :=
 // how often a text occurs in a target, by the counts of its parts with their labels, where those of one label add up
 function occurrence_text(counts: List[Int], labels: List[Str]): Str :=
   example occurrence_text(List(2), List("its definition")) == "2 times in the target"
-  example occurrence_text(List(1, 2), List("its signature", "its definition")) == "3 times in the target, 1 in its signature and 2 in its definition"
+  example occurrence_text(List(1, 2), List("its signature", "its definition"))
+      == "3 times in the target, 1 in its signature and 2 in its definition"
   let total := foldl(counts, 0, lambda a, b => a + b) in
   let places := List(for label in distinct(labels) yield (label, foldl(List(for (n, l) in zip(counts, labels) if l == label yield n), 0, lambda a, b => a + b))) in
   let found := List(for (label, n) in places if n > 0 yield show(n) ++ " in " ++ label) in
-  show(total) ++ " times in the target" ++ (if size(places) == 1 then "" else ", " ++ join(" and ", found))
+  show(total)
+    ++ " times in the target"
+    ++ (if size(places) == 1 then "" else ", " ++ join(" and ", found))
 
 // the line of lines within regions whose start without its indentation is the longest start of wanted, by its number,
 // unless none shares a character with it, where the first of the lines wins
 function nearest_line(lines: Array[Str], regions: List[Range], wanted: Str): Option[(Int, Str)] :=
-  example nearest_line(Array("f :=", "  g(1,", "    2)"), List(Range(2, 3)), "g(1, 2)") == Some((2, "  g(1,"))
+  example nearest_line(Array("f :=", "  g(1,", "    2)"), List(Range(2, 3)), "g(1, 2)")
+      == Some((2, "  g(1,"))
   example nearest_line(Array("a"), List(Range(1, 1)), "b") == None
   let scored := List(for region in regions for n in range(region.first, region.last + 1) yield (common_prefix(chars(trim(line_at(lines, n))), chars(wanted)), n)) in
   let (score, best) := foldl(scored, (0, 0), lambda (s, n), (s_, n_) => if s_ > s then (s_, n_) else (s, n)) in
@@ -2856,7 +3314,9 @@ procedure patch_block(
   let tail := map_option(get_at(0, marks), lambda m => drop(m + 1, wanted))
   let head := take(value_or(get_at(0, marks), size(wanted)), wanted)
   if size(marks) > 1 then
-    raise Refused("@patch: the old lines have " ++ show(size(marks)) ++ " lines -..., while one stands for the old lines between those before it and after it")
+    raise Refused("@patch: the old lines have "
+      ++ show(size(marks))
+      ++ " lines -..., while one stands for the old lines between those before it and after it")
   end
   for rest in tail do
     if is_blank(join("", head)) or is_blank(join("", rest)) then
@@ -2868,23 +3328,31 @@ procedure patch_block(
     if marks == List() then
       raise Refused("@patch: a line +... stands for the lines that a line -... skips, which the old lines have none of")
     else
-      raise Refused("@patch: a line -... stands for the old lines between those around it, so the new lines take one line +... where those lines go, not " ++ show(new_marks))
+      raise Refused("@patch: a line -... stands for the old lines between those around it, so the new lines take one line +... where those lines go, not "
+        ++ show(new_marks))
     end
   end
   let arrays := List(for text in texts yield Array(for line in split(text, '\n')))
   let whole := List(for lines in arrays yield block_matches(lines, head, tail, false))
-  let found := if forall(whole, lambda ms => ms == List()) and size(head) + size(value_or(tail, List())) >= 2 then
+  let found := if forall(whole, lambda ms => ms == List())
+    and size(head) + size(value_or(tail, List())) >= 2 then
     List(for lines in arrays yield block_matches(lines, head, tail, true))
   else
     whole
   if not forall(found, lambda ms => size(ms) <= 1) then
-    raise Refused("@patch: the old lines, " ++ quote(join("\n", wanted)) ++ ", occur " ++ occurrence_text(List(for ms in found yield size(ms)), labels) ++ ", so they take more of the lines around them")
+    raise Refused("@patch: the old lines, "
+      ++ quote(join("\n", wanted))
+      ++ ", occur "
+      ++ occurrence_text(List(for ms in found yield size(ms)), labels)
+      ++ ", so they take more of the lines around them")
   end
   at := List(for (ms, j) in numbered(found) for m in ms yield (j, m.start, m.count))
   texts := List(for (text, i) in numbered(texts) yield match get_at(i, found)
     case Some(List(m)) =>
       let ls := split(text, '\n') in
-      join("\n", take(m.start, ls) ++ replaced_lines(new, m, indent_of(value_or(get_at(m.start, ls), ""))) ++ drop(m.start + m.count, ls))
+      join("\n", take(m.start, ls)
+        ++ replaced_lines(new, m, indent_of(value_or(get_at(m.start, ls), "")))
+        ++ drop(m.start + m.count, ls))
 
     case _ =>
       text
@@ -2894,7 +3362,12 @@ procedure patch_block(
 // before the first old line on its line and after the last on its, empty where they are whole lines, and the lines that
 // the line ... of the old lines stands for
 data BlockMatch :=
-  case BlockMatch(start: Int, count: Int, lead: Str, trail: Str, between: List[Str])
+  case BlockMatch(
+    start: Int,
+    count: Int,
+    lead: Str,
+    trail: Str,
+    between: List[Str])
 
 // whether the text of a line of a hunk, after its marker, is ... or …, which stands in the old lines for the lines
 // between those before it and after it, and in the new lines for where those lines go, since formatted code has no such
@@ -2909,8 +3382,10 @@ function is_ellipsis(line: Str): Bool :=
 // compared without their indentation, where with partial the first of head may be the end of its line, and the last of
 // tail, or of head without a tail, the start of its line
 function block_matches(lines: Array[Str], head: List[Str], tail: Option[List[Str]], partial: Bool): List[BlockMatch] :=
-  example block_matches(Array("a", "b", "c", "d"), List("a"), Some(List("c")), false) == List(BlockMatch(0, 3, "", "", List("b")))
-  example block_matches(Array("x a", "b c"), List("a", "b"), None, true) == List(BlockMatch(0, 2, "x ", " c", List()))
+  example block_matches(Array("a", "b", "c", "d"), List("a"), Some(List("c")), false)
+      == List(BlockMatch(0, 3, "", "", List("b")))
+  example block_matches(Array("x a", "b c"), List("a", "b"), None, true)
+      == List(BlockMatch(0, 2, "x ", " c", List()))
   List(for k in range(0, size(lines)) for (lead, trail) in matched_at(lines, k, head, partial, partial and tail == None) for m in block_end(lines, k, head, tail, lead, trail, partial) yield m)
 
 // the match of the old lines head at the index k of lines, whose text before them is lead and after them trail,
@@ -2935,7 +3410,8 @@ function block_end(lines: Array[Str], k: Int, head: List[Str], tail: Option[List
 // the text before the lines wanted at the index k of lines and after them, if they continue there, compared without
 // their indentation, where with ends the first may be the end of its line, and with starts the last the start of its line
 function matched_at(lines: Array[Str], k: Int, wanted: List[Str], ends: Bool, starts: Bool): Option[(Str, Str)] :=
-  example matched_at(Array("  let x := f(a,", "    b)"), 0, List("f(a,", "b)"), true, false) == Some(("let x := ", ""))
+  example matched_at(Array("  let x := f(a,", "    b)"), 0, List("f(a,", "b)"), true, false)
+      == Some(("let x := ", ""))
   example matched_at(Array("a", "b"), 1, List("b", "c"), false, false) == None
   let n := size(wanted) in
   let found := List(for (w, i) in numbered(wanted) yield line_match(trim(line_at(lines, k + i + 1)), w, ends and i == 0, starts and i == n - 1)) in
@@ -2947,7 +3423,8 @@ function matched_at(lines: Array[Str], k: Int, wanted: List[Str], ends: Bool, st
 // the text before w on the line t and after it, empty if they are the same, else if ends and t ends with w, or if starts
 // and t starts with w
 function line_match(t: Str, w: Str, ends: Bool, starts: Bool): Option[(Str, Str)] :=
-  example line_match("else if c then", "else if", false, true) == Some(("", " c then"))
+  example line_match("else if c then", "else if", false, true)
+      == Some(("", " c then"))
   example line_match("else if c then", "else if", true, false) == None
   if t == w then
     Some(("", ""))
@@ -2962,7 +3439,8 @@ function line_match(t: Str, w: Str, ends: Bool, starts: Bool): Option[(Str, Str)
 // stands for replace the line ... of the new lines, moved to its indentation, the first line follows the text before the
 // old lines on their first line, and the last precedes the text after them on their last
 function replaced_lines(new: List[Str], m: BlockMatch, depth: Int): List[Str] :=
-  example replaced_lines(List("if c then", "  ...", "end"), BlockMatch(0, 3, "", "", List("    a", "      b")), 2) == List("  if c then", "    a", "      b", "  end")
+  example replaced_lines(List("if c then", "  ...", "end"), BlockMatch(0, 3, "", "", List("    a", "      b")), 2)
+      == List("  if c then", "    a", "      b", "  end")
   let placed := indented(dedented(new), depth) in
   let spread := List(for line in placed for l in if is_ellipsis(line) then
     indented(dedented(m.between), indent_of(line))
@@ -2994,7 +3472,8 @@ function joined_ends(lines: List[Str], lead: Str, trail: Str, depth: Int): List[
 // the indices, from 0, at which lines continue with the lines wanted, compared without their indentation
 function block_starts(lines: List[Str], wanted: List[Str]): List[Int] :=
   example block_starts(List("a", "  b", "c", "b", "c"), List("b", "c")) == List(1, 3)
-  List(for k in range(0, size(lines) - size(wanted) + 1) if List(for line in take(size(wanted), drop(k, lines)) yield trim(line)) == wanted)
+  List(for k in range(0, size(lines) - size(wanted) + 1) if List(for line in take(size(wanted), drop(k, lines)) yield trim(line))
+    == wanted)
 
 // the offsets where part occurs in text
 function occurrences(text: Str, part: Str): List[Int] :=
@@ -3015,7 +3494,9 @@ data Change :=
 
 function journal_text(changes: List[Change]): Str :=
   let headers := List(for c in changes yield c.path ++ "\t" ++ show(size(c.before)) ++ "\t" ++ show(size(c.after))) in
-  join("\n", List(show(size(changes)); headers)) ++ "\n" ++ join("", List(for c in changes yield c.before ++ c.after))
+  join("\n", List(show(size(changes)); headers))
+    ++ "\n"
+    ++ join("", List(for c in changes yield c.before ++ c.after))
 
 function journal_changes(text: Str): List[Change] :=
   let lines := split(text, '\n') in
@@ -3034,7 +3515,9 @@ function changes_of(headers: List[Str], body: Str): List[Change] :=
     case List(header; rest) =>
       match split(header, '\t')
         case List(path, before, after) =>
-          let b := value_or(number(before), 0), a := value_or(number(after), 0) in
+          let
+            b := value_or(number(before), 0),
+            a := value_or(number(after), 0) in
           List(
             Change(path, slice(body, 0, b), slice(body, b, b + a)); changes_of(rest, slice(body, b + a, size(body))))
 
@@ -3088,7 +3571,10 @@ procedure undo(in word: Option[Str], ref edits: Edits) raises Refused, OsError :
       for c in journal_changes(journal) do
         current_text(in c.path, edits.files, out text)
         if text != c.after then
-          raise Refused(c.path ++ " changed after script " ++ show(n) ++ ", so it is not undone")
+          raise Refused(c.path
+            ++ " changed after script "
+            ++ show(n)
+            ++ ", so it is not undone")
         end
         edits := edits with files := Map(c.path => c.before; edits.files)
       end
@@ -3096,7 +3582,8 @@ procedure undo(in word: Option[Str], ref edits: Edits) raises Refused, OsError :
       note(in "undid script " ++ show(n), ref edits)
 
     case _ =>
-      raise Refused("no script of the journal to undo" ++ value_or(map_option(word, lambda w => " numbered " ++ w), ""))
+      raise Refused("no script of the journal to undo"
+        ++ value_or(map_option(word, lambda w => " numbered " ++ w), ""))
   end
 
 function handle_line(h: Handle): Str :=
@@ -3147,7 +3634,8 @@ procedure save_handles(
       root: Str,
       entries: List[Handle]
 ) raises OsError :=
-  os_write_utf8(in os_join(dir, "handles.txt"), join("\n", List(for h in entries yield handle_line(h with path := normal_file(here, root, h.path)))) ++ "\n")
+  os_write_utf8(in os_join(dir, "handles.txt"), join("\n", List(for h in entries yield handle_line(h with path := normal_file(here, root, h.path))))
+    ++ "\n")
 
 procedure state_dir(out dir: Str) raises OsError :=
   var here: Str, root: Str
@@ -3201,7 +3689,10 @@ procedure run_actions(
     load_handles(in dir, here, root, out handles)
     // the actions read the overlays as the texts of their files, which the script writes only if it changes them
     let base := Map(for path => text in overlays yield normal_file(here, here, path) => text)
-    var edits := Edits(base, empty(), List(), handles, List(), state, List(), false), written: Map[Str, Str] := Map(), failure: Option[Str] := None
+    var
+      edits := Edits(base, empty(), List(), handles, List(), state, List(), false),
+      written: Map[Str, Str] := Map(),
+      failure: Option[Str] := None
     var refused := 0, effective := script
     // @retry alone runs the corrected script of the last refusal, which each script that writes replaces
     if List(for a in actions(script) yield a.words) == List(List("retry")) then
@@ -3235,12 +3726,16 @@ procedure run_actions(
       catch
         // a query writes nothing, so its refusal is a note, and the script goes on
         case Refused(message) | OsError(message) if is_query(action) =>
-          note(in "@" ++ join(" ", action.words) ++ ": refused, " ++ with_script_lines(message, action.line), ref edits)
+          note(in "@"
+            ++ join(" ", action.words)
+            ++ ": refused, "
+            ++ with_script_lines(message, action.line), ref edits)
           refused := refused + 1
 
         case Refused(message) =>
           let fixes := corrections(split(action.fragment, '\n'), message)
-          failure := Some(with_script_lines(message, action.line) ++ correction_lines(fixes, action.line))
+          failure := Some(with_script_lines(message, action.line)
+            ++ correction_lines(fixes, action.line))
           if fixes != List() then
             os_write_utf8(in os_join(dir, "retry.txt"), corrected_script(effective, action.line, fixes))
           end
@@ -3258,7 +3753,10 @@ procedure run_actions(
     if edits.handles.changed then
       save_handles(in dir, here, root, saved_entries(handles, edits.handles, dry))
     end
-    var changes: List[Change] := List(), original: Str, created: List[Str] := List()
+    var
+      changes: List[Change] := List(),
+      original: Str,
+      created: List[Str] := List()
     for path => text in edits.files do
       try
         match (get(path, base), get(path, written))
@@ -3281,11 +3779,17 @@ procedure run_actions(
     end
     let changed := List(for c in changes yield c.path)
     // the files whose exports the script changed, whose importers it does not check, which may now have errors
-    let interfaces := List(for c in changes if not contains(c.path, created) for names in List(changed_exports(c.before, c.after)) if names != List() yield c.path ++ ": the exports " ++ join(", ", names) ++ " changed, whose importers are not checked")
+    let interfaces := List(for c in changes if not contains(c.path, created) for names in List(changed_exports(c.before, c.after)) if names != List() yield c.path
+      ++ ": the exports "
+      ++ join(", ", names)
+      ++ " changed, whose importers are not checked")
     // the comment lines longer than 120 columns that the script wrote, which format does not wrap
     let long := List(for c in changes for line in long_comments(c.path, c.before, c.after) yield line)
     let paths := distinct(changed ++ edits.checked)
-    var before: List[(Str, Diagnostic)] := List(), after: List[(Str, Diagnostic)] := List(), found: List[(Str, Diagnostic)]
+    var
+      before: List[(Str, Diagnostic)] := List(),
+      after: List[(Str, Diagnostic)] := List(),
+      found: List[(Str, Diagnostic)]
     var journaled: List[Str] := List()
     for path => kept in written do
       os_write_utf8(in path, kept)
@@ -3330,7 +3834,13 @@ procedure run_actions(
       List("checked " ++ counted(size(paths), "file") ++ ", unchanged")
     else
       List(
-        "checked " ++ counted(size(paths), "file") ++ ": " ++ show(size(added)) ++ " new, " ++ show(size(gone)) ++ " gone")
+        "checked "
+          ++ counted(size(paths), "file")
+          ++ ": "
+          ++ show(size(added))
+          ++ " new, "
+          ++ show(size(gone))
+          ++ " gone")
     let marker := if changes == List() then "  " else "  + "
     var labels := edits.handles, lines: List[Str] := List()
     for (file, d) in listed do
@@ -3341,7 +3851,8 @@ procedure run_actions(
       end
       lines := lines ++ List(marker ++ label ++ diagnostic_text(file, d))
     end
-    lines := lines ++ List(for (file, d) in gone if changes != List() yield "  - " ++ diagnostic_text(file, d))
+    lines := lines
+      ++ List(for (file, d) in gone if changes != List() yield "  - " ++ diagnostic_text(file, d))
     if size(labels.entries) > size(edits.handles.entries) then
       save_handles(in dir, here, root, labels.entries)
     end
@@ -3354,9 +3865,14 @@ procedure run_actions(
       load_unrun(in dir, here, root, out unrun)
       // the tests of the packages of the files tested that the errors of an earlier script left unrun, and which have not
       // run since
-      let earlier := List(for f => what in unrun if not contains(f, tested) and exists(tested, lambda t => os_dirname(t) == os_dirname(f)) yield "not run since an earlier script, whose errors left them out: " ++ f ++ ": " ++ what)
+      let earlier := List(for f => what in unrun if not contains(f, tested)
+        and exists(tested, lambda t => os_dirname(t) == os_dirname(f)) yield "not run since an earlier script, whose errors left them out: "
+        ++ f
+        ++ ": "
+        ++ what)
       tests := tests with lines := tests.lines ++ earlier
-      save_unrun(in dir, here, root, Map(for f => what in unrun if not contains(f, tested) yield f => what) ++ tests.unrun)
+      save_unrun(in dir, here, root, Map(for f => what in unrun if not contains(f, tested) yield f => what)
+        ++ tests.unrun)
     end
     let errors := size(List(for (_, d) in after if not is_warning(d) yield d))
     // a script that changes a file says how many of each are new, so that the first line tells whether they are its own
@@ -3365,7 +3881,14 @@ procedure run_actions(
     else
       Some((size(List(for (_, d) in added if not is_warning(d) yield d)), size(List(for (_, d) in added if is_warning(d) yield d))))
     reply := List(
-      verdict(dry, paths != List(), errors, size(after) - errors, fresh, refused, tests)) ++ List(for n in edits.notes) ++ journaled ++ counts ++ interfaces ++ long ++ lines ++ tests.lines
+        verdict(dry, paths != List(), errors, size(after) - errors, fresh, refused, tests))
+      ++ List(for n in edits.notes)
+      ++ journaled
+      ++ counts
+      ++ interfaces
+      ++ long
+      ++ lines
+      ++ tests.lines
     status := if tests.failed > 0 then 3 else if errors > 0 or refused > 0 then 1 else 0
   catch
     case Refused(message) =>
@@ -3389,10 +3912,14 @@ procedure retried(in dir: Str, out script: Str) raises Refused :=
 // the words of an action with the path of each target F, F:name[/n], or F:L.C by normal_file from the working directory
 // here, so that ./a.u and a.u name the same file
 function normal_words(here: Str, words: List[Str]): List[Str] :=
-  example normal_words("/r", List("show", "./a.u:f/2", "#3")) == List("show", "a.u:f/2", "#3")
+  example normal_words("/r", List("show", "./a.u:f/2", "#3"))
+      == List("show", "a.u:f/2", "#3")
   List(for word in words yield match target_of(word)
-    case (path, _, _) if ends_with(path, ".u") and not starts_with(word, "\"") and not starts_with(word, "#") =>
+    case (path, _, _) if ends_with(path, ".u")
+      and not starts_with(word, "\"")
+      and not starts_with(word, "#") =>
       normal_file(here, here, path) ++ slice(word, size(path), size(word))
+
     case _ =>
       word
   end)
@@ -3407,7 +3934,9 @@ procedure module_words(
   written := List()
   for word in words do
     let pieces := split(word, '/')
-    let parts := split(value_or(get_at(0, pieces), word), '.'), selector := slice(word, size(value_or(get_at(0, pieces), word)), size(word))
+    let
+      parts := split(value_or(get_at(0, pieces), word), '.'),
+      selector := slice(word, size(value_or(get_at(0, pieces), word)), size(word))
     var target := word
     if size(parts) > 1 and forall(parts, is_plain_name) then
       for k in reverse(range(1, size(parts))) if target == word do
@@ -3428,10 +3957,19 @@ procedure module_words(
               if not is_capitalized(name) then
                 target := path ++ ":" ++ sort ++ "." ++ name ++ selector
               else
-                if exists(split(text, '\n'), lambda line => starts_with(line, "data " ++ sort ++ " ") or starts_with(line, "data " ++ sort ++ "[")) then
+                if exists(split(text, '\n'), lambda line => starts_with(line, "data " ++ sort ++ " ")
+                  or starts_with(line, "data " ++ sort ++ "[")) then
                   target := path ++ ":" ++ name ++ selector
                 else
-                  raise Refused(word ++ " names the constructor " ++ name ++ " of " ++ sort ++ ", but " ++ path ++ " declares no datatype " ++ sort)
+                  raise Refused(word
+                    ++ " names the constructor "
+                    ++ name
+                    ++ " of "
+                    ++ sort
+                    ++ ", but "
+                    ++ path
+                    ++ " declares no datatype "
+                    ++ sort)
                 end
               end
 
@@ -3466,8 +4004,14 @@ function is_query(action: Action): Bool :=
 
 // the message of an error of the system in an action, with the action and its line in the script
 function action_failure(action: Action, message: Str): Str :=
-  example action_failure(Action(3, List("put", "a/b.u"), ""), "cannot read a/b.u") == "line 3, @put a/b.u: cannot read a/b.u"
-  "line " ++ show(action.line) ++ ", @" ++ join(" ", action.words) ++ ": " ++ message
+  example action_failure(Action(3, List("put", "a/b.u"), ""), "cannot read a/b.u")
+      == "line 3, @put a/b.u: cannot read a/b.u"
+  "line "
+    ++ show(action.line)
+    ++ ", @"
+    ++ join(" ", action.words)
+    ++ ": "
+    ++ message
 
 function is_rename(action: Action): Bool :=
   match action.words
@@ -3489,7 +4033,10 @@ procedure commit_rename(
   in  edits: Edits,
   ref written: Map[Str, Str]
 ) raises Refused, OsError :=
-  var prior: List[(Str, Str)] := List(), differences: List[Str] := List(), uses: List[(Span, Name, Int)]
+  var
+    prior: List[(Str, Str)] := List(),
+    differences: List[Str] := List(),
+    uses: List[(Span, Name, Int)]
   flush_into(in edits, ref written, prior)
   for (path, names) in edits.expected do
     var text: Str
@@ -3505,7 +4052,8 @@ procedure commit_rename(
       os_write_utf8(in path, text)
     end
     raise Refused(join("\n", List(
-      "the rename changes the resolution of other names, so nothing is written:") ++ differences))
+        "the rename changes the resolution of other names, so nothing is written:")
+      ++ differences))
   end
 
 // flush, which also collects the texts that it overwrote in prior
@@ -3536,38 +4084,65 @@ procedure flush_into(
 // names, where a use that is new or that would resolve to nothing, which shifts the uses after it, is told by the uses
 // after it
 function first_difference(found: List[(Pos, Str, Name)], expected: List[Name]): Option[Str] :=
-  example first_difference(List((Pos(3, 7), "g", Name(List(), "g"))), List(Name(List("m"), "g"))) == Some("3.7: the use g would resolve to the local g instead of m.g")
-  example first_difference(List((Pos(3, 7), "x", Name(List(), "x"))), List(Name(List("m"), "g"), Name(List(), "x"))) == Some("3.7: the use of m.g just before x here would resolve to nothing, as an ambiguous or unknown name")
+  example first_difference(List((Pos(3, 7), "g", Name(List(), "g"))), List(Name(List("m"), "g")))
+      == Some("3.7: the use g would resolve to the local g instead of m.g")
+  example first_difference(List((Pos(3, 7), "x", Name(List(), "x"))), List(Name(List("m"), "g"), Name(List(), "x")))
+      == Some("3.7: the use of m.g just before x here would resolve to nothing, as an ambiguous or unknown name")
   example first_difference(List(
-      (Pos(2, 1), "h", Name(List("m"), "h")),
-      (Pos(3, 7), "x", Name(List(), "x"))), List(Name(List(), "x"))) == Some("2.1: the use h would be new, resolving to m.h")
+        (Pos(2, 1), "h", Name(List("m"), "h")),
+        (Pos(3, 7), "x", Name(List(), "x"))), List(Name(List(), "x")))
+      == Some("2.1: the use h would be new, resolving to m.h")
   match (found, expected)
     case (List((pos, text, n); rest), List(e; more)) =>
       let at := show(pos.line) ++ "." ++ show(pos.col) in
       if n == e then
         first_difference(rest, more)
       else if names_of(found) == more then
-        Some(at ++ ": the use of " ++ format_name(e) ++ " just before " ++ text ++ " here would resolve to nothing, as an ambiguous or unknown name")
+        Some(at
+          ++ ": the use of "
+          ++ format_name(e)
+          ++ " just before "
+          ++ text
+          ++ " here would resolve to nothing, as an ambiguous or unknown name")
       else if names_of(rest) == expected then
-        Some(at ++ ": the use " ++ text ++ " would be new, resolving to " ++ resolved_text(n))
+        Some(at
+          ++ ": the use "
+          ++ text
+          ++ " would be new, resolving to "
+          ++ resolved_text(n))
       else
-        Some(at ++ ": the use " ++ text ++ " would resolve to " ++ resolved_text(n) ++ " instead of " ++ resolved_text(e))
+        Some(at
+          ++ ": the use "
+          ++ text
+          ++ " would resolve to "
+          ++ resolved_text(n)
+          ++ " instead of "
+          ++ resolved_text(e))
 
     case (List(), List()) =>
       None
 
     case (List((pos, text, n); _), List()) =>
-      Some(show(pos.line) ++ "." ++ show(pos.col) ++ ": the use " ++ text ++ " would be new, resolving to " ++ resolved_text(n))
+      Some(show(pos.line)
+        ++ "."
+        ++ show(pos.col)
+        ++ ": the use "
+        ++ text
+        ++ " would be new, resolving to "
+        ++ resolved_text(n))
 
     case (List(), List(e; _)) =>
-      Some(" the last use of " ++ format_name(e) ++ " would resolve to nothing, as an ambiguous or unknown name")
+      Some(" the last use of "
+        ++ format_name(e)
+        ++ " would resolve to nothing, as an ambiguous or unknown name")
   end
 
 // a name that a use resolves to, a local, a builtin without a module, or a declaration by its qualified name
 function resolved_text(name: Name): Str :=
   example resolved_text(Name(List(), "x")) == "the local x"
   example resolved_text(Name(List(), "show")) == "show"
-  if name.path == List() and not contains(name.base, List("==", "compare", "show", "and", "or")) then
+  if name.path == List()
+    and not contains(name.base, List("==", "compare", "show", "and", "or")) then
     "the local " ++ name.base
   else
     format_name(name)
@@ -3655,7 +4230,8 @@ procedure user_files(
   for file in distinct(List(for f in own if not contains(f, project)) ++ project) do
     var text: Str
     current_text(in file, files, out text)
-    if (contains(file, own) or size(occurrences(text, import_line)) > 0) and exists(words, lambda word => has_word(text, word)) then
+    if (contains(file, own) or size(occurrences(text, import_line)) > 0)
+      and exists(words, lambda word => has_word(text, word)) then
       found := found ++ List((file, text))
     end
   end
@@ -3714,7 +4290,8 @@ function with_word(line: Str, name: Str, new: Str): Str :=
   foldl(reverse(starts), line, lambda acc, i => slice(acc, 0, i) ++ new ++ slice(acc, i + size(name), size(acc)))
 
 function is_word_at(line: Str, i: Int, n: Int): Bool :=
-  (i == 0 or not is_name_char(at(i - 1, line))) and (i + n >= size(line) or not is_name_char(at(i + n, line)))
+  (i == 0 or not is_name_char(at(i - 1, line)))
+    and (i + n >= size(line) or not is_name_char(at(i + n, line)))
 
 // line with name at each of cols, from 1, replaced by new, where name stands there
 function at_cols(line: Str, cols: List[Int], name: Str, new: Str): Str :=
@@ -3747,31 +4324,50 @@ procedure rename(
       new: Str,
   ref edits: Edits
 ) raises Refused, OsError :=
-  var text: Str, source: Source, here: Str, root: Str, files: List[(Str, Str)], uses: List[(Span, Name, Int)]
+  var
+    text: Str,
+    source: Source,
+    here: Str,
+    root: Str,
+    files: List[(Str, Str)],
+    uses: List[(Span, Name, Int)]
   let (path, chosen, arity) := target_of(word)
   let base := value_or(chosen, "")
   if not is_plain_name(base) or not is_plain_name(new) then
-    raise Refused("@rename takes a declaration file.u:name of a plain name and a plain name, not " ++ word ++ " and " ++ new)
+    raise Refused("@rename takes a declaration file.u:name of a plain name and a plain name, not "
+      ++ word
+      ++ " and "
+      ++ new)
   end
   current_text(in path, edits.files, out text)
   parsed(in path, text, edits.files, no_fragment(), out source)
   let d := main_mod(source), lines := Array(for line in split(text, '\n'))
   let decls := List(for (key, cmd, c) in keyed(placed_of(d)) if key.kind == "value" and is_selected(key, base, arity) yield (key, cmd, c))
   let constrs := List(for (_, cmd, c) in keyed(placed_of(d)) for constr in constrs_of(c) if constr_name(constr) == base yield (cmd, constr))
-  let arities := distinct(List(for (key, _, _) in decls yield key.arity) ++ List(for (_, constr) in constrs yield constr_arity(constr)))
+  let arities := distinct(List(for (key, _, _) in decls yield key.arity)
+    ++ List(for (_, constr) in constrs yield constr_arity(constr)))
   match arities
     case List(_) =>
       skip
 
     case List() =>
-      raise Refused(path ++ " declares no function, procedure, pattern alias, or constructor " ++ base ++ ", and types and fields are not renamed yet")
+      raise Refused(path
+        ++ " declares no function, procedure, pattern alias, or constructor "
+        ++ base
+        ++ ", and types and fields are not renamed yet")
 
     case _ =>
-      raise Refused(path ++ " declares " ++ base ++ " of several arities, so name one, " ++ base ++ "/n")
+      raise Refused(path
+        ++ " declares "
+        ++ base
+        ++ " of several arities, so name one, "
+        ++ base
+        ++ "/n")
   end
   let n := value_or(get_at(0, arities), 0)
   let members := List(for m in source.mods if is_member(source, d.name, m.name) for cmd in placed_of(m) yield cmd)
-  let clashes := exists(keyed(members), lambda (key, _, c) => key.kind == "value" and key.base == new and key.arity == n or exists(constrs_of(c), lambda constr => constr_name(constr) == new))
+  let clashes := exists(keyed(members), lambda (key, _, c) => key.kind == "value" and key.base == new and key.arity == n
+    or exists(constrs_of(c), lambda constr => constr_name(constr) == new))
   if clashes then
     raise Refused("the package of " ++ path ++ " already declares " ++ new ++ "/" ++ show(n))
   end
@@ -3811,9 +4407,22 @@ procedure rename(
     end
   end
   edits := edits with expected := expected
-  note(in "renamed " ++ format_name(target) ++ " to " ++ new ++ " at its declarations and " ++ counted(count, "use") ++ " in " ++ counted(touched, "file"), ref edits)
+  note(in "renamed "
+    ++ format_name(target)
+    ++ " to "
+    ++ new
+    ++ " at its declarations and "
+    ++ counted(count, "use")
+    ++ " in "
+    ++ counted(touched, "file"), ref edits)
   if also != List() then
-    note(in "warning: the uses of " ++ new ++ "/" ++ show(n) ++ " also see " ++ join(", ", also) ++ ", so a use that its arity and types do not decide is ambiguous", ref edits)
+    note(in "warning: the uses of "
+      ++ new
+      ++ "/"
+      ++ show(n)
+      ++ " also see "
+      ++ join(", ", also)
+      ++ ", so a use that its arity and types do not decide is ambiguous", ref edits)
   end
   var found: List[Str]
   doc_references(in if root == here then "." else root, base, out found)
@@ -3834,7 +4443,8 @@ function declared(lines: Array[Str], decls: List[(Key, At[Cmd], Cmd)], constrs: 
 
 // whether the module other is main or a member of its package
 function is_member(source: Source, main: Path, other: Path): Bool :=
-  main == other or exists(source.packages, lambda p => contains(main, p.members) and contains(other, p.members))
+  main == other
+    or exists(source.packages, lambda p => contains(main, p.members) and contains(other, p.members))
 
 function constrs_of(cmd: Cmd): List[At[Constr]] :=
   match cmd
@@ -3863,7 +4473,9 @@ function constr_arity(constr: At[Constr]): Int :=
 // the lines of the spec of the definition cmd, its contract and examples after its head, and the line of its head that
 // ends in :=
 function spec_range(lines: Array[Str], cmd: At[Cmd], c: Cmd): Option[Range] :=
-  let head_end := cmd.span.start.line + size(head_lines(lines_in(lines, Range(cmd.span.start.line, cmd.span.stop.line)))) - 1 in
+  let head_end := cmd.span.start.line
+    + size(head_lines(lines_in(lines, Range(cmd.span.start.line, cmd.span.stop.line))))
+    - 1 in
   let stops := List(for part in spec_parts(c) yield part.stop.line) in
   map_option(last(sort(stops)), lambda stop => Range(head_end + 1, stop))
 
@@ -3886,7 +4498,9 @@ function spec_parts(cmd: Cmd): List[Span] :=
   end
 
 function spec_spans(spec: Spec): List[Span] :=
-  List(for e in spec.pre yield e.span) ++ List(for e in spec.post yield e.span) ++ List(for x in spec.examples yield x.span)
+  List(for e in spec.pre yield e.span)
+    ++ List(for e in spec.post yield e.span)
+    ++ List(for x in spec.examples yield x.span)
 
 function is_definition_of_value(cmd: Cmd): Bool :=
   match cmd
@@ -3902,7 +4516,8 @@ function is_definition_of_value(cmd: Cmd): Bool :=
 
 // the head lines with raised written before their :=, as an exported procedure must write what it raises
 function with_raises(head: List[Str], raised: Str): List[Str] :=
-  example with_raises(List("procedure p(in x: Int) :="), "OsError") == List("procedure p(in x: Int) raises OsError :=")
+  example with_raises(List("procedure p(in x: Int) :="), "OsError")
+      == List("procedure p(in x: Int) raises OsError :=")
   match reverse(head)
     case List(last; rest) if raised != "" and ends_with(last, " :=") =>
       reverse(List(
@@ -4036,7 +4651,10 @@ procedure unexport_target(
             let def_doc := lines_in(lines, Range(def_range.first, def.span.start.line - 1))
             let def_head := head_lines(lines_in(lines, Range(def.span.start.line, def.span.stop.line)))
             let rest := lines_in(lines, Range(def.span.start.line + size(def_head), def_range.last))
-            let new_def := (if def_doc == List() then sig_doc else def_doc) ++ with_assign(def_head) ++ spec_lines ++ rest
+            let new_def := (if def_doc == List() then sig_doc else def_doc)
+              ++ with_assign(def_head)
+              ++ spec_lines
+              ++ rest
             let base := spliced(List(for line in lines), List((sig_range, List()), (def_range, new_def)))
             formatted(in path, join("\n", base), edits.files, no_fragment(), out result, _)
             edits := edits with files := Map(path => result; edits.files)
@@ -4074,13 +4692,19 @@ procedure fix(
       check: (in Str, Map[Str, Str], out List[(Str, Diagnostic)]),
   ref edits: Edits
 ) raises Refused, OsError :=
-  var text: Str, source: Source, result: Str, before: List[(Str, Diagnostic)], added: List[(Str, Diagnostic)]
+  var
+    text: Str,
+    source: Source,
+    result: Str,
+    before: List[(Str, Diagnostic)],
+    added: List[(Str, Diagnostic)]
   let (path, name, arity) := target_of(word)
   current_text(in path, edits.files, out text)
   parsed(in path, text, edits.files, no_fragment(), out source)
   let d := main_mod(source), lines := Array(for line in split(text, '\n'))
   let regions := List(for (key, cmd, _) in keyed(placed_of(d)) if forall(name, lambda base => is_selected(key, base, arity)) yield cmd_range(lines, cmd, 0, true))
-  let selected := List(for w in lints(d) if rules == List() or contains(show(w.lint), rules) if name == None or exists(regions, lambda r => r.first <= w.pos.line and w.pos.line <= r.last) yield w)
+  let selected := List(for w in lints(d) if rules == List() or contains(show(w.lint), rules) if name == None
+    or exists(regions, lambda r => r.first <= w.pos.line and w.pos.line <= r.last) yield w)
   let fixable := List(for w in selected for edit in w.edit yield (w, edit))
   let starts := line_starts(lines)
   let splices := edit_splices(source, d, text, lines, starts, List(for (w, edit) in fixable yield (show(w.lint) ++ " at " ++ show(w.pos.line) ++ "." ++ show(w.pos.col), edit)))
@@ -4118,7 +4742,8 @@ procedure fix(
   let overlapping := if skipped == List() then
     ""
   else
-    ", skipped inside or across another edit, which a second @fix takes if it still applies: " ++ join(", ", skipped)
+    ", skipped inside or across another edit, which a second @fix takes if it still applies: "
+      ++ join(", ", skipped)
   let rest := overlapping ++ (if unfixable > 0 then
     ", " ++ counted(unfixable, "warning") ++ " without an edit"
   else
@@ -4126,7 +4751,11 @@ procedure fix(
   let fixed_text := if labels == List() then "nothing to fix" else "fixed " ++ join(", ", labels)
   note(in path ++ ": " ++ fixed_text ++ rest, ref edits)
   for (fixed_labels, (file, error)) in refused do
-    note(in path ++ ": refused " ++ join(", ", fixed_labels) ++ ", which would cause " ++ diagnostic_text(file, error), ref edits)
+    note(in path
+      ++ ": refused "
+      ++ join(", ", fixed_labels)
+      ++ ", which would cause "
+      ++ diagnostic_text(file, error), ref edits)
   end
 
 // the text with the splices taken, formatted, and the errors that check finds in it beyond before, with it and files as
@@ -4231,7 +4860,9 @@ function move_of(edit: Edit): Option[(Span, Span, List[(Span, Str)])] :=
 function simple_splice(source: Source, d: Mod, text: Str, lines: Array[Str], starts: Array[Int], edit: Edit): Option[Splice] :=
   match edit
     case EditExpr(span, expr) =>
-      Some(Splice(offset_of(starts, span.start), offset_of(starts, span.stop), "(" ++ format_module_expr(source, d.name, line_indentation(lines, span.start), expr) ++ ")", List()))
+      Some(Splice(offset_of(starts, span.start), offset_of(starts, span.stop), "("
+        ++ format_module_expr(source, d.name, line_indentation(lines, span.start), expr)
+        ++ ")", List()))
 
     case EditDrop(pos) =>
       map_option(find(placed_of(d), lambda cmd => cmd.pos == pos), lambda cmd => let range := cmd_range(lines, cmd, 0, true) in
@@ -4269,7 +4900,9 @@ function drop_outs_of(edit: Edit): Option[(List[Span], Id)] :=
 // ref, which the call names by their words, since the outs of a call have no positions, all in one splice, since the
 // declarations of the names go together
 function out_splice(text: Str, starts: Array[Int], span: Span, names: List[Id]): Splice :=
-  let first := offset_of(starts, span.start), last := offset_of(starts, span.stop) in
+  let
+    first := offset_of(starts, span.start),
+    last := offset_of(starts, span.stop) in
   let call := slice(text, first, last) in
   let outs_at := value_or(index_of("out ", call), size(call)) in
   let refs_at := value_or(map_option(index_of(" ref ", slice(call, outs_at, size(call))), lambda i => outs_at + i), size(call)) in
@@ -4280,7 +4913,9 @@ function out_splice(text: Str, starts: Array[Int], span: Span, names: List[Id]):
 // and declare each at the start of the bodies that it moves into, by the keyword of each, those of one body in one
 // statement
 function local_splices(text: Str, lines: Array[Str], starts: Array[Int], local: Span, moves: List[(Span, List[(Span, Str)])]): List[Splice] :=
-  let first := offset_of(starts, local.start), last := offset_of(starts, local.stop) in
+  let
+    first := offset_of(starts, local.start),
+    last := offset_of(starts, local.stop) in
   let stmt := slice(text, first, last) in
   let decl_texts := List(for (decl, _) in moves yield slice(text, offset_of(starts, decl.start), offset_of(starts, decl.stop))) in
   let kept := foldl(reverse(sort(List(for (decl, _) in moves yield (offset_of(starts, decl.start) - first, offset_of(starts, decl.stop) - first)))), stmt, without_decl) in
@@ -4290,7 +4925,11 @@ function local_splices(text: Str, lines: Array[Str], starts: Array[Int], local: 
     Splice(first, last, kept, List()) in
   let bodies := distinct(List(for (_, targets) in moves for target in targets yield target)) in
   List(
-    removal; List(for (body, keyword) in bodies yield Splice(line_offset(starts, body.start.line), line_offset(starts, body.start.line), repeat(body.start.col - 1, " ") ++ keyword ++ " " ++ join(", ", declared_in(body, moves, decl_texts)) ++ "\n", List())))
+    removal; List(for (body, keyword) in bodies yield Splice(line_offset(starts, body.start.line), line_offset(starts, body.start.line), repeat(body.start.col - 1, " ")
+      ++ keyword
+      ++ " "
+      ++ join(", ", declared_in(body, moves, decl_texts))
+      ++ "\n", List())))
 
 // the texts of the declarations of moves that move into body
 function declared_in(body: Span, moves: List[(Span, List[(Span, Str)])], decl_texts: List[Str]): List[Str] :=
@@ -4324,12 +4963,18 @@ function without_overlaps(splices: List[(Int, Int, Str, List[Str])], last: Int):
 
 // the first line of the reply
 function verdict(dry: Bool, checked: Bool, errors: Int, warnings: Int, fresh: Option[(Int, Int)], refused: Int, tests: Tests): Str :=
-  example verdict(false, true, 3, 1, None, 0, Tests(List(), 0, 0, 0, Map())) == "applied, 3 errors, 1 warning"
-  example verdict(false, true, 3, 1, Some((1, 0)), 0, Tests(List(), 0, 0, 0, Map())) == "applied, 3 errors (1 new), 1 warning (0 new)"
-  example verdict(false, true, 0, 0, Some((0, 0)), 0, Tests(List(), 2, 1, 4, Map())) == "applied, clean, 2 tests passed, 1 failed, 4 not run"
-  example verdict(false, false, 0, 0, None, 0, Tests(List(), 0, 0, 0, Map())) == "applied"
-  example verdict(false, false, 0, 0, None, 2, Tests(List(), 0, 0, 0, Map())) == "applied, 2 queries refused"
-  example verdict(true, true, 1, 0, Some((1, 0)), 0, Tests(List(), 0, 0, 0, Map())) == "dry, 1 error (1 new)"
+  example verdict(false, true, 3, 1, None, 0, Tests(List(), 0, 0, 0, Map()))
+      == "applied, 3 errors, 1 warning"
+  example verdict(false, true, 3, 1, Some((1, 0)), 0, Tests(List(), 0, 0, 0, Map()))
+      == "applied, 3 errors (1 new), 1 warning (0 new)"
+  example verdict(false, true, 0, 0, Some((0, 0)), 0, Tests(List(), 2, 1, 4, Map()))
+      == "applied, clean, 2 tests passed, 1 failed, 4 not run"
+  example verdict(false, false, 0, 0, None, 0, Tests(List(), 0, 0, 0, Map()))
+      == "applied"
+  example verdict(false, false, 0, 0, None, 2, Tests(List(), 0, 0, 0, Map()))
+      == "applied, 2 queries refused"
+  example verdict(true, true, 1, 0, Some((1, 0)), 0, Tests(List(), 0, 0, 0, Map()))
+      == "dry, 1 error (1 new)"
   let state := if not checked then
     List()
   else if errors == 0 and warnings == 0 then
@@ -4337,11 +4982,13 @@ function verdict(dry: Bool, checked: Bool, errors: Int, warnings: Int, fresh: Op
   else
     List(for (n, noun, added) in List(
       (errors, "error", map_option(fresh, first)),
-      (warnings, "warning", map_option(fresh, second))) if n > 0 yield counted(n, noun) ++ value_or(map_option(added, lambda k => " (" ++ show(k) ++ " new)"), "")) in
+      (warnings, "warning", map_option(fresh, second))) if n > 0 yield counted(n, noun)
+      ++ value_or(map_option(added, lambda k => " (" ++ show(k) ++ " new)"), "")) in
   let ran := if tests.passed + tests.failed + tests.skipped == 0 then
     List()
   else
-    List(counted(tests.passed, "test") ++ " passed") ++ List(for (n, what) in List((tests.failed, " failed"), (tests.skipped, " not run")) if n > 0 yield show(n) ++ what) in
+    List(counted(tests.passed, "test") ++ " passed")
+      ++ List(for (n, what) in List((tests.failed, " failed"), (tests.skipped, " not run")) if n > 0 yield show(n) ++ what) in
   let queries := if refused == 0 then
     List()
   else if refused == 1 then
@@ -4354,10 +5001,14 @@ function verdict(dry: Bool, checked: Bool, errors: Int, warnings: Int, fresh: Op
 // the declarations whose lines differ, with the constructors of a datatype whose lines differ and its fields whose types
 // or positions among the fields of a constructor differ, which importers depend on
 function changed_exports(before: Str, after: Str): List[Str] :=
-  example changed_exports("export\n\nfunction f(x: Int): Int\n\nfunction g(): Int\n", "export\n\nfunction f(y: Int): Int\n\nfunction g(): Int\n") == List("f")
-  example changed_exports("export\n\ndata T :=\n  case C(name: Int)\n", "export\n\ndata T :=\n  case C(name: Int)\n  case D\n") == List("T", "D")
-  example changed_exports("export\n\ndata T :=\n  case C(a: Int, b: Str)\n", "export\n\ndata T :=\n  case C(a: Int, c: Int, b: Str)\n") == List("T", "C", "b", "c")
-  example changed_exports("function f(): Int :=\n  1\n", "function f(): Int :=\n  2\n") == List()
+  example changed_exports("export\n\nfunction f(x: Int): Int\n\nfunction g(): Int\n", "export\n\nfunction f(y: Int): Int\n\nfunction g(): Int\n")
+      == List("f")
+  example changed_exports("export\n\ndata T :=\n  case C(name: Int)\n", "export\n\ndata T :=\n  case C(name: Int)\n  case D\n")
+      == List("T", "D")
+  example changed_exports("export\n\ndata T :=\n  case C(a: Int, b: Str)\n", "export\n\ndata T :=\n  case C(a: Int, c: Int, b: Str)\n")
+      == List("T", "C", "b", "c")
+  example changed_exports("function f(): Int :=\n  1\n", "function f(): Int :=\n  2\n")
+      == List()
   let old := exported_blocks(before), new := exported_blocks(after) in
   distinct(List(for k in distinct(List(for k => _ in old yield k) ++ List(for k => _ in new yield k)) if get(k, old) != get(k, new) for word in List(
     k; changed_parts(value_or(get(k, old), List()), value_or(get(k, new), List()))) yield word))
@@ -4365,17 +5016,26 @@ function changed_exports(before: Str, after: Str): List[Str] :=
 // the comment lines of after that before does not have, which are longer than the 120 columns to which the comments of
 // the project are filled, since format keeps comments as written, each as F:L with its length
 function long_comments(path: Str, before: Str, after: Str): List[Str] :=
-  example long_comments("a.u", "x\n", "x\n  // " ++ join("", List(for _ in range(0, 120) yield "a")) ++ "\n") == List(
-      "a.u:2: a comment line of 125 characters, longer than 120, which format does not wrap")
-  example long_comments("a.u", "// " ++ join("", List(for _ in range(0, 120) yield "a")), "// " ++ join("", List(for _ in range(0, 120) yield "a"))) == List()
+  example long_comments("a.u", "x\n", "x\n  // " ++ join("", List(for _ in range(0, 120) yield "a")) ++ "\n")
+      == List(
+        "a.u:2: a comment line of 125 characters, longer than 120, which format does not wrap")
+  example long_comments("a.u", "// " ++ join("", List(for _ in range(0, 120) yield "a")), "// " ++ join("", List(for _ in range(0, 120) yield "a")))
+      == List()
   let old := Set(for line in split(before, '\n')), new := split(after, '\n') in
-  List(for (i, line) in zip(range(1, size(new) + 1), new) if is_comment_line(line) and size(line) > 120 and not contains(line, old) yield path ++ ":" ++ show(i) ++ ": a comment line of " ++ show(size(line)) ++ " characters, longer than 120, which format does not wrap")
+  List(for (i, line) in zip(range(1, size(new) + 1), new) if is_comment_line(line) and size(line) > 120 and not contains(line, old) yield path
+    ++ ":"
+    ++ show(i)
+    ++ ": a comment line of "
+    ++ show(size(line))
+    ++ " characters, longer than 120, which format does not wrap")
 
 // the constructors of the lines of a datatype before and after whose lines differ, and the fields whose constructors,
 // positions, or types differ
 function changed_parts(old: List[Str], new: List[Str]): List[Str] :=
-  example changed_parts(List("data T :=", "  case C(a: Int, b: Str)"), List("data T :=", "  case C(a: Int, b: Int)", "  case D")) == List("C", "D", "b")
-  example changed_parts(List("pattern P(): T :=", "  case C(x)"), List("pattern P(): T :=", "  case D(x)")) == List()
+  example changed_parts(List("data T :=", "  case C(a: Int, b: Str)"), List("data T :=", "  case C(a: Int, b: Int)", "  case D"))
+      == List("C", "D", "b")
+  example changed_parts(List("pattern P(): T :=", "  case C(x)"), List("pattern P(): T :=", "  case D(x)"))
+      == List()
   let before := case_lines(old), after := case_lines(new) in
   let constrs := List(for (name, text) in before ++ after if not contains((name, text), before) or not contains((name, text), after) yield name) in
   let fields := List(for (_, text) in before ++ after for (field, _) in fields_of(text) if field_places(field, before) != field_places(field, after) yield field) in
@@ -4384,7 +5044,8 @@ function changed_parts(old: List[Str], new: List[Str]): List[Str] :=
 // the constructors of the lines of a datatype, each by its name and its text, from its case line through the lines of
 // its fields, which format puts one on each line past 80 columns, without comments, none of other lines
 function case_lines(lines: List[Str]): List[(Str, Str)] :=
-  example case_lines(List("data T :=", "  case C(a: Int)", "  case D")) == List(("C", "C(a: Int)"), ("D", "D"))
+  example case_lines(List("data T :=", "  case C(a: Int)", "  case D"))
+      == List(("C", "C(a: Int)"), ("D", "D"))
   example case_lines(List(
       "data T :=",
       "  case C(",
@@ -4400,7 +5061,8 @@ function case_lines(lines: List[Str]): List[(Str, Str)] :=
 // the texts of the constructors of the trimmed lines of a datatype after its head, each from its case line through the
 // lines of its fields, which a space joins after the first
 function constr_texts(lines: List[Str]): List[Str] :=
-  example constr_texts(List("case C(", "a: Int,", "b: Str)", "case D")) == List("C(a: Int, b: Str)", "D")
+  example constr_texts(List("case C(", "a: Int,", "b: Str)", "case D"))
+      == List("C(a: Int, b: Str)", "D")
   match lines
     case List(line; rest) if starts_with(line, "case ") =>
       let (fields, more) := span(rest, lambda l => not starts_with(l, "case ")) in
@@ -4420,7 +5082,8 @@ function field_places(field: Str, constrs: List[(Str, Str)]): List[(Str, Int, St
 
 // the fields of the text of a constructor, C(name: T, …), each with the text of its type
 function fields_of(text: Str): List[(Str, Str)] :=
-  example fields_of("C(name: Int, at: Map[Int, Str])") == List(("name", "Int"), ("at", "Map[Int, Str]"))
+  example fields_of("C(name: Int, at: Map[Int, Str])")
+      == List(("name", "Int"), ("at", "Map[Int, Str]"))
   example fields_of("D") == List()
   match (index_of("(", text), last(occurrences(text, ")")))
     case (Some(open), Some(close)) =>
@@ -4432,7 +5095,8 @@ function fields_of(text: Str): List[(Str, Str)] :=
 // the parts of cs between the commas outside brackets, where depth counts the open brackets, part holds the reversed
 // characters of the current part, and parts those before it
 function top_parts(cs: List[Char], depth: Int, part: List[Char], parts: List[Str]): List[Str] :=
-  example top_parts(chars("a: Int, b: Map[Int, Str]"), 0, List(), List()) == List("a: Int", " b: Map[Int, Str]")
+  example top_parts(chars("a: Int, b: Map[Int, Str]"), 0, List(), List())
+      == List("a: Int", " b: Map[Int, Str]")
   match cs
     case List(','; rest) if depth == 0 =>
       top_parts(rest, 0, List(), parts ++ List(str(reverse(part))))
@@ -4454,7 +5118,8 @@ function top_parts(cs: List[Char], depth: Int, part: List[Char], parts: List[Str
 // blank lines, where a declaration starts with a keyword at the first column and goes on in the lines below it that do
 // not
 function exported_blocks(text: Str): Map[Str, List[Str]] :=
-  example exported_blocks("export\n\n// the f\nfunction f(\n  x: Int\n): Int\n\nimplementation\n\nfunction g(): Int :=\n  1\n") == Map("f" => List("function f(", "  x: Int", "): Int"))
+  example exported_blocks("export\n\n// the f\nfunction f(\n  x: Int\n): Int\n\nimplementation\n\nfunction g(): Int :=\n  1\n")
+      == Map("f" => List("function f(", "  x: Int", "): Int"))
   blocks_of(List(for line in split(text, '\n') if not is_blank(line) and not starts_with(trim(line), "//")), false, "", Map())
 
 function blocks_of(lines: List[Str], exporting: Bool, current: Str, found: Map[Str, List[Str]]): Map[Str, List[Str]] :=
@@ -4529,8 +5194,9 @@ procedure save_unrun(
 // members of one package both report an error of one of them, the other with its module
 function deduplicated(found: List[(Str, Diagnostic)]): List[(Str, Diagnostic)] :=
   example deduplicated(List(
-      ("a.u", Diagnostic(TypeKind, "E", None, Pos(1, 1), "m", List())),
-      ("a.u", Diagnostic(TypeKind, "E", Some(List("a")), Pos(1, 1), "m", List())))) == List(("a.u", Diagnostic(TypeKind, "E", None, Pos(1, 1), "m", List())))
+        ("a.u", Diagnostic(TypeKind, "E", None, Pos(1, 1), "m", List())),
+        ("a.u", Diagnostic(TypeKind, "E", Some(List("a")), Pos(1, 1), "m", List()))))
+      == List(("a.u", Diagnostic(TypeKind, "E", None, Pos(1, 1), "m", List())))
   foldl(found, List(), lambda kept: List[(Str, Diagnostic)], (file, d) => if exists(kept, lambda (other, e) => other == file and e.pos == d.pos and e.code == d.code) then
     kept
   else
@@ -4543,8 +5209,10 @@ function is_warning(d: Diagnostic): Bool :=
 // the message of a refused action at the line line of the script, where each position in its fragment, fragment L.C at the
 // start of a line, also gets its line in the script, since the fragment starts on the line after the action
 function with_script_lines(message: Str, line: Int): Str :=
-  example with_script_lines("fragment 2.6: expression expected\nfragment 3, 4: a comment", 4) == "fragment 2.6, script 6.6: expression expected\nfragment 3, 4, script 7, 8: a comment"
-  example with_script_lines("a.u:2.6: expression expected", 4) == "a.u:2.6: expression expected"
+  example with_script_lines("fragment 2.6: expression expected\nfragment 3, 4: a comment", 4)
+      == "fragment 2.6, script 6.6: expression expected\nfragment 3, 4, script 7, 8: a comment"
+  example with_script_lines("a.u:2.6: expression expected", 4)
+      == "a.u:2.6: expression expected"
   join("\n", List(for text in split(message, '\n') yield with_script_line(text, line)))
 
 function with_script_line(text: Str, line: Int): Str :=
@@ -4552,7 +5220,10 @@ function with_script_line(text: Str, line: Int): Str :=
     case List(i; _) if starts_with(text, "fragment ") =>
       let items := List(for item in split(slice(text, size("fragment "), i), ',') yield script_position(str(drop_spaces(chars(item))), line)) in
       if forall(items, lambda item => item != None) then
-        slice(text, 0, i) ++ ", script " ++ join(", ", List(for item in items for p in item yield p)) ++ slice(text, i, size(text))
+        slice(text, 0, i)
+          ++ ", script "
+          ++ join(", ", List(for item in items for p in item yield p))
+          ++ slice(text, i, size(text))
       else
         text
 
@@ -4581,17 +5252,21 @@ function is_same(file: Str, d: Diagnostic, other: Str, e: Diagnostic): Bool :=
   example is_same("a.u", Diagnostic(FormatKind, "warning[RepeatedExpr]", None, Pos(9, 3), "the expression repeats the one of line 7", List()), "a.u", Diagnostic(FormatKind, "warning[RepeatedExpr]", None, Pos(12, 3), "the expression repeats the one of line 10", List()))
   example not is_same("a.u", Diagnostic(FormatKind, "warning[RepeatedExpr]", None, Pos(9, 3), "the expression repeats the one of line 7", List()), "a.u", Diagnostic(FormatKind, "warning[RepeatedExpr]", None, Pos(12, 3), "the expression repeats the one of line 8", List()))
   let message := renumbered(d.message), message_ := renumbered(e.message) in
-  file == other and d.code == e.code and (message == message_ or relative_lines(message, d.pos.line) == relative_lines(message_, e.pos.line))
+  file == other and d.code == e.code and (message == message_
+    or relative_lines(message, d.pos.line) == relative_lines(message_, e.pos.line))
 
 // text with each number after "line " as its distance from line
 function relative_lines(text: Str, line: Int): Str :=
-  example relative_lines("the one of line 7, not line 12", 9) == "the one of line -2, not line 3"
+  example relative_lines("the one of line 7, not line 12", 9)
+      == "the one of line -2, not line 3"
   example relative_lines("no line", 9) == "no line"
   match index_of("line ", text)
     case Some(i) =>
       let rest := chars(slice(text, i + 5, size(text))) in
       let digits := take_while(rest, is_digit) in
-      slice(text, 0, i + 5) ++ value_or(map_option(number(str(digits)), lambda n => show(n - line)), "") ++ relative_lines(str(drop_while(rest, is_digit)), line)
+      slice(text, 0, i + 5)
+        ++ value_or(map_option(number(str(digits)), lambda n => show(n - line)), "")
+        ++ relative_lines(str(drop_while(rest, is_digit)), line)
 
     case None =>
       text
@@ -4610,7 +5285,8 @@ function renumbered_chars(cs: List[Char], seen: Map[Str, Int]): List[Char] :=
         List('?'; renumbered_chars(rest, seen))
       else
         let n := value_or(get(str(digits), seen), size(seen) + 1) in
-        chars("?" ++ show(n)) ++ renumbered_chars(drop_while(rest, is_digit), Map(str(digits) => n; seen))
+        chars("?" ++ show(n))
+          ++ renumbered_chars(drop_while(rest, is_digit), Map(str(digits) => n; seen))
 
     case List(c; rest) =>
       List(c; renumbered_chars(rest, seen))
@@ -4663,7 +5339,8 @@ procedure doc_references(in root: Str, name: Str, out found: List[Str]) :=
       case OsError(_) =>
         entries := List()
     end
-    docs := docs ++ List(for (entry, is_dir) in entries if not is_dir and ends_with(entry, ".md") yield dir ++ "/" ++ entry)
+    docs := docs
+      ++ List(for (entry, is_dir) in entries if not is_dir and ends_with(entry, ".md") yield dir ++ "/" ++ entry)
   end
   found := List()
   for doc in docs do
@@ -4687,7 +5364,8 @@ function counted(n: Int, noun: Str): Str :=
 // the handles to save after a script, which a dry run does not move, so that it saves only those that it adds
 function saved_entries(before: Handles, after: Handles, dry: Bool): List[Handle] :=
   if dry then
-    before.entries ++ List(for h in after.entries if h.number >= before.next yield h)
+    before.entries
+      ++ List(for h in after.entries if h.number >= before.next yield h)
   else
     after.entries
 
@@ -4704,20 +5382,28 @@ procedure outline(in path: Str, ref edits: Edits) raises Refused, OsError :=
   current_text(in path, edits.files, out text)
   parsed(in path, text, edits.files, no_fragment(), out source)
   let d := main_mod(source), lines := Array(for line in split(text, '\n'))
-  let has_sections := keyword_line(lines, "export") != None or keyword_line(lines, "implementation") != None or keyword_line(lines, "builtin") != None
+  let has_sections := keyword_line(lines, "export") != None
+    or keyword_line(lines, "implementation") != None
+    or keyword_line(lines, "builtin") != None
   let visible := List(for (key, _, _) in keyed(d.exported ++ d.builtins) yield key)
   let sections := List(
     ("export", d.exported),
     ("builtin", d.builtins),
     ("implementation", d.implemented))
-  var handles := edits.handles, rows: List[(Str, Str, Str, Str, Str, Str)] := List(), number: Int
+  var
+    handles := edits.handles,
+    rows: List[(Str, Str, Str, Str, Str, Str)] := List(),
+    number: Int
   for (section, cmd) in List(for (section, cmds) in sections for cmd in cmds yield (section, cmd)) do
     let range := cmd_range(lines, cmd, 0, false)
-    let at := show(range.first) ++ (if range.last > range.first then "-" ++ show(range.last) else "")
+    let at := show(range.first)
+      ++ (if range.last > range.first then "-" ++ show(range.last) else "")
     let place := if has_sections then section else "none"
     match cmd_of(cmd)
       case None =>
-        rows := rows ++ List((at, place, "unparsed", trim(line_at(lines, range.first)), "", ""))
+        rows := rows
+          ++ List(
+            (at, place, "unparsed", trim(line_at(lines, range.first)), "", ""))
 
       case Some(c) =>
         match key_of(c)
@@ -4733,7 +5419,9 @@ procedure outline(in path: Str, ref edits: Edits) raises Refused, OsError :=
             var handle := ""
             for (own, merged) in decl_of(d, key) if own.span == cmd.span do
               // the handle of a declaration is its first node that is no line of its spec and no head, the body of a function
-              for (node, i) in find(numbered(kinded_nodes(lines, merged)), lambda (node, _) => node.kind != KSpec and node.kind != KHead and is_within(node.span.start, own.span)) do
+              for (node, i) in find(numbered(kinded_nodes(lines, merged)), lambda (node, _) => node.kind != KSpec
+                and node.kind != KHead
+                and is_within(node.span.start, own.span)) do
                 let span := node.span
                 handle_for(in path, key, i, hash_of(node_text(lines, span)), out number, ref handles)
                 handle := "#" ++ show(number)
@@ -4813,8 +5501,10 @@ function constrs_text(c: Cmd): Str :=
   match constrs_of(c)
     case List() =>
       ""
+
     case constrs =>
-      "cases " ++ join(", ", List(for constr in constrs yield constr_name(constr) ++ "/" ++ show(constr_arity(constr))))
+      "cases "
+        ++ join(", ", List(for constr in constrs yield constr_name(constr) ++ "/" ++ show(constr_arity(constr))))
   end
 
 // the uses of the function, procedure, pattern alias, or constructor of the target file.u:name[/arity], or of the
@@ -4840,16 +5530,26 @@ procedure refs(in word: Str, ref edits: Edits) raises Refused, OsError :=
         (Owned(d.name, List(sort), field ++ ":="), None)), shown := "the field " ++ format_name(Owned(d.name, List(sort), field)), word_found := field
 
     case _ =>
-      let arities := distinct(List(for (key, _, _) in keyed(placed_of(d)) if key.kind == "value" and is_selected(key, base, arity) yield key.arity) ++ List(for (_, _, c) in keyed(placed_of(d)) for constr in constrs_of(c) if constr_name(constr) == base and forall(arity, lambda k => k == constr_arity(constr)) yield constr_arity(constr)))
+      let arities := distinct(List(for (key, _, _) in keyed(placed_of(d)) if key.kind == "value" and is_selected(key, base, arity) yield key.arity)
+        ++ List(for (_, _, c) in keyed(placed_of(d)) for constr in constrs_of(c) if constr_name(constr) == base
+          and forall(arity, lambda k => k == constr_arity(constr)) yield constr_arity(constr)))
       match arities
         case List(n) =>
           targets := List((Name(d.name, base), Some(n))), shown := format_name(Name(d.name, base)) ++ "/" ++ show(n), word_found := base
 
         case List() =>
-          raise Refused(path ++ " declares no function, procedure, pattern alias, or constructor " ++ base ++ ", and the uses of types are not found yet, while a field is named F:T.f")
+          raise Refused(path
+            ++ " declares no function, procedure, pattern alias, or constructor "
+            ++ base
+            ++ ", and the uses of types are not found yet, while a field is named F:T.f")
 
         case _ =>
-          raise Refused(path ++ " declares " ++ base ++ " of several arities, so name one, " ++ base ++ "/n")
+          raise Refused(path
+            ++ " declares "
+            ++ base
+            ++ " of several arities, so name one, "
+            ++ base
+            ++ "/n")
       end
   end
   user_files(in path, d, List(word_found), edits.files, out files)
@@ -4866,10 +5566,13 @@ procedure refs(in word: Str, ref edits: Edits) raises Refused, OsError :=
         case e =>
           raise Refused(file ++ ": " ++ parse_diagnostic(e).message)
       end
-      let m := main_mod(file_source), file_lines := Array(for line in split(file_text, '\n'))
+      let
+        m := main_mod(file_source),
+        file_lines := Array(for line in split(file_text, '\n'))
       for span in hits do
         var around := "", handle := "", number: Int
-        for (key, cmd, _) in keyed(placed_of(m)) if cmd.span.start.line <= span.start.line and span.start.line <= cmd_range(file_lines, cmd, 0, false).last do
+        for (key, cmd, _) in keyed(placed_of(m)) if cmd.span.start.line <= span.start.line
+          and span.start.line <= cmd_range(file_lines, cmd, 0, false).last do
           around := " in " ++ key_text(key)
           for (_, merged) in decl_of(m, key) do
             let nodes := List(for (node, i) in numbered(line_nodes(file_lines, merged)) if node.start <= span.start and span.stop <= node.stop yield (node, i))
@@ -4880,14 +5583,30 @@ procedure refs(in word: Str, ref edits: Edits) raises Refused, OsError :=
           end
         end
         found := found ++ List(
-          "  " ++ file ++ ":" ++ show(span.start.line) ++ "." ++ show(span.start.col) ++ around ++ handle ++ ": " ++ trim(line_at(file_lines, span.start.line)))
+          "  "
+            ++ file
+            ++ ":"
+            ++ show(span.start.line)
+            ++ "."
+            ++ show(span.start.col)
+            ++ around
+            ++ handle
+            ++ ": "
+            ++ trim(line_at(file_lines, span.start.line)))
       end
       touched := touched + 1
     end
   end
   edits := edits with handles := handles
   note(in join("\n", List(
-    "@refs " ++ word ++ ": " ++ counted(size(found), "use") ++ " of " ++ shown ++ " in " ++ counted(touched, "file")) ++ found), ref edits)
+    "@refs "
+      ++ word
+      ++ ": "
+      ++ counted(size(found), "use")
+      ++ " of "
+      ++ shown
+      ++ " in "
+      ++ counted(touched, "file")) ++ found), ref edits)
 
 // whether c is the datatype sort, one of whose constructors has the field
 function has_field(c: Cmd, sort: Str, field: Str): Bool :=
@@ -4968,7 +5687,8 @@ function is_module_word(word: Str): Bool :=
   example is_module_word("a/b.u")
   example not is_module_word("lines")
   example not is_module_word("/")
-  ends_with(word, ".u") or size(split(word, '/')) > 1 and forall(split(word, '/'), is_plain_name)
+  ends_with(word, ".u")
+    or size(split(word, '/')) > 1 and forall(split(word, '/'), is_plain_name)
 
 // the file of the module that word names, a file as written, a module of the library in the directory of the library,
 // and any other from the root of the project
@@ -5001,7 +5721,12 @@ procedure module_sig(in word: Str, ref edits: Edits) raises Refused, OsError :=
   end
   match exported_lines(Array(for line in split(text, '\n')))
     case List() =>
-      note(in "@sig " ++ word ++ ": " ++ path ++ " exports nothing, since it has no export section", ref edits)
+      note(in "@sig "
+        ++ word
+        ++ ": "
+        ++ path
+        ++ " exports nothing, since it has no export section", ref edits)
+
     case shown =>
       note(in join("\n", List("@sig " ++ word ++ ": " ++ path) ++ shown), ref edits)
   end
@@ -5009,7 +5734,8 @@ procedure module_sig(in word: Str, ref edits: Edits) raises Refused, OsError :=
 // the lines of the export and builtin sections of a formatted file, from the keyword of the first to the last line that
 // is not blank before implementation
 function exported_lines(lines: Array[Str]): List[Str] :=
-  example exported_lines(Array("export", "", "type T", "", "implementation", "data T := case T")) == List("export", "", "type T")
+  example exported_lines(Array("export", "", "type T", "", "implementation", "data T := case T"))
+      == List("export", "", "type T")
   match List(for word_line in List(keyword_line(lines, "export"), keyword_line(lines, "builtin")) for i in word_line yield i)
     case List(start; _) =>
       let stop := value_or(keyword_line(lines, "implementation"), size(lines) + 1) in
@@ -5030,14 +5756,18 @@ procedure name_sig(in name: Str, ref edits: Edits) raises Refused, OsError :=
   os_library_dir(out lib)
   source_files(in root, out walked)
   source_files(in lib, out library)
-  var covered: Set[Path] := Set(), mods: List[(Mod, Str)] := List(), unparsed: List[Str] := List()
+  var
+    covered: Set[Path] := Set(),
+    mods: List[(Mod, Str)] := List(),
+    unparsed: List[Str] := List()
   for f in distinct(List(for w in walked ++ library yield normal_path(w))) do
     var text: Str
     let file := normal_file(here, here, f)
     current_text(in file, edits.files, out text)
     let lines := Array(for line in split(text, '\n'))
     let id := module_id_of(normal_path(lib), normal_path(root), f)
-    if not contains(id, covered) and has_word(join("\n", List(for line in exported_lines(lines) if not is_comment_line(line))), name) then
+    if not contains(id, covered)
+      and has_word(join("\n", List(for line in exported_lines(lines) if not is_comment_line(line))), name) then
       try
         var source: Source
         parsed(in file, text, edits.files, no_fragment(), out source)
@@ -5063,22 +5793,34 @@ procedure name_sig(in name: Str, ref edits: Edits) raises Refused, OsError :=
       current_text(in path, edits.files, out text)
       let lines := Array(for line in split(text, '\n'))
       for (cmd, c) in cmds do
-        found := found ++ List((m.name, cmd.span.start.line, sig_lines(lines, cmd, c, name)))
+        found := found
+          ++ List((m.name, cmd.span.start.line, sig_lines(lines, cmd, c, name)))
       end
     end
   end
   if found == List() then
-    raise Refused("@sig " ++ name ++ ": no module of the project or the library exports " ++ name)
+    raise Refused("@sig "
+      ++ name
+      ++ ": no module of the project or the library exports "
+      ++ name)
   end
   let shown := List(for (m, _, text) in sort(found) yield sig_entry(format_name(Name(m, name)), text))
   let modules := size(distinct(List(for (m, _, _) in found yield m)))
   note(in join("\n", List(
-    "@sig " ++ name ++ ": " ++ counted(size(found), "declaration") ++ " in " ++ counted(modules, "module")) ++ shown ++ List(for message in unparsed yield "  not parsed: " ++ message)), ref edits)
+      "@sig "
+        ++ name
+        ++ ": "
+        ++ counted(size(found), "declaration")
+        ++ " in "
+        ++ counted(modules, "module"))
+    ++ shown
+    ++ List(for message in unparsed yield "  not parsed: " ++ message)), ref edits)
 
 // the module of the file at path, as the parser names it, where lib and root are the directories of the library and of the
 // project, all absolute and normal
 function module_id_of(lib: Str, root: Str, path: Str): Path :=
-  example module_id_of("/r/prelude", "/r", "/r/prelude/str.u") == List("prelude", "str")
+  example module_id_of("/r/prelude", "/r", "/r/prelude/str.u")
+      == List("prelude", "str")
   example module_id_of("/l", "/r", "/r/b/c.u") == List("b", "c")
   let base := slice(path, 0, size(path) - size(".u")) in
   if os_dirname(path) == lib then
@@ -5090,7 +5832,8 @@ function module_id_of(lib: Str, root: Str, path: Str): Path :=
 
 // whether c declares name, as a function, procedure, pattern alias, type, or constructor
 function declares(c: Cmd, name: Str): Bool :=
-  exists(key_of(c), lambda key => key.base == name) or exists(constrs_of(c), lambda constr => constr_name(constr) == name)
+  exists(key_of(c), lambda key => key.base == name)
+    or exists(constrs_of(c), lambda constr => constr_name(constr) == name)
 
 // the lines of the declaration cmd of name for @sig: a declaration of name whole, but for a spec of more than spec_lines
 // lines, which it leaves out, and of a constructor of name the head of its datatype and the constructor
@@ -5104,7 +5847,8 @@ function sig_lines(lines: Array[Str], cmd: At[Cmd], c: Cmd, name: Str): List[Str
     else
       all
   else
-    List(line_at(lines, cmd.span.start.line)) ++ List(for constr in constrs_of(c) if constr_name(constr) == name for line in lines_in(lines, Range(constr.span.start.line, constr.span.stop.line)) yield line)
+    List(line_at(lines, cmd.span.start.line))
+      ++ List(for constr in constrs_of(c) if constr_name(constr) == name for line in lines_in(lines, Range(constr.span.start.line, constr.span.stop.line)) yield line)
 
 function spec_lines(): Int :=
   4
@@ -5112,7 +5856,8 @@ function spec_lines(): Int :=
 // an entry of @sig, the qualified name and the text of its declaration, on one line if it has one
 function sig_entry(qualified: Str, text: List[Str]): Str :=
   example sig_entry("m.f", List("function f(): Int")) == "m.f: function f(): Int"
-  example sig_entry("m.f", List("function f(): Int :=", "  example f() == 1")) == "m.f:\n  function f(): Int :=\n    example f() == 1"
+  example sig_entry("m.f", List("function f(): Int :=", "  example f() == 1"))
+      == "m.f:\n  function f(): Int :=\n    example f() == 1"
   match text
     case List(line) =>
       qualified ++ ": " ++ line
@@ -5140,8 +5885,10 @@ procedure resolve(in word: Str, ref edits: Edits) raises Refused, OsError :=
       match local_target(word)
         case Some((path, proc, local)) =>
           resolve_local(in word, path, proc, local, ref edits)
+
         case None =>
-          raise Refused("@resolve takes a position F:L.C or F L.C, or a local F:proc/local, not " ++ word)
+          raise Refused("@resolve takes a position F:L.C or F L.C, or a local F:proc/local, not "
+            ++ word)
       end
   end
 
@@ -5153,8 +5900,10 @@ function local_target(word: Str): Option[(Str, Str, Str)] :=
   match index_of(':', chars(word))
     case Some(i) =>
       match split(slice(word, i + 1, size(word)), '/')
-        case List(name, local) if is_plain_name(local) and not contains(local, List("test", "lemma", "type")) =>
+        case List(name, local) if is_plain_name(local)
+          and not contains(local, List("test", "lemma", "type")) =>
           Some((slice(word, 0, i), name, local))
+
         case _ =>
           None
       end
@@ -5165,11 +5914,17 @@ function local_target(word: Str): Option[(Str, Str, Str)] :=
 
 // the refusal of the words of an action other than @resolve that names a local, F:proc/local, which only @resolve takes
 function local_refusal(words: List[Str]): Option[Str] :=
-  example local_refusal(List("show", "a.u:p/x")) == Some("@show takes no local, while a.u:p/x names one, which @resolve takes")
+  example local_refusal(List("show", "a.u:p/x"))
+      == Some("@show takes no local, while a.u:p/x names one, which @resolve takes")
   example local_refusal(List("resolve", "a.u:p/x")) == None
   match words
     case List(action; rest) if action != "resolve" =>
-      map_option(find(rest, lambda w => local_target(w) != None), lambda w => "@" ++ action ++ " takes no local, while " ++ w ++ " names one, which @resolve takes")
+      map_option(find(rest, lambda w => local_target(w) != None), lambda w => "@"
+        ++ action
+        ++ " takes no local, while "
+        ++ w
+        ++ " names one, which @resolve takes")
+
     case _ =>
       None
   end
@@ -5194,12 +5949,29 @@ procedure resolve_local(
   file_hints(in path, text, edits.files, out found)
   let inside := lambda span: Span => exists(ranges, lambda r => r.first <= span.start.line and span.start.line <= r.last)
   let typed := lambda typ: Type => if typ == THole then "" else ": " ++ format_type(typ)
-  let decls := List(for h in found for (span, n, typ) in declared_of(h) if n == Name(List(), local) and inside(span) yield "declaration of " ++ local ++ typed(typ) ++ " at " ++ show(span.start.line) ++ "." ++ show(span.start.col))
+  let decls := List(for h in found for (span, n, typ) in declared_of(h) if n == Name(List(), local) and inside(span) yield "declaration of "
+    ++ local
+    ++ typed(typ)
+    ++ " at "
+    ++ show(span.start.line)
+    ++ "."
+    ++ show(span.start.col))
   let reads := List(for h in found for (span, n, _) in use_of(h) if n == Name(List(), local) and inside(span) yield show(span.start.line) ++ "." ++ show(span.start.col))
   if decls == List() then
-    raise Refused(path ++ ":" ++ name ++ " declares no local, formal, or pattern variable " ++ local)
+    raise Refused(path
+      ++ ":"
+      ++ name
+      ++ " declares no local, formal, or pattern variable "
+      ++ local)
   end
-  note(in "@resolve " ++ word ++ ": " ++ join(", ", decls) ++ (if reads == List() then ", never read" else ", read at " ++ join(", ", reads)), ref edits)
+  note(in "@resolve "
+    ++ word
+    ++ ": "
+    ++ join(", ", decls)
+    ++ (if reads == List() then
+      ", never read"
+    else
+      ", read at " ++ join(", ", reads)), ref edits)
 
 function declared_of(h: Hint): Option[(Span, Name, Type)] :=
   match h

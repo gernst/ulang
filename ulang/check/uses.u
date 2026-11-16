@@ -22,10 +22,16 @@ function used_modules(cmd: Cmd): Set[Path] :=
       Set(for k in constrs for f in k.that.fields for m in type_modules(f.typ) yield m)
 
     case CFun(_, _, formals, typ, spec, body) =>
-      vars_modules(formals) ++ type_modules(typ) ++ spec_modules(spec) ++ expr_modules(body)
+      vars_modules(formals)
+        ++ type_modules(typ)
+        ++ spec_modules(spec)
+        ++ expr_modules(body)
 
     case CProc(_, _, ins, outs, refs, raised, spec, stmt) =>
-      vars_modules(ins ++ outs ++ refs) ++ types_modules(raised) ++ spec_modules(spec) ++ stmt_modules(stmt)
+      vars_modules(ins ++ outs ++ refs)
+        ++ types_modules(raised)
+        ++ spec_modules(spec)
+        ++ stmt_modules(stmt)
 
     case CNotation(_, _, _) =>
       Set()
@@ -37,7 +43,9 @@ function used_modules(cmd: Cmd): Set[Path] :=
       vars_modules(formals) ++ type_modules(typ) ++ spec_modules(spec)
 
     case CProcSig(_, _, ins, outs, refs, raised, spec) =>
-      vars_modules(ins ++ outs ++ refs) ++ types_modules(raised) ++ spec_modules(spec)
+      vars_modules(ins ++ outs ++ refs)
+        ++ types_modules(raised)
+        ++ spec_modules(spec)
 
     case CAbstract(_, _) =>
       Set()
@@ -46,7 +54,9 @@ function used_modules(cmd: Cmd): Set[Path] :=
       vars_modules(formals) ++ type_modules(typ) ++ pat_modules(pat)
 
     case CLemma(_, _, ins, outs, claim, proof) =>
-      vars_modules(ins ++ outs) ++ claim_modules(claim) ++ value_or(map_option(proof, proof_modules), Set())
+      vars_modules(ins ++ outs)
+        ++ claim_modules(claim)
+        ++ value_or(map_option(proof, proof_modules), Set())
   end
 
 function name_modules(name: Name): Set[Path] :=
@@ -100,7 +110,9 @@ function plain_vars_modules(xs: List[Var]): Set[Path] :=
   Set(for x in xs for m in var_modules(x) yield m)
 
 function spec_modules(spec: Spec): Set[Path] :=
-  exprs_modules(spec.pre) ++ option_modules(spec.post) ++ Set(for x in spec.examples for m in example_modules(x.that) yield m)
+  exprs_modules(spec.pre)
+    ++ option_modules(spec.post)
+    ++ Set(for x in spec.examples for m in example_modules(x.that) yield m)
 
 function example_modules(x: Example): Set[Path] :=
   match x
@@ -111,7 +123,9 @@ function example_modules(x: Example): Set[Path] :=
       expr_modules(expr) ++ pat_modules(pat)
 
     case XCall(proc, ins, outs, refs) =>
-      name_modules(proc) ++ exprs_modules(ins ++ outs) ++ Set(for (a, b) in refs for m in expr_modules(a) ++ expr_modules(b) yield m)
+      name_modules(proc)
+        ++ exprs_modules(ins ++ outs)
+        ++ Set(for (a, b) in refs for m in expr_modules(a) ++ expr_modules(b) yield m)
 
     case XCallRaises(proc, ins, _, befores, pat) =>
       name_modules(proc) ++ exprs_modules(ins ++ befores) ++ pat_modules(pat)
@@ -126,7 +140,8 @@ function claim_modules(claim: Claim): Set[Path] :=
   end
 
 function proof_modules(proof: Proof): Set[Path] :=
-  Set(for step in proof.steps for m in step_modules(step.that) yield m) ++ value_or(map_option(proof.split, lambda split => split_modules(split.that)), Set())
+  Set(for step in proof.steps for m in step_modules(step.that) yield m)
+    ++ value_or(map_option(proof.split, lambda split => split_modules(split.that)), Set())
 
 function step_modules(step: Step): Set[Path] :=
   match step
@@ -149,13 +164,17 @@ function step_modules(step: Step): Set[Path] :=
 function split_modules(split: Split): Set[Path] :=
   match split
     case SplitInduction(formal, cases) =>
-      var_modules(formal) ++ Set(for c in cases for m in pat_modules(c.that.pat) ++ proof_modules(c.that.body) yield m)
+      var_modules(formal)
+        ++ Set(for c in cases for m in pat_modules(c.that.pat) ++ proof_modules(c.that.body) yield m)
 
     case SplitMatch(arg, cases) =>
-      expr_modules(arg) ++ Set(for c in cases for m in pat_modules(c.that.pat) ++ proof_modules(c.that.body) yield m)
+      expr_modules(arg)
+        ++ Set(for c in cases for m in pat_modules(c.that.pat) ++ proof_modules(c.that.body) yield m)
 
     case SplitIf(cond, left, right) =>
-      expr_modules(cond) ++ proof_modules(left) ++ value_or(map_option(right, proof_modules), Set())
+      expr_modules(cond)
+        ++ proof_modules(left)
+        ++ value_or(map_option(right, proof_modules), Set())
   end
 
 function option_modules(expr: Option[At[Expr]]): Set[Path] :=
@@ -190,16 +209,20 @@ function expr_modules(expr: At[Expr]): Set[Path] :=
       pats_modules(formals) ++ expr_modules(body)
 
     case EProc(ins, outs, refs, raised, stmt) =>
-      vars_modules(ins ++ outs ++ refs) ++ raises_modules(raised) ++ stmt_modules(stmt)
+      vars_modules(ins ++ outs ++ refs)
+        ++ raises_modules(raised)
+        ++ stmt_modules(stmt)
 
     case ELet(bindings, body) =>
-      Set(for (p, e) in bindings for m in pat_modules(p) ++ expr_modules(e) yield m) ++ expr_modules(body)
+      Set(for (p, e) in bindings for m in pat_modules(p) ++ expr_modules(e) yield m)
+        ++ expr_modules(body)
 
     case EIte(cond, then_expr, else_expr) =>
       expr_modules(cond) ++ expr_modules(then_expr) ++ expr_modules(else_expr)
 
     case EMatch(arg, cases) =>
-      expr_modules(arg) ++ Set(for c in cases for m in branch_modules(c.that) ++ expr_modules(c.that.body) yield m)
+      expr_modules(arg)
+        ++ Set(for c in cases for m in branch_modules(c.that) ++ expr_modules(c.that.body) yield m)
 
     case ETuple(args) =>
       exprs_modules(args)
@@ -208,7 +231,8 @@ function expr_modules(expr: At[Expr]): Set[Path] :=
       expr_modules(inner) ++ type_modules(typ)
 
     case EForm(_, elems, rest) =>
-      Set(for y in elems for m in yield_modules(y) yield m) ++ option_modules(rest)
+      Set(for y in elems for m in yield_modules(y) yield m)
+        ++ option_modules(rest)
 
     case EFor(_, gens, elem, rest) =>
       gens_modules(gens) ++ yield_modules(elem) ++ option_modules(rest)
@@ -235,7 +259,10 @@ function gen_modules(g: Gen): Set[Path] :=
       pat_modules(pat) ++ expr_modules(over) ++ type_modules(typ)
 
     case GPair(key, value, over, typ) =>
-      pat_modules(key) ++ pat_modules(value) ++ expr_modules(over) ++ type_modules(typ)
+      pat_modules(key)
+        ++ pat_modules(value)
+        ++ expr_modules(over)
+        ++ type_modules(typ)
 
     case GIf(cond) =>
       expr_modules(cond)
@@ -280,7 +307,8 @@ function stmt_modules(stmt: At[Stmt]): Set[Path] :=
       Set(for (x, e) in upd for m in var_modules(x) ++ expr_modules(e) yield m)
 
     case SBlock(locals, stmts) =>
-      vars_modules(locals) ++ Set(for s in stmts for m in stmt_modules(s) yield m)
+      vars_modules(locals)
+        ++ Set(for s in stmts for m in stmt_modules(s) yield m)
 
     case SLocal(_, decls) =>
       Set(for (p, e) in decls for m in pat_modules(p) ++ option_modules(e) yield m)
@@ -292,26 +320,36 @@ function stmt_modules(stmt: At[Stmt]): Set[Path] :=
       expr_modules(cond) ++ stmt_modules(body)
 
     case SCall(proc, ins, outs, refs) =>
-      name_modules(proc) ++ exprs_modules(ins) ++ plain_vars_modules(outs ++ refs)
+      name_modules(proc)
+        ++ exprs_modules(ins)
+        ++ plain_vars_modules(outs ++ refs)
 
     case SMatch(arg, cases) =>
-      expr_modules(arg) ++ Set(for c in cases for m in branch_modules(c.that) ++ stmt_modules(c.that.body) yield m)
+      expr_modules(arg)
+        ++ Set(for c in cases for m in branch_modules(c.that) ++ stmt_modules(c.that.body) yield m)
 
     case SAssert(cond) =>
       expr_modules(cond)
 
     case SAssertRaises(typ, pat, guard, body) =>
-      type_modules(typ) ++ pat_modules(pat) ++ option_modules(guard) ++ stmt_modules(body)
+      type_modules(typ)
+        ++ pat_modules(pat)
+        ++ option_modules(guard)
+        ++ stmt_modules(body)
 
     case SRaise(value, typ) =>
       expr_modules(value) ++ type_modules(typ)
 
     case STry(body, catches) =>
-      stmt_modules(body) ++ Set(for c in catches for m in catch_modules(c.that) yield m)
+      stmt_modules(body)
+        ++ Set(for c in catches for m in catch_modules(c.that) yield m)
 
     case SFor(gens, body) =>
       gens_modules(gens) ++ stmt_modules(body)
   end
 
 function catch_modules(c: Catch): Set[Path] :=
-  type_modules(c.typ) ++ pat_modules(c.pat) ++ option_modules(c.guard) ++ stmt_modules(c.body)
+  type_modules(c.typ)
+    ++ pat_modules(c.pat)
+    ++ option_modules(c.guard)
+    ++ stmt_modules(c.body)

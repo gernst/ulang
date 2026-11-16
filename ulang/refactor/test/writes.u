@@ -40,28 +40,37 @@ test names_failed_action() :=
 // signature and the definition, and the raises that the signature writes into the definition
 test exports_inferred_raises() :=
   var reply: List[Str], status: Int, text: Str
-  let state := "out/test/refactor/writes", path := "out/test/refactor/writes/raises/a.u"
+  let
+    state := "out/test/refactor/writes",
+    path := "out/test/refactor/writes/raises/a.u"
   let proc := "procedure p(in x: Int, out y: Int) :=\n  if x < 0 then\n    raise OsError(\"negative\")\n  end\n  y := x\n"
   os_write_utf8(in path, proc)
   run_script(in "@put " ++ path ++ "\nexport\n\nprocedure p(in x: Int, out y: Int)\n", false, state, unseen, out reply, status, _)
   os_read_utf8(in path, out text)
   assert status == 0
-  assert text == "export\n\nprocedure p(in x: Int, out y: Int) raises OsError\n\nimplementation\n\nprocedure p(in x: Int, out y: Int) raises OsError :=\n  if x < 0 then\n    raise OsError(\"negative\")\n  end\n  y := x\n"
+  assert text
+    == "export\n\nprocedure p(in x: Int, out y: Int) raises OsError\n\nimplementation\n\nprocedure p(in x: Int, out y: Int) raises OsError :=\n  if x < 0 then\n    raise OsError(\"negative\")\n  end\n  y := x\n"
   assert contains(path ++ ": exported p/2, with raises OsError of p/2", reply)
   os_write_utf8(in path, proc)
-  run_script(in "@put " ++ path ++ "\nexport\n\nprocedure p(in x: Int, out y: Int) raises OsError, Str\n", false, state, unseen, out reply, status, _)
+  run_script(in "@put "
+    ++ path
+    ++ "\nexport\n\nprocedure p(in x: Int, out y: Int) raises OsError, Str\n", false, state, unseen, out reply, status, _)
   os_read_utf8(in path, out text)
-  assert index_of("procedure p(in x: Int, out y: Int) raises OsError, Str :=", text) != None
+  assert index_of("procedure p(in x: Int, out y: Int) raises OsError, Str :=", text)
+    != None
 
 // @put of a fragment of an import names the import that it added, and one that the file has already is no edit
 test names_added_import() :=
   var reply: List[Str], status: Int, text: Str
-  let state := "out/test/refactor/writes", path := "out/test/refactor/writes/imports/a.u"
+  let
+    state := "out/test/refactor/writes",
+    path := "out/test/refactor/writes/imports/a.u"
   os_write_utf8(in "out/test/refactor/writes/imports/b/b.u", "export\n\nfunction k(): Int\n\nimplementation\n\nfunction k(): Int :=\n  1\n")
   os_write_utf8(in path, "function f(): Int :=\n  1\n")
   run_script(in "@put " ++ path ++ "\nimport out.test.refactor.writes.imports.b\n", false, state, unseen, out reply, status, _)
   os_read_utf8(in path, out text)
-  assert status == 0 and text == "import out.test.refactor.writes.imports.b\n\nfunction f(): Int :=\n  1\n"
+  assert status == 0 and text
+    == "import out.test.refactor.writes.imports.b\n\nfunction f(): Int :=\n  1\n"
   assert take(2, reply) == List(
     "applied, clean",
     path ++ ": added import out.test.refactor.writes.imports.b")
@@ -72,9 +81,13 @@ test names_added_import() :=
 // its line in the fragment alone, without the errors of the declarations of the file after it
 test refuses_keyword_as_name() :=
   var reply: List[Str], status: Int
-  let state := "out/test/refactor/writes", path := "out/test/refactor/writes/keyword.u"
+  let
+    state := "out/test/refactor/writes",
+    path := "out/test/refactor/writes/keyword.u"
   os_write_utf8(in path, "export\n\nfunction f(x: Int): Int\n\nimplementation\n\ndata Parts :=\n  case Parts(xs: List[Int])\n\nfunction f(x: Int): Int :=\n  x + 1\n\nfunction g(x: Int): Int :=\n  x\n")
-  run_script(in "@put " ++ path ++ ":Parts\ndata Parts :=\n  case Parts(xs: List[Int], builtin: List[Int])\n", false, state, unseen, out reply, status, _)
+  run_script(in "@put "
+    ++ path
+    ++ ":Parts\ndata Parts :=\n  case Parts(xs: List[Int], builtin: List[Int])\n", false, state, unseen, out reply, status, _)
   assert status == 1 and reply == List(
     "rejected",
     "fragment 2.29, script 3.29: keyword builtin is not a name; write a name such as builtins\ncorrected by the hints, which @retry applies:\n  fragment 2, script 3:   case Parts(xs: List[Int], builtins: List[Int])")

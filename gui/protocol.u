@@ -56,7 +56,8 @@ data Event :=
 // the patches that create the node as the child at the index of the parent, numbered from next, with the node placed
 // and the next free id
 function create(parent: Int, index: Int, node: Node, next: Int): (List[Op], Placed, Int) :=
-  example create(0, 0, Node(KText, List(PText("a")), List()), 1) == (List(OCreate(1, 0, 0, KText), OSet(1, PText("a"))), Placed(1, KText, List(PText("a")), List()), 2)
+  example create(0, 0, Node(KText, List(PText("a")), List()), 1)
+      == (List(OCreate(1, 0, 0, KText), OSet(1, PText("a"))), Placed(1, KText, List(PText("a")), List()), 2)
 
 // the patches that turn the root on screen into the node, which keep each widget whose kind stays at its place
 function diff(old: Placed, new: Node, next: Int): (List[Op], Placed, Int)
@@ -84,7 +85,9 @@ function decode(line: Str): Option[Event] :=
 implementation
 
 function create(parent: Int, index: Int, node: Node, next: Int): (List[Op], Placed, Int) :=
-  let (ops, children, after) := create_children(next, 0, node.children, next + 1), sets := List(for prop in node.props yield OSet(next, prop)) in
+  let
+    (ops, children, after) := create_children(next, 0, node.children, next + 1),
+    sets := List(for prop in node.props yield OSet(next, prop)) in
   (List(OCreate(next, parent, index, node.kind); sets ++ ops), Placed(next, node.kind, node.props, children), after)
 
 function create_children(parent: Int, index: Int, nodes: List[Node], next: Int): (List[Op], List[Placed], Int) :=
@@ -93,7 +96,9 @@ function create_children(parent: Int, index: Int, nodes: List[Node], next: Int):
       (List(), List(), next)
 
     case List(node; rest) =>
-      let (ops, placed, after) := create(parent, index, node, next), (more, others, last) := create_children(parent, index + 1, rest, after) in
+      let
+        (ops, placed, after) := create(parent, index, node, next),
+        (more, others, last) := create_children(parent, index + 1, rest, after) in
       (ops ++ more, List(placed; others), last)
   end
 
@@ -117,18 +122,22 @@ function update_children(parent: Int, index: Int, olds: List[Placed], news: List
       (List(for old in olds yield ORemove(old.id)), List(), next)
 
     case (List(old; olds_), List(new; news_)) =>
-      let (ops, placed, after) := (if old.kind == new.kind then
-        update(old, new, next)
-      else
-        let (created, made, last) := create(parent, index, new, next) in
-        (List(ORemove(old.id); created), made, last)), (more, others, final) := update_children(parent, index + 1, olds_, news_, after) in
+      let
+        (ops, placed, after) := (if old.kind == new.kind then
+          update(old, new, next)
+        else
+          let (created, made, last) := create(parent, index, new, next) in
+          (List(ORemove(old.id); created), made, last)),
+        (more, others, final) := update_children(parent, index + 1, olds_, news_, after) in
       (ops ++ more, List(placed; others), final)
   end
 
 // the properties of the new list that the old one lacks, and the defaults of those that only the old one has
 function changed_props(id: Int, olds: List[Prop], news: List[Prop]): List[Op] :=
-  example changed_props(1, List(PText("a"), PDisabled(true)), List(PText("b"))) == List(OSet(1, PText("b")), OSet(1, PDisabled(false)))
-  List(for prop in news if not contains(prop, olds) yield OSet(id, prop)) ++ List(for prop in olds if not exists(news, lambda p => slot(p) == slot(prop)) yield OSet(id, default_of(prop)))
+  example changed_props(1, List(PText("a"), PDisabled(true)), List(PText("b")))
+      == List(OSet(1, PText("b")), OSet(1, PDisabled(false)))
+  List(for prop in news if not contains(prop, olds) yield OSet(id, prop))
+    ++ List(for prop in olds if not exists(news, lambda p => slot(p) == slot(prop)) yield OSet(id, default_of(prop)))
 
 function slot(prop: Prop): Int :=
   match prop
@@ -273,7 +282,8 @@ function prop_fields(prop: Prop): List[Str] :=
       List("expand", flag(on))
 
     case PShapes(shapes) =>
-      List("shapes", show(size(shapes))) ++ concat(List(for shape in shapes yield shape_fields(shape)))
+      List("shapes", show(size(shapes)))
+        ++ concat(List(for shape in shapes yield shape_fields(shape)))
   end
 
 function color_fields(color: Rgb): List[Str] :=
@@ -282,13 +292,15 @@ function color_fields(color: Rgb): List[Str] :=
 function shape_fields(shape: Shape): List[Str] :=
   match shape
     case SRect(x, y, width, height, color) =>
-      List("rect", show(x), show(y), show(width), show(height)) ++ color_fields(color)
+      List("rect", show(x), show(y), show(width), show(height))
+        ++ color_fields(color)
 
     case SCircle(x, y, radius, color) =>
       List("circle", show(x), show(y), show(radius)) ++ color_fields(color)
 
     case SLine(x, y, to_x, to_y, color) =>
-      List("line", show(x), show(y), show(to_x), show(to_y)) ++ color_fields(color)
+      List("line", show(x), show(y), show(to_x), show(to_y))
+        ++ color_fields(color)
 
     case SLabel(x, y, text, color) =>
       List("label", show(x), show(y), escaped(text)) ++ color_fields(color)
@@ -366,7 +378,8 @@ test diff_keeps_widgets() :=
   let (_, placed, next) := create(0, 0, Node(KColumn, List(), List(Node(KText, List(PText("0")), List()))), 1)
   let (ops, after, _) := diff(placed, Node(KColumn, List(), List(Node(KText, List(PText("1")), List()))), next)
   assert ops == List(OSet(2, PText("1")))
-  assert skeleton_of(after) == Node(KColumn, List(), List(Node(KText, List(PText("1")), List())))
+  assert skeleton_of(after)
+    == Node(KColumn, List(), List(Node(KText, List(PText("1")), List())))
 
 test diff_replaces_and_trims() :=
   let text := Node(KText, List(PText("a")), List())

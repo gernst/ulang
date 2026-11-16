@@ -16,7 +16,9 @@ procedure load_mode(
       q: Prog,
       signatures: List[(Path, Sig)]
 ) raises ParseError, OsError, InternalError :=
-  var loaded := Loaded("", Map(), false, Source(List(), List(), List())), checks := no_checks()
+  var
+    loaded := Loaded("", Map(), false, Source(List(), List(), List())),
+    checks := no_checks()
   parse_file_loaded(in path, Map(), declared, out source, ref loaded)
   check_cached(in source, empty(), false, declared, no_tests, out q, _, signatures, ref checks)
 
@@ -48,7 +50,8 @@ test same_signatures() :=
   assert firsts(cut) == firsts(full)
   assert List(for ((id, s), (_, t)) in zip(full, cut) if s != t yield id) == List()
   // the cut load has of the implementation sections of shapes only the datatypes and type aliases, and nothing of notes
-  assert List(for d in source.mods if module_dir(d.name) == shapes() yield (d.name, size(d.implemented))) == List((shapes() ++ List("notes"), 0), (shapes() ++ List("shapes"), 3))
+  assert List(for d in source.mods if module_dir(d.name) == shapes() yield (d.name, size(d.implemented)))
+    == List((shapes() ++ List("notes"), 0), (shapes() ++ List("shapes"), 3))
 
 test same_hints() :=
   var full: Prog, cut: Prog, text: Str
@@ -63,7 +66,8 @@ test same_diagnostics() :=
   let main := (List("ulang", "test", "declared", "texts", "main"), "import ulang.test.declared.shapes\n\nfunction wrong(): Int :=\n  area(1)\n\nfunction wide(s: Shape): Int :=\n  match s\n    case Wide(w, h) =>\n      w\n    case _ =>\n      0\n  end\n\nprocedure entry() :=\n  measure(in Circle(1), out _)\n")
   check_mode(in "ulang/test/declared/texts", List(), main, false, out full)
   check_mode(in "ulang/test/declared/texts", List(), main, true, out cut)
-  assert List(for d in diagnostics(full) yield d.code) == List("Mismatch", "CountMismatch", "UndeclaredRaise")
+  assert List(for d in diagnostics(full) yield d.code)
+    == List("Mismatch", "CountMismatch", "UndeclaredRaise")
   assert diagnostics(cut) == diagnostics(full)
 
 // an error in a definition of an import is found only by the load of the import whole

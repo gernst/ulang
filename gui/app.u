@@ -34,7 +34,11 @@ procedure serve[M, E](
   require_fitting(in tree)
   let (ops, first_placed, first_next) := create(0, 0, skeleton(tree), 1)
   send(in window, List(OTitle(app.title); ops))
-  var model := app.init, placed := first_placed, next := first_next, open := true
+  var
+    model := app.init,
+    placed := first_placed,
+    next := first_next,
+    open := true
   while open do
     var text
     window_next(in window, out text)

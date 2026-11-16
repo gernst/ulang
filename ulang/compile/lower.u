@@ -172,7 +172,9 @@ function proc_name(n: Name): Str :=
   if is_native(n) then "p_" ++ n.base else "p_" ++ mangle(n)
 
 function is_native(n: Name): Bool :=
-  (n.path == library_module("os") or n.path == library_module("io") or n.path == library_module("window")) and contains(n.base, native_procs())
+  (n.path == library_module("os")
+    or n.path == library_module("io")
+    or n.path == library_module("window")) and contains(n.base, native_procs())
 
 function native_procs(): Set[Id] :=
   Set(
@@ -262,7 +264,9 @@ function builtin_functions(): Map[Name, (Str, Int)] :=
     array_reversed_name() => ("u_array_reversed", 1))
 
 function construction(is_tuple: Bool, k: Int): (Str, Bool) :=
-  let base := (if is_tuple then "u_mk_tuple" else "u_mk_con"), least := if is_tuple then 2 else 1 in
+  let
+    base := (if is_tuple then "u_mk_tuple" else "u_mk_con"),
+    least := if is_tuple then 2 else 1 in
   if least <= k and k <= 3 then
     (base ++ "_" ++ show(k), false)
   else
@@ -317,13 +321,25 @@ function type_key(t: Type): Str :=
       c_text(name)
 
     case TSort(name, args) =>
-      c_text(name) ++ "[" ++ join(", ", List(for a in args yield type_key(a))) ++ "]"
+      c_text(name)
+        ++ "["
+        ++ join(", ", List(for a in args yield type_key(a)))
+        ++ "]"
 
     case TFun(args, res) =>
-      "(" ++ join(", ", List(for a in args yield type_key(a))) ++ ") -> " ++ type_key(res)
+      "("
+        ++ join(", ", List(for a in args yield type_key(a)))
+        ++ ") -> "
+        ++ type_key(res)
 
     case TProc(ins, outs, refs, _) =>
-      "(in " ++ type_keys(ins) ++ ", out " ++ type_keys(outs) ++ ", ref " ++ type_keys(refs) ++ ")"
+      "(in "
+        ++ type_keys(ins)
+        ++ ", out "
+        ++ type_keys(outs)
+        ++ ", ref "
+        ++ type_keys(refs)
+        ++ ")"
 
     case TTuple(types) =>
       "(" ++ join(" * ", List(for a in types yield type_key(a))) ++ ")"
@@ -384,13 +400,17 @@ function free_vars(expr: At[Expr], bound: List[Name]): List[Name] :=
       free_in_stmt(stmt, var_names(vars(ins ++ outs ++ refs)) ++ bound)
 
     case ELet(bindings, body) =>
-      free_in_all(seconds(bindings), bound) ++ free_vars(body, bound_by(firsts(bindings)) ++ bound)
+      free_in_all(seconds(bindings), bound)
+        ++ free_vars(body, bound_by(firsts(bindings)) ++ bound)
 
     case EIte(cond, then_expr, else_expr) =>
-      free_vars(cond, bound) ++ free_vars(then_expr, bound) ++ free_vars(else_expr, bound)
+      free_vars(cond, bound)
+        ++ free_vars(then_expr, bound)
+        ++ free_vars(else_expr, bound)
 
     case EMatch(arg, cases) =>
-      free_vars(arg, bound) ++ List(for b in cases for n in free_in_branch(b, bound) yield n)
+      free_vars(arg, bound)
+        ++ List(for b in cases for n in free_in_branch(b, bound) yield n)
 
     case ETuple(args) =>
       free_in_all(args, bound)
@@ -415,16 +435,20 @@ function free_in_stmt(stmt: At[Stmt], bound: List[Name]): List[Name] :=
       List()
 
     case SIf(cond, left, right) =>
-      free_vars(cond, bound) ++ free_in_stmt(left, bound) ++ free_in_stmt(right, bound)
+      free_vars(cond, bound)
+        ++ free_in_stmt(left, bound)
+        ++ free_in_stmt(right, bound)
 
     case SWhile(cond, body) =>
       free_vars(cond, bound) ++ free_in_stmt(body, bound)
 
     case SCall(proc, ins, outs, refs) =>
-      unbound(List(proc; var_names(outs ++ refs)), bound) ++ free_in_all(ins, bound)
+      unbound(List(proc; var_names(outs ++ refs)), bound)
+        ++ free_in_all(ins, bound)
 
     case SMatch(arg, cases) =>
-      free_vars(arg, bound) ++ List(for b in cases for n in free_in_stmt_branch(b, bound) yield n)
+      free_vars(arg, bound)
+        ++ List(for b in cases for n in free_in_stmt_branch(b, bound) yield n)
 
     case SAssert(cond) =>
       free_vars(cond, bound)
@@ -441,7 +465,8 @@ function free_in_stmt(stmt: At[Stmt], bound: List[Name]): List[Name] :=
       free_vars(value, bound)
 
     case STry(body, catches) =>
-      free_in_stmt(body, bound) ++ List(for h in catches for n in free_in_handler(h, bound) yield n)
+      free_in_stmt(body, bound)
+        ++ List(for h in catches for n in free_in_handler(h, bound) yield n)
 
     case SFor(List(GVal(pat, over, _)), body) =>
       free_vars(over, bound) ++ free_in_stmt(body, pattern_names(pat) ++ bound)
@@ -623,7 +648,10 @@ function pushing(lam: At[Expr]): Option[At[Expr]] :=
   end
 
 function pushed(body: At[Expr], acc: Var): Option[At[Expr]] :=
-  let pos := body.pos, span := body.span, a := AOk(body.pos, body.span, EName(acc.name, acc.typ)) in
+  let
+    pos := body.pos,
+    span := body.span,
+    a := AOk(body.pos, body.span, EName(acc.name, acc.typ)) in
   match consing(body, acc.name)
     case Some((Some(cond), e)) =>
       Some(AOk(pos, span, EIte(cond, AOk(pos, span, ECall(pos, span, array_push_name(), THole, List(a, e))), a)))

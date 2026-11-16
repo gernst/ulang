@@ -37,6 +37,7 @@ test qualified_names() :=
   assert nested_value(ulang.test.modules.paths.nested.int_expr(4)) == 4
   assert ulang.test.modules.paths.expr_int(2) == ulang.test.modules.paths.ELit(2)
   assert ulang.test.modules.paths.syntax.expr_int(5).value == 5
-  assert ulang.test.modules.paths.nested_value(ulang.test.modules.paths.nested.EConst(1)) == 1
+  assert ulang.test.modules.paths.nested_value(ulang.test.modules.paths.nested.EConst(1))
+    == 1
   assert or_zero(prelude.option.Some(3)) == 3 and or_zero(None) == 0
   assert prelude.list.size(List(1, 2)) == 2 and prelude.size("abc") == 3

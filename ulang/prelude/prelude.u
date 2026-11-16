@@ -184,7 +184,11 @@ function second[A, B](p: (A, B)): B :=
   end
 
 test arithmetic() :=
-  assert abs(-3) == 3 and abs(3) == 3 and gcd(12, -18) == 6 and gcd(0, 5) == 5 and gcd(0, 0) == 0
+  assert abs(-3) == 3
+    and abs(3) == 3
+    and gcd(12, -18) == 6
+    and gcd(0, 5) == 5
+    and gcd(0, 0) == 0
   assert first((1, "a")) == 1 and second((1, "a")) == "a"
 
 function contains(part: Str, s: Str): Bool :=

@@ -61,7 +61,8 @@ test adds_and_filters() :=
   let typed := update(Typed("milk"), todo().init)
   assert input("New task", "milk", view(todo().init)) == Some(Typed("milk"))
   let added := simulate(todo(), List(Typed("milk"), Add, Typed(" bread "), Add, Toggled(0, true)))
-  assert added.tasks == List(Task("milk", true), Task("bread", false)) and added.draft == ""
+  assert added.tasks == List(Task("milk", true), Task("bread", false))
+    and added.draft == ""
   assert typed.draft == "milk"
   assert update(ClearDone, added).tasks == List(Task("bread", false))
   assert misplaced(view(added)) == List()

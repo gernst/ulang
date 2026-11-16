@@ -1,7 +1,8 @@
 // lemmas about the lists of the library, which the prover proves by its default proof
 
 lemma evaluation() :=
-  ensures size(List(1, 2, 3) ++ List(4)) == 4 and reverse(List(1, 2, 3)) == List(3, 2, 1)
+  ensures size(List(1, 2, 3) ++ List(4)) == 4
+    and reverse(List(1, 2, 3)) == List(3, 2, 1)
 
 lemma evaluation_take_drop() :=
   ensures take(2, List(1, 2, 3)) ++ drop(2, List(1, 2, 3)) == List(1, 2, 3)

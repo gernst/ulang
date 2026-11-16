@@ -50,7 +50,12 @@ data Lint :=
 // a warning of lint at pos of a module, with the expression to write instead if there is one, and the edit that removes
 // it if there is one, which needs no choice
 data Warning :=
-  case Warning(lint: Lint, pos: Pos, message: Str, replacement: Option[At[Expr]], edit: Option[Edit])
+  case Warning(
+    lint: Lint,
+    pos: Pos,
+    message: Str,
+    replacement: Option[At[Expr]],
+    edit: Option[Edit])
 
 // the warnings of module d, of its commands in the order of the module, then of its unused private declarations, of the
 // parts that repeat in a declaration, and of the definitions that repeat another
@@ -62,7 +67,10 @@ function replaced_start(w: Warning): Pos
 implementation
 
 function lints(d: Mod): List[Warning] :=
-  List(for cmd in d.exported ++ d.builtins ++ d.implemented for w in cmd_lints(cmd) ++ decided_cmd(cmd) yield w) ++ unused_privates(d) ++ List(for cmd in d.implemented for w in repeated_exprs(cmd) yield w) ++ duplicate_definitions(d)
+  List(for cmd in d.exported ++ d.builtins ++ d.implemented for w in cmd_lints(cmd) ++ decided_cmd(cmd) yield w)
+    ++ unused_privates(d)
+    ++ List(for cmd in d.implemented for w in repeated_exprs(cmd) yield w)
+    ++ duplicate_definitions(d)
 
 function replaced_start(w: Warning): Pos :=
   match w.edit
@@ -89,16 +97,21 @@ function cmd_lints(cmd: At[Cmd]): List[Warning] :=
 function placed_cmd_lints(pos: Pos, cmd: Cmd): List[Warning] :=
   match cmd
     case CFun(name, _, formals, typ, _, body) =>
-      decl_name_lints(pos, name.base, List(typ)) ++ vars_lints(pos, formals) ++ expr_lints(name.base, body)
+      decl_name_lints(pos, name.base, List(typ))
+        ++ vars_lints(pos, formals)
+        ++ expr_lints(name.base, body)
 
     case CProc(name, _, ins, outs, refs, _, _, stmt) =>
-      decl_name_lints(pos, name.base, List(for x in outs yield x.that.typ)) ++ vars_lints(pos, ins ++ outs ++ refs) ++ stmt_lints("", stmt)
+      decl_name_lints(pos, name.base, List(for x in outs yield x.that.typ))
+        ++ vars_lints(pos, ins ++ outs ++ refs)
+        ++ stmt_lints("", stmt)
 
     case CTest(_, _, stmt) =>
       stmt_lints("", stmt)
 
     case CLemma(_, _, ins, outs, claim, _) =>
-      vars_lints(pos, ins ++ outs) ++ without_bool_ites(exprs_lints("", claim_exprs(claim)))
+      vars_lints(pos, ins ++ outs)
+        ++ without_bool_ites(exprs_lints("", claim_exprs(claim)))
 
     case CPatAlias(name, _, formals, _, _) =>
       decl_name_lints(pos, name.base, List()) ++ vars_lints(pos, formals)
@@ -159,13 +172,16 @@ function part_lints(fun: Id, expr: Expr): List[Warning] :=
       ins_lints(ins, stmt_names(stmt)) ++ stmt_lints(fun, stmt)
 
     case ELet(bindings, body) =>
-      let_binder_lints(bindings, body) ++ exprs_lints(fun, List(for (_, e) in bindings yield e)) ++ expr_lints(fun, body)
+      let_binder_lints(bindings, body)
+        ++ exprs_lints(fun, List(for (_, e) in bindings yield e))
+        ++ expr_lints(fun, body)
 
     case EIte(cond, then_expr, else_expr) =>
       exprs_lints(fun, List(cond, then_expr, else_expr))
 
     case EMatch(arg, cases) =>
-      expr_lints(fun, arg) ++ List(for br in parts(cases) for w in expr_branch_lints(fun, br) yield w)
+      expr_lints(fun, arg)
+        ++ List(for br in parts(cases) for w in expr_branch_lints(fun, br) yield w)
 
     case ETuple(args) =>
       exprs_lints(fun, args)
@@ -174,10 +190,14 @@ function part_lints(fun: Id, expr: Expr): List[Warning] :=
       expr_lints(fun, inner)
 
     case EForm(_, elems, rest) =>
-      List(for y in elems for w in yield_lints(fun, y) yield w) ++ option_lints(fun, rest)
+      List(for y in elems for w in yield_lints(fun, y) yield w)
+        ++ option_lints(fun, rest)
 
     case EFor(_, gens, elem, rest) =>
-      gens_binder_lints(gens, yield_names(elem)) ++ gens_lints(fun, gens) ++ yield_lints(fun, elem) ++ option_lints(fun, rest)
+      gens_binder_lints(gens, yield_names(elem))
+        ++ gens_lints(fun, gens)
+        ++ yield_lints(fun, elem)
+        ++ option_lints(fun, rest)
   end
 
 // the warnings of the variables of the bindings of a let, each read by the values of the bindings after it or by the body
@@ -185,12 +205,16 @@ function let_binder_lints(bindings: List[(At[Pat], At[Expr])], body: At[Expr]): 
   match bindings
     case List() =>
       List()
+
     case List((pat, _); more) =>
-      binder_lints(List(pat), exprs_names(List(for (_, e) in more yield e)) ++ expr_names(body)) ++ let_binder_lints(more, body)
+      binder_lints(List(pat), exprs_names(List(for (_, e) in more yield e)) ++ expr_names(body))
+        ++ let_binder_lints(more, body)
   end
 
 function expr_branch_lints(fun: Id, br: Branch[At[Expr]]): List[Warning] :=
-  binder_lints(List(br.pat), option_names(br.guard) ++ expr_names(br.body)) ++ option_lints(fun, br.guard) ++ expr_lints(fun, br.body)
+  binder_lints(List(br.pat), option_names(br.guard) ++ expr_names(br.body))
+    ++ option_lints(fun, br.guard)
+    ++ expr_lints(fun, br.body)
 
 function exprs_lints(fun: Id, exprs: List[At[Expr]]): List[Warning] :=
   List(for e in exprs for w in expr_lints(fun, e) yield w)
@@ -249,7 +273,10 @@ function part_stmt_lints(fun: Id, pos: Pos, stmt: Stmt): List[Warning] :=
       exprs_lints(fun, List(for (_, e) in upd yield e))
 
     case SBlock(locals, stmts) =>
-      locals_lints(pos, locals, stmts) ++ declared_lints(stmts) ++ collecting_loops(stmts) ++ stmts_lints(fun, stmts)
+      locals_lints(pos, locals, stmts)
+        ++ declared_lints(stmts)
+        ++ collecting_loops(stmts)
+        ++ stmts_lints(fun, stmts)
 
     case SLocal(_, decls) =>
       exprs_lints(fun, List(for (_, init) in decls for e in init yield e))
@@ -264,31 +291,42 @@ function part_stmt_lints(fun: Id, pos: Pos, stmt: Stmt): List[Warning] :=
       exprs_lints(fun, ins)
 
     case SMatch(arg, cases) =>
-      expr_lints(fun, arg) ++ List(for br in parts(cases) for w in stmt_branch_lints(fun, br) yield w)
+      expr_lints(fun, arg)
+        ++ List(for br in parts(cases) for w in stmt_branch_lints(fun, br) yield w)
 
     case SAssert(cond) =>
       without_bool_ites(expr_lints(fun, cond))
 
     case SAssertRaises(_, pat, guard, body) =>
-      binder_lints(List(pat), option_names(guard)) ++ option_lints(fun, guard) ++ stmt_lints(fun, body)
+      binder_lints(List(pat), option_names(guard))
+        ++ option_lints(fun, guard)
+        ++ stmt_lints(fun, body)
 
     case SRaise(value, _) =>
       expr_lints(fun, value)
 
     case STry(body, catches) =>
-      stmt_lints(fun, body) ++ List(for c in catches for w in catch_lints(fun, c) yield w)
+      stmt_lints(fun, body)
+        ++ List(for c in catches for w in catch_lints(fun, c) yield w)
 
     case SFor(gens, body) =>
-      gens_binder_lints(gens, stmt_names(body)) ++ gens_lints(fun, gens) ++ stmt_lints(fun, body)
+      gens_binder_lints(gens, stmt_names(body))
+        ++ gens_lints(fun, gens)
+        ++ stmt_lints(fun, body)
   end
 
 function stmt_branch_lints(fun: Id, br: Branch[At[Stmt]]): List[Warning] :=
-  binder_lints(List(br.pat), option_names(br.guard) ++ stmt_names(br.body)) ++ option_lints(fun, br.guard) ++ stmt_lints(fun, br.body)
+  binder_lints(List(br.pat), option_names(br.guard) ++ stmt_names(br.body))
+    ++ option_lints(fun, br.guard)
+    ++ stmt_lints(fun, br.body)
 
 function catch_lints(fun: Id, c: At[Catch]): List[Warning] :=
   let handler := c.that in
   let scope := option_names(handler.guard) ++ stmt_names(handler.body) in
-  swallowed(c.pos, handler.body) ++ binder_lints(List(handler.pat), scope) ++ option_lints(fun, handler.guard) ++ stmt_lints(fun, handler.body)
+  swallowed(c.pos, handler.body)
+    ++ binder_lints(List(handler.pat), scope)
+    ++ option_lints(fun, handler.guard)
+    ++ stmt_lints(fun, handler.body)
 
 // the lints of the construct expr at pos, which its parts do not include
 function placed_lints(fun: Id, pos: Pos, span: Span, expr: Expr): List[Warning] :=
@@ -528,14 +566,18 @@ function is_plain(expr: At[Expr]): Bool :=
       forall(args, is_plain)
 
     case AOk(_, _, ECall(_, _, name, _, args)) =>
-      name.path == List() and is_capitalized(name.base) and forall(args, is_plain)
+      name.path == List()
+        and is_capitalized(name.base)
+        and forall(args, is_plain)
 
     case _ =>
       false
   end
 
 function is_capitalized(name: Id): Bool :=
-  size(name) > 0 and int(at(0, name)) >= int('A') and int(at(0, name)) <= int('Z')
+  size(name) > 0
+    and int(at(0, name)) >= int('A')
+    and int(at(0, name)) <= int('Z')
 
 // the handler at pos swallows what it catches if its body is skip
 function swallowed(pos: Pos, body: At[Stmt]): List[Warning] :=
@@ -573,7 +615,10 @@ function declared_lints(stmts: List[At[Stmt]]): List[Warning] :=
     case List(stmt; rest) =>
       match stmt_part(stmt)
         case SLocal(mutable, decls) =>
-          decls_lints(stmt.span, decls, rest) ++ (if mutable then unassigned_vars(stmt.span, decls, rest) else List()) ++ declared_lints(rest)
+          decls_lints(stmt.span, decls, rest)
+            ++ (if mutable then unassigned_vars(stmt.span, decls, rest) else List())
+            ++ declared_lints(rest)
+
         case _ =>
           declared_lints(rest)
       end
@@ -584,7 +629,8 @@ function declared_lints(stmts: List[At[Stmt]]): List[Warning] :=
 // variable of a declaration before it that stays (let_befores)
 function unassigned_vars(local: Span, decls: List[(At[Pat], Option[At[Expr]])], rest: List[At[Stmt]]): List[Warning] :=
   let changed := Set(for s in rest for x in assigned(s) ++ call_outs(s) yield x) in
-  let unassigned := List(for (pat, init) in decls if init != None and forall(pat_vars(pat), lambda (_, x) => not contains(x, changed)) yield pat) in
+  let unassigned := List(for (pat, init) in decls if init != None
+    and forall(pat_vars(pat), lambda (_, x) => not contains(x, changed)) yield pat) in
   if size(unassigned) == size(decls) then
     List(for pat in unassigned yield unassigned_warning(pat, Some(EditLet(local))))
   else
@@ -594,8 +640,10 @@ function decls_lints(local: Span, decls: List[(At[Pat], Option[At[Expr]])], rest
   match decls
     case List() =>
       List()
+
     case List((pat, init); more) =>
-      decl_lints(pat, init != None, exprs_names(List(for (_, i) in more for e in i yield e)), (local, decl_span(pat, init)), rest) ++ decls_lints(local, more, rest)
+      decl_lints(pat, init != None, exprs_names(List(for (_, i) in more for e in i yield e)), (local, decl_span(pat, init)), rest)
+        ++ decls_lints(local, more, rest)
   end
 
 // a local that is a variable, also with an annotation, as a local of a block, and the variables of a pattern as those of
@@ -643,21 +691,24 @@ function initialized(xs: List[Var], stmts: List[At[Stmt]]): Set[Id] :=
 // branching statement names, outside its condition, is declared too high, where site, the spans of the statement and of
 // the declaration of a let or var, places the edits
 function local_lints(pos: Pos, name: Id, has_init: Bool, site: Option[(Span, Span)], stmts: List[At[Stmt]]): List[Warning] :=
-  name_lints(pos, name) ++ (if not exists(stmts, lambda s => contains(name, stmt_names(s) ++ call_outs(s))) then
-    List(
-      Warning(UnusedVariable, pos, "the local " ++ name ++ " is never read", None, map_option(site, lambda (local, decl) => EditMove(local, decl, List()))))
-  else if not exists(stmts, lambda s => contains(name, stmt_names(s))) then
-    let assigns := exists(stmts, lambda s => contains(name, assigned(s))) in
-    let edit := if assigns then
-      None
+  name_lints(pos, name)
+    ++ (if not exists(stmts, lambda s => contains(name, stmt_names(s) ++ call_outs(s))) then
+      List(
+        Warning(UnusedVariable, pos, "the local " ++ name ++ " is never read", None, map_option(site, lambda (local, decl) => EditMove(local, decl, List()))))
+    else if not exists(stmts, lambda s => contains(name, stmt_names(s))) then
+      let assigns := exists(stmts, lambda s => contains(name, assigned(s))) in
+      let edit := if assigns then
+        None
+      else
+        map_option(site, lambda (local, decl) => EditDropOuts(local, decl, List(for s in stmts for span in out_calls(name, s) yield span), name)) in
+      List(
+        Warning(UnusedVariable, pos, "the local "
+          ++ name
+          ++ " is never read, write _ at the outs that receive it", None, edit))
+    else if has_init then
+      List()
     else
-      map_option(site, lambda (local, decl) => EditDropOuts(local, decl, List(for s in stmts for span in out_calls(name, s) yield span), name)) in
-    List(
-      Warning(UnusedVariable, pos, "the local " ++ name ++ " is never read, write _ at the outs that receive it", None, edit))
-  else if has_init then
-    List()
-  else
-    too_high(pos, name, site, List(for s in stmts if is_named(name, s))))
+      too_high(pos, name, site, List(for s in stmts if is_named(name, s))))
 
 function too_high(pos: Pos, name: Id, site: Option[(Span, Span)], users: List[At[Stmt]]): List[Warning] :=
   match users
@@ -665,7 +716,9 @@ function too_high(pos: Pos, name: Id, site: Option[(Span, Span)], users: List[At
       let bodies := List(for body in branch_bodies(stmt_part(s)) if is_named(name, body) yield body.span) in
       let edit := map_option(site, lambda (local, decl) => EditMove(local, decl, bodies)) in
       List(
-        Warning(LocalTooHigh, pos, "the local " ++ name ++ " is used only in the branches of one statement, which declare it where they use it", None, edit))
+        Warning(LocalTooHigh, pos, "the local "
+          ++ name
+          ++ " is used only in the branches of one statement, which declare it where they use it", None, edit))
 
     case _ =>
       List()
@@ -694,7 +747,8 @@ function is_branching(name: Id, stmt: Stmt): Bool :=
       not contains(name, expr_names(cond))
 
     case SMatch(arg, cases) =>
-      not contains(name, expr_names(arg)) and forall(parts(cases), lambda br => not contains(name, option_names(br.guard)))
+      not contains(name, expr_names(arg))
+        and forall(parts(cases), lambda br => not contains(name, option_names(br.guard)))
 
     case STry(_, catches) =>
       forall(parts(catches), lambda c => not contains(name, option_names(c.guard)))
@@ -713,8 +767,10 @@ function collecting_loops(stmts: List[At[Stmt]]): List[Warning] :=
   match stmts
     case List() =>
       List()
+
     case List(s; rest) =>
-      List(for x in emptied(stmt_part(s)) for w in collecting_loop(x, rest) yield w) ++ collecting_loops(rest)
+      List(for x in emptied(stmt_part(s)) for w in collecting_loop(x, rest) yield w)
+        ++ collecting_loops(rest)
   end
 
 function emptied(stmt: Stmt): List[Id] :=
@@ -743,7 +799,11 @@ function collecting_loop(x: Id, stmts: List[At[Stmt]]): List[Warning] :=
   end
 
 function collected(pos: Pos, x: Id, list: At[Expr]): Warning :=
-  Warning(CollectingLoop, pos, "a loop that only appends to " ++ x ++ " is the list that it builds, which " ++ x ++ " can be assigned", Some(list), None)
+  Warning(CollectingLoop, pos, "a loop that only appends to "
+    ++ x
+    ++ " is the list that it builds, which "
+    ++ x
+    ++ " can be assigned", Some(list), None)
 
 // the element e of a body assign x := x ++ List(e) that does not name x
 function appended(x: Id, body: At[Stmt]): Option[At[Expr]] :=
@@ -865,10 +925,15 @@ function decided_part(known: List[(At[Expr], Bool)], pos: Pos, span: Span, expr:
 
     case EIte(cond, then_expr, else_expr) =>
       let taken := List(for value in decided(known, cond) yield rewritten(DecidedCondition, pos, span, "an if whose condition the conditions around it decide is the branch that it takes", if value then then_expr else else_expr)) in
-      taken ++ decided_expr(known, cond) ++ decided_expr(List(fact(cond, true); known), then_expr) ++ decided_expr(List(fact(cond, false); known), else_expr)
+      taken
+        ++ decided_expr(known, cond)
+        ++ decided_expr(List(fact(cond, true); known), then_expr)
+        ++ decided_expr(List(fact(cond, false); known), else_expr)
 
     case EMatch(arg, cases) =>
-      decided_expr(known, arg) ++ List(for br in parts(cases) for w in decided_guard(known, br.guard) ++ decided_expr(guarded(known, br.guard), br.body) yield w)
+      decided_expr(known, arg)
+        ++ List(for br in parts(cases) for w in decided_guard(known, br.guard)
+          ++ decided_expr(guarded(known, br.guard), br.body) yield w)
 
     case ETuple(args) =>
       decided_exprs(known, args)
@@ -877,10 +942,13 @@ function decided_part(known: List[(At[Expr], Bool)], pos: Pos, span: Span, expr:
       decided_expr(known, inner)
 
     case EForm(_, elems, rest) =>
-      decided_exprs(known, List(for y in elems for e in yield_exprs(y) yield e) ++ List(for e in rest))
+      decided_exprs(known, List(for y in elems for e in yield_exprs(y) yield e)
+        ++ List(for e in rest))
 
     case EFor(_, gens, elem, rest) =>
-      decided_exprs(known, List(for g in gens for e in gen_exprs(g) yield e) ++ yield_exprs(elem) ++ List(for e in rest))
+      decided_exprs(known, List(for g in gens for e in gen_exprs(g) yield e)
+        ++ yield_exprs(elem)
+        ++ List(for e in rest))
   end
 
 // the facts of known and of guard, which holds in the body of its case
@@ -958,9 +1026,16 @@ function decided_stmt_part(known: List[(At[Expr], Bool)], pos: Pos, stmt: Stmt):
       decided_exprs(known, List(for (_, init) in decls for e in init yield e))
 
     case SIf(cond, left, right) =>
-      let taken := List(for value in decided(known, cond) yield Warning(DecidedCondition, pos, "an if whose condition the conditions around it decide runs only its " ++ (if value then "then" else "else") ++ " branch", None, None)) in
-      let then_known := List(fact(cond, true); known), else_known := List(fact(cond, false); known) in
-      taken ++ decided_expr(known, cond) ++ decided_stmt(kept(then_known, left), left) ++ decided_stmt(kept(else_known, right), right)
+      let taken := List(for value in decided(known, cond) yield Warning(DecidedCondition, pos, "an if whose condition the conditions around it decide runs only its "
+        ++ (if value then "then" else "else")
+        ++ " branch", None, None)) in
+      let
+        then_known := List(fact(cond, true); known),
+        else_known := List(fact(cond, false); known) in
+      taken
+        ++ decided_expr(known, cond)
+        ++ decided_stmt(kept(then_known, left), left)
+        ++ decided_stmt(kept(else_known, right), right)
 
     case SWhile(cond, body) =>
       decided_expr(known, cond) ++ decided_stmt(known, body)
@@ -969,7 +1044,9 @@ function decided_stmt_part(known: List[(At[Expr], Bool)], pos: Pos, stmt: Stmt):
       decided_exprs(known, ins)
 
     case SMatch(arg, cases) =>
-      decided_expr(known, arg) ++ List(for br in parts(cases) for w in decided_guard(known, br.guard) ++ decided_stmt(kept(guarded(known, br.guard), br.body), br.body) yield w)
+      decided_expr(known, arg)
+        ++ List(for br in parts(cases) for w in decided_guard(known, br.guard)
+          ++ decided_stmt(kept(guarded(known, br.guard), br.body), br.body) yield w)
 
     case SAssert(cond) =>
       decided_expr(known, cond)
@@ -982,10 +1059,13 @@ function decided_stmt_part(known: List[(At[Expr], Bool)], pos: Pos, stmt: Stmt):
       decided_expr(known, value)
 
     case STry(body, catches) =>
-      decided_stmt(known, body) ++ List(for c in parts(catches) for w in decided_guard(known, c.guard) ++ decided_stmt(kept(guarded(known, c.guard), c.body), c.body) yield w)
+      decided_stmt(known, body)
+        ++ List(for c in parts(catches) for w in decided_guard(known, c.guard)
+          ++ decided_stmt(kept(guarded(known, c.guard), c.body), c.body) yield w)
 
     case SFor(gens, body) =>
-      decided_exprs(known, List(for g in gens for e in gen_exprs(g) yield e)) ++ decided_stmt(known, body)
+      decided_exprs(known, List(for g in gens for e in gen_exprs(g) yield e))
+        ++ decided_stmt(known, body)
   end
 
 function unused(pos: Pos, kind: Str, name: Id): Warning :=
@@ -1019,7 +1099,8 @@ function reach(graph: Map[Id, Set[Id]], todo: List[Id], seen: Set[Id]): Set[Id] 
 
 // the names that the language uses without a use in the module: the hooks, and project of project.u
 function conventional(m: Path): Set[Id] :=
-  Set("show", "compare", "==") ++ (if m == List("project") then Set("project") else Set())
+  Set("show", "compare", "==")
+    ++ (if m == List("project") then Set("project") else Set())
 
 // whether cmd is used where it is, as a test, a lemma, a declaration with examples, which are tests, or a procedure without
 // formals, which run and test may call
@@ -1113,7 +1194,8 @@ function cmd_names(cmd: Cmd): Set[Id] :=
   end
 
 function spec_names(spec: Spec): Set[Id] :=
-  exprs_names(spec.pre ++ List(for e in spec.post)) ++ Set(for x in spec.examples if is_parsed(x) for n in example_names(x.that) yield n)
+  exprs_names(spec.pre ++ List(for e in spec.post))
+    ++ Set(for x in spec.examples if is_parsed(x) for n in example_names(x.that) yield n)
 
 function claim_names(claim: Claim): Set[Id] :=
   match claim
@@ -1132,7 +1214,9 @@ function example_names(x: Example): Set[Id] :=
       expr_names(expr) ++ pat_names(pat)
 
     case XCall(proc, ins, outs, refs) =>
-      Set(proc.base) ++ exprs_names(ins ++ outs ++ List(for (before, after) in refs for e in List(before, after) yield e))
+      Set(proc.base) ++ exprs_names(ins
+        ++ outs
+        ++ List(for (before, after) in refs for e in List(before, after) yield e))
 
     case XCallRaises(proc, ins, _, befores, pat) =>
       Set(proc.base) ++ exprs_names(ins ++ befores) ++ pat_names(pat)
@@ -1161,8 +1245,10 @@ function gens_binder_lints(gens: List[Gen], scope: Set[Id]): List[Warning] :=
   match gens
     case List() =>
       List()
+
     case List(g; rest) =>
-      binder_lints(gen_pats(g), gens_names(rest) ++ scope) ++ gens_binder_lints(rest, scope)
+      binder_lints(gen_pats(g), gens_names(rest) ++ scope)
+        ++ gens_binder_lints(rest, scope)
   end
 
 function gen_pats(g: Gen): List[At[Pat]] :=
@@ -1191,11 +1277,14 @@ function decl_pos(outer: Pos, pos: Pos): Pos :=
 // the warnings of the name of a declaration whose results are of the types results, where show_ is a name only of what
 // gives no text, as show_ref of a hook
 function decl_name_lints(pos: Pos, name: Id, results: List[Type]): List[Warning] :=
-  name_lints(pos, name) ++ (if starts_with(name, "show_") and exists(results, is_str) then
-    List(
-      Warning(ShowName, pos, "the name " ++ name ++ " is show if it gives text that parses back, else format_ if it prints into another language", None, None))
-  else
-    List())
+  name_lints(pos, name)
+    ++ (if starts_with(name, "show_") and exists(results, is_str) then
+      List(
+        Warning(ShowName, pos, "the name "
+          ++ name
+          ++ " is show if it gives text that parses back, else format_ if it prints into another language", None, None))
+    else
+      List())
 
 function is_str(typ: Type): Bool :=
   match typ
@@ -1219,7 +1308,10 @@ function is_numbered(name: Id): Bool :=
   example is_numbered("os_read_utf8") == false
   match reverse(chars(name))
     case List(c, d; _) =>
-      is_digit(c) and is_letter(d) and not contains(value_or(last(split(name, '_')), name), standard_names())
+      is_digit(c)
+        and is_letter(d)
+        and not contains(value_or(last(split(name, '_')), name), standard_names())
+
     case _ =>
       false
   end
@@ -1354,7 +1446,8 @@ function out_calls(name: Id, stmt: At[Stmt]): List[Span] :=
     case _ =>
       List()
   end in
-  own ++ List(for s in child_stmts(part) for span in out_calls(name, s) yield span)
+  own
+    ++ List(for s in child_stmts(part) for span in out_calls(name, s) yield span)
 
 // the variables that the assignments of stmt assign
 function assigned(stmt: At[Stmt]): Set[Id] :=
@@ -1405,13 +1498,15 @@ function part_names(expr: Expr): Set[Id] :=
       stmt_names(stmt)
 
     case ELet(bindings, body) =>
-      Set(for (p, e) in bindings for x in pat_names(p) ++ expr_names(e) yield x) ++ expr_names(body)
+      Set(for (p, e) in bindings for x in pat_names(p) ++ expr_names(e) yield x)
+        ++ expr_names(body)
 
     case EIte(cond, then_expr, else_expr) =>
       exprs_names(List(cond, then_expr, else_expr))
 
     case EMatch(arg, cases) =>
-      expr_names(arg) ++ Set(for br in parts(cases) for x in pat_names(br.pat) ++ option_names(br.guard) ++ expr_names(br.body) yield x)
+      expr_names(arg)
+        ++ Set(for br in parts(cases) for x in pat_names(br.pat) ++ option_names(br.guard) ++ expr_names(br.body) yield x)
 
     case ETuple(args) =>
       exprs_names(args)
@@ -1494,7 +1589,8 @@ function part_pat_names(pat: Pat): Set[Id] :=
 
 // the names that a proof reads, of its expressions and of the lemmas that it calls
 function proof_names(proof: Proof): Set[Id] :=
-  Set(for step in proof.steps for x in step_names(step.that) yield x) ++ Set(for split in proof.split for x in split_names(split.that) yield x)
+  Set(for step in proof.steps for x in step_names(step.that) yield x)
+    ++ Set(for split in proof.split for x in split_names(split.that) yield x)
 
 function step_names(step: Step): Set[Id] :=
   match step
@@ -1523,7 +1619,9 @@ function split_names(split: Split): Set[Id] :=
       expr_names(arg) ++ branches_proof_names(cases)
 
     case SplitIf(cond, left, right) =>
-      expr_names(cond) ++ proof_names(left) ++ Set(for p in right for x in proof_names(p) yield x)
+      expr_names(cond)
+        ++ proof_names(left)
+        ++ Set(for p in right for x in proof_names(p) yield x)
   end
 
 function branches_proof_names(cases: List[At[Branch[Proof]]]): Set[Id] :=
@@ -1532,7 +1630,8 @@ function branches_proof_names(cases: List[At[Branch[Proof]]]): Set[Id] :=
 // the names that stmt reads, of its expressions, of the procedures it calls, and of the refs that it passes
 function stmt_names(stmt: At[Stmt]): Set[Id] :=
   let part := stmt_part(stmt) in
-  own_names(part) ++ Set(for s in child_stmts(part) for x in stmt_names(s) yield x)
+  own_names(part)
+    ++ Set(for s in child_stmts(part) for x in stmt_names(s) yield x)
 
 // the names that stmt reads itself, without its statements
 function own_names(stmt: Stmt): Set[Id] :=
@@ -1559,7 +1658,8 @@ function own_names(stmt: Stmt): Set[Id] :=
       Set(proc.base) ++ exprs_names(ins) ++ Set(for r in refs yield r.name.base)
 
     case SMatch(arg, cases) =>
-      expr_names(arg) ++ Set(for br in parts(cases) for x in pat_names(br.pat) ++ option_names(br.guard) yield x)
+      expr_names(arg)
+        ++ Set(for br in parts(cases) for x in pat_names(br.pat) ++ option_names(br.guard) yield x)
 
     case SAssert(cond) =>
       expr_names(cond)
@@ -1586,7 +1686,13 @@ function repeat_threshold(): Int :=
 // bound outside it that it reads, each at its binder, and the branches that lead to it, each the position of its if,
 // match, or try and that of the branch
 data Occurrence :=
-  case Occurrence(canon: At[Expr], size: Int, pos: Pos, span: Span, bindings: List[(Id, Pos)], path: List[(Pos, Pos)])
+  case Occurrence(
+    canon: At[Expr],
+    size: Int,
+    pos: Pos,
+    span: Span,
+    bindings: List[(Id, Pos)],
+    path: List[(Pos, Pos)])
 
 // the size of a part in parts of expressions, and the occurrences of its parts of at least repeat_threshold parts
 data Measured :=
@@ -1603,7 +1709,9 @@ function repeated_exprs(cmd: At[Cmd]): List[Warning] :=
       repeats(measured(Place(List(), Map()), body).found)
 
     case AOk(_, _, CProc(_, _, _, outs, refs, _, _, stmt)) =>
-      let changed := Set(for x in outs ++ refs yield x.that.name.base) ++ assigned(stmt) ++ call_outs(stmt) in
+      let changed := Set(for x in outs ++ refs yield x.that.name.base)
+        ++ assigned(stmt)
+        ++ call_outs(stmt) in
       repeats(List(for o in measured_stmt(Place(List(), Map()), stmt).found if forall(expr_names(o.canon), lambda x => not contains(x, changed)) yield o))
 
     case _ =>
@@ -1691,7 +1799,8 @@ function measured_parts(place: Place, pos: Pos, expr: Expr): Measured :=
       measured(place, inner)
 
     case EForm(_, elems, rest) =>
-      measured_all(place, List(for y in elems for e in yield_exprs(y) yield e) ++ List(for e in rest))
+      measured_all(place, List(for y in elems for e in yield_exprs(y) yield e)
+        ++ List(for e in rest))
 
     case EFor(_, gens, elem, rest) =>
       summed(List(
@@ -1761,7 +1870,8 @@ function measured_statement(place: Place, pos: Pos, stmt: Stmt): Measured :=
       measured(place, cond)
 
     case SAssertRaises(_, pat, guard, body) =>
-      summed(List(for g in guard yield measured(with_pats(place, List(pat)), g)) ++ List(measured_stmt(place, body)))
+      summed(List(for g in guard yield measured(with_pats(place, List(pat)), g))
+        ++ List(measured_stmt(place, body)))
 
     case SRaise(value, _) =>
       measured(place, value)
@@ -2050,7 +2160,12 @@ data Definition :=
 // positions, as canon_expr names the variables bound inside
 data Canon :=
   case CanonFun(formals: List[Type], typ: Type, body: At[Expr])
-  case CanonProc(ins: List[Type], outs: List[Type], refs: List[Type], raised: List[Type], stmt: At[Stmt])
+  case CanonProc(
+    ins: List[Type],
+    outs: List[Type],
+    refs: List[Type],
+    raised: List[Type],
+    stmt: At[Stmt])
 
 // the functions and procedures of d with formals whose definitions repeat an earlier one, each at its definition, where
 // those without formals are named constants, whose names tell equal values apart, as name_offset and num_offset of
@@ -2067,7 +2182,14 @@ function duplicates(decls: List[Definition], seen: Map[Canon, Definition]): List
       match get(decl.canon, seen)
         case Some(first) =>
           List(
-            Warning(DuplicateDefinition, decl.pos, "the " ++ decl.kind ++ " " ++ decl.name ++ " repeats the definition of " ++ first.name ++ " at line " ++ show(first.pos.line), None, None); duplicates(rest, seen))
+            Warning(DuplicateDefinition, decl.pos, "the "
+              ++ decl.kind
+              ++ " "
+              ++ decl.name
+              ++ " repeats the definition of "
+              ++ first.name
+              ++ " at line "
+              ++ show(first.pos.line), None, None); duplicates(rest, seen))
 
         case None =>
           duplicates(rest, put(decl.canon, decl, seen))
@@ -2233,7 +2355,9 @@ function let_befores(local: Span, decls: List[(At[Pat], Option[At[Expr]])], unas
   end
 
 function unassigned_warning(pat: At[Pat], edit: Option[Edit]): Warning :=
-  Warning(UnassignedVar, pat.pos, "the var " ++ join(", ", List(for (_, x) in pat_vars(pat) yield x)) ++ " is never assigned after its value, declare it by let", None, edit)
+  Warning(UnassignedVar, pat.pos, "the var "
+    ++ join(", ", List(for (_, x) in pat_vars(pat) yield x))
+    ++ " is never assigned after its value, declare it by let", None, edit)
 
 // the span of a declaration of a let or var, from its pattern to the end of its value, if it has one
 function decl_span(pat: At[Pat], init: Option[At[Expr]]): Span :=

@@ -47,7 +47,8 @@ function lists[A](e: Enumeration[A]): Enumeration[List[A]] :=
 
 // the sets, maps, and arrays of the lists of their elements or entries, where count is that of the lists
 function sets[A](e: Enumeration[A]): Enumeration[Set[A]] :=
-  example values_of(sets(ints()), 2) == List(Set(), Set(-1), Set(-1, 0), Set(0), Set(0, 1), Set(1))
+  example values_of(sets(ints()), 2)
+      == List(Set(), Set(-1), Set(-1, 0), Set(0), Set(0, 1), Set(1))
 
 function maps[K, V](k: Enumeration[K], v: Enumeration[V]): Enumeration[Map[K, V]] :=
   example values_of(maps(bools(), bools()), 1) == List(
@@ -127,7 +128,8 @@ function depth_of(counts: List[Int -> Int]): Int :=
   deepest(counts, 0)
 
 function deepest(counts: List[Int -> Int], n: Int): Int :=
-  if n < limits().depth and product(List(for c in counts yield c(n + 1))) <= limits().cases then
+  if n < limits().depth
+    and product(List(for c in counts yield c(n + 1))) <= limits().cases then
     deepest(counts, n + 1)
   else
     n
@@ -147,4 +149,5 @@ test enumerations() :=
     List(true, true))
   assert count_of(lists(bools()), 2) == size(values_of(lists(bools()), 2))
   assert size(values_of(chars(), 10)) == 5 and count_of(chars(), 10) == 5
-  assert values_of(maps(bools(), ints()), 1) == List(Map(), Map(false => 0), Map(true => 0))
+  assert values_of(maps(bools(), ints()), 1)
+    == List(Map(), Map(false => 0), Map(true => 0))

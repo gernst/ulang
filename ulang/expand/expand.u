@@ -544,7 +544,9 @@ function fold_expansion(pos: Pos, span: Span, form: Form, m: Path, targs: List[T
       fold_expansion(pos, span, form, m, targs, GVal(AOk(k.pos, span_over(k, v), PTuple(List(k, v))), c, typ), body, base, is_var)
 
     case GPair(k, v, c, _) =>
-      let kx := fold_formal(k, "(key)", key_type(targs), is_var), vx := fold_formal(v, "(value)", value_type(targs), is_var) in
+      let
+        kx := fold_formal(k, "(key)", key_type(targs), is_var),
+        vx := fold_formal(v, "(value)", value_type(targs), is_var) in
       form_call(pos, span, m, fold, List(
         c,
         base,
@@ -554,7 +556,9 @@ function fold_expansion(pos: Pos, span: Span, form: Form, m: Path, targs: List[T
           List(acc, formal_at(k, kx), formal_at(v, vx)), matched_body(pos, span, matched_pairs(List((kx, k), (vx, v)), is_var), body)))))
 
     case GVal(p, c, _) if m == library_module("map") =>
-      let kx := Var(unqualified("(key)"), key_type(targs)), vx := Var(unqualified("(value)"), value_type(targs)) in
+      let
+        kx := Var(unqualified("(key)"), key_type(targs)),
+        vx := Var(unqualified("(value)"), value_type(targs)) in
       form_call(pos, span, m, fold, List(
         c,
         base,
@@ -676,15 +680,17 @@ function block_expansion(locals: List[At[Var]], stmts: List[At[Stmt]]): Stmt :=
       let vars := leading_vars(decls) in
       if vars != List() then
         let inits := List(for (x, (_, init)) in zip(vars, decls) for e in init yield AOk(x.pos, x.span, SAssign(List((x.that, e))))) in
-        SBlock(locals ++ vars, inits ++ rest_expansion(at, at_span, mutable, drop(size(vars), decls), rest))
+        SBlock(locals ++ vars, inits
+          ++ rest_expansion(at, at_span, mutable, drop(size(vars), decls), rest))
       else
         match decls
           case List((pat, Some(e)); more) =>
             let xs := placed_vars(pat) in
             let assigned := AOk(pat.pos, pat.span, SAssign(List(for x in xs yield (x.that, AOk(x.pos, x.span, EVar(generated_var(x.that))))))) in
             SBlock(locals ++ xs, List(
-              AOk(pat.pos, pat.span, SMatch(e, List(
-                AOk(pat.pos, pat.span, Branch(generated_pattern(pat), None, assigned)))))) ++ rest_expansion(at, at_span, mutable, more, rest))
+                AOk(pat.pos, pat.span, SMatch(e, List(
+                  AOk(pat.pos, pat.span, Branch(generated_pattern(pat), None, assigned))))))
+              ++ rest_expansion(at, at_span, mutable, more, rest))
 
           // the checker gives a value to every declaration of a pattern that is no variable
           case _ =>
@@ -695,7 +701,9 @@ function block_expansion(locals: List[At[Var]], stmts: List[At[Stmt]]): Stmt :=
       let before := before_local(stmts) in
       match drop(size(before), stmts)
         case List(d; rest) =>
-          SBlock(locals, before ++ List(AOk(d.pos, d.span, block_expansion(List(), List(d; rest)))))
+          SBlock(locals, before
+            ++ List(AOk(d.pos, d.span, block_expansion(List(), List(d; rest)))))
+
         case List() =>
           SBlock(locals, stmts)
       end
@@ -709,7 +717,9 @@ function rest_expansion(at: Pos, at_span: Span, mutable: Bool, decls: List[(At[P
     if size(before) == size(rest) then
       before
     else
-      before ++ List(AOk(at, at_span, block_expansion(List(), drop(size(before), rest))))
+      before
+        ++ List(
+          AOk(at, at_span, block_expansion(List(), drop(size(before), rest))))
   else
     List(
       AOk(at, at_span, block_expansion(List(), List(AOk(at, at_span, SLocal(mutable, decls)); rest))))

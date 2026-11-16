@@ -43,12 +43,24 @@ data SplitTerm :=
   // indices of their values before it, inv and cond over the variables around and havoc as the innermost, body the proof
   // that the body leads from inv and cond to inv, over the variables around, havoc, and their values after the body,
   // which it assigns as witnesses, and after the proof of the rest from inv and not cond, over those around and havoc
-  case InvariantTerm(vars: List[Int], havoc: List[Var], inv: Term, cond: Term, body: ProofTerm, after: ProofTerm, pos: Pos)
+  case InvariantTerm(
+    vars: List[Int],
+    havoc: List[Var],
+    inv: Term,
+    cond: Term,
+    body: ProofTerm,
+    after: ProofTerm,
+    pos: Pos)
 
 // a case of a split: its pattern, its guard, and the variables of the pattern in the order in which they bind, which
 // bind in the guard and the proof
 data CaseTerm :=
-  case CaseTerm(pat: Pat, guard: Option[Term], vars: List[Var], proof: ProofTerm, pos: Pos)
+  case CaseTerm(
+    pat: Pat,
+    guard: Option[Term],
+    vars: List[Var],
+    proof: ProofTerm,
+    pos: Pos)
 
 // the symbols, the lemmas of the module in their order, and the contracts of the procedures with the contract of raise,
 // which the proofs of claims call
@@ -82,7 +94,16 @@ function translate(q: Prog, m: Path): Translation :=
   translate_module(symbols_of(q), m)
 
 data Symbols :=
-  case Symbols(cmds: List[Cmd], defined: List[((Name, Int), (List[Var], Term))], ranks: Map[Name, Int], decls: Decls, procs: Map[(Name, Int), Cmd], known: Set[(Name, Int)], claims: List[Lemma], sorts: Set[Name], direct: Option[Decls])
+  case Symbols(
+    cmds: List[Cmd],
+    defined: List[((Name, Int), (List[Var], Term))],
+    ranks: Map[Name, Int],
+    decls: Decls,
+    procs: Map[(Name, Int), Cmd],
+    known: Set[(Name, Int)],
+    claims: List[Lemma],
+    sorts: Set[Name],
+    direct: Option[Decls])
 
 function symbols_of(q: Prog): Symbols :=
   let cmds := definitions(expanded(q)) in
@@ -128,7 +149,8 @@ function reflexive_sorts(decls: Decls): Set[Name] :=
 // the functions that an application of a function value may call, those passed whose signatures name the sorts and
 // those that the lambdas of formals of such types call, and the functions that apply such values
 function indirect_calls(sorts: Set[Name], cmds: List[Cmd], defined: List[((Name, Int), (List[Var], Term))], lemmas: List[Lemma]): (Set[(Name, Int)], Set[(Name, Int)]) :=
-  let terms := List(for (_, (_, body)) in defined yield body) ++ List(for l in lemmas for t in lemma_terms(l) yield t) in
+  let terms := List(for (_, (_, body)) in defined yield body)
+    ++ List(for l in lemmas for t in lemma_terms(l) yield t) in
   let named := foldl(cmds, empty(), lambda acc, cmd => match signature(cmd)
     case Some((n, types)) =>
       if exists(types, lambda typ => names_sorts(sorts, typ)) then
@@ -145,7 +167,9 @@ function indirect_calls(sorts: Set[Name], cmds: List[Cmd], defined: List[((Name,
 
 // whether the function type f in the fields of d leads back to d, by a datatype that it names or by a parameter
 function closes(edges: Map[Name, Set[Name]], reversed: Map[Name, Set[Name]], d: Name, f: Type): Bool :=
-  exists(sorts_in(f), lambda e => e == d or contains(d, reach(edges, List(e), empty()))) or has_params(f) and exists(insert(d, reach(reversed, List(d), empty())), lambda t => contains(t, reach(edges, List(t), empty())))
+  exists(sorts_in(f), lambda e => e == d or contains(d, reach(edges, List(e), empty())))
+    or has_params(f)
+      and exists(insert(d, reach(reversed, List(d), empty())), lambda t => contains(t, reach(edges, List(t), empty())))
 
 // whether a value of type typ may be or hold a function that a value of a reflexive datatype holds, where a function
 // value of a type parameter may be one that a caller passes
@@ -196,19 +220,26 @@ function applies_reflexive(sorts: Set[Name], expr: At[Expr]): Bool :=
               true
           end
       end in
-      applied or applies_reflexive(sorts, fun) or exists(args, lambda a => applies_reflexive(sorts, a))
+      applied
+        or applies_reflexive(sorts, fun)
+        or exists(args, lambda a => applies_reflexive(sorts, a))
 
     case ELam(_, body) =>
       applies_reflexive(sorts, body)
 
     case ELet(bindings, body) =>
-      exists(bindings, lambda (_, value) => applies_reflexive(sorts, value)) or applies_reflexive(sorts, body)
+      exists(bindings, lambda (_, value) => applies_reflexive(sorts, value))
+        or applies_reflexive(sorts, body)
 
     case EIte(cond, then_expr, else_expr) =>
-      applies_reflexive(sorts, cond) or applies_reflexive(sorts, then_expr) or applies_reflexive(sorts, else_expr)
+      applies_reflexive(sorts, cond)
+        or applies_reflexive(sorts, then_expr)
+        or applies_reflexive(sorts, else_expr)
 
     case EMatch(arg, cases) =>
-      applies_reflexive(sorts, arg) or exists(cases, lambda c => exists(c.that.guard, lambda g => applies_reflexive(sorts, g)) or applies_reflexive(sorts, c.that.body))
+      applies_reflexive(sorts, arg)
+        or exists(cases, lambda c => exists(c.that.guard, lambda g => applies_reflexive(sorts, g))
+          or applies_reflexive(sorts, c.that.body))
 
     case ETuple(args) =>
       exists(args, lambda a => applies_reflexive(sorts, a))
@@ -268,7 +299,8 @@ function lambdas_in(e: Term): List[Term] :=
       List(for a in List(cond, then_expr, else_expr) for lam in lambdas_in(a) yield lam)
 
     case EMatch(arg, cases) =>
-      lambdas_in(arg) ++ List(for br in cases for a in List(br.body; List(for g in br.guard yield g)) for lam in lambdas_in(a) yield lam)
+      lambdas_in(arg)
+        ++ List(for br in cases for a in List(br.body; List(for g in br.guard yield g)) for lam in lambdas_in(a) yield lam)
 
     case ESum(_, summands) =>
       List(for summand in summands for lam in lambdas_in(summand.term) yield lam)
@@ -287,16 +319,20 @@ function passed_symbols(e: Term): Set[(Name, Int)] :=
       Set(for a in args for n in passed_symbols(a) yield n)
 
     case EApp(fun, args) =>
-      passed_symbols(fun) ++ Set(for a in args for n in passed_symbols(a) yield n)
+      passed_symbols(fun)
+        ++ Set(for a in args for n in passed_symbols(a) yield n)
 
     case ELam(_, body) =>
       symbols_in(body)
 
     case EIte(cond, then_expr, else_expr) =>
-      passed_symbols(cond) ++ passed_symbols(then_expr) ++ passed_symbols(else_expr)
+      passed_symbols(cond)
+        ++ passed_symbols(then_expr)
+        ++ passed_symbols(else_expr)
 
     case EMatch(arg, cases) =>
-      passed_symbols(arg) ++ Set(for br in cases for t in List(br.body; List(for g in br.guard yield g)) for n in passed_symbols(t) yield n)
+      passed_symbols(arg)
+        ++ Set(for br in cases for t in List(br.body; List(for g in br.guard yield g)) for n in passed_symbols(t) yield n)
 
     case ESum(_, summands) =>
       Set(for summand in summands for n in passed_symbols(summand.term) yield n)
@@ -357,7 +393,8 @@ function lemma_terms(l: Lemma): List[Term] :=
   seq_terms(l.goal) ++ List(for p in l.proof for t in proof_terms(p) yield t)
 
 function proof_terms(p: ProofTerm): List[Term] :=
-  List(for step in p.steps for t in step_terms(step) yield t) ++ List(for split in p.split for t in split_terms(split) yield t)
+  List(for step in p.steps for t in step_terms(step) yield t)
+    ++ List(for split in p.split for t in split_terms(split) yield t)
 
 function step_terms(step: StepTerm): List[Term] :=
   match step
@@ -389,7 +426,8 @@ function split_terms(split: SplitTerm): List[Term] :=
       List(arg; cases_terms(cases))
 
     case IfTerm(cond, left, right, _) =>
-      List(cond; proof_terms(left)) ++ List(for p in right for t in proof_terms(p) yield t)
+      List(cond; proof_terms(left))
+        ++ List(for p in right for t in proof_terms(p) yield t)
 
     case InvariantTerm(_, _, inv, cond, body, after, _) =>
       List(inv, cond; proof_terms(body) ++ proof_terms(after))
@@ -402,8 +440,10 @@ function seq_terms(s: Seq): List[Term] :=
   match s
     case Atom(term) =>
       List(term)
+
     case Seq(_, assms, concls) =>
-      List(for a in assms for t in seq_terms(a) yield t) ++ List(for c in concls for b in c.body for t in seq_terms(b) yield t)
+      List(for a in assms for t in seq_terms(a) yield t)
+        ++ List(for c in concls for b in c.body for t in seq_terms(b) yield t)
   end
 
 function fun_name(cmd: Cmd): Option[Name] :=
@@ -448,7 +488,8 @@ function datas_decls(datas: List[(Int, (Name, List[Constr]))]): Decls :=
 // a name passed without its arguments reaches the definitions of all its arities, and the appliers, which apply function
 // values that may be those of reflexive datatypes, reach all that such values may call, decls.indirect
 function with_defs(decls: Decls, defined: List[((Name, Int), (List[Var], Term))], ranks: Map[Name, Int], appliers: Set[(Name, Int)]): Decls :=
-  let calls := Map(for ((n, k), (_, body)) in defined yield (n, k) => symbols_in(body) ++ (if contains((n, k), appliers) then decls.indirect else empty())) in
+  let calls := Map(for ((n, k), (_, body)) in defined yield (n, k) => symbols_in(body)
+    ++ (if contains((n, k), appliers) then decls.indirect else empty())) in
   let arities := arities_of(defined) in
   let reached := Map(for ((n, k), _) in defined yield (n, k) => reachable(calls, arities, callees(arities, value_or(get((n, k), calls), empty())), empty())) in
   let defs := Map(for ((n, k), (formals, body)) in defined yield (n, k) => definition_of((n, k), formals, body, decls, value_or(get((n, k), reached), empty()))) in
@@ -487,7 +528,9 @@ function lemma_of(m: Path, procs: Map[(Name, Int), Cmd], contracts: Set[(Name, I
     case CLemma(name, _, formals, outs, ClaimHolds(assms, concl), proof) if name.path == m =>
       let xs := vars(formals), ys := vars(outs) in
       let env := bind(xs, List()), all := bind(xs ++ ys, List()) in
-      let atoms := List(for a in assms yield Atom(term_of(env, a))), goal := Atom(term_of(all, concl)) in
+      let
+        atoms := List(for a in assms yield Atom(term_of(env, a))),
+        goal := Atom(term_of(all, concl)) in
       Some(Lemma(name, Seq(xs, atoms, List(Concl(ys, List(goal)))), map_option(proof, lambda p => proof_term(xs, all, p, Pos(0, 0))), false))
 
     case CLemma(name, _, formals, outs, ClaimCorrect(proc, args, _), proof) if name.path == m =>
@@ -511,9 +554,14 @@ function proc_of(cmd: Cmd): Option[((Name, Int), Cmd)] :=
 function contract_of(cmd: Cmd): Option[((Name, Int), Lemma)] :=
   match cmd
     case CProc(name, _, in_decls, out_decls, ref_decls, _, spec, _) if spec.pre != List() or spec.post != None =>
-      let ins := vars(in_decls), outs := vars(out_decls), refs := vars(ref_decls) in
+      let
+        ins := vars(in_decls),
+        outs := vars(out_decls),
+        refs := vars(ref_decls) in
       let before := List(for r in refs yield Var(Name(List(), "(before)" ++ r.name.base), r.typ)) in
-      let pre := bind(ins ++ refs, List()), post := bind(ins ++ before ++ outs ++ refs, List()) in
+      let
+        pre := bind(ins ++ refs, List()),
+        post := bind(ins ++ before ++ outs ++ refs, List()) in
       let atoms := List(for a in spec.pre yield Atom(term_of(pre, a))) in
       let concl := match spec.post
         case Some(e) =>
@@ -546,7 +594,9 @@ function raise_contract(): Lemma :=
 // arguments, by its invariants, to the values of its outs, which are the witnesses of the outs of the lemma
 function claim_of(name: Name, formals: List[Var], outs: List[Var], args: List[At[Expr]], proc: Option[Cmd], contracts: Set[(Name, Int)], proof: Proof): Lemma :=
   let env := bind(formals, List()), all := bind(formals ++ outs, List()) in
-  let at_formals := List(for a in args yield term_of(env, a)), at_all := List(for a in args yield term_of(all, a)) in
+  let
+    at_formals := List(for a in args yield term_of(env, a)),
+    at_all := List(for a in args yield term_of(all, a)) in
   let results := List(for i in range(0, size(outs)) yield EBound(size(outs) - 1 - i)) in
   match proc
     case Some(CProc(_, _, in_decls, out_decls, _, _, spec, stmt)) =>
@@ -607,7 +657,8 @@ function run(exec: Exec, env: List[Name], items: List[Item], steps: List[StepTer
       ProofTerm(steps, None, pos)
 
     case List(IFinish(targets, sources, at); _) =>
-      ProofTerm(steps ++ List(for (t, x) in zip(targets, sources) yield AssignTerm(size(env) - 1 - t, var_term(env, x), at)), None, at)
+      ProofTerm(steps
+        ++ List(for (t, x) in zip(targets, sources) yield AssignTerm(size(env) - 1 - t, var_term(env, x), at)), None, at)
 
     case List(IStmt(stmt); rest) =>
       run_stmt(exec, env, stmt, rest, steps, pos)
@@ -637,7 +688,9 @@ function run_stmt(exec: Exec, env: List[Name], stmt: At[Stmt], rest: List[Item],
 
     case SIf(cond, left, right) =>
       let c := term_of(env, cond) in
-      let yes := run(exec, env, List(IStmt(left); rest), List(), left.pos), no := run(exec, env, List(IStmt(right); rest), List(), right.pos) in
+      let
+        yes := run(exec, env, List(IStmt(left); rest), List(), left.pos),
+        no := run(exec, env, List(IStmt(right); rest), List(), right.pos) in
       ProofTerm(steps, Some(IfTerm(c, yes, Some(no), stmt.pos)), pos)
 
     case SMatch(arg, cases) =>
@@ -649,8 +702,11 @@ function run_stmt(exec: Exec, env: List[Name], stmt: At[Stmt], rest: List[Item],
       run_loop(exec, env, stmt.pos, cond, body, rest, steps, pos)
 
     case SCall(proc, ins, outs, refs) =>
-      let key := (proc, size(ins) + size(outs) + size(refs)), results := outs ++ refs in
-      let args := List(for a in ins yield term_of(env, a)) ++ List(for r in refs yield var_term(env, r.name)) in
+      let
+        key := (proc, size(ins) + size(outs) + size(refs)),
+        results := outs ++ refs in
+      let args := List(for a in ins yield term_of(env, a))
+        ++ List(for r in refs yield var_term(env, r.name)) in
       let witnesses := List(for x in results yield WitnessTerm(x, stmt.pos)) in
       let called := if contains(key, exec.contracts) then
         List(
@@ -677,7 +733,10 @@ function run_stmt(exec: Exec, env: List[Name], stmt: At[Stmt], rest: List[Item],
 
 // a statement that the run does not take, after which its path ends, as after a raise
 function unsupported(what: Str, pos: Pos, steps: List[StepTerm]): ProofTerm :=
-  ProofTerm(steps ++ List(UnsupportedTerm(what, pos), CallTerm(raise_name(), List(), List(), pos)), None, pos)
+  ProofTerm(steps
+    ++ List(
+      UnsupportedTerm(what, pos),
+      CallTerm(raise_name(), List(), List(), pos)), None, pos)
 
 function run_case(exec: Exec, env: List[Name], d: At[Branch[At[Stmt]]], rest: List[Item]): CaseTerm :=
   let br := d.that, pos := d.pos in
@@ -752,7 +811,8 @@ function assigned_in(stmt: Stmt): List[Var] :=
       assigned_vars(body)
 
     case STry(body, catches) =>
-      assigned_vars(body) ++ List(for d in catches for x in assigned_vars(d.that.body) yield x)
+      assigned_vars(body)
+        ++ List(for d in catches for x in assigned_vars(d.that.body) yield x)
 
     case SFor(_, body) =>
       assigned_vars(body)
@@ -817,7 +877,8 @@ function steps_term(formals: List[Var], env: List[Name], steps: List[At[Step]], 
 
         // the assignments in parallel, of distinct outs, each a term of its own
         case StepAssign(upd) =>
-          steps_term(formals, env, rest, reverse(List(for (y, e) in upd yield AssignTerm(value_or(index_of(y.name, env), 0), term_of(env, e), step.pos))) ++ acc)
+          steps_term(formals, env, rest, reverse(List(for (y, e) in upd yield AssignTerm(value_or(index_of(y.name, env), 0), term_of(env, e), step.pos)))
+            ++ acc)
 
         // the checker allows invariants only in the proofs of claims, which claim_of translates
         case StepInvariant(_) =>
@@ -861,7 +922,9 @@ function term_of(env: List[Name], expr: At[Expr]): Term :=
       end
 
     case EApp(fun, args) =>
-      let f := term_of(env, fun), terms := List(for a in args yield term_of(env, a)) in
+      let
+        f := term_of(env, fun),
+        terms := List(for a in args yield term_of(env, a)) in
       EApp(f, terms)
 
     case ELam(formals, body) =>
@@ -873,11 +936,16 @@ function term_of(env: List[Name], expr: At[Expr]): Term :=
       let_term(env, bindings, body)
 
     case EIte(cond, then_expr, else_expr) =>
-      let c := term_of(env, cond), a := term_of(env, then_expr), b := term_of(env, else_expr) in
+      let
+        c := term_of(env, cond),
+        a := term_of(env, then_expr),
+        b := term_of(env, else_expr) in
       EIte(c, a, b)
 
     case EMatch(arg, cases) =>
-      let a := term_of(env, arg), bs := List(for br in expanded_cases(cases) yield branch_term(env, br)) in
+      let
+        a := term_of(env, arg),
+        bs := List(for br in expanded_cases(cases) yield branch_term(env, br)) in
       EMatch(a, bs)
 
     case ETuple(args) =>
@@ -911,7 +979,9 @@ function unchecked(expr: At[Expr]): Term :=
 
 // a let of variables by substitution, else the match of its patterns, of a tuple if there are several
 function let_term(env: List[Name], bindings: List[(At[Pat], At[Expr])], body: At[Expr]): Term :=
-  let values := List(for (_, a) in bindings yield term_of(env, a)), pats := List(for (p, _) in bindings yield p) in
+  let
+    values := List(for (_, a) in bindings yield term_of(env, a)),
+    pats := List(for (p, _) in bindings yield p) in
   match pattern_vars(pats)
     case Some(xs) =>
       let inner := term_of(bind(xs, env), body) in
@@ -928,5 +998,7 @@ function let_match(env: List[Name], pat: Pat, value: Term, body: At[Expr]): Term
 function branch_term(env: List[Name], d: At[Branch[At[Expr]]]): TermBranch :=
   let br := d.that in
   let inner := bind(pattern_vars(br.pat.that), env) in
-  let guard := map_option(br.guard, lambda g => term_of(inner, g)), body := term_of(inner, br.body) in
+  let
+    guard := map_option(br.guard, lambda g => term_of(inner, g)),
+    body := term_of(inner, br.body) in
   TermBranch(br.pat.that, guard, body)

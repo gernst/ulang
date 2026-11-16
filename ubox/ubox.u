@@ -106,7 +106,8 @@ procedure cmd_wc(in args: List[Str], out status: Int) :=
     7
   else
     widest
-  emit(in List(for (ns, name) in rows yield join(" ", List(for n in ns yield right(n, width))) ++ (if name == "" then "" else " " ++ name)))
+  emit(in List(for (ns, name) in rows yield join(" ", List(for n in ns yield right(n, width)))
+    ++ (if name == "" then "" else " " ++ name)))
   status := 0
 
 procedure cmd_grep(in args: List[Str], out status: Int) :=

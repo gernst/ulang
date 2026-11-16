@@ -29,7 +29,10 @@ lemma irreflexive_assumption(in x: Int) :=
   ensures x < x ==> false
 
 lemma irreflexive_atoms[A](in xs: List[A], x: Int, y: Int, g: Int -> Int) :=
-  ensures not size(xs) < size(xs) and not x * y < x * y and not x / 2 < x / 2 and not g(x) < g(x)
+  ensures not size(xs) < size(xs)
+    and not x * y < x * y
+    and not x / 2 < x / 2
+    and not g(x) < g(x)
 
 lemma unequal_ordered(in x: Int, y: Int) :=
   requires x != y

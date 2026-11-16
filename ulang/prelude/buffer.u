@@ -55,6 +55,9 @@ test buffers() :=
   b := b ++ List(1) ++ List(2, 3)
   b := b ++ List()
   assert size(b) == 3 and List(for x in b) == List(1, 2, 3)
-  assert foldr(b, List(), Cons) == List(1, 2, 3) and foldl(b, List(), lambda xs, x => List(x; xs)) == List(3, 2, 1)
-  assert foldr(b, 0, lambda x, n => 10 * n + x) == 321 and foldl(b, 0, lambda n, x => 10 * n + x) == 123
-  assert List(for x in b ++ List(4) if x > 2) == List(3, 4) and List(for x in b) == List(1, 2, 3)
+  assert foldr(b, List(), Cons) == List(1, 2, 3)
+    and foldl(b, List(), lambda xs, x => List(x; xs)) == List(3, 2, 1)
+  assert foldr(b, 0, lambda x, n => 10 * n + x) == 321
+    and foldl(b, 0, lambda n, x => 10 * n + x) == 123
+  assert List(for x in b ++ List(4) if x > 2) == List(3, 4)
+    and List(for x in b) == List(1, 2, 3)

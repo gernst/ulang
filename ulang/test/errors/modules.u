@@ -202,7 +202,8 @@ test unused_import_place() :=
     "test r() :=",
     "  assert 1 + 1 == 2"), out q, _)
   assert List(for c in q.cmds if cmd_errors(c) != List() yield c) == List()
-  assert List(for d in diagnostics(q) yield (d.code, d.pos)) == List(("UnusedImport", Pos(1, 1)))
+  assert List(for d in diagnostics(q) yield (d.code, d.pos))
+    == List(("UnusedImport", Pos(1, 1)))
 
 // an import of a module without commands, on which no command takes the error
 test unused_import_alone() :=

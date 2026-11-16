@@ -32,7 +32,11 @@ function render_block(b: Block): Str :=
       "<p>" ++ inline(t) ++ "</p>\n"
 
     case CodeBlock(info, t) =>
-      "<pre><code" ++ language(info) ++ ">" ++ escape_html(t) ++ "</code></pre>\n"
+      "<pre><code"
+        ++ language(info)
+        ++ ">"
+        ++ escape_html(t)
+        ++ "</code></pre>\n"
 
     case Quote(body) =>
       "<blockquote>\n" ++ render_blocks(body) ++ "</blockquote>\n"
@@ -41,16 +45,26 @@ function render_block(b: Block): Str :=
       "<ul>\n" ++ render_items(items, tight) ++ "</ul>\n"
 
     case Numbered(start, tight, items) =>
-      "<ol" ++ (if start != 1 then " start=\"" ++ show(start) ++ "\"" else "") ++ ">\n" ++ render_items(items, tight) ++ "</ol>\n"
+      "<ol"
+        ++ (if start != 1 then " start=\"" ++ show(start) ++ "\"" else "")
+        ++ ">\n"
+        ++ render_items(items, tight)
+        ++ "</ol>\n"
 
     case Rule =>
       "<hr />\n"
 
     case Table(aligns, header, rows) =>
-      "<table>\n<thead>\n" ++ row("th", aligns, header) ++ "</thead>\n" ++ (if rows == List() then
-        ""
-      else
-        "<tbody>\n" ++ join("", List(for r in rows yield row("td", aligns, r))) ++ "</tbody>\n") ++ "</table>\n"
+      "<table>\n<thead>\n"
+        ++ row("th", aligns, header)
+        ++ "</thead>\n"
+        ++ (if rows == List() then
+          ""
+        else
+          "<tbody>\n"
+            ++ join("", List(for r in rows yield row("td", aligns, r)))
+            ++ "</tbody>\n")
+        ++ "</table>\n"
   end
 
 function inline(t: Str): Str :=
@@ -93,7 +107,9 @@ function newline(done: Str): Str :=
   if ends_with(done, "\n") then done else done ++ "\n"
 
 function row(tag: Str, aligns: List[Align], cs: List[Str]): Str :=
-  "<tr>\n" ++ join("", List(for (a, c) in zip(aligns, cs) yield "<" ++ tag ++ style(a) ++ ">" ++ inline(c) ++ "</" ++ tag ++ ">\n")) ++ "</tr>\n"
+  "<tr>\n"
+    ++ join("", List(for (a, c) in zip(aligns, cs) yield "<" ++ tag ++ style(a) ++ ">" ++ inline(c) ++ "</" ++ tag ++ ">\n"))
+    ++ "</tr>\n"
 
 function style(a: Align): Str :=
   match a
@@ -111,6 +127,7 @@ function style(a: Align): Str :=
   end
 
 test items() :=
-  assert to_html("- a\n  - b\n- c") == "<ul>\n<li>a\n<ul>\n<li>b</li>\n</ul>\n</li>\n<li>c</li>\n</ul>\n"
+  assert to_html("- a\n  - b\n- c")
+    == "<ul>\n<li>a\n<ul>\n<li>b</li>\n</ul>\n</li>\n<li>c</li>\n</ul>\n"
   assert to_html("1. a\n\n   b") == "<ol>\n<li>\n<p>a</p>\n<p>b</p>\n</li>\n</ol>\n"
   assert title_of("text\n\n## The *title*") == Some("The title")

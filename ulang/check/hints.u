@@ -101,13 +101,16 @@ function cmd_hints(lines: Array[Str], decls: Decls, cmd: At[Cmd]): List[Hint] :=
       decl_hints(lines, formals) ++ expr_hints(lines, decls, body)
 
     case Some(CProc(name, _, ins, outs, refs, raised, _, stmt)) =>
-      decl_hints(lines, ins ++ outs ++ refs) ++ raises_hints(lines, cmd.pos, name, ins ++ outs ++ refs, raised) ++ stmt_hints(lines, decls, stmt)
+      decl_hints(lines, ins ++ outs ++ refs)
+        ++ raises_hints(lines, cmd.pos, name, ins ++ outs ++ refs, raised)
+        ++ stmt_hints(lines, decls, stmt)
 
     case Some(CTest(_, _, stmt)) =>
       stmt_hints(lines, decls, stmt)
 
     case Some(CLemma(_, _, ins, outs, claim, _)) =>
-      decl_hints(lines, ins ++ outs) ++ exprs_hints(lines, decls, claim_exprs(claim))
+      decl_hints(lines, ins ++ outs)
+        ++ exprs_hints(lines, decls, claim_exprs(claim))
 
     case Some(CSort(_, _, _)) =>
       List()
@@ -198,13 +201,15 @@ function node_hints(lines: Array[Str], decls: Decls, pos: Pos, span: Span, expr:
       decl_hints(lines, ins ++ outs ++ refs) ++ stmt_hints(lines, decls, stmt)
 
     case ELet(bindings, body) =>
-      List(for (p, e) in bindings for h in pat_hints(lines, decls, p) ++ expr_hints(lines, decls, e) yield h) ++ expr_hints(lines, decls, body)
+      List(for (p, e) in bindings for h in pat_hints(lines, decls, p) ++ expr_hints(lines, decls, e) yield h)
+        ++ expr_hints(lines, decls, body)
 
     case EIte(cond, then_expr, else_expr) =>
       exprs_hints(lines, decls, List(cond, then_expr, else_expr))
 
     case EMatch(arg, cases) =>
-      expr_hints(lines, decls, arg) ++ List(for b in parts(cases) for h in branch_hints(lines, decls, b) ++ expr_hints(lines, decls, b.body) yield h)
+      expr_hints(lines, decls, arg)
+        ++ List(for b in parts(cases) for h in branch_hints(lines, decls, b) ++ expr_hints(lines, decls, b.body) yield h)
 
     case ETuple(args) =>
       exprs_hints(lines, decls, args)
@@ -214,10 +219,13 @@ function node_hints(lines: Array[Str], decls: Decls, pos: Pos, span: Span, expr:
 
     // of commands that are not checked, whose names are not resolved
     case EForm(_, elems, rest) =>
-      List(for y in elems for h in yield_hints(lines, decls, y) yield h) ++ exprs_hints(lines, decls, List(for r in rest yield r))
+      List(for y in elems for h in yield_hints(lines, decls, y) yield h)
+        ++ exprs_hints(lines, decls, List(for r in rest yield r))
 
     case EFor(_, gens, elem, rest) =>
-      List(for g in gens for h in gen_hints(lines, decls, g) yield h) ++ yield_hints(lines, decls, elem) ++ exprs_hints(lines, decls, List(for r in rest yield r))
+      List(for g in gens for h in gen_hints(lines, decls, g) yield h)
+        ++ yield_hints(lines, decls, elem)
+        ++ exprs_hints(lines, decls, List(for r in rest yield r))
   end
 
 // the use x at pos over span, if the parser placed its name there, or the accessor or updater of a field at its . or
@@ -270,7 +278,8 @@ function pattern_hints(lines: Array[Str], decls: Decls, outer: Span, pat: At[Pat
         List(HUse(span, constr, value_or(get(constr, decls.constrs), THole)))
       else
         List() in
-      own ++ List(for a in args for h in pattern_hints(lines, decls, here, a) yield h)
+      own
+        ++ List(for a in args for h in pattern_hints(lines, decls, here, a) yield h)
 
     case Some(PTuple(args)) =>
       List(for a in args for h in pattern_hints(lines, decls, here, a) yield h)
@@ -287,7 +296,8 @@ function pattern_hints(lines: Array[Str], decls: Decls, outer: Span, pat: At[Pat
   end
 
 function branch_hints[A](lines: Array[Str], decls: Decls, b: Branch[A]): List[Hint] :=
-  pat_hints(lines, decls, b.pat) ++ exprs_hints(lines, decls, List(for g in b.guard yield g))
+  pat_hints(lines, decls, b.pat)
+    ++ exprs_hints(lines, decls, List(for g in b.guard yield g))
 
 function yield_hints(lines: Array[Str], decls: Decls, y: Yield): List[Hint] :=
   match y
@@ -303,7 +313,9 @@ function gen_hints(lines: Array[Str], decls: Decls, g: Gen): List[Hint] :=
       pat_hints(lines, decls, pat) ++ expr_hints(lines, decls, over)
 
     case GPair(key, value, over, _) =>
-      pat_hints(lines, decls, key) ++ pat_hints(lines, decls, value) ++ expr_hints(lines, decls, over)
+      pat_hints(lines, decls, key)
+        ++ pat_hints(lines, decls, value)
+        ++ expr_hints(lines, decls, over)
 
     case GIf(cond) =>
       expr_hints(lines, decls, cond)
@@ -327,34 +339,44 @@ function stmt_hints(lines: Array[Str], decls: Decls, stmt: At[Stmt]): List[Hint]
       decl_hints(lines, locals) ++ stmts_hints(lines, decls, stmts)
 
     case Some(SLocal(_, declared)) =>
-      List(for (p, e) in declared for h in pat_hints(lines, decls, p) ++ exprs_hints(lines, decls, List(for x in e yield x)) yield h)
+      List(for (p, e) in declared for h in pat_hints(lines, decls, p)
+        ++ exprs_hints(lines, decls, List(for x in e yield x)) yield h)
 
     case Some(SIf(cond, left, right)) =>
-      expr_hints(lines, decls, cond) ++ stmts_hints(lines, decls, List(left, right))
+      expr_hints(lines, decls, cond)
+        ++ stmts_hints(lines, decls, List(left, right))
 
     case Some(SWhile(cond, body)) =>
       expr_hints(lines, decls, cond) ++ stmt_hints(lines, decls, body)
 
     case Some(SCall(proc, ins, _, _)) =>
-      List(for h in call_hint(lines, decls, stmt.pos, proc) yield h) ++ exprs_hints(lines, decls, ins)
+      List(for h in call_hint(lines, decls, stmt.pos, proc) yield h)
+        ++ exprs_hints(lines, decls, ins)
 
     case Some(SMatch(arg, cases)) =>
-      expr_hints(lines, decls, arg) ++ List(for b in parts(cases) for h in branch_hints(lines, decls, b) ++ stmt_hints(lines, decls, b.body) yield h)
+      expr_hints(lines, decls, arg)
+        ++ List(for b in parts(cases) for h in branch_hints(lines, decls, b) ++ stmt_hints(lines, decls, b.body) yield h)
 
     case Some(SAssert(cond)) =>
       expr_hints(lines, decls, cond)
 
     case Some(SAssertRaises(_, pat, guard, body)) =>
-      pat_hints(lines, decls, pat) ++ exprs_hints(lines, decls, List(for g in guard yield g)) ++ stmt_hints(lines, decls, body)
+      pat_hints(lines, decls, pat)
+        ++ exprs_hints(lines, decls, List(for g in guard yield g))
+        ++ stmt_hints(lines, decls, body)
 
     case Some(SRaise(value, _)) =>
       expr_hints(lines, decls, value)
 
     case Some(STry(body, catches)) =>
-      stmt_hints(lines, decls, body) ++ List(for c in parts(catches) for h in pat_hints(lines, decls, c.pat) ++ exprs_hints(lines, decls, List(for g in c.guard yield g)) ++ stmt_hints(lines, decls, c.body) yield h)
+      stmt_hints(lines, decls, body)
+        ++ List(for c in parts(catches) for h in pat_hints(lines, decls, c.pat)
+          ++ exprs_hints(lines, decls, List(for g in c.guard yield g))
+          ++ stmt_hints(lines, decls, c.body) yield h)
 
     case Some(SFor(gens, body)) =>
-      List(for g in gens for h in gen_hints(lines, decls, g) yield h) ++ stmt_hints(lines, decls, body)
+      List(for g in gens for h in gen_hints(lines, decls, g) yield h)
+        ++ stmt_hints(lines, decls, body)
 
     case None =>
       List()
@@ -374,7 +396,9 @@ function name_span(pos: Pos, base: Id): Span :=
 
 // whether base is written over span, as the parser places a name
 function is_written(lines: Array[Str], span: Span, base: Id): Bool :=
-  span.start.line == span.stop.line and span.stop.col - span.start.col == size(base) and written(lines, span.start, size(base)) == base
+  span.start.line == span.stop.line
+    and span.stop.col - span.start.col == size(base)
+    and written(lines, span.start, size(base)) == base
 
 // the n characters of the text from pos, or fewer at the end of its line, and none at no line
 function written(lines: Array[Str], pos: Pos, n: Int): Str :=
@@ -431,10 +455,11 @@ function format_hint_with(examples: Map[(Name, Int), List[Str]], h: Hint): List[
           format_name(name) ++ typed(typ); value_or(get((name, arity_of(typ)), examples), List())))))
 
     case HDecl(span, name, typ, written) =>
-      List(hover(span, format_name(name) ++ typed(typ))) ++ (if written or has_unknown(typ) then
-        List()
-      else
-        List(inlay(span.stop, typed(typ))))
+      List(hover(span, format_name(name) ++ typed(typ)))
+        ++ (if written or has_unknown(typ) then
+          List()
+        else
+          List(inlay(span.stop, typed(typ))))
 
     case HRaises(pos, _, raised) =>
       List(inlay(pos, " raises " ++ format_types(raised)))
@@ -506,7 +531,9 @@ function inlay(pos: Pos, label: Str): Str :=
     ("label", json_text(label))))
 
 function json_object(fields: List[(Str, Str)]): Str :=
-  "{" ++ join(", ", List(for (k, v) in fields yield json_text(k) ++ ": " ++ v)) ++ "}"
+  "{"
+    ++ join(", ", List(for (k, v) in fields yield json_text(k) ++ ": " ++ v))
+    ++ "}"
 
 // the lines of a program without the library, whose private procedures raise what they infer
 function sample(): List[Str] :=

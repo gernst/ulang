@@ -122,7 +122,16 @@ procedure test_module(
 function failure_text(o: Outcome, listed: List[(Str, Diagnostic)]): Str :=
   match find(listed, lambda (path, d) => reaches(o.reached, path, d))
     case Some((path, d)) =>
-      "test " ++ o.name ++ " failed by reaching " ++ path ++ ":" ++ show(d.pos.line) ++ "." ++ show(d.pos.col) ++ ", listed above"
+      "test "
+        ++ o.name
+        ++ " failed by reaching "
+        ++ path
+        ++ ":"
+        ++ show(d.pos.line)
+        ++ "."
+        ++ show(d.pos.col)
+        ++ ", listed above"
+
     case None =>
       "test " ++ o.name ++ " failed: " ++ o.message
   end
@@ -130,8 +139,9 @@ function failure_text(o: Outcome, listed: List[(Str, Diagnostic)]): Str :=
 function reaches(reached: Option[Str], path: Str, d: Diagnostic): Bool :=
   match reached
     case Some(text) =>
-      text == deferred_text(List(d with module := None)) or text == deferred_text(List(
-        d with module := Some(value_or(d.module, dir_path(slice(path, 0, size(path) - 2))))))
+      text == deferred_text(List(d with module := None))
+        or text == deferred_text(List(
+          d with module := Some(value_or(d.module, dir_path(slice(path, 0, size(path) - 2))))))
 
     case None =>
       false
@@ -169,7 +179,8 @@ procedure test_message(
     run_cmd(in run, cmd, ref cache)
   catch
     case Uncaught(text) =>
-      message := error_text(RuntimeKind, runtime_message(Uncaught(text))), falsified := ends_with(cmd_name(cmd), lemma_suffix()) and starts_with(text, "Falsified(")
+      message := error_text(RuntimeKind, runtime_message(Uncaught(text))), falsified := ends_with(cmd_name(cmd), lemma_suffix())
+        and starts_with(text, "Falsified(")
 
     case Deferred(text) =>
       message := error_text(RuntimeKind, runtime_message(Deferred(text))), reached := Some(text)
@@ -203,7 +214,12 @@ function example_call(notation: Notation, stmt: Stmt): Option[Str] :=
       let calls := List(for s in stmts for (proc, ins) in called(s.that) yield (proc, ins)) in
       match calls
         case List((proc, ins)) =>
-          Some(proc.base ++ "(" ++ join(", ", List(for (mode, exprs) in List(("in ", ins), ("ref ", befores)) if exprs != List() yield mode ++ join(", ", List(for expr in exprs yield format_expr(notation, List(), "", expr))))) ++ ")")
+          Some(proc.base
+            ++ "("
+            ++ join(", ", List(for (mode, exprs) in List(("in ", ins), ("ref ", befores)) if exprs != List() yield mode
+              ++ join(", ", List(for expr in exprs yield format_expr(notation, List(), "", expr)))))
+            ++ ")")
+
         case _ =>
           None
       end
@@ -241,7 +257,14 @@ procedure prove_module(
       label: Str,
   out proven: Bool
 ) :=
-  let p := prover.provable, t := translate_module(prover.symbols, m), refuted := Set(for l in t.lemmas if contains(l.name.base, falsified) yield l.name), selected := List(for l in t.lemmas if is_named(l.name.base, names) yield l), targets := Set(for l in selected if not contains(l.name, refuted) and not contains(l.name, p.broken) yield l.name), proofs := prove_lemmas(t.decls, t.contracts, Lemmas(t.lemmas, targets, refuted, p.broken, p.erroneous)), ds: List[Diagnostic] := proof_diagnostics(with_proofs(p.prog, m, proofs, names), m)
+  let
+    p := prover.provable,
+    t := translate_module(prover.symbols, m),
+    refuted := Set(for l in t.lemmas if contains(l.name.base, falsified) yield l.name),
+    selected := List(for l in t.lemmas if is_named(l.name.base, names) yield l),
+    targets := Set(for l in selected if not contains(l.name, refuted) and not contains(l.name, p.broken) yield l.name),
+    proofs := prove_lemmas(t.decls, t.contracts, Lemmas(t.lemmas, targets, refuted, p.broken, p.erroneous)),
+    ds: List[Diagnostic] := proof_diagnostics(with_proofs(p.prog, m, proofs, names), m)
   proven := ds == List() and not exists(selected, lambda l => contains(l.name, refuted))
   for n in names if not exists(t.lemmas, lambda l => l.name.base == n) do
     os_println(in label ++ error_text(RuntimeKind, "there is no lemma " ++ n))
@@ -256,7 +279,12 @@ procedure prove_module(
       case Some(Proved(name, List())) =>
         match get(name, proofs.assumed)
           case Some(basis) =>
-            os_println(in label ++ "lemma " ++ name.base ++ " proved, assuming " ++ basis.base ++ ", which is not established")
+            os_println(in label
+              ++ "lemma "
+              ++ name.base
+              ++ " proved, assuming "
+              ++ basis.base
+              ++ ", which is not established")
             for d in ds if get("lemma", d.details) == Some(name.base) do
               os_println(in format_diagnostic(file, d))
             end
@@ -268,7 +296,8 @@ procedure prove_module(
 
       case Some(Proved(name, _)) =>
         os_println(in label ++ "lemma " ++ name.base ++ " open")
-        for d in ds if d.code != "OpenTermination" and get("lemma", d.details) == Some(name.base) do
+        for d in ds if d.code != "OpenTermination"
+          and get("lemma", d.details) == Some(name.base) do
           os_println(in format_diagnostic(file, d))
         end
 
@@ -306,7 +335,11 @@ function cmd_name(cmd: Cmd): Str :=
 
 // the failure of an example names its call with the value that it gave and the value that the example expects
 test example_failures() :=
-  var own: Mod, q: Prog, outcomes: List[Outcome], cache: Map[Name, Val] := empty()
+  var
+    own: Mod,
+    q: Prog,
+    outcomes: List[Outcome],
+    cache: Map[Name, Val] := empty()
   let text := "data D :=\n  case A\n  case B\n\nfunction f(d: D): D :=\n  example f(A) == B\n  d\n\nprocedure p(in d: D, out e: D, ref r: D) :=\n  example p(in A, out B, ref A => B)\n  e := d\n"
   parse_text(in text, out own)
   check_program(in Source(List(own), List(), List("main")), out q)

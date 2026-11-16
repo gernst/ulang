@@ -13,7 +13,10 @@ data Proved :=
 // the lemmas with their goals after the proofs, the terminations of the recursive functions that they reach, and the
 // lemmas proven locally that are not established, each with a lemma that it rests on that is not established either
 data Proofs :=
-  case Proofs(lemmas: List[Proved], terminations: List[Termination], assumed: Map[Name, Name])
+  case Proofs(
+    lemmas: List[Proved],
+    terminations: List[Termination],
+    assumed: Map[Name, Name])
 
 // the targets, each on its own, by its proof, else by simplification and then induction on the first of its formals by
 // which all cases close, where the lemmas before it are facts, but the falsified ones and the claims, and the recursive
@@ -64,7 +67,12 @@ procedure prove_program(in q: Prog, m: Path) raises OpenLemma, OpenTermination
 // that a test falsified, which are no facts; those whose proofs have errors, which are not proven; and the names of the
 // lemmas whose statements have errors, which no proof can cite
 data Lemmas :=
-  case Lemmas(all: List[Lemma], targets: Set[Name], falsified: Set[Name], broken: Set[Name], erroneous: Set[Name])
+  case Lemmas(
+    all: List[Lemma],
+    targets: Set[Name],
+    falsified: Set[Name],
+    broken: Set[Name],
+    erroneous: Set[Name])
 
 // the program that the prover takes of a checked one, where a lemma whose errors are only in its proof has lost the
 // proof, broken, which is not proven but citable and a fact, and a lemma whose statement has errors is left out,
@@ -77,7 +85,10 @@ function provable(q: Prog): Provable
 implementation
 
 procedure prove_program(in q: Prog, m: Path) raises OpenLemma, OpenTermination :=
-  let p := provable(q), t := translate(p.prog, m), proofs := prove_lemmas(t.decls, t.contracts, Lemmas(t.lemmas, Set(for l in t.lemmas if not contains(l.name, p.broken) yield l.name), empty(), p.broken, p.erroneous))
+  let
+    p := provable(q),
+    t := translate(p.prog, m),
+    proofs := prove_lemmas(t.decls, t.contracts, Lemmas(t.lemmas, Set(for l in t.lemmas if not contains(l.name, p.broken) yield l.name), empty(), p.broken, p.erroneous))
   for tm in proofs.terminations do
     match tm.open
       case List(site; _) =>
@@ -110,7 +121,9 @@ function prove_lemmas(decls: Decls, contracts: List[Lemma], lemmas: Lemmas): Pro
   Proofs(proved, ts, assumptions(closed, proved))
 
 function has_errors(proofs: Proofs): Bool :=
-  exists(proofs.lemmas, lambda p => not is_proven(p)) or exists(proofs.terminations, lambda t => not is_terminating(t)) or size(proofs.assumed) > 0
+  exists(proofs.lemmas, lambda p => not is_proven(p))
+    or exists(proofs.terminations, lambda t => not is_terminating(t))
+    or size(proofs.assumed) > 0
 
 function print_open_call(site: CallSite): Str :=
   let r := site.recursion in
@@ -118,13 +131,17 @@ function print_open_call(site: CallSite): Str :=
   let text := match r.args
     case Some(args) =>
       print_term(names, EApp(EFun(first(r.name)), args))
+
     case None =>
-      first(r.name).base ++ " under a lambda, in a condition, or through a function value"
+      first(r.name).base
+        ++ " under a lambda, in a condition, or through a function value"
   end in
   if r.path == List() then
     text
   else
-    text ++ " where " ++ join(" and ", List(for c in r.path yield print_term(names, c)))
+    text
+      ++ " where "
+      ++ join(" and ", List(for c in r.path yield print_term(names, c)))
 
 // the definitions that the symbols name, by name and arity, where a name without arguments names all its arities
 function defined_in(decls: Decls, symbols: Set[(Name, Int)]): List[(Name, Int)] :=
@@ -171,10 +188,14 @@ function assumption_text(basis: Name): Str :=
 
 function termination_diagnostic(m: Path, site: CallSite): Diagnostic :=
   let f := first(site.caller), call_text := print_open_call(site) in
-  Diagnostic(ProofKind, "OpenTermination", if f.path == m then None else name_module(f), Pos(0, 0), "the termination of " ++ f.base ++ " is not proven, no measure decreases " ++ call_text, List(("function", f.base), ("call", call_text)))
+  Diagnostic(ProofKind, "OpenTermination", if f.path == m then None else name_module(f), Pos(0, 0), "the termination of "
+    ++ f.base
+    ++ " is not proven, no measure decreases "
+    ++ call_text, List(("function", f.base), ("call", call_text)))
 
 function with_proofs(q: Prog, m: Path, proofs: Proofs, names: List[Str]): Prog :=
-  let gaps := Map(for Proved(name, gaps) in proofs.lemmas if names == List() or contains(name.base, names) yield name => List(for gap in gaps yield gap_diagnostic(name, gap)) ++ List(for basis in get(name, proofs.assumed) yield assumed_diagnostic(name, basis))) in
+  let gaps := Map(for Proved(name, gaps) in proofs.lemmas if names == List() or contains(name.base, names) yield name => List(for gap in gaps yield gap_diagnostic(name, gap))
+    ++ List(for basis in get(name, proofs.assumed) yield assumed_diagnostic(name, basis))) in
   let open := Map(for tm in proofs.terminations for site in take(1, tm.open) yield site.caller => site) in
   q with cmds := List(for cmd in q.cmds yield with_proof_errors(m, gaps, open, cmd))
 
@@ -255,7 +276,9 @@ function provable_cmd(cmd: At[Cmd]): Option[At[Cmd]] :=
 function has_statement_errors(cmd: At[Cmd]): Bool :=
   match cmd.that
     case CLemma(_, _, _, _, _, proof) =>
-      size(cmd_errors(cmd)) > size(List(for p in proof for e in errors_in_proof(p) yield e))
+      size(cmd_errors(cmd))
+        > size(List(for p in proof for e in errors_in_proof(p) yield e))
+
     case _ =>
       false
   end
@@ -299,15 +322,18 @@ function lemma_gaps(decls: Decls, contracts: List[Lemma], citations: Citations, 
 // all its facts, since the default proof uses a fact without naming it; so a lemma that cites one after it rests on that
 // one, which rests on it, a cycle, until the facts that a proof uses are known (open point 20 of ideas/verification.md)
 function foundations(lemmas: Lemmas, i: Int, l: Lemma): List[Name] :=
-  List(for p in l.proof for n in cited_by(p) if n != l.name and is_lemma(lemmas, n) yield n) ++ List(for f in take(i, lemmas.all) if is_fact(lemmas, f) yield f.name)
+  List(for p in l.proof for n in cited_by(p) if n != l.name and is_lemma(lemmas, n) yield n)
+    ++ List(for f in take(i, lemmas.all) if is_fact(lemmas, f) yield f.name)
 
 // whether a proof that calls the name cites a lemma, not the contract of a procedure, which the proof of a claim calls
 function is_lemma(lemmas: Lemmas, name: Name): Bool :=
-  contains(name, lemmas.erroneous) or exists(lemmas.all, lambda l => l.name == name)
+  contains(name, lemmas.erroneous)
+    or exists(lemmas.all, lambda l => l.name == name)
 
 // the lemmas that the steps of the proof call, also in the cases of its split
 function cited_by(proof: ProofTerm): List[Name] :=
-  List(for step in proof.steps for n in step_citation(step) yield n) ++ List(for split in proof.split for n in split_citations(split) yield n)
+  List(for step in proof.steps for n in step_citation(step) yield n)
+    ++ List(for split in proof.split for n in split_citations(split) yield n)
 
 function step_citation(step: StepTerm): Option[Name] :=
   match step

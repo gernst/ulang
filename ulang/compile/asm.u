@@ -170,7 +170,14 @@ function format_operand(op: Operand): Str :=
       show(disp) ++ "(" ++ format_reg(base) ++ ")"
 
     case OIndex(base, index, scale, disp) =>
-      (if disp == 0 then "" else show(disp)) ++ "(" ++ format_reg(base) ++ ", " ++ format_reg(index) ++ ", " ++ show(scale) ++ ")"
+      (if disp == 0 then "" else show(disp))
+        ++ "("
+        ++ format_reg(base)
+        ++ ", "
+        ++ format_reg(index)
+        ++ ", "
+        ++ show(scale)
+        ++ ")"
 
     case ORip(symbol) =>
       symbol ++ "(%rip)"
@@ -284,7 +291,9 @@ function format_directive(directive: Directive): Str :=
       ".balign " ++ show(bytes)
 
     case DInts(width, nums) =>
-      int_directive(width) ++ " " ++ join(", ", List(for n in nums yield show(n)))
+      int_directive(width)
+        ++ " "
+        ++ join(", ", List(for n in nums yield show(n)))
 
     case DAddrs(symbols) =>
       ".quad " ++ join(", ", symbols)
@@ -354,6 +363,7 @@ test format_asm_lines() :=
     LInstr(ICallPlt("u_add")),
     LComment("done"),
     LDirective(DInts(1, List(97, 0)))))
-  assert format_asm(f) == "\t.text\nf:\n\tpushq %rbp\n\tmovabsq $4294967296, %rdi\n\tmovslq (%rdx, %rcx, 4), %rcx\n\tjne .L1\n\tcall u_add@PLT\n\t# done\n\t.byte 97, 0\n"
+  assert format_asm(f)
+    == "\t.text\nf:\n\tpushq %rbp\n\tmovabsq $4294967296, %rdi\n\tmovslq (%rdx, %rcx, 4), %rcx\n\tjne .L1\n\tcall u_add@PLT\n\t# done\n\t.byte 97, 0\n"
   assert format_instr(ILea(ORip("t_x"), Rax)) == "leaq t_x(%rip), %rax"
   assert utf8_bytes(str(List(chr(128512)))) == List(240, 159, 152, 128)

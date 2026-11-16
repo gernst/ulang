@@ -44,13 +44,23 @@ data Lin :=
 // a function by its formals, which bind in the body, whether it calls itself, also through others, its equations, and the
 // definitions that it reaches by its body, by name and arity
 data Def :=
-  case Def(recursive: Bool, formals: List[Var], body: Term, equations: List[DefEquation], reaches: Set[(Name, Int)])
+  case Def(
+    recursive: Bool,
+    formals: List[Var],
+    body: Term,
+    equations: List[DefEquation],
+    reaches: Set[(Name, Int)])
 
 // an equation of one case of a definition, f(args) == rhs where the conds hold, over the variables vars, which bind in
 // the other fields as the formals of a lemma do, the first one outermost; decided if rhs is the match or if of a case
 // that is not refined further, which only unfolds where it is decided
 data DefEquation :=
-  case DefEquation(vars: List[Var], conds: List[Term], args: List[Term], rhs: Term, decided: Bool)
+  case DefEquation(
+    vars: List[Var],
+    conds: List[Term],
+    args: List[Term],
+    rhs: Term,
+    decided: Bool)
 
 // a constructor by its datatype and its fields, where a field of the datatype itself is recursive
 data ConstrDecl :=
@@ -64,7 +74,15 @@ data ConstrDecl :=
 // is proven, the only recursive ones that unfold, and the definitions that an application of a function value may call,
 // of the functions that values of reflexive datatypes may hold (reflexive_sorts of ulang/prove/translate.u)
 data Decls :=
-  case Decls(defs: Map[(Name, Int), Def], constrs: Map[Name, ConstrDecl], datatypes: Map[Name, List[Name]], ranks: Map[Name, Int], abstracts: Set[Name], ordered: Set[Name], terminating: Set[(Name, Int)], indirect: Set[(Name, Int)])
+  case Decls(
+    defs: Map[(Name, Int), Def],
+    constrs: Map[Name, ConstrDecl],
+    datatypes: Map[Name, List[Name]],
+    ranks: Map[Name, Int],
+    abstracts: Set[Name],
+    ordered: Set[Name],
+    terminating: Set[(Name, Int)],
+    indirect: Set[(Name, Int)])
 
 data Rebind :=
   // the count outermost binders at depth become the levels from depth on
@@ -199,7 +217,8 @@ function subst(c: Int, t: Term, e: Term): Term
 
 // the body of as many binders as there are arguments, applied to them
 function beta(args: List[Term], e: Term): Term :=
-  example beta(List(EInt(1), EInt(2)), Minus(EBound(1), EBound(0))) == Minus(EInt(1), EInt(2))
+  example beta(List(EInt(1), EInt(2)), Minus(EBound(1), EBound(0)))
+      == Minus(EInt(1), EInt(2))
 
 function replace(a: Term, b: Term, e: Term): Term
 
@@ -632,7 +651,8 @@ function symbols_in(e: Term): Set[(Name, Int)] :=
       symbols_in(cond) ++ symbols_in(then_expr) ++ symbols_in(else_expr)
 
     case EMatch(arg, cases) =>
-      symbols_in(arg) ++ Set(for br in cases for n in symbols_in_branch(br) yield n)
+      symbols_in(arg)
+        ++ Set(for br in cases for n in symbols_in_branch(br) yield n)
 
     case ESum(_, summands) =>
       Set(for summand in summands for n in symbols_in(summand.term) yield n)
@@ -662,7 +682,8 @@ function loose(c: Int, e: Term): List[Int] :=
       loose(c, cond) ++ loose(c, then_expr) ++ loose(c, else_expr)
 
     case EMatch(expr, cases) =>
-      loose(c, expr) ++ List(for br in cases for i in loose_branch(c, br) yield i)
+      loose(c, expr)
+        ++ List(for br in cases for i in loose_branch(c, br) yield i)
 
     case ESum(_, summands) =>
       List(for summand in summands for i in loose(c, summand.term) yield i)
@@ -762,7 +783,8 @@ function is_greater(decls: Decls, s: Term, t: Term): Bool :=
           if c > 0 then
             dominates(decls, s, args_of(t))
           else if c == 0 then
-            is_lex_greater(decls, args_of(s), args_of(t)) and dominates(decls, s, args_of(t))
+            is_lex_greater(decls, args_of(s), args_of(t))
+              and dominates(decls, s, args_of(t))
           else
             false
     end
@@ -875,31 +897,59 @@ function print_in(names: List[Id], bound: List[Id], e: Term): Str :=
       owned_text(name)
 
     case ECons(a, b) =>
-      "[" ++ print_in(names, bound, a) ++ "; " ++ print_in(names, bound, b) ++ "]"
+      "["
+        ++ print_in(names, bound, a)
+        ++ "; "
+        ++ print_in(names, bound, b)
+        ++ "]"
 
     case Not(a) =>
       "not " ++ print_arg(names, bound, a)
 
     case Forall(formals, body) =>
-      "forall " ++ print_binders(formals) ++ " => " ++ print_in(names, bound_names(formals, bound), body)
+      "forall "
+        ++ print_binders(formals)
+        ++ " => "
+        ++ print_in(names, bound_names(formals, bound), body)
 
     case Exists(formals, body) =>
-      "exists " ++ print_binders(formals) ++ " => " ++ print_in(names, bound_names(formals, bound), body)
+      "exists "
+        ++ print_binders(formals)
+        ++ " => "
+        ++ print_in(names, bound_names(formals, bound), body)
 
     case EApp(EFun(Name(_, base)), List(a, b)) if contains(base, infix_ops()) =>
-      print_arg(names, bound, a) ++ " " ++ base ++ " " ++ print_arg(names, bound, b)
+      print_arg(names, bound, a)
+        ++ " "
+        ++ base
+        ++ " "
+        ++ print_arg(names, bound, b)
 
     case EApp(fun, args) =>
-      print_arg(names, bound, fun) ++ "(" ++ join(", ", List(for a in args yield print_in(names, bound, a))) ++ ")"
+      print_arg(names, bound, fun)
+        ++ "("
+        ++ join(", ", List(for a in args yield print_in(names, bound, a)))
+        ++ ")"
 
     case ELam(formals, body) =>
-      "lambda " ++ print_binders(formals) ++ " => " ++ print_in(names, bound_names(formals, bound), body)
+      "lambda "
+        ++ print_binders(formals)
+        ++ " => "
+        ++ print_in(names, bound_names(formals, bound), body)
 
     case EIte(cond, then_expr, else_expr) =>
-      "if " ++ print_in(names, bound, cond) ++ " then " ++ print_in(names, bound, then_expr) ++ " else " ++ print_in(names, bound, else_expr)
+      "if "
+        ++ print_in(names, bound, cond)
+        ++ " then "
+        ++ print_in(names, bound, then_expr)
+        ++ " else "
+        ++ print_in(names, bound, else_expr)
 
     case EMatch(expr, cases) =>
-      "match " ++ print_in(names, bound, expr) ++ join("", List(for br in cases yield print_branch(names, bound, br))) ++ " end"
+      "match "
+        ++ print_in(names, bound, expr)
+        ++ join("", List(for br in cases yield print_branch(names, bound, br)))
+        ++ " end"
 
     case ESum(constant, summands) =>
       print_sum(names, bound, constant, summands)
@@ -951,7 +1001,11 @@ function print_branch(names: List[Id], bound: List[Id], br: TermBranch): Str :=
         case None =>
           ""
       end in
-      " case " ++ print_pat(pat) ++ guard ++ " => " ++ print_in(names, inner, body)
+      " case "
+        ++ print_pat(pat)
+        ++ guard
+        ++ " => "
+        ++ print_in(names, inner, body)
   end
 
 function print_pat(p: Pat): Str :=
@@ -975,7 +1029,10 @@ function print_pat(p: Pat): Str :=
       owned_text(name)
 
     case PApp(name, pats) =>
-      owned_text(name) ++ "(" ++ join(", ", List(for q in pats yield print_pat(q.that))) ++ ")"
+      owned_text(name)
+        ++ "("
+        ++ join(", ", List(for q in pats yield print_pat(q.that)))
+        ++ ")"
 
     case PTuple(args) =>
       "(" ++ join(", ", List(for q in args yield print_pat(q.that))) ++ ")"

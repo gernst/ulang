@@ -19,7 +19,11 @@ export
 // (ulang/prove/patterns.u), the conditions of the leaf, the guard of the case, and the negated guards of the cases
 // before it
 data Call :=
-  case Call(name: (Name, Int), vars: List[Var], args: Option[List[Term]], path: List[Term])
+  case Call(
+    name: (Name, Int),
+    vars: List[Var],
+    args: Option[List[Term]],
+    path: List[Term])
 
 // a call in an equation of the function caller
 data CallSite :=
@@ -33,7 +37,10 @@ data Slot :=
 // a component of recursive functions, the slots of its order, and the calls that no order decreases, none if its
 // termination is proven
 data Termination :=
-  case Termination(names: List[(Name, Int)], order: List[Slot], open: List[CallSite])
+  case Termination(
+    names: List[(Name, Int)],
+    order: List[Slot],
+    open: List[CallSite])
 
 // the components of the recursive functions that the roots reach, also the roots themselves
 function terminations(decls: Decls, roots: Set[(Name, Int)]): List[Termination]
@@ -46,7 +53,8 @@ function is_terminating(t: Termination): Bool :=
   t.open == List()
 
 function terminations(decls: Decls, roots: Set[(Name, Int)]): List[Termination] :=
-  let reached := roots ++ Set(for r in roots for d in get(r, decls.defs) for k in d.reaches yield k) in
+  let reached := roots
+    ++ Set(for r in roots for d in get(r, decls.defs) for k in d.reaches yield k) in
   let components := Set(for k in reached for d in get(k, decls.defs) if d.recursive yield component(decls, k)) in
   List(for c in components yield termination(decls, c))
 
@@ -66,7 +74,8 @@ function termination(decls: Decls, names: List[(Name, Int)]): Termination :=
 function equation_calls(decls: Decls, names: List[(Name, Int)], eq: DefEquation): List[Call] :=
   let op := Open(0, size(eq.vars)) in
   let conds := List(for c in eq.conds yield rebind(op, 0, c)) in
-  List(for c in conds for k in mentioned(names, c) yield Call(k, eq.vars, None, List())) ++ calls_in(decls, names, rebind(op, 0, eq.rhs), eq.vars, conds)
+  List(for c in conds for k in mentioned(names, c) yield Call(k, eq.vars, None, List()))
+    ++ calls_in(decls, names, rebind(op, 0, eq.rhs), eq.vars, conds)
 
 // the calls of the component in t, over the levels of vars, where the path holds the conditions around them
 function calls_in(decls: Decls, names: List[(Name, Int)], t: Term, vars: List[Var], path: List[Term]): List[Call] :=
@@ -78,9 +87,12 @@ function calls_in(decls: Decls, names: List[(Name, Int)], t: Term, vars: List[Va
         List() in
       match element_lambda(name, args)
         case Some((container, i, positions)) =>
-          here ++ List(for (a, j) in zip(args, range(0, size(args))) for c in calls_at(decls, names, container, a, j == i, positions, vars, path) yield c)
+          here
+            ++ List(for (a, j) in zip(args, range(0, size(args))) for c in calls_at(decls, names, container, a, j == i, positions, vars, path) yield c)
+
         case None =>
-          here ++ List(for a in args for c in calls_in(decls, names, a, vars, path) yield c)
+          here
+            ++ List(for a in args for c in calls_in(decls, names, a, vars, path) yield c)
       end
 
     case EApp(ELam(formals, body), args) =>
@@ -89,14 +101,18 @@ function calls_in(decls: Decls, names: List[(Name, Int)], t: Term, vars: List[Va
     // a function value may be any that the program passes, a call that is not analysed
     case EApp(fun, args) =>
       let indirect := List(for k in names if contains(k, decls.indirect) and second(k) == size(args) yield Call(k, vars, None, path)) in
-      indirect ++ List(for a in List(fun; args) for c in calls_in(decls, names, a, vars, path) yield c)
+      indirect
+        ++ List(for a in List(fun; args) for c in calls_in(decls, names, a, vars, path) yield c)
 
     case EIte(cond, then_expr, else_expr) =>
-      calls_in(decls, names, cond, vars, path) ++ calls_in(decls, names, then_expr, vars, path ++ List(cond)) ++ calls_in(decls, names, else_expr, vars, path ++ List(Not(cond)))
+      calls_in(decls, names, cond, vars, path)
+        ++ calls_in(decls, names, then_expr, vars, path ++ List(cond))
+        ++ calls_in(decls, names, else_expr, vars, path ++ List(Not(cond)))
 
     case EMatch(arg, cases) =>
       let rows := List(for br in cases yield (br.pat, br.guard != None)) in
-      calls_in(decls, names, arg, vars, path) ++ List(for leaf in leaves(decls, arg, size(vars), rows, None) for c in leaf_calls(decls, names, arg, cases, leaf, vars, path) yield c)
+      calls_in(decls, names, arg, vars, path)
+        ++ List(for leaf in leaves(decls, arg, size(vars), rows, None) for c in leaf_calls(decls, names, arg, cases, leaf, vars, path) yield c)
 
     case ESum(_, summands) =>
       List(for summand in summands for c in calls_in(decls, names, summand.term, vars, path) yield c)
@@ -154,7 +170,9 @@ function lambda_calls(decls: Decls, names: List[(Name, Int)], container: Term, l
 // the calls of the cases of a match on arg that match the leaf, whose variables follow vars, under the equation of arg
 // with the value of the leaf, its conditions, and the guards of the cases before, negated
 function leaf_calls(decls: Decls, names: List[(Name, Int)], arg: Term, cases: List[TermBranch], leaf: Leaf, vars: List[Var], path: List[Term]): List[Call] :=
-  let here := path ++ (if leaf.value == arg then List() else List(Eq(arg, leaf.value))) ++ leaf.conds in
+  let here := path
+    ++ (if leaf.value == arg then List() else List(Eq(arg, leaf.value)))
+    ++ leaf.conds in
   hits_calls(decls, names, cases, leaf.hits, vars ++ leaf.vars, here)
 
 function hits_calls(decls: Decls, names: List[(Name, Int)], cases: List[TermBranch], hits: List[Hit], vars: List[Var], path: List[Term]): List[Call] :=
@@ -168,7 +186,9 @@ function hits_calls(decls: Decls, names: List[(Name, Int)], cases: List[TermBran
       match br.guard
         case Some(g) =>
           let guard := beta(hit.bindings, g) in
-          calls_in(decls, names, guard, vars, path) ++ calls_in(decls, names, body, vars, path ++ List(guard)) ++ hits_calls(decls, names, cases, rest, vars, path ++ List(Not(guard)))
+          calls_in(decls, names, guard, vars, path)
+            ++ calls_in(decls, names, body, vars, path ++ List(guard))
+            ++ hits_calls(decls, names, cases, rest, vars, path ++ List(Not(guard)))
 
         case None =>
           calls_in(decls, names, body, vars, path)
@@ -188,7 +208,8 @@ function measure_slots(decls: Decls, names: List[(Name, Int)]): List[Slot] :=
     case List(fs) =>
       let body := List(for k in names for d in get(k, decls.defs) yield d.body) in
       let guards := List(for b in body for m in guard_measures(fs, b) yield m) in
-      List(for m in size_measures(decls, fs) yield Slot(List(m), false)) ++ List(for m in int_measures(fs) ++ guards yield Slot(List(m), true))
+      List(for m in size_measures(decls, fs) yield Slot(List(m), false))
+        ++ List(for m in int_measures(fs) ++ guards yield Slot(List(m), true))
 
     case _ =>
       let n := value_or(foldl(formals, None, lambda least, fs => Some(min(value_or(least, size(fs)), size(fs)))), 0) in
@@ -197,7 +218,9 @@ function measure_slots(decls: Decls, names: List[(Name, Int)]): List[Slot] :=
       let ranks := List(
         Slot(List(for i in range(0, k) yield EInt(i + 1)), true),
         Slot(List(for i in range(0, k) yield EInt(k - i)), true)) in
-      List(Slot(List(for fs in formals yield sizes_sum(decls, fs)), false)) ++ common ++ ranks
+      List(Slot(List(for fs in formals yield sizes_sum(decls, fs)), false))
+        ++ common
+        ++ ranks
   end
 
 // the sum of the sizes of the formals of datatypes, for mutual recursions whose functions take them at different places
@@ -211,7 +234,10 @@ function size_measures(decls: Decls, fs: List[Var]): List[Term] :=
 function int_measures(fs: List[Var]): List[Term] :=
   let n := size(fs) in
   let ints := List(for (x, i) in zip(fs, range(0, n)) if x.typ == TInt() yield EBound(n - 1 - i)) in
-  ints ++ List(for x in ints yield Minus(EInt(0), x)) ++ List(for x in ints for y in ints if x != y yield Minus(y, x)) ++ List(for x in ints yield Abs(x))
+  ints
+    ++ List(for x in ints yield Minus(EInt(0), x))
+    ++ List(for x in ints for y in ints if x != y yield Minus(y, x))
+    ++ List(for x in ints yield Abs(x))
 
 // the differences of the sides of the comparisons in the conditions of the ifs of the body outside its matches and
 // lambdas, where the formals are the only indices, both ways, of the comparisons of which one side is an integer, as
@@ -219,7 +245,10 @@ function int_measures(fs: List[Var]): List[Term] :=
 function guard_measures(fs: List[Var], body: Term): List[Term] :=
   match body
     case EIte(cond, then_expr, else_expr) =>
-      comparison_measures(fs, cond) ++ guard_measures(fs, then_expr) ++ guard_measures(fs, else_expr)
+      comparison_measures(fs, cond)
+        ++ guard_measures(fs, then_expr)
+        ++ guard_measures(fs, else_expr)
+
     case _ =>
       List()
   end
@@ -314,7 +343,8 @@ function first_slot(decls: Decls, names: List[(Name, Int)], slots: List[Slot], s
 
     case List(slot; rest) =>
       let strict := List(for site in sites yield is_strict(decls, names, slot, site)) in
-      if exists(strict, lambda b => b) and forall(zip(sites, strict), lambda p => second(p) or is_weak(decls, names, slot, first(p))) then
+      if exists(strict, lambda b => b)
+        and forall(zip(sites, strict), lambda p => second(p) or is_weak(decls, names, slot, first(p))) then
         Some(slot)
       else
         first_slot(decls, names, rest, sites)
@@ -323,7 +353,9 @@ function first_slot(decls: Decls, names: List[(Name, Int)], slots: List[Slot], s
 function is_strict(decls: Decls, names: List[(Name, Int)], slot: Slot, site: CallSite): Bool :=
   match measures_at(names, slot, site)
     case Some((before, after)) =>
-      is_valid(decls, site, List(Less(after, before)) ++ (if slot.int then List(Less(EInt(0), before)) else List()))
+      is_valid(decls, site, List(Less(after, before))
+        ++ (if slot.int then List(Less(EInt(0), before)) else List()))
+
     case None =>
       false
   end
@@ -395,4 +427,5 @@ function is_valid(decls: Decls, site: CallSite, goals: List[Term]): Bool :=
   let accesses := Set(for t in r.path ++ goals for a in accesses_in(t) yield a) in
   let fields := List(for a in accesses for x in accessed(a) yield Less(Size(a), Size(x))) in
   let assms := List(for c in r.path ++ fields yield Atom(rebind(op, 0, c))) in
-  simplify(decls, Seq(r.vars, assms, List(Concl(List(), List(for g in goals yield Atom(rebind(op, 0, g))))))) == TrueSeq()
+  simplify(decls, Seq(r.vars, assms, List(Concl(List(), List(for g in goals yield Atom(rebind(op, 0, g)))))))
+    == TrueSeq()

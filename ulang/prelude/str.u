@@ -117,18 +117,27 @@ function ends_with(s: Str, finish: Str): Bool :=
 
 // whether the characters of part from j on are those of s from i + j on
 function stands_at(part: Str, s: Str, i: Int, j: Int): Bool :=
-  j == size(part) or at(j, part) == at(i + j, s) and stands_at(part, s, i, j + 1)
+  j == size(part)
+    or at(j, part) == at(i + j, s) and stands_at(part, s, i, j + 1)
 
 function repeat(n: Int, s: Str): Str :=
   join("", replicate(n, s))
 
 test strings() :=
-  assert size("abc") == 3 and at(1, "abc") == 'b' and get(1, "abc") == Some('b') and get(3, "abc") == None
+  assert size("abc") == 3
+    and at(1, "abc") == 'b'
+    and get(1, "abc") == Some('b')
+    and get(3, "abc") == None
   assert get(-1, "abc") == None and contains('b', "abc") and not contains('d', "abc")
   assert slice("abc", 1, 3) == "bc" and join(", ", split("a,b", ',')) == "a, b"
-  assert quote("a\"b") == "\"a\\\"b\"" and number("-12") == Some(-12) and number("1a") == None
+  assert quote("a\"b") == "\"a\\\"b\""
+    and number("-12") == Some(-12)
+    and number("1a") == None
   assert repeat(2, "ab") == "abab" and repeat(0, "a") == ""
-  assert starts_with("abc", "ab") and not starts_with("a", "ab") and ends_with("abc", "bc") and not ends_with("abc", "ab")
+  assert starts_with("abc", "ab")
+    and not starts_with("a", "ab")
+    and ends_with("abc", "bc")
+    and not ends_with("abc", "ab")
 
 function trim(s: Str): Str :=
   let i := first_kept(s, 0), j := last_kept(s, size(s)) in

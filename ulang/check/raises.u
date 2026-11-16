@@ -15,7 +15,10 @@ export
 // its position in the module of the command, and the raises of the private procedures without raises, as inferred
 // and the solutions of the unknowns of raises, the least that their bounds allow, where one without a bound is none
 data Exceptions :=
-  case Exceptions(errors: List[TypeError], inferred: Map[Name, List[Type]], solved: Map[Int, Set[Name]])
+  case Exceptions(
+    errors: List[TypeError],
+    inferred: Map[Name, List[Type]],
+    solved: Map[Int, Set[Name]])
 
 // what a procedure value of the raises sub may raise, a value of the raises sup may raise too, as unify of
 // ulang/check/check.u records it at pos of module where one of them is not a set
@@ -34,7 +37,11 @@ implementation
 // lets through though handlers of them catch some of their values, each at its raise or call, with a value that none
 // catches
 data Flow :=
-  case Flow(raised: Map[Name, Pos], errors: List[(Pos, TypeError)], lower: Map[Int, Map[Name, Origin]], missed: Map[Name, (Pos, Pat)])
+  case Flow(
+    raised: Map[Name, Pos],
+    errors: List[(Pos, TypeError)],
+    lower: Map[Int, Map[Name, Origin]],
+    missed: Map[Name, (Pos, Pat)])
 
 // where an exception entered the solution of an unknown: at the use of the procedure name as a value or a raise in a
 // lambda, or at a bound, which names none
@@ -44,13 +51,19 @@ data Origin :=
 // the raises of the procedures of the package, written or inferred so far, the types of the locals in scope, the
 // solutions of the unknowns so far, and the module of the command
 data Scope :=
-  case Scope(sig: Sig, procs: Map[Name, Set[Name]], locals: Map[Name, Type], solved: Map[Int, Map[Name, Origin]], module: Option[Path])
+  case Scope(
+    sig: Sig,
+    procs: Map[Name, Set[Name]],
+    locals: Map[Name, Type],
+    solved: Map[Int, Map[Name, Origin]],
+    module: Option[Path])
 
 function raises_errors(cmds: List[Cmd], sig: Sig, hidden: Set[Name], bounds: List[Bound]): Exceptions :=
   let inferred := inferred_procs(cmds, hidden) in
   let scope := infer_procs(cmds, bounds, Scope(sig, written_procs(cmds, inferred), empty(), empty(), None), inferred) in
   let errors := List(for cmd in cmds for (pos, e) in take(1, sort(cmd_errors(in_module(scope, cmd), cmd, inferred))) yield Located(cmd_module(cmd), pos, e)) in
-  Exceptions(errors ++ distinct(List(for b in bounds for e in exceeded(scope.solved, b) yield e)), Map(for name in inferred yield name => List(for t in proc_raises(scope, name) yield TSort(t, List()))), Map(for id => _ in scope.solved yield id => raised_set(scope.solved, RUnknown(id))))
+  Exceptions(errors
+    ++ distinct(List(for b in bounds for e in exceeded(scope.solved, b) yield e)), Map(for name in inferred yield name => List(for t in proc_raises(scope, name) yield TSort(t, List()))), Map(for id => _ in scope.solved yield id => raised_set(scope.solved, RUnknown(id))))
 
 function in_module(scope: Scope, cmd: Cmd): Scope :=
   scope with module := cmd_module(cmd)
@@ -157,7 +170,9 @@ function cmd_errors(scope: Scope, cmd: Cmd, inferred: Set[Name]): List[(Pos, Typ
   let flow := cmd_flow(scope, cmd) in
   match cmd
     case CProc(name, _, _, _, _, _, _, _) if not contains(name, inferred) =>
-      flow.errors ++ omitted(name, flow.raised, flow.missed, proc_raises(scope, name))
+      flow.errors
+        ++ omitted(name, flow.raised, flow.missed, proc_raises(scope, name))
+
     case _ =>
       flow.errors
   end
@@ -294,7 +309,8 @@ function is_exception(sig: Sig, t: Type): Bool :=
 
 // whether t is an exception that raises count
 function is_tracked(sig: Sig, t: Type): Bool :=
-  is_exception(sig, t) and not exists(exception_name(t), lambda name => contains(name, unchecked_exceptions()))
+  is_exception(sig, t)
+    and not exists(exception_name(t), lambda name => contains(name, unchecked_exceptions()))
 
 function stmt_flow(scope: Scope, stmt: At[Stmt]): Flow :=
   match stmt
@@ -409,7 +425,9 @@ function handled(scope: Scope, body: Flow, catches: List[(Pos, Catch)]): Flow :=
   let split := List(for (p, c) in catches for a in handler_alternatives(p, c) yield a) in
   let caught := List(for (_, c) in split if c.guard == None yield (c.typ, c.pat.that)) in
   let left := Map(for t => p in body.raised if not catches_all(scope.sig, TSort(t, List()), caught) yield t => p) in
-  let never := List(for (p, c) in split if c.pat.that != PWild and is_tracked(scope.sig, c.typ) and not contains_key(body.raised, c.typ) yield (p, NeverRaised(c.typ))) in
+  let never := List(for (p, c) in split if c.pat.that != PWild
+    and is_tracked(scope.sig, c.typ)
+    and not contains_key(body.raised, c.typ) yield (p, NeverRaised(c.typ))) in
   let handlers := flows(List(for (_, c) in catches yield branch_flow(scope, c.pat, c.guard, c.body))) in
   let missed := Map(for t => p in left for w in missed_value(scope.sig, TSort(t, List()), List(for (u, pat) in caught if u == TSort(t, List()) yield pat)) if exists(caught, lambda (u, _) => u == TSort(t, List())) yield t => (p, w)) in
   Flow(handlers.raised ++ left, body.errors ++ never ++ handlers.errors, joined(body.lower, handlers.lower), handlers.missed ++ body.missed ++ missed)
@@ -425,7 +443,8 @@ function handler_alternatives(p: Pos, c: Catch): List[(Pos, Catch)] :=
   end
 
 function catches_all(sig: Sig, t: Type, caught: List[(Type, Pat)]): Bool :=
-  exists(caught, lambda (_, pat) => pat == PWild) or covers_all(sig, t, List(for (u, pat) in caught if u == t yield pat))
+  exists(caught, lambda (_, pat) => pat == PWild)
+    or covers_all(sig, t, List(for (u, pat) in caught if u == t yield pat))
 
 function contains_key(raised: Map[Name, Pos], t: Type): Bool :=
   match exception_name(t)
@@ -523,7 +542,8 @@ function part_expr_flow(scope: Scope, pos: Pos, expr: Expr): Flow :=
       expr_flow(scope, inner)
 
     case EForm(_, elems, rest) =>
-      flows(List(for y in elems yield yield_flow(scope, y)) ++ List(for r in rest yield expr_flow(scope, r)))
+      flows(List(for y in elems yield yield_flow(scope, y))
+        ++ List(for r in rest yield expr_flow(scope, r)))
 
     case EFor(_, gens, elem, rest) =>
       flows(List(
@@ -532,7 +552,8 @@ function part_expr_flow(scope: Scope, pos: Pos, expr: Expr): Flow :=
 
 function case_flow(scope: Scope, br: Branch[At[Expr]]): Flow :=
   let inner := bound(scope, pattern_variables(br.pat)) in
-  flows(List(for g in br.guard yield expr_flow(inner, g)) ++ List(expr_flow(inner, br.body)))
+  flows(List(for g in br.guard yield expr_flow(inner, g))
+    ++ List(expr_flow(inner, br.body)))
 
 function yield_flow(scope: Scope, elem: Yield): Flow :=
   match elem

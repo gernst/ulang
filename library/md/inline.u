@@ -151,7 +151,10 @@ function emphasis(cs: List[Char], prev: Char, d: Char): List[Inline] :=
 function can_open(prev: Char, after: List[Char], d: Char): Bool :=
   match after
     case List(next; _) =>
-      not is_space(next) and (not is_punctuation(next) or is_space(prev) or is_punctuation(prev)) and (d == '*' or not (is_letter(prev) or is_digit(prev)))
+      not is_space(next)
+        and (not is_punctuation(next) or is_space(prev) or is_punctuation(prev))
+        and (d == '*' or not (is_letter(prev) or is_digit(prev)))
+
     case List() =>
       false
   end
@@ -177,7 +180,9 @@ function close_emphasis(cs: List[Char], d: Char, k: Int, prev: Char, acc: List[C
     case List(c; rest) =>
       if c == d then
         let (run, after) := span(cs, lambda e => e == d) in
-        if size(run) == k and not is_space(prev) and (d == '*' or not starts_word(after)) then
+        if size(run) == k
+          and not is_space(prev)
+          and (d == '*' or not starts_word(after)) then
           Some((reverse(acc), after))
         else
           close_emphasis(after, d, k, d, reverse(run) ++ acc)
@@ -318,10 +323,20 @@ function render_inline(x: Inline): Str :=
       "<strong>" ++ render_inlines(body) ++ "</strong>"
 
     case Link(body, url, title) =>
-      "<a href=\"" ++ escape_html(url) ++ "\"" ++ (if title == "" then "" else " title=\"" ++ escape_html(title) ++ "\"") ++ ">" ++ render_inlines(body) ++ "</a>"
+      "<a href=\""
+        ++ escape_html(url)
+        ++ "\""
+        ++ (if title == "" then "" else " title=\"" ++ escape_html(title) ++ "\"")
+        ++ ">"
+        ++ render_inlines(body)
+        ++ "</a>"
 
     case Image(alt, url) =>
-      "<img src=\"" ++ escape_html(url) ++ "\" alt=\"" ++ escape_html(alt) ++ "\" />"
+      "<img src=\""
+        ++ escape_html(url)
+        ++ "\" alt=\""
+        ++ escape_html(alt)
+        ++ "\" />"
 
     case HardBreak =>
       "<br />\n"
@@ -369,16 +384,19 @@ test spans() :=
   assert html("`open") == "`open"
 
 test emphasis() :=
-  assert html("*a* and **b** and _c_") == "<em>a</em> and <strong>b</strong> and <em>c</em>"
+  assert html("*a* and **b** and _c_")
+    == "<em>a</em> and <strong>b</strong> and <em>c</em>"
   assert html("**a *b* c**") == "<strong>a <em>b</em> c</strong>"
   assert html("2 * 3 * 4") == "2 * 3 * 4"
   assert html("snake_case_name") == "snake_case_name"
   assert html("**`x*`**") == "<strong><code>x*</code></strong>"
 
 test links() :=
-  assert html("[a *b*](http://x.y/z \"t\") c") == "<a href=\"http://x.y/z\" title=\"t\">a <em>b</em></a> c"
+  assert html("[a *b*](http://x.y/z \"t\") c")
+    == "<a href=\"http://x.y/z\" title=\"t\">a <em>b</em></a> c"
   assert html("![alt **x**](i.png)") == "<img src=\"i.png\" alt=\"alt x\" />"
-  assert html("<https://a.b> and <b>") == "<a href=\"https://a.b\">https://a.b</a> and &lt;b&gt;"
+  assert html("<https://a.b> and <b>")
+    == "<a href=\"https://a.b\">https://a.b</a> and &lt;b&gt;"
   assert html("[not a link] (x)") == "[not a link] (x)"
 
 test breaks() :=

@@ -14,7 +14,8 @@ function number_lines(ls: List[Str]): List[Str] :=
 
 // the lines that contain the needle, or with invert those that do not, each with its number from 1
 function matching(needle: Str, ignore_case: Bool, invert: Bool, ls: List[Str]): List[(Int, Str)] :=
-  example matching("B", true, false, List("abc", "xyz", "b")) == List((1, "abc"), (3, "b"))
+  example matching("B", true, false, List("abc", "xyz", "b"))
+      == List((1, "abc"), (3, "b"))
   example matching("b", false, true, List("abc", "xyz")) == List((2, "xyz"))
 
 // in the order of the texts, or of the numbers that the lines start with
@@ -69,18 +70,25 @@ function number_lines(ls: List[Str]): List[Str] :=
   List(for (i, l) in zip(range(1, size(ls) + 1), ls) yield right(i, 6) ++ "\t" ++ l)
 
 function matching(needle: Str, ignore_case: Bool, invert: Bool, ls: List[Str]): List[(Int, Str)] :=
-  let fold := (lambda s => if ignore_case then lower(s) else s), hit := lambda l => contains(fold(needle), fold(l)) in
+  let
+    fold := (lambda s => if ignore_case then lower(s) else s),
+    hit := lambda l => contains(fold(needle), fold(l)) in
   List(for (i, l) in zip(range(1, size(ls) + 1), ls) if hit(l) != invert yield (i, l))
 
 function leading_number(l: Str): Int :=
-  let t := trim(l), k := run_end(t, 0, lambda c => c == '-'), j := run_end(t, k, is_digit) in
+  let
+    t := trim(l),
+    k := run_end(t, 0, lambda c => c == '-'),
+    j := run_end(t, k, is_digit) in
   value_or(number((if k > 0 then "-" else "") ++ slice(t, k, j)), 0)
 
 function sorted(numeric: Bool, descending: Bool, unique: Bool, ls: List[Str]): List[Str] :=
-  let up := (if numeric then
-    seconds(sort(List(for l in ls yield (leading_number(l), l))))
-  else
-    sort(ls)), one := if unique then List(for (_, l) in runs(up) yield l) else up in
+  let
+    up := (if numeric then
+      seconds(sort(List(for l in ls yield (leading_number(l), l))))
+    else
+      sort(ls)),
+    one := if unique then List(for (_, l) in runs(up) yield l) else up in
   if descending then reverse(one) else one
 
 function runs(ls: List[Str]): List[(Int, Str)] :=
@@ -124,7 +132,9 @@ function ranges(spec: Str): Option[List[(Int, Int)]] :=
     Some(List(for r in rs for x in r yield x))
 
 function fields(delimiter: Char, picks: List[(Int, Int)], line: Str): Str :=
-  let parts := split(line, delimiter), picked := lambda i => exists(picks, lambda (a, b) => a <= i and i <= b) in
+  let
+    parts := split(line, delimiter),
+    picked := lambda i => exists(picks, lambda (a, b) => a <= i and i <= b) in
   if size(parts) < 2 then
     line
   else
@@ -173,7 +183,8 @@ function counts(text: Str): (Int, Int, Int) :=
   (newlines, starts, size(encode_utf8(text)))
 
 test sort_is_stable_under_repeat(ls: List[Str]) :=
-  assert sorted(false, false, false, sorted(false, false, false, ls)) == sorted(false, false, false, ls)
+  assert sorted(false, false, false, sorted(false, false, false, ls))
+    == sorted(false, false, false, ls)
 
 test runs_keep_the_lines(ls: List[Str]) :=
   assert concat(List(for (n, l) in runs(ls) yield replicate(n, l))) == ls
@@ -195,6 +206,11 @@ function run_end(s: Str, i: Int, p: Char -> Bool): Int :=
   if i < size(s) and p(at(i, s)) then run_end(s, i + 1, p) else i
 
 test leading_number_as_by_lists(l: Str) :=
-  let cs := chars(trim(l)), sign := take_while(cs, lambda c => c == '-'), digits := take_while(drop(size(sign), cs), is_digit)
+  let
+    cs := chars(trim(l)),
+    sign := take_while(cs, lambda c => c == '-'),
+    digits := take_while(drop(size(sign), cs), is_digit)
   assert leading_number(l) == value_or(number(str(take(1, sign) ++ digits)), 0)
-  assert leading_number(" --42x") == -42 and leading_number("7") == 7 and leading_number("-") == 0
+  assert leading_number(" --42x") == -42
+    and leading_number("7") == 7
+    and leading_number("-") == 0

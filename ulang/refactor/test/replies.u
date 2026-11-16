@@ -25,7 +25,9 @@ procedure no_diagnostics(
 // remains, 0 with warnings only, and 1 for a refusal, which the first line rejected tells apart
 test first_lines() :=
   var reply: List[Str], status: Int
-  let state := "out/test/refactor/replies/state", path := "out/test/refactor/replies/first.u"
+  let
+    state := "out/test/refactor/replies/state",
+    path := "out/test/refactor/replies/first.u"
   os_write_utf8(in path, "function f(x: Int): Int :=\n  x\n")
   run_script(in "@put " ++ path ++ "\nfunction f(x: Int): Int := x + 1\n", false, state, lambda in file, _, out found =>
     found := List((file, type_error(2)), (file, type_error(5)), (file, lint_warning(7)))
@@ -45,33 +47,47 @@ test first_lines() :=
 // that the file had before is not
 test long_comments() :=
   var reply: List[Str], status: Int
-  let state := "out/test/refactor/replies/state", path := "out/test/refactor/replies/long.u"
+  let
+    state := "out/test/refactor/replies/state",
+    path := "out/test/refactor/replies/long.u"
   let long := "// " ++ join(" ", List(for _ in range(0, 30) yield "word"))
   os_write_utf8(in path, long ++ "\nfunction f(x: Int): Int :=\n  x\n")
-  run_script(in "@put " ++ path ++ "\n" ++ long ++ " again\nfunction f(x: Int): Int := x + 1\n", false, state, no_diagnostics, out reply, status, _)
-  assert status == 0 and contains(path ++ ":1: a comment line of 158 characters, longer than 120, which format does not wrap", reply)
+  run_script(in "@put "
+    ++ path
+    ++ "\n"
+    ++ long
+    ++ " again\nfunction f(x: Int): Int := x + 1\n", false, state, no_diagnostics, out reply, status, _)
+  assert status == 0 and contains(path
+    ++ ":1: a comment line of 158 characters, longer than 120, which format does not wrap", reply)
   run_script(in "@patch " ++ path ++ ":f\n-x + 1\n+x + 2\n", false, state, no_diagnostics, out reply, status, _)
-  assert status == 0 and not exists(reply, lambda line => index_of("which format does not wrap", line) != None)
+  assert status == 0
+    and not exists(reply, lambda line => index_of("which format does not wrap", line) != None)
 
 // the first line counts the errors and warnings that the script made new, apart, if it changed a file
 test new_counts() :=
   var reply: List[Str], status: Int
-  let state := "out/test/refactor/replies/state", path := "out/test/refactor/replies/new.u"
+  let
+    state := "out/test/refactor/replies/state",
+    path := "out/test/refactor/replies/new.u"
   os_write_utf8(in path, "function f(x: Int): Int :=\n  x\n")
   run_script(in "@put " ++ path ++ "\nfunction f(x: Int): Int := x + 1\n", false, state, lambda in file, overlays, out found =>
-    found := List((file, type_error(5)), (file, lint_warning(7))) ++ (if overlays == Map() then
-      List()
-    else
-      List(
-        (file, Diagnostic(TypeKind, "UnknownVariable", None, Pos(2, 3), "unknown variable y", List()))))
+    found := List((file, type_error(5)), (file, lint_warning(7)))
+      ++ (if overlays == Map() then
+        List()
+      else
+        List(
+          (file, Diagnostic(TypeKind, "UnknownVariable", None, Pos(2, 3), "unknown variable y", List()))))
   end, out reply, status, _)
-  assert status == 1 and take(1, reply) == List("applied, 2 errors (1 new), 1 warning (0 new)")
+  assert status == 1
+    and take(1, reply) == List("applied, 2 errors (1 new), 1 warning (0 new)")
 
 // a diagnostic that the checks report twice, as those of two members of a package report the errors of one with its
 // module, is counted and listed once
 test duplicates() :=
   var reply: List[Str], status: Int
-  let state := "out/test/refactor/replies/state", path := "out/test/refactor/replies/duplicates.u"
+  let
+    state := "out/test/refactor/replies/state",
+    path := "out/test/refactor/replies/duplicates.u"
   os_write_utf8(in path, "function f(x: Int): Int :=\n  x\n")
   os_write_utf8(in os_join(state, "handles.txt"), "")
   run_script(in "@check " ++ path, false, state, lambda in file, _, out found =>
@@ -88,7 +104,9 @@ test duplicates() :=
 // script if it differs only in their numbers, and so neither new nor gone
 test renumbered_unknowns() :=
   var reply: List[Str], status: Int
-  let state := "out/test/refactor/replies/state", path := "out/test/refactor/replies/unknowns.u"
+  let
+    state := "out/test/refactor/replies/state",
+    path := "out/test/refactor/replies/unknowns.u"
   os_write_utf8(in path, "function f(x: Int): Int :=\n  x\n")
   run_script(in "@put " ++ path ++ "\nfunction f(x: Int): Int := x + 1\n", false, state, lambda in file, overlays, out found =>
     let unknown := if overlays == Map() then "?19" else "?18"
@@ -102,7 +120,9 @@ test renumbered_unknowns() :=
 // added, is neither new nor gone
 test moved_warnings() :=
   var reply: List[Str], status: Int
-  let state := "out/test/refactor/replies/state", path := "out/test/refactor/replies/moved.u"
+  let
+    state := "out/test/refactor/replies/state",
+    path := "out/test/refactor/replies/moved.u"
   os_write_utf8(in path, "function f(x: Int): Int :=\n  x\n")
   run_script(in "@put " ++ path ++ "\nfunction f(x: Int): Int := x + 1\n", false, state, lambda in file, overlays, out found =>
     let shift := if overlays == Map() then 0 else 4
@@ -116,7 +136,9 @@ test moved_warnings() :=
 // to compare, while one that changes a file lists those that are new or gone
 test state_without_changes() :=
   var reply: List[Str], status: Int
-  let state := "out/test/refactor/replies/state", path := "out/test/refactor/replies/state.u"
+  let
+    state := "out/test/refactor/replies/state",
+    path := "out/test/refactor/replies/state.u"
   os_write_utf8(in path, "function f(x: Int): Int :=\n  x\n")
   os_write_utf8(in os_join(state, "handles.txt"), "")
   run_script(in "@check " ++ path, false, state, lambda in file, _, out found =>
@@ -131,9 +153,15 @@ test state_without_changes() :=
 // the error of a fragment gives its line in the script too, which differs for each action
 test fragment_lines() :=
   var reply: List[Str], status: Int
-  let state := "out/test/refactor/replies/state", path := "out/test/refactor/replies/lines.u"
+  let
+    state := "out/test/refactor/replies/state",
+    path := "out/test/refactor/replies/lines.u"
   os_write_utf8(in path, "function f(x: Int): Int :=\n  x\n")
-  let script := "@show " ++ path ++ ":f\n@put " ++ path ++ "\nfunction g(x: Int): Int :=\n  x +\n"
+  let script := "@show "
+    ++ path
+    ++ ":f\n@put "
+    ++ path
+    ++ "\nfunction g(x: Int): Int :=\n  x +\n"
   run_script(in script, false, state, no_diagnostics, out reply, status, _)
   assert status == 1
   assert reply == List(
@@ -143,7 +171,9 @@ test fragment_lines() :=
 // the tests of @check test count in the first line, after the state, and a failed one makes the status 3
 test tested_counts() :=
   var reply: List[Str], status: Int
-  let state := "out/test/refactor/replies/state", path := "out/test/refactor/replies/tested.u"
+  let
+    state := "out/test/refactor/replies/state",
+    path := "out/test/refactor/replies/tested.u"
   os_write_utf8(in path, "function f(x: Int): Int :=\n  x\n")
   run_tested_script(in "@check test " ++ path, false, Map(), state, no_diagnostics, lambda in paths, listed, out tests =>
     tests := Tests(List("tested " ++ join(", ", paths) ++ ": 2 passed, 1 failed, 1 not run"), 2, 1, 1, Map())
@@ -164,13 +194,18 @@ test empty_formatted() :=
 // with the blank lines between them
 test shows_comments() :=
   var reply: List[Str], status: Int, text: Str
-  let state := "out/test/refactor/replies/comments", path := "out/test/refactor/replies/comments/c.u"
+  let
+    state := "out/test/refactor/replies/comments",
+    path := "out/test/refactor/replies/comments/c.u"
   os_write_utf8(in os_join(state, "handles.txt"), "")
   os_write_utf8(in path, "procedure p(in x: Int, out y: Int) :=\n  y := x\n  if x > 0 then\n    y := 1\n    // ends the body\n  end\n")
-  run_script(in "@put after " ++ path ++ ":p \"y := x\"\n// the second\n\n// step\ny := y + 1\n", false, state, no_diagnostics, out reply, status, _)
+  run_script(in "@put after "
+    ++ path
+    ++ ":p \"y := x\"\n// the second\n\n// step\ny := y + 1\n", false, state, no_diagnostics, out reply, status, _)
   os_read_utf8(in path, out text)
   assert status == 0
-  assert text == "procedure p(in x: Int, out y: Int) :=\n  y := x\n  // the second\n\n  // step\n  y := y + 1\n  if x > 0 then\n    y := 1\n    // ends the body\n  end\n"
+  assert text
+    == "procedure p(in x: Int, out y: Int) :=\n  y := x\n  // the second\n\n  // step\n  y := y + 1\n  if x > 0 then\n    y := 1\n    // ends the body\n  end\n"
   let shown := List("        // the second", "", "        // step", "#1      y := y + 1")
   assert take(3, reply) == List(
     "applied, clean",
@@ -179,16 +214,27 @@ test shows_comments() :=
   run_script(in "@show " ++ path ++ ":p #1\n@show " ++ path ++ ":p \"if\"", false, state, no_diagnostics, out reply, status, _)
   assert status == 0
   assert at(1, reply) == join("\n", List("@show " ++ path ++ ":p/2 #1") ++ shown)
-  assert take(2, split(at(2, reply), '\n')) == List("@show " ++ path ++ ":p/2 \"if\"", "#2      if x > 0 then")
+  assert take(2, split(at(2, reply), '\n'))
+    == List("@show " ++ path ++ ":p/2 \"if\"", "#2      if x > 0 then")
 
 // a refused query is a note of the reply, which the first line counts, and the other actions of the script go on, since
 // queries write nothing, while the status is 1
 test refused_queries() :=
   var reply: List[Str], status: Int, text: Str
-  let state := "out/test/refactor/replies/refused", path := "out/test/refactor/replies/refused/r.u"
+  let
+    state := "out/test/refactor/replies/refused",
+    path := "out/test/refactor/replies/refused/r.u"
   os_write_utf8(in os_join(state, "handles.txt"), "")
   os_write_utf8(in path, "function f(x: Int): Int :=\n  x\n")
-  let script := "@show " ++ path ++ ":g\n@outline " ++ path ++ "\n@show " ++ path ++ ":f \"y\"\n@put " ++ path ++ "\nfunction f(x: Int): Int := x + 1\n"
+  let script := "@show "
+    ++ path
+    ++ ":g\n@outline "
+    ++ path
+    ++ "\n@show "
+    ++ path
+    ++ ":f \"y\"\n@put "
+    ++ path
+    ++ "\nfunction f(x: Int): Int := x + 1\n"
   run_script(in script, false, state, no_diagnostics, out reply, status, _)
   os_read_utf8(in path, out text)
   assert status == 1 and text == "function f(x: Int): Int :=\n  x + 1\n"
@@ -196,14 +242,20 @@ test refused_queries() :=
     "applied, clean, 2 queries refused",
     "@show " ++ path ++ ":g: refused, " ++ path ++ " declares no g",
     "@outline " ++ path ++ "\n1-2 none function f/1 private  #1",
-    "@show " ++ path ++ ":f \"y\": refused, no node of " ++ path ++ ":f/1 starts with \"y\"",
+    "@show "
+      ++ path
+      ++ ":f \"y\": refused, no node of "
+      ++ path
+      ++ ":f/1 starts with \"y\"",
     path ++ ": replaced f/1")
 
 // the tests that the errors of a script left unrun are named by the next @check test of their package that does not run
 // them, until they run
 test earlier_unrun() :=
   var reply: List[Str]
-  let state := "out/test/refactor/replies/unrun", dir := "out/test/refactor/replies/unrun_files"
+  let
+    state := "out/test/refactor/replies/unrun",
+    dir := "out/test/refactor/replies/unrun_files"
   let wire := dir ++ "/wire.u", pop := dir ++ "/pop.u"
   let passed: (in List[Str], List[(Str, Diagnostic)], out Tests) := lambda in paths, _, out tests =>
     tests := Tests(List(for p in (paths: List[Str]) yield "tested " ++ p ++ ": 1 passed, 0 failed"), 1, 0, 0, Map())
@@ -219,7 +271,9 @@ test earlier_unrun() :=
     "applied, clean, 1 test passed",
     "checked 1 file, unchanged",
     "tested " ++ pop ++ ": 1 passed, 0 failed",
-    "not run since an earlier script, whose errors left them out: " ++ wire ++ ": test round_trip")
+    "not run since an earlier script, whose errors left them out: "
+      ++ wire
+      ++ ": test round_trip")
   run_tested_script(in "@check test " ++ wire, false, Map(), state, no_diagnostics, passed, out reply, _)
   run_tested_script(in "@check test " ++ pop, false, Map(), state, no_diagnostics, passed, out reply, _)
   assert reply == List(

@@ -84,4 +84,5 @@ function size_of(ps: Pairs): Int :=
   size(ps)
 
 test areas() :=
-  assert area(Wide(3)) == 3 and picked(bag(List(1, 2, 3), lambda x => x > 1)) == List(2, 3)
+  assert area(Wide(3)) == 3
+    and picked(bag(List(1, 2, 3), lambda x => x > 1)) == List(2, 3)

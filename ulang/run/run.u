@@ -26,14 +26,26 @@ data Val :=
   case VCon(constr: Name)
   case VPrim(name: Name)
   case VProc(name: Name)
-  case VProcClos(env: Map[Name, Val], ins: List[Var], outs: List[Var], refs: List[Var], stmt: At[Stmt])
+  case VProcClos(
+    env: Map[Name, Val],
+    ins: List[Var],
+    outs: List[Var],
+    refs: List[Var],
+    stmt: At[Stmt])
 
 // main, the module of the loaded file, whose errors a Deferred names without their module, as the diagnostics do, and
 // the deadline of a test, after which its calls and loops raise TimedOut, aliases the pattern aliases of the program,
 // which the expansion of a test takes, and diverted whether os_print writes to the error output, as the tests of a
 // refactor script print, whose reply is the output
 data Run :=
-  case Run(defs: Defs, computing: List[Name], args: List[Str], main: Path, deadline: Option[Deadline], aliases: Aliases, diverted: Bool)
+  case Run(
+    defs: Defs,
+    computing: List[Name],
+    args: List[Str],
+    main: Path,
+    deadline: Option[Deadline],
+    aliases: Aliases,
+    diverted: Bool)
 
 // the time of os_clock after which a run stops, and its limit in seconds, which the error names
 data Deadline :=
@@ -1333,7 +1345,8 @@ procedure select[A](
             sel := Some((body, inner, pattern_names(pat)))
           else
             if has_alternatives(pat) then
-              select(in run, env, v, List(for q in alternatives(pat) yield Branch(q, guard, body)) ++ rest, out sel, ref cache)
+              select(in run, env, v, List(for q in alternatives(pat) yield Branch(q, guard, body))
+                ++ rest, out sel, ref cache)
             else
               select(in run, env, v, rest, out sel, ref cache)
             end
@@ -1377,7 +1390,8 @@ procedure handle(
     // alternatives of types of their own, see handler_pattern of ulang/check/check.u, of which the split leaves none at
     // the top
     case List(Catch(THole, AOk(pos, span, POr(alts)), guard, body); rest) =>
-      handle(in run, List(for d in expanded_handlers(List(nowhere(Catch(THole, AOk(pos, span, POr(alts)), guard, body)))) yield d.that) ++ rest, v, t, ref env, cache)
+      handle(in run, List(for d in expanded_handlers(List(nowhere(Catch(THole, AOk(pos, span, POr(alts)), guard, body)))) yield d.that)
+        ++ rest, v, t, ref env, cache)
 
     case List(Catch(_, AOk(_, _, PWild), guard, body); rest) =>
       var ok: Bool
@@ -1405,7 +1419,8 @@ procedure handle(
       end
       if not ok then
         if typ == t and guard != None and has_alternatives(pat) then
-          handle(in run, List(for q in alternatives(pat) yield Catch(typ, q, guard, body)) ++ rest, v, t, ref env, cache)
+          handle(in run, List(for q in alternatives(pat) yield Catch(typ, q, guard, body))
+            ++ rest, v, t, ref env, cache)
         else
           handle(in run, rest, v, t, ref env, cache)
         end
@@ -1476,10 +1491,12 @@ procedure run_body(
       cache: Map[Name, Val]
 ) :=
   require_time(in run)
-  var inner := bind_all(xs, ins, (around -- Set(for x in ys ++ zs yield x.name)) ++ Map(for (k, v) in values_in(zip(List(for x in zs yield x.name), refs), env)))
+  var inner := bind_all(xs, ins, (around -- Set(for x in ys ++ zs yield x.name))
+    ++ Map(for (k, v) in values_in(zip(List(for x in zs yield x.name), refs), env)))
   exec(in run, body, ref inner, cache)
   read_outs(in n, List(for x in ys yield x.name), inner, out outs)
-  env := env ++ Map(for (k, v) in values_in(zip(refs, List(for x in zs yield x.name)), inner))
+  env := env
+    ++ Map(for (k, v) in values_in(zip(refs, List(for x in zs yield x.name)), inner))
 
 // raises TimedOut if the run has a deadline that passed, at each call and each round of a loop, which every run that does
 // not end makes again and again
@@ -1826,7 +1843,8 @@ function block(xs: List[Var], stmts: List[Stmt]): At[Stmt] :=
 
 test values() :=
   assert format_value(list_value(List(VInt(1), VStr("a\"b")))) == "List(1, \"a\\\"b\")"
-  assert format_value(VTuple(List(VChar('\''), VNil(), VObj(unqualified("Some"), List(VBool(true)))))) == "('\\'', List(), Some(true))"
+  assert format_value(VTuple(List(VChar('\''), VNil(), VObj(unqualified("Some"), List(VBool(true))))))
+    == "('\\'', List(), Some(true))"
 
 test expressions() :=
   check_and_run(in List(

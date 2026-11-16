@@ -39,7 +39,9 @@ procedure checked(
 // a dry run checks the texts that it would write, so it reports the uses that a drop breaks, and writes nothing
 test dry_drop() :=
   var reply: List[Str], status: Int, text: Str
-  let state := "out/test/refactor/overlays/state", path := "out/test/refactor/overlays/dry/dry.u"
+  let
+    state := "out/test/refactor/overlays/state",
+    path := "out/test/refactor/overlays/dry/dry.u"
   let original := "function f(x: Int): Int :=\n  x + 1\n\nfunction g(): Int :=\n  f(1)\n"
   os_write_utf8(in path, original)
   run_script(in "@drop " ++ path ++ ":f", true, state, checked, out reply, status, _)
@@ -57,12 +59,18 @@ test dry_drop() :=
 // script writes, also in a directory that does not exist yet
 test new_package() :=
   var reply: List[Str], status: Int, found: Bool
-  let state := "out/test/refactor/overlays/state", dir := "out/test/refactor/overlays/p"
+  let
+    state := "out/test/refactor/overlays/state",
+    dir := "out/test/refactor/overlays/p"
   os_is_dir(in dir, out found)
   if found then
     os_remove_all(in dir)
   end
-  let script := "@put " ++ dir ++ "/config/config.u\nexport\nfunction port(): Int\nimplementation\nfunction port(): Int := 110\n@put " ++ dir ++ "/main.u\nimport out.test.refactor.overlays.p.config\nfunction main_port(): Int := port()\n"
+  let script := "@put "
+    ++ dir
+    ++ "/config/config.u\nexport\nfunction port(): Int\nimplementation\nfunction port(): Int := 110\n@put "
+    ++ dir
+    ++ "/main.u\nimport out.test.refactor.overlays.p.config\nfunction main_port(): Int := port()\n"
   run_script(in script, true, state, checked, out reply, status, _)
   assert status == 0 and take(1, reply) == List("dry, clean")
   run_script(in script, false, state, checked, out reply, status, _)
@@ -72,7 +80,9 @@ test new_package() :=
 // an overlay is the text of its file for the actions and the checks, which the script writes only if it changes it
 test overlaid_files() :=
   var reply: List[Str], status: Int, text: Str
-  let state := "out/test/refactor/overlays/state", path := "out/test/refactor/overlays/buffer/buffer.u"
+  let
+    state := "out/test/refactor/overlays/state",
+    path := "out/test/refactor/overlays/buffer/buffer.u"
   let other := "out/test/refactor/overlays/unsaved/unsaved.u"
   os_write_utf8(in path, "function f(x: Int): Int :=\n  x\n")
   os_write_utf8(in other, "function u(): Int :=\n  1\n")
@@ -84,7 +94,8 @@ test overlaid_files() :=
   end, out reply, status)
   assert status == 1 and take(1, reply) == List("applied, 1 error (0 new)")
   os_read_utf8(in path, out text)
-  assert text == "function f(x: Int): Int :=\n  x + 2\n\nfunction g(): Int :=\n  f(1)\n"
+  assert text
+    == "function f(x: Int): Int :=\n  x + 2\n\nfunction g(): Int :=\n  f(1)\n"
   os_read_utf8(in other, out text)
   assert text == "function u(): Int :=\n  1\n"
 
@@ -92,27 +103,38 @@ test overlaid_files() :=
 // the same last name replaces it, as the import of a package that moved is fixed
 test failed_import() :=
   var reply: List[Str], status: Int, text: Str
-  let state := "out/test/refactor/overlays/state", dir := "out/test/refactor/overlays/moved"
-  let path := dir ++ "/a/a.u", header := "export\n\nfunction f(x: Int): Int\n\nimplementation\n\nfunction f(x: Int): Int :=\n"
+  let
+    state := "out/test/refactor/overlays/state",
+    dir := "out/test/refactor/overlays/moved"
+  let
+    path := dir ++ "/a/a.u",
+    header := "export\n\nfunction f(x: Int): Int\n\nimplementation\n\nfunction f(x: Int): Int :=\n"
   os_write_utf8(in dir ++ "/box/box.u", "export\n\nfunction g(x: Int): Int\n\nimplementation\n\nfunction g(x: Int): Int :=\n  x * 2\n")
   os_write_utf8(in path, "import box\n\n" ++ header ++ "  g(x) + 1\n")
   run_script(in "@patch " ++ path ++ ":f\n-g(x) + 1\n+g(x) + 2\n", false, state, checked, out reply, status, _)
   os_read_utf8(in path, out text)
-  assert status == 1 and take(2, reply) == List("applied, 1 error (0 new)", "patched " ++ path ++ ":f/1")
+  assert status == 1 and take(2, reply)
+    == List("applied, 1 error (0 new)", "patched " ++ path ++ ":f/1")
   assert text == "import box\n\n" ++ header ++ "  g(x) + 2\n"
   run_script(in "@put " ++ path ++ "\nimport out.test.refactor.overlays.moved.box\n", false, state, checked, out reply, status, _)
   os_read_utf8(in path, out text)
   assert status == 0 and take(2, reply) == List(
     "applied, clean",
-    path ++ ": replaced import box by import out.test.refactor.overlays.moved.box")
-  assert text == "import out.test.refactor.overlays.moved.box\n\n" ++ header ++ "  g(x) + 2\n"
+    path
+      ++ ": replaced import box by import out.test.refactor.overlays.moved.box")
+  assert text
+    == "import out.test.refactor.overlays.moved.box\n\n"
+      ++ header
+      ++ "  g(x) + 2\n"
   os_remove_all(in dir)
 
 // a script whose edit changes the exports of a package names them and says that it does not check the importers, which
 // may now have errors, also in a dry run, while an edit of a body changes no export
 test importers() :=
   var reply: List[Str], status: Int
-  let state := "out/test/refactor/overlays/state", dir := "out/test/refactor/overlays/importers"
+  let
+    state := "out/test/refactor/overlays/state",
+    dir := "out/test/refactor/overlays/importers"
   let lib := dir ++ "/lib/lib.u", user := dir ++ "/user/user.u"
   os_write_utf8(in lib, "export\n\nfunction f(x: Int): Int\n\nfunction g(): Int\n\nimplementation\n\nfunction f(x: Int): Int :=\n  x + 1\n\nfunction g(): Int :=\n  1\n")
   os_write_utf8(in user, "import out.test.refactor.overlays.importers.lib\n\nfunction h(): Int :=\n  f(1)\n")
@@ -125,27 +147,34 @@ test importers() :=
     "checked 1 file: 0 new, 0 gone",
     lib ++ ": the exports f changed, whose importers are not checked")
   run_script(in "@patch " ++ lib ++ ":f\n-x + 1\n+x + 2\n", true, state, checked, out reply, status, _)
-  assert status == 0 and not exists(reply, lambda line => index_of("whose importers are not checked", line) != None)
+  assert status == 0
+    and not exists(reply, lambda line => index_of("whose importers are not checked", line) != None)
   os_remove_all(in dir)
 
 // a field added at the end of a constructor changes the datatype, the constructor, and the new field, but not the
 // fields before it, whose types and positions stay, while a field inserted before others moves them
 test changed_fields() :=
   var reply: List[Str], status: Int
-  let state := "out/test/refactor/overlays/state", dir := "out/test/refactor/overlays/fields"
+  let
+    state := "out/test/refactor/overlays/state",
+    dir := "out/test/refactor/overlays/fields"
   let lib := dir ++ "/lib/lib.u"
   os_write_utf8(in lib, "export\n\ndata Loaded :=\n  case Loaded(root: Str, source: Int)\n  case Empty\n")
   run_script(in "@patch " ++ lib ++ ":Loaded\n-source: Int)\n+source: Int, declared: Bool)\n", true, state, checked, out reply, status, _)
-  assert status == 0 and contains(lib ++ ": the exports Loaded, declared changed, whose importers are not checked", reply)
+  assert status == 0 and contains(lib
+    ++ ": the exports Loaded, declared changed, whose importers are not checked", reply)
   run_script(in "@patch " ++ lib ++ ":Loaded\n-root: Str,\n+root: Str, declared: Bool,\n", true, state, checked, out reply, status, _)
-  assert status == 0 and contains(lib ++ ": the exports Loaded, source, declared changed, whose importers are not checked", reply)
+  assert status == 0 and contains(lib
+    ++ ": the exports Loaded, source, declared changed, whose importers are not checked", reply)
   os_remove_all(in dir)
 
 // the check of a script loads the imports of a file only as far as it sees them, so an error in a definition of an
 // import is not listed in the reply of an edit of the file, but in that of an edit of the import
 test broken_imports() :=
   var reply: List[Str], status: Int
-  let state := "out/test/refactor/overlays/state", dir := "out/test/refactor/overlays/broken"
+  let
+    state := "out/test/refactor/overlays/state",
+    dir := "out/test/refactor/overlays/broken"
   let lib := dir ++ "/lib/lib.u", user := dir ++ "/user/user.u"
   os_write_utf8(in lib, "export\n\nfunction f(x: Int): Int\n\nimplementation\n\nfunction f(x: Int): Int :=\n  true\n")
   os_write_utf8(in user, "import out.test.refactor.overlays.broken.lib\n\nfunction h(): Int :=\n  f(1)\n")

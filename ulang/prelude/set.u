@@ -272,8 +272,13 @@ function balanced[A](s: Set[A]): Bool :=
   match s
     case Leaf =>
       true
+
     case Node(left, _, right, d) =>
-      balanced(left) and balanced(right) and d == node_height(left, right) and height(left) <= height(right) + 1 and height(right) <= height(left) + 1
+      balanced(left)
+        and balanced(right)
+        and d == node_height(left, right)
+        and height(left) <= height(right) + 1
+        and height(right) <= height(left) + 1
   end
 
 function show[A](s: Set[A]): Str :=
@@ -284,16 +289,22 @@ test sets() :=
   assert contains("a", s) and not contains("c", s)
   s := insert("a", s)
   assert List(for x in s) == List("a", "b") and size(s) == 2
-  assert List(for x in Set(for x in List(3, 1, 2, 1))) == List(1, 2, 3) and List(for x in Set(3, 1, 2, 1)) == List(1, 2, 3)
-  assert List(for x in Set(for x in List((2, 'a'), (1, 'b'), (2, 'a')))) == List((1, 'b'), (2, 'a'))
-  assert List(for x in Set(for x in List(Some(2), None, Some(1)))) == List(None, Some(1), Some(2))
+  assert List(for x in Set(for x in List(3, 1, 2, 1))) == List(1, 2, 3)
+    and List(for x in Set(3, 1, 2, 1)) == List(1, 2, 3)
+  assert List(for x in Set(for x in List((2, 'a'), (1, 'b'), (2, 'a'))))
+    == List((1, 'b'), (2, 'a'))
+  assert List(for x in Set(for x in List(Some(2), None, Some(1))))
+    == List(None, Some(1), Some(2))
 
 test set_folds() :=
   let s := Set(for x in range(1, 51))
-  assert foldr(s, List(), Cons) == List(for x in s) and foldl(s, List(), lambda xs, x => List(x; xs)) == reverse(List(for x in s))
+  assert foldr(s, List(), Cons) == List(for x in s)
+    and foldl(s, List(), lambda xs, x => List(x; xs)) == reverse(List(for x in s))
   assert foldr(s, empty(), insert) == s and foldl(s, 0, lambda n, x => n + x) == 1275
-  assert foldr(Set(1, 2, 3), 0, lambda x, n => 10 * n + x) == 321 and foldl(Set(1, 2, 3), 0, lambda n, x => 10 * n + x) == 123
-  assert List(for x in Set(3, 1, 2)) == List(1, 2, 3) and List(for x in s) == List(for x in s)
+  assert foldr(Set(1, 2, 3), 0, lambda x, n => 10 * n + x) == 321
+    and foldl(Set(1, 2, 3), 0, lambda n, x => 10 * n + x) == 123
+  assert List(for x in Set(3, 1, 2)) == List(1, 2, 3)
+    and List(for x in s) == List(for x in s)
 
 // sets of the same elements are equal, although their trees differ
 test set_equality() :=
@@ -304,4 +315,6 @@ test set_equality() :=
 test set_balance() :=
   let s := Set(for x in range(1, 201))
   assert balanced(s) and size(s) == 200 and height(s) <= 11
-  assert contains(100, s) and not contains(201, s) and List(for x in s) == range(1, 201)
+  assert contains(100, s)
+    and not contains(201, s)
+    and List(for x in s) == range(1, 201)

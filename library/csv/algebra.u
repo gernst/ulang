@@ -69,7 +69,8 @@ function cities(): Table :=
   table_of("city,country\nlondon,uk\nnuenen,nl\n")
 
 test joining() :=
-  assert join(people(), cities()) == table_of("name,city,country\nada,london,uk\nalan,london,uk\nedsger,nuenen,nl\n")
+  assert join(people(), cities())
+    == table_of("name,city,country\nada,london,uk\nalan,london,uk\nedsger,nuenen,nl\n")
 
 test join_with_own_projection() :=
   assert join(people(), project(List("city"), people())) == people()
@@ -78,10 +79,12 @@ test projection_drops_duplicates() :=
   assert size(project(List("city"), people()).rows) == 2
 
 test selection() :=
-  assert select("country", "nl", join(people(), cities())) == table_of("name,city,country\nedsger,nuenen,nl\n")
+  assert select("country", "nl", join(people(), cities()))
+    == table_of("name,city,country\nedsger,nuenen,nl\n")
 
 test renaming() :=
-  assert format_table(rename("city", "town", cities())) == "town,country\nlondon,uk\nnuenen,nl\n"
+  assert format_table(rename("city", "town", cities()))
+    == "town,country\nlondon,uk\nnuenen,nl\n"
 
 test union_and_diff() :=
   assert diff(union(people(), people()), people()).rows == Set()

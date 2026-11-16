@@ -2,7 +2,10 @@
 // without importing them
 
 test program_sees_members() :=
-  assert is_even(10) and is_odd(7) and size(Even(1) <+> Even(1)) == 4 and size(Odd(1) <*> Odd(1)) == 9
+  assert is_even(10)
+    and is_odd(7)
+    and size(Even(1) <+> Even(1)) == 4
+    and size(Odd(1) <*> Odd(1)) == 9
 
 // a call of a procedure that the members overload chooses by the ins that are no lambdas, which then take the types of
 // their formals from it

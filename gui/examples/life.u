@@ -48,7 +48,11 @@ function view(model: Model): Widget[Msg] :=
     row(List(spacing(4)), List(
       button(List(on_click(Step)), List(text("Step"))),
       button(List(on_click(Clear)), List(text("Clear"))),
-      text("generation " ++ show(model.generation) ++ ", " ++ show(size(model.alive)) ++ " alive")))))
+      text("generation "
+        ++ show(model.generation)
+        ++ ", "
+        ++ show(size(model.alive))
+        ++ " alive")))))
 
 function glider(): Set[(Int, Int)] :=
   Set((1, 0), (2, 1), (0, 2), (1, 2), (2, 2))
@@ -61,6 +65,8 @@ procedure main() raises GuiError, OsError :=
 
 test glider_moves() :=
   let after := simulate(life(), List(Step, Step, Step, Step))
-  assert after.alive == Set(for (x, y) in glider() yield (x + 1, y + 1)) and after.generation == 4
-  assert update(Flip(13, 1), life().init).alive == insert((1, 0), glider()) -- Set((1, 0))
+  assert after.alive == Set(for (x, y) in glider() yield (x + 1, y + 1))
+    and after.generation == 4
+  assert update(Flip(13, 1), life().init).alive
+    == insert((1, 0), glider()) -- Set((1, 0))
   assert misplaced(view(life().init)) == List()

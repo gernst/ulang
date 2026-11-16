@@ -3,40 +3,68 @@
 // m), which add to a set or map, and the literals and comprehensions of lists, sets, and maps
 
 test conversions() :=
-  assert List(for x in Set(for x in List(3, 1, 2, 1))) == List(1, 2, 3) and Set(for x in List(for x in Set(2, 1))) == Set(1, 2)
-  assert List(for k => v in Map(for (k, v) in List((2, "b"), (1, "a"), (2, "c")))) == List((1, "a"), (2, "c")) and Map(for k => v in Map(1 => "a")) == Map(1 => "a")
-  assert List(for x in from_list(List(1, 2))) == List(1, 2) and chars("ab") == List('a', 'b') and str(List('a', 'b')) == "ab"
+  assert List(for x in Set(for x in List(3, 1, 2, 1))) == List(1, 2, 3)
+    and Set(for x in List(for x in Set(2, 1))) == Set(1, 2)
+  assert List(for k => v in Map(for (k, v) in List((2, "b"), (1, "a"), (2, "c"))))
+      == List((1, "a"), (2, "c"))
+    and Map(for k => v in Map(1 => "a")) == Map(1 => "a")
+  assert List(for x in from_list(List(1, 2))) == List(1, 2)
+    and chars("ab") == List('a', 'b')
+    and str(List('a', 'b')) == "ab"
 
 test operators() :=
-  assert Set(1, 2) ++ Set(2, 3) == Set(1, 2, 3) and Set(1, 2, 3) -- Set(2) == Set(1, 3) and intersect(Set(1, 2), Set(2, 3)) == Set(2)
-  assert Map(1 => "a", 2 => "b") ++ Map(2 => "c") == Map(1 => "a", 2 => "c") and Map(1 => "a", 2 => "b") -- Set(1) == Map(2 => "b")
-  assert List(1, 2, 3, 2) -- List(2) == List(1, 3) and List(1) ++ List(2, 3) -- List(3) == List(1, 2) and List(1, 2) -- List(2) ++ List(2) == List(1)
-  assert remove(2, Set(1, 2, 3)) == Set(1, 3) and remove(4, Set(1)) == Set(1) and size(remove(1, Set(1))) == 0
+  assert Set(1, 2) ++ Set(2, 3) == Set(1, 2, 3)
+    and Set(1, 2, 3) -- Set(2) == Set(1, 3)
+    and intersect(Set(1, 2), Set(2, 3)) == Set(2)
+  assert Map(1 => "a", 2 => "b") ++ Map(2 => "c") == Map(1 => "a", 2 => "c")
+    and Map(1 => "a", 2 => "b") -- Set(1) == Map(2 => "b")
+  assert List(1, 2, 3, 2) -- List(2) == List(1, 3)
+    and List(1) ++ List(2, 3) -- List(3) == List(1, 2)
+    and List(1, 2) -- List(2) ++ List(2) == List(1)
+  assert remove(2, Set(1, 2, 3)) == Set(1, 3)
+    and remove(4, Set(1)) == Set(1)
+    and size(remove(1, Set(1))) == 0
 
 test predicates() :=
-  assert exists(Set(1, 2), lambda x => x > 1) and not forall(Set(1, 2), lambda x => x > 1)
-  assert exists(Map(1 => "a"), lambda k, v => v == "a") and forall(Map(1 => "a", 2 => "b"), lambda k, v => k > 0)
-  assert exists(Array(1, 2), lambda x => x == 2) and forall(Array(1, 2), lambda x => x > 0) and not exists(Array(), lambda x => x == 1)
+  assert exists(Set(1, 2), lambda x => x > 1)
+    and not forall(Set(1, 2), lambda x => x > 1)
+  assert exists(Map(1 => "a"), lambda k, v => v == "a")
+    and forall(Map(1 => "a", 2 => "b"), lambda k, v => k > 0)
+  assert exists(Array(1, 2), lambda x => x == 2)
+    and forall(Array(1, 2), lambda x => x > 0)
+    and not exists(Array(), lambda x => x == 1)
 
 // exists, forall, and find stop at the first element that decides, so p never reaches the 0 that it divides by
 test predicates_stop() :=
-  assert exists(Set(1, 2, 0), lambda x => x == 0 or 1 / x > 0) and not forall(Set(0, 1, 2), lambda x => x > 0 and 1 / x > 0)
-  assert exists(Map(1 => 1, 0 => 0), lambda k, _ => k == 0 or 1 / k > 0) and find(Map(0 => "a", 1 => "b"), lambda k, _ => k == 0 or 1 / k > 0) == Some((0, "a"))
-  assert exists(Array(1, 0), lambda x => 1 / x > 0) and not forall(Array(0, 1), lambda x => x > 0 and 1 / x > 0) and contains(1, Array(1, 0))
-  assert find(Set(0, 1, 2), lambda x => x == 0 or 1 / x > 0) == Some(0) and find(Array(2, 0), lambda x => 2 / x > 0) == Some(2) and find(Array(1), lambda x => x > 1) == None
+  assert exists(Set(1, 2, 0), lambda x => x == 0 or 1 / x > 0)
+    and not forall(Set(0, 1, 2), lambda x => x > 0 and 1 / x > 0)
+  assert exists(Map(1 => 1, 0 => 0), lambda k, _ => k == 0 or 1 / k > 0)
+    and find(Map(0 => "a", 1 => "b"), lambda k, _ => k == 0 or 1 / k > 0)
+      == Some((0, "a"))
+  assert exists(Array(1, 0), lambda x => 1 / x > 0)
+    and not forall(Array(0, 1), lambda x => x > 0 and 1 / x > 0)
+    and contains(1, Array(1, 0))
+  assert find(Set(0, 1, 2), lambda x => x == 0 or 1 / x > 0) == Some(0)
+    and find(Array(2, 0), lambda x => 2 / x > 0) == Some(2)
+    and find(Array(1), lambda x => x > 1) == None
 
 test notation() :=
   let s := Set(2), m := Map(1 => "a")
   assert Set(1; s) == Set(1, 2) and Set(3, 1; s) == Set(1, 2, 3) and Set(2; s) == s
-  assert Map(2 => "b"; m) == Map(1 => "a", 2 => "b") and Map(1 => "x"; m) == Map(1 => "x") and Map(1 => "y", 1 => "z"; m) == Map(1 => "z")
+  assert Map(2 => "b"; m) == Map(1 => "a", 2 => "b")
+    and Map(1 => "x"; m) == Map(1 => "x")
+    and Map(1 => "y", 1 => "z"; m) == Map(1 => "z")
 
 function vowels(): Set[Char] :=
   Set('a', 'e', 'i', 'o', 'u')
 
 test literals() :=
-  let m := Map("one" => Set(1), "two" => Set(1, 2)), n := Map(1 + 1 => "two", 3 => "three")
+  let
+    m := Map("one" => Set(1), "two" => Set(1, 2)),
+    n := Map(1 + 1 => "two", 3 => "three")
   assert contains('e', vowels()) and not contains('b', vowels())
-  assert List(for k => s in m yield List(for x in s)) == List(List(1), List(1, 2)) and get("three", m) == None
+  assert List(for k => s in m yield List(for x in s)) == List(List(1), List(1, 2))
+    and get("three", m) == None
   assert List(for x in n) == List((2, "two"), (3, "three"))
 
 // a literal is the fold of its elements, unrolled, where the last entry of a key counts
@@ -44,7 +72,8 @@ test unrolled() :=
   let none: Map[Int, Str] := Map()
   assert List(for x in Set(3, 1, 3, 2)) == List(1, 2, 3)
   assert List(for x in Map(1 => "a", 2 => "b", 1 => "c")) == List((1, "c"), (2, "b"))
-  assert Set(1, 2) == insert(1, insert(2, empty())) and Map(1 => "a") == put(1, "a", none)
+  assert Set(1, 2) == insert(1, insert(2, empty()))
+    and Map(1 => "a") == put(1, "a", none)
 
 // Set() and Map() are empty() of the module that their type determines, which a local empty does not hide
 test empty_literal() :=
@@ -53,21 +82,32 @@ test empty_literal() :=
 
 test set_map_comprehensions() :=
   let s := Set(1, 2, 3), m := Map("a" => 1, "b" => 2)
-  assert List(for x in Set(for x in s if x != 2 yield x * x)) == List(1, 9) and List(for x in Set(for x in s for y in Set(10, 20) yield x + y)) == List(11, 12, 13, 21, 22, 23)
-  assert List(for x in Map(for k => v in m yield k ++ "!" => v + 1)) == List(("a!", 2), ("b!", 3)) and List(for x in Map(for k => v in m if v > 1)) == List(("b", 2))
-  assert List(for x in Map(for k => v in m for l => w in Map(k => v) yield k ++ l => v * w)) == List(("aa", 1), ("bb", 4))
+  assert List(for x in Set(for x in s if x != 2 yield x * x)) == List(1, 9)
+    and List(for x in Set(for x in s for y in Set(10, 20) yield x + y))
+      == List(11, 12, 13, 21, 22, 23)
+  assert List(for x in Map(for k => v in m yield k ++ "!" => v + 1))
+      == List(("a!", 2), ("b!", 3))
+    and List(for x in Map(for k => v in m if v > 1)) == List(("b", 2))
+  assert List(for x in Map(for k => v in m for l => w in Map(k => v) yield k ++ l => v * w))
+    == List(("aa", 1), ("bb", 4))
 
 test kinds() :=
   let xs := List(3, 1, 2, 1), s := Set(3, 1, 2), m := Map(1 => "a", 2 => "b")
-  assert List(for x in xs if x > 1 yield x * 10) == List(30, 20) and List(for x in s) == List(1, 2, 3)
+  assert List(for x in xs if x > 1 yield x * 10) == List(30, 20)
+    and List(for x in s) == List(1, 2, 3)
   assert Set(for x in xs) == s and size(Set(for x in xs if x != 3)) == 2
-  assert Map(for k => v in m yield v => k) == Map("a" => 1, "b" => 2) and List(for k => v in m yield k) == List(1, 2) and Set(for k => v in m yield v) == Set("a", "b")
+  assert Map(for k => v in m yield v => k) == Map("a" => 1, "b" => 2)
+    and List(for k => v in m yield k) == List(1, 2)
+    and Set(for k => v in m yield v) == Set("a", "b")
 
 // each generator sees the variables of those before it, and the condition all of them
 test nested() :=
-  assert List(for x in List(1, 2, 3) for y in List(x, 3) if x < y yield (x, y)) == List((1, 3), (2, 3))
-  assert Set(for x in Set(1, 2) for y in List(10, 20) yield x + y) == Set(11, 12, 21, 22)
-  assert Map(for k => v in Map(1 => 10, 2 => 20) for j => w in Map(1 => 1) if j == k yield k => v + w) == Map(1 => 11)
+  assert List(for x in List(1, 2, 3) for y in List(x, 3) if x < y yield (x, y))
+    == List((1, 3), (2, 3))
+  assert Set(for x in Set(1, 2) for y in List(10, 20) yield x + y)
+    == Set(11, 12, 21, 22)
+  assert Map(for k => v in Map(1 => 10, 2 => 20) for j => w in Map(1 => 1) if j == k yield k => v + w)
+    == Map(1 => 11)
 
 // the last entry of a key counts, as in a literal
 test map_order() :=
@@ -76,17 +116,26 @@ test map_order() :=
 // the folds of the translation are those of the containers, which a local foldr does not hide
 test locals() :=
   let foldr := 0, foldl := 1, acc := 5
-  assert List(for x in List(1, 2) yield x + acc + foldr) == List(6, 7) and Map(for k => v in Map(1 => 1) yield k => v + foldl) == Map(1 => 2)
+  assert List(for x in List(1, 2) yield x + acc + foldr) == List(6, 7)
+    and Map(for k => v in Map(1 => 1) yield k => v + foldl) == Map(1 => 2)
 
 // several generators over lists and arrays, which compiled code runs as nested loops that build the result in order
 test fused() :=
   let xss := List(List(1, 2), List(), List(3)), a := Array(10, 20)
-  assert List(for xs in xss for x in xs yield x) == List(1, 2, 3) and List(for xs in xss for x in xs if x > 1 yield x) == List(2, 3)
-  assert List(for x in List(1, 2) for y in a yield (x, y)) == List((1, 10), (1, 20), (2, 10), (2, 20))
-  assert List(for x in a for y in a if x < y yield x + y) == List(30) and List(for x in a yield x * 2) == List(20, 40)
-  assert Array(for xs in xss for x in xs yield x) == Array(1, 2, 3) and Array(for x in a for y in List(x, x + 1) yield (x, y)) == Array((10, 10), (10, 11), (20, 20), (20, 21))
-  assert Array(for xs in xss for x in xs if x > 5 yield x) == Array() and size(Array(for x in a for y in List(1, 2, 3, 4, 5, 6, 7, 8, 9) yield y)) == 18
-  assert List(for x in Set(2, 1) for y in List(0) yield x) == List(1, 2) and List(for xs in xss yield List(for y in xs)) == xss
+  assert List(for xs in xss for x in xs yield x) == List(1, 2, 3)
+    and List(for xs in xss for x in xs if x > 1 yield x) == List(2, 3)
+  assert List(for x in List(1, 2) for y in a yield (x, y))
+    == List((1, 10), (1, 20), (2, 10), (2, 20))
+  assert List(for x in a for y in a if x < y yield x + y) == List(30)
+    and List(for x in a yield x * 2) == List(20, 40)
+  assert Array(for xs in xss for x in xs yield x) == Array(1, 2, 3)
+    and Array(for x in a for y in List(x, x + 1) yield (x, y))
+      == Array((10, 10), (10, 11), (20, 20), (20, 21))
+  assert Array(for xs in xss for x in xs if x > 5 yield x) == Array()
+    and size(Array(for x in a for y in List(1, 2, 3, 4, 5, 6, 7, 8, 9) yield y))
+      == 18
+  assert List(for x in Set(2, 1) for y in List(0) yield x) == List(1, 2)
+    and List(for xs in xss yield List(for y in xs)) == xss
 
 function countdown(n: Int): List[Int] :=
   if n == 0 then List() else List(n; countdown(n - 1))
@@ -102,10 +151,13 @@ test list_notation() :=
 test list_comprehensions() :=
   assert List(for x in List(1, 2, 3) yield x * x) == List(1, 4, 9)
   assert List(for x in List(1, 2, 3, 4) if x % 2 == 0) == List(2, 4)
-  assert List(for x in List(1, 2) for y in List(true, false) yield (x, y)) == List((1, true), (1, false), (2, true), (2, false))
-  assert List(for x in countdown(3) for y in countdown(x) if x + y == 4 yield (x, y)) == List((3, 1), (2, 2))
+  assert List(for x in List(1, 2) for y in List(true, false) yield (x, y))
+    == List((1, true), (1, false), (2, true), (2, false))
+  assert List(for x in countdown(3) for y in countdown(x) if x + y == 4 yield (x, y))
+    == List((3, 1), (2, 2))
   assert List(for x in List()) == List()
-  assert List(for x in List(1, 2) yield List(for y in countdown(x))) == List(List(1), List(2, 1))
+  assert List(for x in List(1, 2) yield List(for y in countdown(x)))
+    == List(List(1), List(2, 1))
 
 // arrays of array.u: built from lists, literals Array(a, b), and comprehensions Array(for x in c if q yield e), read by index, changed
 // by copying, folded, and comprehended through their folds, ordered as lists of their elements, and shown as literals
@@ -121,68 +173,116 @@ function squares(a: Array[Int]): List[Int] :=
 
 test array_building() :=
   let a := Array(1, 2, 3), e: Array[Int] := Array()
-  assert size(a) == 3 and size(e) == 0 and List(for x in a) == List(1, 2, 3) and List(for x in e) == List()
-  assert at(0, a) == 1 and at(2, a) == 3 and get(1, a) == Some(2) and get(3, a) == None and get(-1, a) == None
+  assert size(a) == 3
+    and size(e) == 0
+    and List(for x in a) == List(1, 2, 3)
+    and List(for x in e) == List()
+  assert at(0, a) == 1
+    and at(2, a) == 3
+    and get(1, a) == Some(2)
+    and get(3, a) == None
+    and get(-1, a) == None
   assert contains(2, a) and not contains(4, a) and not contains(1, e)
 
 test array_copying() :=
   let a := Array('a', 'b', 'c')
   assert List(for x in a) == List('a', 'b', 'c')
-  assert List(for x in slice(a, 1, 3)) == List('b', 'c') and List(for x in slice(a, 0, 0)) == List() and slice(a, 0, 3) == a
+  assert List(for x in slice(a, 1, 3)) == List('b', 'c')
+    and List(for x in slice(a, 0, 0)) == List()
+    and slice(a, 0, 3) == a
 
 test array_folding() :=
   let a := Array(1, 2, 3)
-  assert foldr(a, List(), Cons) == List(1, 2, 3) and foldl(a, List(), lambda xs, x => List(x; xs)) == List(3, 2, 1)
-  assert foldl(a, 0, lambda n, x => 10 * n + x) == 123 and foldr(a, 0, lambda x, n => 10 * n + x) == 321
+  assert foldr(a, List(), Cons) == List(1, 2, 3)
+    and foldl(a, List(), lambda xs, x => List(x; xs)) == List(3, 2, 1)
+  assert foldl(a, 0, lambda n, x => 10 * n + x) == 123
+    and foldr(a, 0, lambda x, n => 10 * n + x) == 321
   assert squares(a) == List(4, 9) and Set(for x in a yield x % 2) == Set(0, 1)
 
 test array_ordering() :=
-  assert Array(1, 2) == Array(1, 2) and Array(1, 2) != Array(1, 3) and Array(1) != Array(1, 2)
-  assert Array(1, 2) < Array(1, 3) and Array(1) < Array(1, 2) and Array(2) > Array(1, 5)
-  assert Array(Set(1, 2)) == Array(Set(2, 1)) and compare(Array(Green), Array(Red)) == 1
+  assert Array(1, 2) == Array(1, 2)
+    and Array(1, 2) != Array(1, 3)
+    and Array(1) != Array(1, 2)
+  assert Array(1, 2) < Array(1, 3)
+    and Array(1) < Array(1, 2)
+    and Array(2) > Array(1, 5)
+  assert Array(Set(1, 2)) == Array(Set(2, 1))
+    and compare(Array(Green), Array(Red)) == 1
 
 test array_showing() :=
-  assert show(Array(1, 2)) == "Array(1, 2)" and show(Array(Some(Red))) == "Array(Some(Red))" and show(Array()) == "Array()"
-  assert show(Array(Set(2, 1))) == "Array(Set(1, 2))" and show(List(Array("a"))) == "List(Array(\"a\"))" and show(Array(Array(1), Array(), Array(-2))) == "Array(Array(1), Array(), Array(-2))"
+  assert show(Array(1, 2)) == "Array(1, 2)"
+    and show(Array(Some(Red))) == "Array(Some(Red))"
+    and show(Array()) == "Array()"
+  assert show(Array(Set(2, 1))) == "Array(Set(1, 2))"
+    and show(List(Array("a"))) == "List(Array(\"a\"))"
+    and show(Array(Array(1), Array(), Array(-2)))
+      == "Array(Array(1), Array(), Array(-2))"
 
 test array_literals() :=
   let e: Array[Int] := Array()
-  assert Array(1, 2, 3) == Array(for x in List(1, 2, 3)) and size(e) == 0 and Array(Array(1), Array()) == Array(for x in List(from_list(List(1)), from_list(List())))
-  assert Array(Array()) == Array(for x in List(from_list(List()))) and show(Array(Array(), Array(1))) == "Array(Array(), Array(1))"
-  assert at(1, Array(-1, x_plus(1), 3)) == 2 and Array(-1) == Array(for x in List(-1)) and Array(1) < Array(2) and not Array(2) > Array(3)
+  assert Array(1, 2, 3) == Array(for x in List(1, 2, 3))
+    and size(e) == 0
+    and Array(Array(1), Array())
+      == Array(for x in List(from_list(List(1)), from_list(List())))
+  assert Array(Array()) == Array(for x in List(from_list(List())))
+    and show(Array(Array(), Array(1))) == "Array(Array(), Array(1))"
+  assert at(1, Array(-1, x_plus(1), 3)) == 2
+    and Array(-1) == Array(for x in List(-1))
+    and Array(1) < Array(2)
+    and not Array(2) > Array(3)
 
 test array_comprehensions() :=
   let a := Array(1, 2, 3, 4), xs := List(1, 2, 3, 4)
-  assert Array(for x in xs yield x * x) == Array(1, 4, 9, 16) and Array(for x in a yield x * x) == Array(1, 4, 9, 16)
-  assert size(Array(for x in xs)) == 4 and size(Array(for x in a)) == 4 and Array(for x in a yield -x) == Array(-1, -2, -3, -4)
-  assert Array(for x in xs if x % 2 == 0) == Array(2, 4) and Array(for x in a if x > 2) == Array(3, 4)
-  assert size(Array(for x in a if x > 5)) == 0 and Array(for x in a if x > 5) == Array()
-  assert Array(for x in Set(3, 1, 2)) == Array(1, 2, 3) and Array(for x in List(1, 2) for y in a if y > 3 yield (x, y)) == Array((1, 4), (2, 4))
-  assert Array(for x in xs if x < 3 yield Array(for y in a if y <= x)) == Array(Array(1), Array(1, 2))
+  assert Array(for x in xs yield x * x) == Array(1, 4, 9, 16)
+    and Array(for x in a yield x * x) == Array(1, 4, 9, 16)
+  assert size(Array(for x in xs)) == 4
+    and size(Array(for x in a)) == 4
+    and Array(for x in a yield -x) == Array(-1, -2, -3, -4)
+  assert Array(for x in xs if x % 2 == 0) == Array(2, 4)
+    and Array(for x in a if x > 2) == Array(3, 4)
+  assert size(Array(for x in a if x > 5)) == 0
+    and Array(for x in a if x > 5) == Array()
+  assert Array(for x in Set(3, 1, 2)) == Array(1, 2, 3)
+    and Array(for x in List(1, 2) for y in a if y > 3 yield (x, y))
+      == Array((1, 4), (2, 4))
+  assert Array(for x in xs if x < 3 yield Array(for y in a if y <= x))
+    == Array(Array(1), Array(1, 2))
 
 // over sources other than lists and arrays, which compiled code builds inside their folds, also nested and past the first
 // room of the array
 test array_comprehensions_of_folds() :=
-  let s := Set(for i in range(0, 100) yield 99 - i), b: Buffer[Int] := empty() ++ List(1, 2)
-  assert Array(for x in s) == Array(for i in range(0, 100) yield i) and Array(for x in s if x % 50 == 0) == Array(0, 50)
-  assert Array(for k => v in Map(2 => "b", 1 => "a")) == Array((1, "a"), (2, "b")) and Array(for x in Some(3)) == Array(3)
-  assert Array(for x in b ++ List(3)) == Array(1, 2, 3) and size(Array(for x in Set(0) if x > 0)) == 0
-  assert Array(for x in Set(2, 1) for y in List(5, 6) yield (x, y)) == Array((1, 5), (1, 6), (2, 5), (2, 6))
-  assert Array(for x in List(2, 1) for y in Set(6, 5) if x + y != 7 yield x * y) == Array(12, 5)
-  assert Array(for x in Upto(4) yield x * x) == Array(0, 1, 4, 9) and Array(for x in Upto(2) for y in Upto(x) yield (x, y)) == Array((1, 0))
+  let
+    s := Set(for i in range(0, 100) yield 99 - i),
+    b: Buffer[Int] := empty() ++ List(1, 2)
+  assert Array(for x in s) == Array(for i in range(0, 100) yield i)
+    and Array(for x in s if x % 50 == 0) == Array(0, 50)
+  assert Array(for k => v in Map(2 => "b", 1 => "a")) == Array((1, "a"), (2, "b"))
+    and Array(for x in Some(3)) == Array(3)
+  assert Array(for x in b ++ List(3)) == Array(1, 2, 3)
+    and size(Array(for x in Set(0) if x > 0)) == 0
+  assert Array(for x in Set(2, 1) for y in List(5, 6) yield (x, y))
+    == Array((1, 5), (1, 6), (2, 5), (2, 6))
+  assert Array(for x in List(2, 1) for y in Set(6, 5) if x + y != 7 yield x * y)
+    == Array(12, 5)
+  assert Array(for x in Upto(4) yield x * x) == Array(0, 1, 4, 9)
+    and Array(for x in Upto(2) for y in Upto(x) yield (x, y)) == Array((1, 0))
 
 // a let between the generators binds its pattern for the generators, guards, and the element after it, over lists and
 // arrays, which compiled code fuses into loops, and over other sources, inside their folds
 test comprehension_lets() :=
   let cs := List((1, List(2, 3)), (2, List())), a := Array(1, 2, 3)
-  assert List(for (n, t) in cs let fs := List(for x in t yield x * n) for x in fs yield (n, x)) == List((1, 2), (1, 3))
+  assert List(for (n, t) in cs let fs := List(for x in t yield x * n) for x in fs yield (n, x))
+    == List((1, 2), (1, 3))
   assert List(for x in List(1, 2, 3) let y := x * x if y > 1 yield y) == List(4, 9)
   assert List(for x in List(1, 2, 3) if x > 1 let y := x * x yield y) == List(4, 9)
-  assert List(for x in List(1, 2) let (p, q) := (x, x + 1) let c := p * q yield c) == List(2, 6)
-  assert Array(for x in a let y := x + 1 for z in List(y, -y) yield z) == Array(2, -2, 3, -3, 4, -4)
+  assert List(for x in List(1, 2) let (p, q) := (x, x + 1) let c := p * q yield c)
+    == List(2, 6)
+  assert Array(for x in a let y := x + 1 for z in List(y, -y) yield z)
+    == Array(2, -2, 3, -3, 4, -4)
   assert Array(for x in a let y := x * 2 if y != 4 yield y) == Array(2, 6)
   assert Set(for x in Set(3, 1, 2) let y := x % 2 yield y) == Set(0, 1)
-  assert Map(for k => v in Map(1 => "a", 2 => "b") let w := v ++ v yield k => w) == Map(1 => "aa", 2 => "bb")
+  assert Map(for k => v in Map(1 => "a", 2 => "b") let w := v ++ v yield k => w)
+    == Map(1 => "aa", 2 => "bb")
   assert Array(for x in Set(2, 1) let y := x * 10 yield y) == Array(10, 20)
   assert List(for x in "ab" let s := str(List(x, x)) yield s) == List("aa", "bb")
 
@@ -233,7 +333,8 @@ test index_of_finds_the_first(a: Str, part: Str, b: Str) :=
   end
 
 test index_of_none(part: Str, s: Str) :=
-  assert index_of(part, s) != None or forall(range(0, size(s) - size(part) + 1), lambda j => slice(s, j, j + size(part)) != part)
+  assert index_of(part, s) != None
+    or forall(range(0, size(s) - size(part) + 1), lambda j => slice(s, j, j + size(part)) != part)
 
 test trim_as_by_lists(s: Str) :=
   let padded := " \t" ++ s ++ "\n ", kept := drop_while(chars(padded), is_space)
@@ -243,19 +344,26 @@ test trim_as_by_lists(s: Str) :=
 test starts_and_ends(a: Str, b: Str) :=
   assert starts_with(a ++ b, a) and ends_with(a ++ b, b)
   assert starts_with(a, b) == (size(b) <= size(a) and slice(a, 0, size(b)) == b)
-  assert ends_with(a, b) == (size(b) <= size(a) and slice(a, size(a) - size(b), size(a)) == b)
+  assert ends_with(a, b)
+    == (size(b) <= size(a) and slice(a, size(a) - size(b), size(a)) == b)
 
 // the generators and for statements over a string range over its characters, as over the list of them
 test str_folds_as_chars(s: Str) :=
   let cs := chars(s)
   assert List(for c in s if c != 'a' yield c) == List(for c in cs if c != 'a' yield c)
-  assert List(for c in s for d in s if c < d yield (c, d)) == List(for c in cs for d in cs if c < d yield (c, d))
+  assert List(for c in s for d in s if c < d yield (c, d))
+    == List(for c in cs for d in cs if c < d yield (c, d))
   assert Set(for c in s if c != 'a') == Set(for c in cs if c != 'a')
-  assert Set(for c in s for d in s yield (d, c)) == Set(for c in cs for d in cs yield (d, c))
-  assert Map(for c in s if c != 'b' yield c => int(c)) == Map(for c in cs if c != 'b' yield c => int(c))
-  assert Map(for c in s for d in s yield (c, d) => int(c)) == Map(for c in cs for d in cs yield (c, d) => int(c))
-  assert Array(for c in s if c != 'a' yield c) == Array(for c in cs if c != 'a' yield c)
-  assert Array(for c in s for d in s if c != d yield (c, d)) == Array(for c in cs for d in cs if c != d yield (c, d))
+  assert Set(for c in s for d in s yield (d, c))
+    == Set(for c in cs for d in cs yield (d, c))
+  assert Map(for c in s if c != 'b' yield c => int(c))
+    == Map(for c in cs if c != 'b' yield c => int(c))
+  assert Map(for c in s for d in s yield (c, d) => int(c))
+    == Map(for c in cs for d in cs yield (c, d) => int(c))
+  assert Array(for c in s if c != 'a' yield c)
+    == Array(for c in cs if c != 'a' yield c)
+  assert Array(for c in s for d in s if c != d yield (c, d))
+    == Array(for c in cs for d in cs if c != d yield (c, d))
   var n := 0, t := ""
   for c in s if c != 'a' do
     n := n + 1, t := str(List(c)) ++ t

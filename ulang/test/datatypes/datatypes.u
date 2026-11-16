@@ -184,11 +184,16 @@ test list_patterns() :=
 // compare orders values of a type, constructors by their declaration and then by their fields
 test comparisons() :=
   assert compare(1, 2) == -1 and compare(2, 1) == 1 and compare(3, 3) == 0
-  assert compare("ab", "b") == -1 and compare('b', 'a') == 1 and compare(false, true) == -1
+  assert compare("ab", "b") == -1
+    and compare('b', 'a') == 1
+    and compare(false, true) == -1
   assert compare((1, "b"), (1, "a")) == 1 and compare((), ()) == 0
   assert compare(None, Some(0)) == -1 and compare(Some(2), Some(1)) == 1
-  assert compare(Zero, Succ(Zero)) == -1 and compare(List(1, 2), List(1)) == 1 and compare(List(1), List(1, 2)) == -1
-  assert compare(100000000000000000000, 99999999999999999999) == 1 and compare(-100000000000000000000, 1) == -1
+  assert compare(Zero, Succ(Zero)) == -1
+    and compare(List(1, 2), List(1)) == 1
+    and compare(List(1), List(1, 2)) == -1
+  assert compare(100000000000000000000, 99999999999999999999) == 1
+    and compare(-100000000000000000000, 1) == -1
 
 data Point :=
   case Point(x: Int, y: Int)
@@ -210,7 +215,10 @@ function area(s: Shape): Int :=
   end
 
 test fields() :=
-  let p := Point(1, 2), c := Circle("c", Point(0, 0), 2), b := Box("b", Point(1, 1), Point(3, 4))
+  let
+    p := Point(1, 2),
+    c := Circle("c", Point(0, 0), 2),
+    b := Box("b", Point(1, 1), Point(3, 4))
   assert p.x == 1 and p.y == 2
   assert c.label == "c" and b.label == "b" and c.radius == 2 and c.center.y == 0
   assert area(b) == 6 and b.corner.x == 1
@@ -225,7 +233,9 @@ test unknown_type() :=
 
 test lambda_arguments() :=
   let ps := List(Point(1, 2), Point(3, 4))
-  assert exists(ps, lambda q => q.x == 3) and not forall(ps, lambda q => q.y < 4) and List(for q in ps yield q.y) == List(2, 4)
+  assert exists(ps, lambda q => q.x == 3)
+    and not forall(ps, lambda q => q.y < 4)
+    and List(for q in ps yield q.y) == List(2, 4)
 
 test annotated_lambda() :=
   let g: Point -> Int := lambda p => p.x
@@ -238,8 +248,10 @@ test generic_fields() :=
 test updates() :=
   let p := Point(1, 2), c := Circle("c", Point(0, 0), 2)
   var b := Box("b", Point(1, 1), Point(3, 4))
-  assert (p with x := 3) == Point(3, 2) and (p with y := 0, x := p.y + 3) == Point(5, 0)
-  assert (c with radius := 3) == Circle("c", Point(0, 0), 3) and (b with label := "a", corner := p) == Box("a", p, Point(3, 4))
+  assert (p with x := 3) == Point(3, 2)
+    and (p with y := 0, x := p.y + 3) == Point(5, 0)
+  assert (c with radius := 3) == Circle("c", Point(0, 0), 3)
+    and (b with label := "a", corner := p) == Box("a", p, Point(3, 4))
   assert (c with center := (c.center with x := 1)).center == Point(1, 0)
   assert (Couple(1, "one") with right := "two") == Couple(1, "two")
   assert raises MissingField("Shape.radius") do
@@ -290,14 +302,17 @@ function non_zero(p: (Int, Int)): Int :=
   end
 
 test alternatives() :=
-  assert List(for t in List(TNum(3), TNeg(4), TPlus, TEnd) yield token_value(t)) == List(3, 4, 0, 0)
-  assert List(for t in List(Some(TPlus), Some(TMinus), Some(TEnd), None) yield is_operator(t)) == List(true, true, false, false)
+  assert List(for t in List(TNum(3), TNeg(4), TPlus, TEnd) yield token_value(t))
+    == List(3, 4, 0, 0)
+  assert List(for t in List(Some(TPlus), Some(TMinus), Some(TEnd), None) yield is_operator(t))
+    == List(true, true, false, false)
   assert List(
     first_of((1, TPlus)),
     first_of((1, TNum(5))),
     first_of((1, TNeg(6))),
     first_of((2, TMinus))) == List(1, 5, 6, -2)
-  assert List(non_zero((3, 0)), non_zero((0, 4)), non_zero((0, 0)), non_zero((1, 2))) == List(3, 4, -1, -1)
+  assert List(non_zero((3, 0)), non_zero((0, 4)), non_zero((0, 0)), non_zero((1, 2)))
+    == List(3, 4, -1, -1)
 
 // the last case of a match takes what the cases before leave, with alternatives as with case _, also after a guard
 function token_weight(t: Token): Int :=
@@ -321,7 +336,8 @@ procedure token_count(in t: Token, out k: Int) :=
   end
 
 test last_alternatives() :=
-  assert List(for t in List(TNum(12), TNum(3), TNeg(4), TEnd) yield token_weight(t)) == List(100, 3, 4, 1)
+  assert List(for t in List(TNum(12), TNum(3), TNeg(4), TEnd) yield token_weight(t))
+    == List(100, 3, 4, 1)
   var a: Int, b: Int, c: Int, d: Int
   token_count(in TNum(2), out a)
   token_count(in TNeg(0), out b)
@@ -367,11 +383,14 @@ test nested_alternatives() :=
     sign_pair((TNum(3), TNeg(1))),
     sign_pair((TNeg(-2), TNum(1))),
     sign_pair((TNum(3), TPlus))) == List(1, 1, 0, 3, 0, 0)
-  assert List(for p in List((1, 2), (3, 2), (2, 7), (3, 4)) yield first_pick(p)) == List(1, 3, 7, 0)
-  assert List(for p in List((1, 2), (2, 1), (1, 1), (2, 5)) yield guarded_pick(p)) == List(2, 2, 0, 0)
+  assert List(for p in List((1, 2), (3, 2), (2, 7), (3, 4)) yield first_pick(p))
+    == List(1, 3, 7, 0)
+  assert List(for p in List((1, 2), (2, 1), (1, 1), (2, 5)) yield guarded_pick(p))
+    == List(2, 2, 0, 0)
   assert (let (TNum(n) | TNeg(n), _) | (TPlus | TMinus | TEnd, n) := (TEnd, 7) in
   n) == 7
-  assert List(for (k, TNum(_) | TNeg(_) | TPlus | TMinus | TEnd) in List((1, TEnd), (2, TNum(0))) yield k) == List(1, 2)
+  assert List(for (k, TNum(_) | TNeg(_) | TPlus | TMinus | TEnd) in List((1, TEnd), (2, TNum(0))) yield k)
+    == List(1, 2)
   var n := 0
   for (TNum(k) | TNeg(k), _) | (TPlus | TMinus | TEnd, k) in List((TNeg(3), 1), (TPlus, 4)) do
     n := n + k

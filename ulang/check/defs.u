@@ -19,7 +19,15 @@ data ConstrDef :=
 // position of f in each constructor of T, in the order of their declaration, or -1 for a constructor without f; abstracts
 // are the abstract types, other than those of builtin sections, whose structure is no order, see unordered_of
 data Defs :=
-  case Defs(funs: Map[(Name, Int), FunDef], procs: Map[Name, ProcDef], constrs: Map[Name, ConstrDef], fields: Map[(Name, Int), List[Int]], orders: Map[Name, Name], equalities: Map[Name, Name], shows: Map[Name, Name], abstracts: Set[Name])
+  case Defs(
+    funs: Map[(Name, Int), FunDef],
+    procs: Map[Name, ProcDef],
+    constrs: Map[Name, ConstrDef],
+    fields: Map[(Name, Int), List[Int]],
+    orders: Map[Name, Name],
+    equalities: Map[Name, Name],
+    shows: Map[Name, Name],
+    abstracts: Set[Name])
 
 function defs_of(q: Prog): Defs
 
@@ -246,7 +254,10 @@ function order_of(cmd: Cmd): Option[(Hook, Name)] :=
       let typ := TSort(Name(k, b), args) in
       match hook_of(f, 1 + size(more))
         case Some(hook) =>
-          if k == m and forall(more, lambda x => x.that.typ == typ) and is_distinct_params(args) and r == hook_result(hook) then
+          if k == m
+            and forall(more, lambda x => x.that.typ == typ)
+            and is_distinct_params(args)
+            and r == hook_result(hook) then
             Some((hook, Name(k, b)))
           else
             None

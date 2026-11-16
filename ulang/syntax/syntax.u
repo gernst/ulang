@@ -33,7 +33,11 @@ data Type :=
   // a function type A -> B, (A, B, …) -> C, or () -> C
   case TFun(args: List[Type], res: Type)
   // procedures as values, (in A, out B, ref C) raises E, …, whose parameters have modes as in declarations
-  case TProc(ins: List[Type], outs: List[Type], refs: List[Type], raised: Raises)
+  case TProc(
+    ins: List[Type],
+    outs: List[Type],
+    refs: List[Type],
+    raised: Raises)
   // a tuple type (A, B, …), or () for none
   case TTuple(types: List[Type])
 
@@ -93,7 +97,12 @@ data Expr :=
   case ELam(formals: List[At[Pat]], body: At[Expr])
   // lambda in x, out y, ref z => body end, which sees the variables around it but assigns only its outs and refs
   // where raised is what it may raise, as of TProc, RPending until the checker gives it an unknown of its own
-  case EProc(ins: List[At[Var]], outs: List[At[Var]], refs: List[At[Var]], raised: Raises, stmt: At[Stmt])
+  case EProc(
+    ins: List[At[Var]],
+    outs: List[At[Var]],
+    refs: List[At[Var]],
+    raised: Raises,
+    stmt: At[Stmt])
   // let p := a, … in body, which binds in parallel, by irrefutable patterns
   case ELet(bindings: List[(At[Pat], At[Expr])], body: At[Expr])
   // if c then a else b
@@ -213,7 +222,11 @@ data Stmt :=
   // assert raises p if g do … end, which fails unless body raises an exception that p matches and for which the guard
   // holds, where typ is THole until the checker infers it from p, as of a Catch, and the variables of p are those of the
   // guard only
-  case SAssertRaises(typ: Type, pat: At[Pat], guard: Option[At[Expr]], body: At[Stmt])
+  case SAssertRaises(
+    typ: Type,
+    pat: At[Pat],
+    guard: Option[At[Expr]],
+    body: At[Stmt])
   // raise e, where typ is the type of e, which the checker infers
   case SRaise(value: At[Expr], typ: Type)
   // try … catch case p => … end
@@ -254,10 +267,24 @@ data Cmd :=
   // data T[A, …] := case C(f: A, …) case D, one case per line
   case CData(name: Name, params: List[Id], constrs: List[At[Constr]])
   // function f[A, …](x: A, …): T := spec body, where spec is the lines after :=, see Spec
-  case CFun(name: Name, params: List[Id], formals: List[At[Var]], typ: Type, spec: Spec, body: At[Expr])
+  case CFun(
+    name: Name,
+    params: List[Id],
+    formals: List[At[Var]],
+    typ: Type,
+    spec: Spec,
+    body: At[Expr])
   // procedure p[A, …](in x: A, …, out y: B, …, ref z: C, …) := spec body, where in is optional before the first ins
   // raises T, … after the formals, where none written is none raised if it is exported, and else inferred
-  case CProc(name: Name, params: List[Id], ins: List[At[Var]], outs: List[At[Var]], refs: List[At[Var]], raised: List[Type], spec: Spec, stmt: At[Stmt])
+  case CProc(
+    name: Name,
+    params: List[Id],
+    ins: List[At[Var]],
+    outs: List[At[Var]],
+    refs: List[At[Var]],
+    raised: List[Type],
+    spec: Spec,
+    stmt: At[Stmt])
   // a notation, e.g. infix left 9 + -, see Fixity
   case CNotation(fixity: Fixity, prec: Int, ops: List[Id])
   // tests take no parameters, which the checker enforces
@@ -266,16 +293,39 @@ data Cmd :=
   // bodies, and abstract types, which its implementation section defines by data, and its builtin section, with the
   // signatures of exported functions and procedures that the interpreter and the runtime define; a spec follows := after
   // the head, which a signature without one has not
-  case CFunSig(name: Name, params: List[Id], formals: List[At[Var]], typ: Type, spec: Spec)
-  case CProcSig(name: Name, params: List[Id], ins: List[At[Var]], outs: List[At[Var]], refs: List[At[Var]], raised: List[Type], spec: Spec)
+  case CFunSig(
+    name: Name,
+    params: List[Id],
+    formals: List[At[Var]],
+    typ: Type,
+    spec: Spec)
+  case CProcSig(
+    name: Name,
+    params: List[Id],
+    ins: List[At[Var]],
+    outs: List[At[Var]],
+    refs: List[At[Var]],
+    raised: List[Type],
+    spec: Spec)
   // an abstract type T[A, …], without a definition
   case CAbstract(name: Name, params: List[Id])
   // a pattern alias pattern C[A, …](x: A, …): T := pat, whose variables are the formals, each once, which the checker
   // expands at its uses in patterns, and which is a function of the same name where pat has no _
-  case CPatAlias(name: Name, params: List[Id], formals: List[At[Var]], typ: Type, pat: At[Pat])
+  case CPatAlias(
+    name: Name,
+    params: List[Id],
+    formals: List[At[Var]],
+    typ: Type,
+    pat: At[Pat])
   // lemma l[A, …](in x: A, …, out y: B, …) := claim proof, see Claim and ideas/verification.md, which the prover proves, while the
   // interpreter and the compiler skip it
-  case CLemma(name: Name, params: List[Id], ins: List[At[Var]], outs: List[At[Var]], claim: Claim, proof: Option[Proof])
+  case CLemma(
+    name: Name,
+    params: List[Id],
+    ins: List[At[Var]],
+    outs: List[At[Var]],
+    claim: Claim,
+    proof: Option[Proof])
 
 // what a lemma states over its formals
 data Claim :=
@@ -290,7 +340,10 @@ data Claim :=
 // examples; on the first occurrence of a signature, the export of an exported one, and empty on its definition
 data Spec :=
   // the examples, each at its keyword, which the checker translates into tests
-  case Spec(pre: List[At[Expr]], post: Option[At[Expr]], examples: List[At[Example]])
+  case Spec(
+    pre: List[At[Expr]],
+    post: Option[At[Expr]],
+    examples: List[At[Example]])
 
 // an example of a function or procedure
 data Example :=
@@ -300,17 +353,30 @@ data Example :=
   case XRaises(expr: At[Expr], pat: At[Pat])
   // a call of the procedure with the expected values of its outs and each ref from before to after, e.g.
   // divmod(in 7, 2, out 3, 1) or push(in 3, ref List(1) => List(3, 1))
-  case XCall(proc: Name, ins: List[At[Expr]], outs: List[At[Expr]], refs: List[(At[Expr], At[Expr])])
+  case XCall(
+    proc: Name,
+    ins: List[At[Expr]],
+    outs: List[At[Expr]],
+    refs: List[(At[Expr], At[Expr])])
   // a call of the procedure that raises an exception that pat matches, with blanks, the number of its outs, written _,
   // since it does not assign them, and each ref as before, e.g. divmod(in 7, 0, out _, _) raises DivisionByZero
-  case XCallRaises(proc: Name, ins: List[At[Expr]], blanks: Int, befores: List[At[Expr]], pat: At[Pat])
+  case XCallRaises(
+    proc: Name,
+    ins: List[At[Expr]],
+    blanks: Int,
+    befores: List[At[Expr]],
+    pat: At[Pat])
 
 // the checked program: the commands of the export and implementation sections of its modules with resolved names, each at
 // its declaration, the definitions checked and the signatures as written, then the tests of examples and lemmas, those of
 // the builtin sections apart, the imports of each module at their lines, which hold the errors of imports, and the module
 // of the file that is loaded, whose procedures run and compile call
 data Prog :=
-  case Prog(cmds: List[At[Cmd]], builtins: List[At[Cmd]], imports: List[(Path, At[Path])], main: Path)
+  case Prog(
+    cmds: List[At[Cmd]],
+    builtins: List[At[Cmd]],
+    imports: List[(Path, At[Path])],
+    main: Path)
 
 data Pos :=
   // line and column, both from 1
@@ -323,7 +389,13 @@ data Span :=
 // a module without sections has all its commands implemented and exports nothing
 data Mod :=
   // a file of import "p" lines of packages, then export, builtin, and implementation, each followed by its commands
-  case Mod(name: Path, imports: List[At[Path]], exported: List[At[Cmd]], builtins: List[At[Cmd]], implemented: List[At[Cmd]], comments: List[Comment])
+  case Mod(
+    name: Path,
+    imports: List[At[Path]],
+    exported: List[At[Cmd]],
+    builtins: List[At[Cmd]],
+    implemented: List[At[Cmd]],
+    comments: List[Comment])
 
 // an edit of a module that a lint proposes and refactor fix applies (ulang/refactor/refactor.u), at the spans and
 // positions of the parsed module
@@ -351,7 +423,13 @@ data Edit :=
 // a blank line follows it, and the position of the next token of code, or of the end of the input, with its text if it is
 // a keyword, a name, or an operator, else ""
 data Comment :=
-  case Comment(pos: Pos, text: Str, own_line: Bool, blank_after: Bool, next: Pos, next_word: Str)
+  case Comment(
+    pos: Pos,
+    text: Str,
+    own_line: Bool,
+    blank_after: Bool,
+    next: Pos,
+    next_word: Str)
 
 // the .u files of a directory, other than project.u, which see each other's exports and notations without imports,
 // known by the directory from the root, "" for the root, and prelude for the library, so that the id of a package is the
@@ -899,7 +977,8 @@ function library_name(module: Str, base: Id): Name :=
   Name(library_module(module), base)
 
 function seen_modules(d: Mod, packages: List[Package]): List[Path] :=
-  implicit_imports(d.name, packages) ++ List(for p in packages if contains(p.id, import_ids(d)) or p.id == module_dir(d.name) for m in p.members if m != d.name yield m)
+  implicit_imports(d.name, packages)
+    ++ List(for p in packages if contains(p.id, import_ids(d)) or p.id == module_dir(d.name) for m in p.members if m != d.name yield m)
 
 // commands without positions, as programs that are not parsed have them
 function unplaced(cmds: List[Cmd]): List[At[Cmd]] :=
@@ -1149,7 +1228,8 @@ test bound_alternatives() :=
   assert tested_alternatives(pat, true) == List(
     nowhere(PTuple(List(free, a))),
     nowhere(PTuple(List(free, nowhere(PTuple(List(nowhere(PWild), a)))))))
-  assert has_bound_alternatives(pat) and not has_bound_alternatives(nowhere(PTuple(List(free, b))))
+  assert has_bound_alternatives(pat)
+    and not has_bound_alternatives(nowhere(PTuple(List(free, b))))
 
 function expanded_cases[A](cases: List[At[Branch[A]]]): List[At[Branch[A]]] :=
   List(for d in cases for q in alternatives(d.that.pat) yield d with that := (d.that with pat := q))
@@ -1301,7 +1381,8 @@ function loop_positions_in(pos: Pos, stmt: Stmt): List[Pos] :=
       loop_positions(body)
 
     case STry(body, catches) =>
-      loop_positions(body) ++ List(for d in catches for p in loop_positions(d.that.body) yield p)
+      loop_positions(body)
+        ++ List(for d in catches for p in loop_positions(d.that.body) yield p)
 
     case SFor(_, body) =>
       loop_positions(body)
@@ -1596,7 +1677,8 @@ function part_errors(cmd: Cmd): List[Diagnostic] :=
       errors_in_stmt(stmt)
 
     case CLemma(_, _, _, _, claim, proof) =>
-      errors_in_exprs(claim_exprs(claim)) ++ List(for p in proof for e in errors_in_proof(p) yield e)
+      errors_in_exprs(claim_exprs(claim))
+        ++ List(for p in proof for e in errors_in_proof(p) yield e)
 
     case CSort(_, _, _) =>
       List()
@@ -1798,7 +1880,9 @@ function errors_in_node(expr: Expr): List[Diagnostic] :=
       errors_in_exprs(List(for y in elems for e in yielded(y) yield e) ++ List(for e in rest))
 
     case EFor(_, gens, elem, rest) =>
-      errors_in_exprs(List(for g in gens for e in generated(g) yield e) ++ yielded(elem) ++ List(for e in rest))
+      errors_in_exprs(List(for g in gens for e in generated(g) yield e)
+        ++ yielded(elem)
+        ++ List(for e in rest))
   end
 
 function yielded(y: Yield): List[At[Expr]] :=
@@ -1825,7 +1909,8 @@ function generated(g: Gen): List[At[Expr]] :=
   end
 
 function errors_in_proof(proof: Proof): List[Diagnostic] :=
-  List(for step in proof.steps for e in errors_in_step(step) yield e) ++ List(for split in proof.split for e in errors_in_split(split) yield e)
+  List(for step in proof.steps for e in errors_in_step(step) yield e)
+    ++ List(for split in proof.split for e in errors_in_split(split) yield e)
 
 function errors_in_step(step: At[Step]): List[Diagnostic] :=
   match step
@@ -1875,10 +1960,13 @@ function errors_in_split_node(split: Split): List[Diagnostic] :=
       List(for c in parts(cases) for e in errors_in_exprs(List(for g in c.guard)) ++ errors_in_proof(c.body) yield e)
 
     case SplitMatch(arg, cases) =>
-      errors_in_expr(arg) ++ List(for c in parts(cases) for e in errors_in_exprs(List(for g in c.guard)) ++ errors_in_proof(c.body) yield e)
+      errors_in_expr(arg)
+        ++ List(for c in parts(cases) for e in errors_in_exprs(List(for g in c.guard)) ++ errors_in_proof(c.body) yield e)
 
     case SplitIf(cond, left, right) =>
-      errors_in_expr(cond) ++ errors_in_proof(left) ++ List(for r in right for e in errors_in_proof(r) yield e)
+      errors_in_expr(cond)
+        ++ errors_in_proof(left)
+        ++ List(for r in right for e in errors_in_proof(r) yield e)
   end
 
 function errors_in_stmt(stmt: At[Stmt]): List[Diagnostic] :=
@@ -1920,7 +2008,8 @@ function errors_in_stmt_node(stmt: Stmt): List[Diagnostic] :=
       errors_in_exprs(ins)
 
     case SMatch(arg, cases) =>
-      errors_in_expr(arg) ++ List(for c in parts(cases) for e in errors_in_exprs(List(for g in c.guard)) ++ errors_in_stmt(c.body) yield e)
+      errors_in_expr(arg)
+        ++ List(for c in parts(cases) for e in errors_in_exprs(List(for g in c.guard)) ++ errors_in_stmt(c.body) yield e)
 
     case SAssert(cond) =>
       errors_in_expr(cond)
@@ -1932,10 +2021,12 @@ function errors_in_stmt_node(stmt: Stmt): List[Diagnostic] :=
       errors_in_expr(value)
 
     case STry(body, catches) =>
-      errors_in_stmt(body) ++ List(for c in parts(catches) for e in errors_in_exprs(List(for g in c.guard)) ++ errors_in_stmt(c.body) yield e)
+      errors_in_stmt(body)
+        ++ List(for c in parts(catches) for e in errors_in_exprs(List(for g in c.guard)) ++ errors_in_stmt(c.body) yield e)
 
     case SFor(gens, body) =>
-      errors_in_exprs(List(for g in gens for e in generated(g) yield e)) ++ errors_in_stmt(body)
+      errors_in_exprs(List(for g in gens for e in generated(g) yield e))
+        ++ errors_in_stmt(body)
   end
 
 function format_name(n: Name): Str :=

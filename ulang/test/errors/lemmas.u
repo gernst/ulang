@@ -178,11 +178,16 @@ test library_terminates() :=
     case Translation(decls, _, _) =>
       open := List(for t in terminations(decls, Set(for k => d in decls.defs if d.recursive yield k)) if not is_terminating(t) for (n, _) in t.names yield n.base)
   end
-  assert Set(for n in open) == Set("index_from", "stands_at", "separated", "list_count", "list_values")
+  assert Set(for n in open)
+    == Set("index_from", "stands_at", "separated", "list_count", "list_values")
 
 // a function that does not terminate is open, one that counts down to a guard terminates by its Int measure
 test terminations_of_program() :=
-  var main: Path, q: Prog, open: List[Str] := List(), proven: List[Str] := List()
+  var
+    main: Path,
+    q: Prog,
+    open: List[Str] := List(),
+    proven: List[Str] := List()
   load_text(in "ulang/test/errors/terminations-of-program.u", List(
     "function loop(x: Int): Int :=",
     "  loop(x) + 1",

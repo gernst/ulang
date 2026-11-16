@@ -67,7 +67,8 @@ test lints_at_their_places() :=
     "      1,",
     "      xs) then true else false",
     "  end"), out found)
-  assert found == List((Pos(3, 10), "contains(\n      // the first\n      1,\n      xs)"))
+  assert found
+    == List((Pos(3, 10), "contains(\n      // the first\n      1,\n      xs)"))
 
 test lints_of_matches() :=
   var found: List[(Pos, Str)]
@@ -378,7 +379,8 @@ test lints_of_handlers() :=
     "    case _ =>",
     "      r()",
     "  end"), out found)
-  assert found == List((Pos(5, 5), "a handler that only skips swallows what it catches"))
+  assert found
+    == List((Pos(5, 5), "a handler that only skips swallows what it catches"))
 
 test lints_of_privates() :=
   var found: List[(Pos, Str)]

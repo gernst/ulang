@@ -290,6 +290,8 @@ procedure require_kept(in q: Prog, errors: List[TypeError]) raises InternalError
   for e in errors do
     let d := type_diagnostic(e)
     if not exists(ds, lambda k => k.pos == d.pos and k.code == d.code) then
-      raise Unexpected("the error " ++ located_message(e) ++ " of the checker, which no diagnostic of the checked program has")
+      raise Unexpected("the error "
+        ++ located_message(e)
+        ++ " of the checker, which no diagnostic of the checked program has")
     end
   end

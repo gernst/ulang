@@ -16,7 +16,9 @@ procedure no_diagnostics(
 // constructors of a datatype, and writes nothing; @put names the section of what it adds
 test outlines() :=
   var reply: List[Str], status: Int, text: Str
-  let state := "out/test/refactor/queries/outline", path := "out/test/refactor/queries/outline/o.u"
+  let
+    state := "out/test/refactor/queries/outline",
+    path := "out/test/refactor/queries/outline/o.u"
   let source := "export\n\ndata Shape :=\n  case Circle(r: Int)\n  case Square(side: Int)\n\nfunction area(s: Shape): Int\n\nimplementation\n\nfunction area(s: Shape): Int :=\n  match s\n    case Circle(r) =>\n      3 * r * r\n    case Square(side) =>\n      side * side\n  end\n\nprocedure log(in s: Shape) :=\n  os_println(in show(area(s)))\n\ntest areas() :=\n  assert area(Square(2)) == 4\n"
   os_write_utf8(in os_join(state, "handles.txt"), "")
   os_write_utf8(in path, source)
@@ -38,13 +40,17 @@ test outlines() :=
 // each with the declaration around it and the handle of the innermost node there
 test finds_refs() :=
   var reply: List[Str], status: Int
-  let state := "out/test/refactor/queries/refs", dir := "out/test/refactor/queries/refs/p"
+  let
+    state := "out/test/refactor/queries/refs",
+    dir := "out/test/refactor/queries/refs/p"
   os_write_utf8(in os_join(state, "handles.txt"), "")
   os_write_utf8(in os_join(dir, "a.u"), "export\n\nfunction f(x: Int): Int\n\nimplementation\n\nfunction f(x: Int): Int :=\n  x + 1\n")
   os_write_utf8(in os_join(dir, "b.u"), "function g(y: Int): Int :=\n  let f := 1 in\n  f + y\n\nprocedure h(in y: Int, out z: Int) :=\n  z := f(y)\n  if z > 0 then\n    z := f(z)\n  end\n")
   run_script(in "@refs " ++ dir ++ "/a.u:f", false, state, no_diagnostics, out reply, status, _)
   let found := List(
-    "@refs " ++ dir ++ "/a.u:f: 2 uses of out.test.refactor.queries.refs.p.a.f/1 in 1 file",
+    "@refs "
+      ++ dir
+      ++ "/a.u:f: 2 uses of out.test.refactor.queries.refs.p.a.f/1 in 1 file",
     "  " ++ dir ++ "/b.u:6.8 in h/2 #1: z := f(y)",
     "  " ++ dir ++ "/b.u:8.10 in h/2 #2: z := f(z)")
   assert drop(1, reply) == List(join("\n", found))
@@ -56,22 +62,30 @@ test finds_refs() :=
 // but not of those that it renames, which the sibling b.u sees
 test renames_beside_overloads() :=
   var reply: List[Str], status: Int, text: Str
-  let state := "out/test/refactor/queries/overloads", dir := "out/test/refactor/queries/overloads/p"
+  let
+    state := "out/test/refactor/queries/overloads",
+    dir := "out/test/refactor/queries/overloads/p"
   os_write_utf8(in os_join(dir, "a.u"), "function shout(s: Str): Str :=\n  s\n\nfunction use(s: Str): Str :=\n  shout(s)\n")
   os_write_utf8(in os_join(dir, "b.u"), "function twice(s: Str): Str :=\n  shout(s) ++ shout(s)\n")
   run_script(in "@rename " ++ dir ++ "/a.u:shout size", false, state, no_diagnostics, out reply, status, _)
   os_read_utf8(in os_join(dir, "a.u"), out text)
-  assert status == 0 and text == "function size(s: Str): Str :=\n  s\n\nfunction use(s: Str): Str :=\n  size(s)\n"
+  assert status == 0 and text
+    == "function size(s: Str): Str :=\n  s\n\nfunction use(s: Str): Str :=\n  size(s)\n"
   let warnings := List(for line in reply if starts_with(line, "warning: the uses of size/1 also see ") yield line)
-  assert size(warnings) == 1 and exists(warnings, lambda w => index_of("prelude.str.size: Str -> Int", w) != None and index_of("p.a.size", w) == None)
+  assert size(warnings) == 1
+    and exists(warnings, lambda w => index_of("prelude.str.size: Str -> Int", w) != None
+      and index_of("p.a.size", w) == None)
   run_script(in "@rename " ++ dir ++ "/a.u:size lowered", false, state, no_diagnostics, out reply, status, _)
-  assert status == 0 and not exists(reply, lambda line => starts_with(line, "warning:"))
+  assert status == 0
+    and not exists(reply, lambda line => starts_with(line, "warning:"))
 
 // @sig of a name gives its exported declarations in the library and the project, across overloads, a signature with its
 // examples, and of a constructor the head of its datatype; @sig of a file gives its export section as it is written
 test sigs() :=
   var reply: List[Str], status: Int
-  let state := "out/test/refactor/queries/sig", path := "out/test/refactor/queries/sig/s.u"
+  let
+    state := "out/test/refactor/queries/sig",
+    path := "out/test/refactor/queries/sig/s.u"
   os_write_utf8(in os_join(state, "handles.txt"), "")
   os_write_utf8(in path, "// shapes\n\nexport\n\n// the area\nfunction area(r: Int): Int :=\n  example area(1) == 3\n\nimplementation\n\nfunction area(r: Int): Int :=\n  3 * r * r\n")
   run_script(in "@sig starts_with\n@sig Some\n@sig " ++ path ++ "\n", false, state, no_diagnostics, out reply, status, _)
@@ -79,17 +93,29 @@ test sigs() :=
   assert drop(1, reply) == List(
     "@sig starts_with: 1 declaration in 1 module\nprelude.str.starts_with: function starts_with(s: Str, start: Str): Bool",
     "@sig Some: 1 declaration in 1 module\nprelude.option.Some:\n  data Option[A] :=\n    case Some(value: A)",
-    "@sig " ++ path ++ ": " ++ path ++ "\nexport\n\n// the area\nfunction area(r: Int): Int :=\n  example area(1) == 3")
+    "@sig "
+      ++ path
+      ++ ": "
+      ++ path
+      ++ "\nexport\n\n// the area\nfunction area(r: Int): Int :=\n  example area(1) == 3")
   run_script(in "@sig no_such_name\n", false, state, no_diagnostics, out reply, status, _)
   assert status == 1
 
 // @resolve gives the qualified name and type of the use at a position, or the type of the variable declared there
 test resolves() :=
   var reply: List[Str], status: Int
-  let state := "out/test/refactor/queries/resolve", path := "out/test/refactor/queries/resolve/r.u"
+  let
+    state := "out/test/refactor/queries/resolve",
+    path := "out/test/refactor/queries/resolve/r.u"
   os_write_utf8(in os_join(state, "handles.txt"), "")
   os_write_utf8(in path, "function f(xs: List[Int]): Int :=\n  let n := size(xs) in\n  n + 1\n")
-  run_script(in "@resolve " ++ path ++ ":2.12\n@resolve " ++ path ++ " 2.7\n@resolve " ++ path ++ ":1.1\n", false, state, no_diagnostics, out reply, status, _)
+  run_script(in "@resolve "
+    ++ path
+    ++ ":2.12\n@resolve "
+    ++ path
+    ++ " 2.7\n@resolve "
+    ++ path
+    ++ ":1.1\n", false, state, no_diagnostics, out reply, status, _)
   assert status == 0
   assert drop(1, reply) == List(
     "@resolve " ++ path ++ ":2.12: use of prelude.list.size: List[Int] -> Int",
@@ -100,10 +126,21 @@ test resolves() :=
 // constructor, and a local F:proc/local, which @resolve takes alone
 test module_targets() :=
   var reply: List[Str], status: Int
-  let state := "out/test/refactor/queries/targets", path := "out/test/refactor/queries/targets/t.u", m := "out.test.refactor.queries.targets.t"
+  let
+    state := "out/test/refactor/queries/targets",
+    path := "out/test/refactor/queries/targets/t.u",
+    m := "out.test.refactor.queries.targets.t"
   os_write_utf8(in os_join(state, "handles.txt"), "")
   os_write_utf8(in path, "data P :=\n  case P(x: Int, y: Int)\n\nfunction f(p: P): Int :=\n  let n := p.x in\n  n + 1\n\nfunction g(p: P): P :=\n  P(f(p), p.y) with x := 1\n")
-  run_script(in "@refs " ++ m ++ ".f/1\n@refs " ++ m ++ ".P.x\n@refs " ++ m ++ ".P.P\n@resolve " ++ path ++ ":f/n\n", false, state, no_diagnostics, out reply, status, _)
+  run_script(in "@refs "
+    ++ m
+    ++ ".f/1\n@refs "
+    ++ m
+    ++ ".P.x\n@refs "
+    ++ m
+    ++ ".P.P\n@resolve "
+    ++ path
+    ++ ":f/n\n", false, state, no_diagnostics, out reply, status, _)
   assert status == 0
   assert contains("@refs " ++ path ++ ":f/1: 1 use of " ++ m ++ ".f/1 in 1 file", List(for r in reply for line in split(r, '\n') yield line))
   assert contains("@refs " ++ path ++ ":P.x: 2 uses of the field " ++ m ++ ".P.x in 1 file", List(for r in reply for line in split(r, '\n') yield line))
@@ -112,4 +149,8 @@ test module_targets() :=
   run_script(in "@show " ++ path ++ ":f/n\n", false, state, no_diagnostics, out reply, status, _)
   assert reply == List(
     "applied, 1 query refused",
-    "@show " ++ path ++ ":f/n: refused, @show takes no local, while " ++ path ++ ":f/n names one, which @resolve takes")
+    "@show "
+      ++ path
+      ++ ":f/n: refused, @show takes no local, while "
+      ++ path
+      ++ ":f/n names one, which @resolve takes")

@@ -59,7 +59,13 @@ function is_punctuation(c: Char): Bool :=
   contains(c, chars("!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~"))
 
 test helpers() :=
-  assert indent_of("   x ") == 3 and dedent(2, "   x") == " x" and dedent(5, "  x") == "x"
-  assert trim("  a b  ") == "a b" and trim_end("ab \t") == "ab" and is_blank(" \t") and not is_blank(" a")
+  assert indent_of("   x ") == 3
+    and dedent(2, "   x") == " x"
+    and dedent(5, "  x") == "x"
+  assert trim("  a b  ") == "a b"
+    and trim_end("ab \t") == "ab"
+    and is_blank(" \t")
+    and not is_blank(" a")
   assert span(List(1, 2, 3, 1), lambda n => n < 3) == (List(1, 2), List(3, 1))
-  assert escape_html("<a href=\"x\">&</a>") == "&lt;a href=&quot;x&quot;&gt;&amp;&lt;/a&gt;"
+  assert escape_html("<a href=\"x\">&</a>")
+    == "&lt;a href=&quot;x&quot;&gt;&amp;&lt;/a&gt;"

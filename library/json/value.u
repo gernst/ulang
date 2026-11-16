@@ -50,7 +50,9 @@ function show(j: Json): Str :=
       "[" ++ join(",", List(for i in items yield show(i))) ++ "]"
 
     case Object(fields) =>
-      "{" ++ join(",", List(for (k, v) in fields yield json_quote(k) ++ ":" ++ show(v))) ++ "}"
+      "{"
+        ++ join(",", List(for (k, v) in fields yield json_quote(k) ++ ":" ++ show(v)))
+        ++ "}"
   end
 
 function pretty(j: Json): Str :=
@@ -62,13 +64,25 @@ function pretty_at(j: Json, indent: Str): Str :=
       if items == List() then
         "[]"
       else
-        "[\n" ++ join(",\n", List(for i in items yield indent ++ "  " ++ pretty_at(i, indent ++ "  "))) ++ "\n" ++ indent ++ "]"
+        "[\n"
+          ++ join(",\n", List(for i in items yield indent ++ "  " ++ pretty_at(i, indent ++ "  ")))
+          ++ "\n"
+          ++ indent
+          ++ "]"
 
     case Object(fields) =>
       if fields == List() then
         "{}"
       else
-        "{\n" ++ join(",\n", List(for (k, v) in fields yield indent ++ "  " ++ json_quote(k) ++ ": " ++ pretty_at(v, indent ++ "  "))) ++ "\n" ++ indent ++ "}"
+        "{\n"
+          ++ join(",\n", List(for (k, v) in fields yield indent
+            ++ "  "
+            ++ json_quote(k)
+            ++ ": "
+            ++ pretty_at(v, indent ++ "  ")))
+          ++ "\n"
+          ++ indent
+          ++ "}"
 
     case _ =>
       show(j)
@@ -80,13 +94,20 @@ function format_number(m: Int, e: Int): Str :=
   if e >= 0 and size(digits) + e <= 21 then
     sign ++ digits ++ repeat(e, "0")
   else if e < 0 and -e < size(digits) then
-    sign ++ slice(digits, 0, size(digits) + e) ++ "." ++ slice(digits, size(digits) + e, size(digits))
+    sign
+      ++ slice(digits, 0, size(digits) + e)
+      ++ "."
+      ++ slice(digits, size(digits) + e, size(digits))
   else
     let zeros := -e - size(digits) in
     if e < 0 and zeros < 6 then
       sign ++ "0." ++ repeat(zeros, "0") ++ digits
     else
-      sign ++ slice(digits, 0, 1) ++ (if size(digits) > 1 then "." ++ slice(digits, 1, size(digits)) else "") ++ "e" ++ show(e + size(digits) - 1)
+      sign
+        ++ slice(digits, 0, 1)
+        ++ (if size(digits) > 1 then "." ++ slice(digits, 1, size(digits)) else "")
+        ++ "e"
+        ++ show(e + size(digits) - 1)
 
 function json_quote(s: Str): Str :=
   "\"" ++ join("", List(for c in s yield escape(c))) ++ "\""
