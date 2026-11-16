@@ -76,12 +76,23 @@ function ulang(args, file) {
   });
 }
 
-// the procedures without parameters, the tests, and the lemmas of a document with their names, which ulang run, ulang
-// check --test, and ulang check --prove select
+// the procedures without parameters, the tests, the examples, and the lemmas of a document with their names, which ulang
+// run, ulang check --test, and ulang check --prove select, where the test of an example is f.example.N, numbered from 1
+// per base name f in the order of the source, as the checker numbers them (numbered_examples of ulang/check/check.u)
 function blocks(document) {
   const result = [];
+  const counts = new Map();
+  let owner = null;
   for (let line = 0; line < document.lineCount; line++) {
     const text = document.lineAt(line).text;
+    const head = /^(?:function|procedure)\s+([^\s(\[]+)/.exec(text);
+    if (head) owner = head[1];
+    else if (/^\S/.test(text)) owner = null;
+    if (owner && /^\s+example\b/.test(text)) {
+      const n = (counts.get(owner) || 0) + 1;
+      counts.set(owner, n);
+      result.push({ kind: "example", name: `${owner}.example.${n}`, line });
+    }
     const test = /^test\s+(\w+)/.exec(text);
     const proc = /^procedure\s+(\w+)\(\s*\)\s*:=/.exec(text);
     if (test) result.push({ kind: "test", name: test[1], line });
@@ -216,7 +227,7 @@ function activate(context) {
 
   // the words of ulang for the kind of a block or check, ulang run file:name, ulang check --test file:name, ulang check
   // --prove file:name, or ulang check file
-  const commandWords = { run: ["run"], test: ["check", "--test"], prove: ["check", "--prove"], check: ["check"] };
+  const commandWords = { run: ["run"], test: ["check", "--test"], example: ["check", "--test"], prove: ["check", "--prove"], check: ["check"] };
 
   async function execute(document, command, names, show) {
     if (document.isDirty) await document.save();
@@ -397,7 +408,7 @@ function activate(context) {
         provideCodeLenses(doc) {
           return blocks(doc).map((block) => {
             const range = new vscode.Range(block.line, 0, block.line, 0);
-            const title = { test: "▶ Run test", run: "▶ Run", prove: "▶ Prove" }[block.kind];
+            const title = { test: "▶ Run test", example: "▶ Run", run: "▶ Run", prove: "▶ Prove" }[block.kind];
             return new vscode.CodeLens(range, { title, command: "ulang.runBlock", arguments: [doc.uri, block.kind, block.name] });
           });
         },
@@ -415,7 +426,7 @@ function activate(context) {
     const id = doc.uri.toString();
     const file = controller.items.get(id) || controller.createTestItem(id, vscode.workspace.asRelativePath(doc.uri), doc.uri);
     const tests = blocks(doc)
-      .filter((block) => block.kind === "test")
+      .filter((block) => block.kind === "test" || block.kind === "example")
       .map((block) => {
         const item = controller.createTestItem(`${id}#${block.name}`, block.name, doc.uri);
         item.range = new vscode.Range(block.line, 0, block.line, 4);

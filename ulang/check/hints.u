@@ -26,6 +26,13 @@ function hints(text: Str, q: Prog): List[Hint]
 // formals, where columns count code points from 1, as those of diagnostics, and an end is just after the span
 function format_hint(h: Hint): List[Str]
 
+// the examples of the functions and procedures of the module d, whose source is text, each as written, by the name of
+// its declaration and its number of formals, for the hovers of their uses
+function examples_of(text: Str, d: Mod): Map[(Name, Int), List[Str]]
+
+// format_hint, where the hover of a use of a declaration of examples has them below its type
+function format_hint_with(examples: Map[(Name, Int), List[Str]], h: Hint): List[Str]
+
 implementation
 
 // the types of the constructors and procedures of the checked program, which its patterns and calls do not keep
@@ -414,9 +421,14 @@ function is_within(span: Span, outer: Span): Bool :=
   compare(outer.start, span.start) <= 0 and compare(span.stop, outer.stop) <= 0
 
 function format_hint(h: Hint): List[Str] :=
+  format_hint_with(empty(), h)
+
+function format_hint_with(examples: Map[(Name, Int), List[Str]], h: Hint): List[Str] :=
   match h
     case HUse(span, name, typ) =>
-      List(hover(span, format_name(name) ++ typed(typ)))
+      List(
+        hover(span, join("\n", List(
+          format_name(name) ++ typed(typ); value_or(get((name, arity_of(typ)), examples), List())))))
 
     case HDecl(span, name, typ, written) =>
       List(hover(span, format_name(name) ++ typed(typ))) ++ (if written or has_unknown(typ) then
@@ -595,3 +607,59 @@ test unknown_hints() :=
     "{\"kind\": \"hover\", \"line\": 5, \"column\": 19, \"end_line\": 5, \"end_column\": 20, \"text\": \"x: ?\"}",
     "{\"kind\": \"hover\", \"line\": 5, \"column\": 24, \"end_line\": 5, \"end_column\": 25, \"text\": \"x: ?\"}",
     "{\"kind\": \"hover\", \"line\": 6, \"column\": 3, \"end_line\": 6, \"end_column\": 4, \"text\": \"main.D: D\"}")
+
+function examples_of(text: Str, d: Mod): Map[(Name, Int), List[Str]] :=
+  let lines := Array(for line in split(text, '\n')) in
+  Map(for c in d.exported ++ d.builtins ++ d.implemented for (base, arity, spec) in spec_owner(c.that) if spec.examples != List() yield (Name(d.name, base), arity) => List(for x in spec.examples yield spanned(lines, x.span)))
+
+// the base name, the number of formals, and the spec of a function or procedure
+function spec_owner(cmd: Cmd): Option[(Id, Int, Spec)] :=
+  match cmd
+    case CFun(name, _, formals, _, spec, _) =>
+      Some((name.base, size(formals), spec))
+
+    case CFunSig(name, _, formals, _, spec) =>
+      Some((name.base, size(formals), spec))
+
+    case CProc(name, _, ins, outs, refs, _, spec, _) =>
+      Some((name.base, size(ins) + size(outs) + size(refs), spec))
+
+    case CProcSig(name, _, ins, outs, refs, _, spec) =>
+      Some((name.base, size(ins) + size(outs) + size(refs), spec))
+
+    case CNoSpec =>
+      None
+  end
+
+// the text over span, its lines after the first trimmed and indented by two
+function spanned(lines: Array[Str], span: Span): Str :=
+  join("\n", List(for i in range(span.start.line, span.stop.line + 1) yield spanned_line(lines, span, i)))
+
+function spanned_line(lines: Array[Str], span: Span, i: Int): Str :=
+  let line := value_or(get(i - 1, lines), "") in
+  let stop := if i == span.stop.line then min(span.stop.col - 1, size(line)) else size(line) in
+  if i == span.start.line then
+    slice(line, min(span.start.col - 1, stop), stop)
+  else
+    "  " ++ trimmed(slice(line, 0, stop))
+
+// the number of formals of a function or procedure of type typ, 0 of a value
+function arity_of(typ: Type): Int :=
+  match typ
+    case TFun(args, _) =>
+      size(args)
+
+    case TProc(ins, outs, refs, _) =>
+      size(ins) + size(outs) + size(refs)
+
+    case _ =>
+      0
+  end
+
+// the hover of a use of a function of examples shows them below its type, each as written
+test example_hints() :=
+  var own: Mod, q: Prog
+  let text := "data D :=\n  case D\n\nfunction same(d: D): D :=\n  example same(D) == D\n  example same(D) ==\n    D\n  d\n\nfunction two(): D :=\n  same(D)\n"
+  parse_text(in text, out own)
+  check_program(in Source(List(own), List(), List("main")), out q)
+  assert contains("{\"kind\": \"hover\", \"line\": 11, \"column\": 3, \"end_line\": 11, \"end_column\": 7, \"text\": \"main.same: D -> D\\nexample same(D) == D\\nexample same(D) ==\\n  D\"}", List(for h in hints(text, q) for line in format_hint_with(examples_of(text, own), h) yield line))
