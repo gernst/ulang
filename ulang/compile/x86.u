@@ -797,7 +797,8 @@ procedure compile_expr(in defs: Defs, env: Slots, expr: At[Expr], ref e: Emit) :
     case ETuple(args) =>
       var as: List[Arg]
       compile_args(in defs, env, args, out as, ref e)
-      call_runtime(in "u_mk_tuple", List(AVal(OImm(size(args)))) ++ as, ref e)
+      let (maker, sized) := construction(true, size(args))
+      call_runtime(in maker, (if sized then List(AVal(OImm(size(args)))) else List()) ++ as, ref e)
 
     // an ascription is its expression, whose type the checker has unified with the ascribed one
     case EAnnotated(inner, _) =>
@@ -1005,7 +1006,8 @@ procedure compile_named(
             emit(in ILea(ORip(unit_name(n)), Rax), ref e)
           else
             if fields_count(defs, n) == Some(k) then
-              call_runtime(in "u_mk_con", List(AAddr(ORip(descriptor_name(n))), AVal(OImm(k))) ++ as, ref e)
+              let (maker, sized) := construction(false, k)
+              call_runtime(in maker, List(AAddr(ORip(descriptor_name(n)))) ++ (if sized then List(AVal(OImm(k))) else List()) ++ as, ref e)
             else
               match get(n, builtin_functions())
                 case Some((b, j)) if j == k =>

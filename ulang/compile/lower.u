@@ -23,6 +23,14 @@ function proc_name(n: Name): Str
 // sections of the prelude, str.u, and array.u by their qualified names
 function builtin_functions(): Map[Name, (Str, Int)]
 
+// the function of the runtime that makes a tuple, or else a constructor, of k fields, and whether it takes k as an
+// argument, which the functions of fixed arity for the sizes that most constructions have do not
+function construction(is_tuple: Bool, k: Int): (Str, Bool) :=
+  example construction(false, 2) == ("u_mk_con_2", false)
+  example construction(true, 1) == ("u_mk_tuple", true)
+  example construction(true, 3) == ("u_mk_tuple_3", false)
+  example construction(false, 4) == ("u_mk_con", true)
+
 // the datatypes and constructors whose descriptors the runtime defines, of OsError, which its builtins create also in
 // programs that do not import os, while each program defines those of the prelude and its modules, which it always has
 function runtime_constructors(): Set[Name]
@@ -241,6 +249,13 @@ function builtin_functions(): Map[Name, (Str, Int)] :=
     array_start_name() => ("u_array_start", 1),
     array_push_name() => ("u_array_push", 2),
     array_reversed_name() => ("u_array_reversed", 1))
+
+function construction(is_tuple: Bool, k: Int): (Str, Bool) :=
+  let base := (if is_tuple then "u_mk_tuple" else "u_mk_con"), least := if is_tuple then 2 else 1 in
+  if least <= k and k <= 3 then
+    (base ++ "_" ++ show(k), false)
+  else
+    (base, true)
 
 // the internal builtins of the arrays that comprehensions build inside folds, by names that users cannot write
 function array_start_name(): Name :=

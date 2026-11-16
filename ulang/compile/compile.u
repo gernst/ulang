@@ -532,7 +532,8 @@ procedure compile_expr(
     case ETuple(args) =>
       var rs: List[CExpr]
       compile_exprs(in defs, env, args, out ss, rs, ref g)
-      r := c_call("u_mk_tuple", List(CeNum(size(args))) ++ rs)
+      let (maker, sized) := construction(true, size(args))
+      r := c_call(maker, (if sized then List(CeNum(size(args))) else List()) ++ rs)
 
     // an ascription is its expression, whose type the checker has unified with the ascribed one
     case EAnnotated(inner, _) =>
@@ -614,7 +615,8 @@ procedure compile_named(
             r := unit_value(n)
           else
             if fields_count(defs, n) == Some(size(args)) then
-              r := c_call("u_mk_con", List(descriptor(n), CeNum(size(args))) ++ rs)
+              let (maker, sized) := construction(false, size(args))
+              r := c_call(maker, List(descriptor(n)) ++ (if sized then List(CeNum(size(args))) else List()) ++ rs)
             else
               match get(n, builtin_functions())
                 case Some((b, k)) if k == size(args) =>

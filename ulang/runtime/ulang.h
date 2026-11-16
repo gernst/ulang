@@ -130,8 +130,13 @@ u_value u_from_utf8(const char *bytes, size_t n);
 // the initializer of a static object of a string literal as of u_mk_lit, which needs no allocation
 #define U_LIT(s) {.type = &u_str_type, .units = s, .length = sizeof(s) / sizeof(s[0]) - 1, .width = sizeof(s[0])}
 u_value u_mk_con(const struct u_name *name, int size, ...);
+u_value u_mk_con_1(const struct u_name *name, u_value a);
+u_value u_mk_con_2(const struct u_name *name, u_value a, u_value b);
+u_value u_mk_con_3(const struct u_name *name, u_value a, u_value b, u_value c);
 u_value u_mk_con_array(const struct u_name *name, int size, u_value *items);
 u_value u_mk_tuple(int size, ...);
+u_value u_mk_tuple_2(u_value a, u_value b);
+u_value u_mk_tuple_3(u_value a, u_value b, u_value c);
 u_value u_mk_closure(code fun, int size, ...);
 u_value u_mk_proc(proc_code proc, int size, ...);
 
