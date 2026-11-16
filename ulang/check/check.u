@@ -187,10 +187,21 @@ function no_tests(c: Checked): List[(Pos, (Path, Cmd))]
 // whether the patterns pats, without guards, match every value of type t, as the cases of an exhaustive match do
 function covers_all(sig: Sig, t: Type, pats: List[Pat]): Bool
 
+// a value of type t, as a pattern, that none of the patterns pats matches
+function missed_value(sig: Sig, t: Type, pats: List[Pat]): Option[Pat]
+
 implementation
 
 function covers_all(sig: Sig, t: Type, pats: List[Pat]): Bool :=
-  missing(sig, empty(), List(for p in pats yield List(alias_free(sig, nowhere(p)).that)), List(t)) == None
+  missed_value(sig, t, pats) == None
+
+function missed_value(sig: Sig, t: Type, pats: List[Pat]): Option[Pat] :=
+  match missing(sig, empty(), List(for p in pats yield List(alias_free(sig, nowhere(p)).that)), List(t))
+    case Some(List(w; _)) =>
+      Some(w)
+    case _ =>
+      None
+  end
 
 // pat with the uses of the pattern aliases of sig expanded, as exhaustiveness takes them, while the checked program keeps
 // them
@@ -344,20 +355,47 @@ function overloads(s: State, n: Name, declared: Name -> Bool): List[Name] :=
       List(for d in ds if is_visible(s, d))
   end
 
-// an unknown name n, with the visible name that it most likely means, of the library for names of other languages,
-// else the nearest by edits, if few
+// an unknown name n, with the hint that another member of the package declares it privately, else the visible name that
+// it most likely means, of the library for names of other languages, else the nearest by edits, if few
 function unknown_variable(s: State, n: Name): TypeError :=
-  match get(n.base, foreign_names())
-    case Some(meant) =>
+  match (private_hint(s, n, s.hidden), get(n.base, foreign_names()))
+    case (Some(hint), _) =>
+      Hinted(UnknownVariable(n), hint)
+
+    case (None, Some(meant)) =>
       Hinted(UnknownVariable(n), "write " ++ meant)
 
-    case None =>
+    case (None, None) =>
       match nearest(n.base, List(for base => ds in s.sig.named if exists(ds, lambda d => d.owner == List() and is_visible(s, d)) yield base))
         case Some(meant) =>
           Hinted(UnknownVariable(n), "did you mean " ++ meant ++ "?")
         case None =>
           UnknownVariable(n)
       end
+  end
+
+// the hint of an unknown name n that another member of the package declares privately, among hidden, which a module
+// without sections does with all its declarations
+function private_hint(s: State, n: Name, hidden: Set[Name]): Option[Str] :=
+  match List(for d in names_of(s.sig, n.base) if n.path == List() and d.owner == n.owner and contains(d, hidden) for m in name_module(d) if m != s.module yield m)
+    case List(m; _) =>
+      Some(n.base ++ " is private to " ++ path_text(m) ++ ", whose export section does not declare it")
+    case List() =>
+      None
+  end
+
+// reports e of the unknown name n, with the hint of private_hint
+procedure report_unknown(
+  in  e: TypeError,
+      n: Name,
+      hidden: Set[Name],
+  ref s: State
+) :=
+  match private_hint(s, n, hidden)
+    case Some(hint) =>
+      report(in Hinted(e, hint), ref s)
+    case None =>
+      report(in e, ref s)
   end
 
 // the names of other languages for the functions and procedures of the library
@@ -373,7 +411,8 @@ function foreign_names(): Map[Str, Str] :=
     "toString" => "show",
     "to_string" => "show",
     "map" => "List(for x in xs yield f(x))",
-    "filter" => "List(for x in xs if p(x))")
+    "filter" => "List(for x in xs if p(x))",
+    "return" => "the value alone, since a function is its expression and a procedure assigns its outs")
 
 // the name of names nearest to x by edits, if at most a quarter of its characters differ, so none for short names
 function nearest(x: Str, names: List[Str]): Option[Str] :=
@@ -1915,7 +1954,7 @@ procedure unifies_toward(
       skip
 
     case _ =>
-      report(in CountMismatch("", "values", size(xs), size(ys)), ref s)
+      report(in CountMismatch("", "value", size(xs), size(ys)), ref s)
   end
 
 procedure fresh_list[A](in xs: List[A], out ts: List[Type], ref s: State) :=
@@ -2034,7 +2073,7 @@ procedure pattern_aliased(in n: Name, alias: PatAlias, ref s: State) :=
 // reported once per command, e.g. a type parameter that its declaration omits
 procedure unknown_sort(in n: Name, ref s: State) :=
   if not contains(n, s.unknown_sorts) then
-    report(in UnknownSort(n), ref s)
+    report_unknown(in UnknownSort(n), n, s.hidden_sorts, ref s)
     s := s with unknown_sorts := Set(n; s.unknown_sorts)
   end
 
@@ -3186,7 +3225,7 @@ procedure field_access(
           use(in accessor, w, sc, out x, ref s)
 
         case _ =>
-          report(in continued_update(suffix, expr, UnknownField(accessor)), ref s)
+          report(in continued_update(suffix, expr, method_hinted(base, suffix, UnknownField(accessor))), ref s)
           x := Var(accessor, w)
       end
 
@@ -3195,10 +3234,43 @@ procedure field_access(
       x := Var(unqualified(suffix), w)
 
     case v =>
-      report(in UnknownFieldType(suffix, v), ref s)
+      report(in tuple_hinted(suffix, v, UnknownFieldType(suffix, v)), ref s)
       x := Var(unqualified(suffix), w)
   end
   typed_expr := EApp(AOk(pos, span, EVar(x)), List(c; typed_rest))
+
+// e of the unknown field suffix of a value of the datatype base, with the form of a map or filter of other languages
+function method_hinted(base: Id, suffix: Id, e: TypeError): TypeError :=
+  example method_hinted("List", ".map", UnknownVariable(unqualified("x"))) == Hinted(UnknownVariable(unqualified("x")), "write List(for x in xs yield f(x))")
+  match (base, suffix)
+    case ("List" | "Set" | "Array", ".map") =>
+      Hinted(e, "write " ++ base ++ "(for x in xs yield f(x))")
+
+    case ("List" | "Set" | "Array", ".filter") =>
+      Hinted(e, "write " ++ base ++ "(for x in xs if p(x))")
+
+    case _ =>
+      e
+  end
+
+// e of the field suffix of a value of the type v, which has no fields, with the hint of first and second of a pair and
+// of the pattern that takes a tuple apart
+function tuple_hinted(suffix: Id, v: Type, e: TypeError): TypeError :=
+  match v
+    case TTuple(List(_, _)) if suffix == ".first" or suffix == ".second" =>
+      Hinted(e, "write " ++ slice(suffix, 1, size(suffix)) ++ "(…) of the pair, or take it apart by a pattern, let (a, b) := …")
+
+    case TTuple(types) =>
+      Hinted(e, "take the tuple apart by a pattern, let " ++ (if size(types) == 2 then
+        "(a, b)"
+      else if size(types) == 3 then
+        "(a, b, c)"
+      else
+        "(a, b, …)") ++ " := …")
+
+    case _ =>
+      e
+  end
 
 // e of an unknown field of the update by suffix .f:= of the update expr, with the hint that the comma before f continued the
 // update, where the source likely meant an assignment of a variable f
@@ -3283,7 +3355,7 @@ procedure apply(
     // of a function of another arity, whose result is TError, so that its uses make no follow-ups
     case (TFun(ps, _), _) =>
       var ts: List[Type]
-      report(in CountMismatch(callee_text(s.sig, fun), "arguments", size(ps), size(args)), ref s)
+      report(in CountMismatch(callee_text(s.sig, fun), "argument", size(ps), size(args)), ref s)
       infers_first(in env, args, out typed_args, ts, ref s)
       unifies(in ts, replicate(size(ts), TError), ref s)
       infers_lambdas(in env, args, ts, ref typed_args, s)
@@ -3657,7 +3729,7 @@ procedure checks(
 
     // the expressions as they are, of no types
     case _ =>
-      report(in CountMismatch(what, "values", size(ts), size(exprs)), ref s)
+      report(in CountMismatch(what, "value", size(ts), size(exprs)), ref s)
       typed_exprs := exprs
   end
 
@@ -3998,7 +4070,7 @@ procedure pattern_binders(
           k := Some(k_)
 
         case List() =>
-          report(in UnknownConstructor(constr), ref s)
+          report_unknown(in UnknownConstructor(constr), constr, s.hidden, ref s)
           k := None
 
         case ks =>
@@ -4134,7 +4206,7 @@ procedure constructor_binders(
 ) :=
   // of another arity, the pattern is _, whose variables are TError, since the arguments that they meant are not known
   if size(head.args) != size(args) then
-    report(in CountMismatch(head.what ++ " " ++ k.base, "arguments", size(head.args), size(args)), ref s)
+    report(in CountMismatch(head.what ++ " " ++ k.base, "argument", size(head.args), size(args)), ref s)
     binder_list(in args, replicate(size(args), TError), out _, xs, ref s)
     typed_pat := AOk(pos, span, PWild)
   else
@@ -4231,7 +4303,7 @@ procedure binder_list(
 
     // the components as _ of the expected types, which bind nothing
     case _ =>
-      report(in CountMismatch("the pattern", "components", size(ts), size(pats)), ref s)
+      report(in CountMismatch("the pattern", "component", size(ts), size(pats)), ref s)
       qs := List(for _ in ts yield nowhere(PWild)), xs := List()
   end
 
@@ -4405,7 +4477,7 @@ procedure statement_node(
     case SCall(proc, ins, outs, refs) =>
       call_proc(in env, assignable, proc, ins, outs, refs, out y, ref s)
       readables(in env, List(proc; List(for x in refs yield x.name)), ref s)
-      env := assigned(env, List(for x in outs ++ refs yield x.name))
+      env := assigned(env, List(for x in outs ++ refs yield x.name) ++ call_assigned(y))
 
     case SMatch(arg, cases) =>
       var c: At[Expr], t: Type, bs: List[At[Branch[At[Stmt]]]]
@@ -4730,6 +4802,24 @@ procedure overloaded_call(
   infers_lambdas(in env, ins, is, ref typed_ins, s)
   stmt := SCall(m, typed_ins, typed_outs, typed_refs)
 
+// the variable of an argument that is assignable but not assigned yet, which a call of the wrong shape takes as an out
+function unassigned_variable(env: Env, assignable: List[Name], arg: At[Expr]): Option[Var] :=
+  match arg
+    case AOk(_, _, EVar(x)) if contains(x.name, assignable) and exists(get(x.name, env), lambda l => not l.assigned) =>
+      Some(x)
+    case _ =>
+      None
+  end
+
+// the variables that a checked call assigns, also an in that a call of the wrong shape takes as an out
+function call_assigned(stmt: Stmt): List[Name] :=
+  match stmt
+    case SCall(_, _, outs, refs) =>
+      List(for x in outs ++ refs yield x.name)
+    case _ =>
+      List()
+  end
+
 procedure declared_call(
   in  env: Env,
       assignable: List[Name],
@@ -4754,16 +4844,17 @@ procedure declared_call(
         unifies(in List(for x in typed_refs yield x.typ), List(for t in proc.refs yield subst(t, m)), ref s)
       else
         report(in CallMismatch(q, TProc(proc.ins, proc.outs, proc.refs, RSet(empty())), size(ins), size(outs), size(refs)), ref s)
-        infers(in env, ins, out typed_ins, _, ref s)
-        out_variables(in env, assignable, outs, out typed_outs, ref s)
+        // an in that is a variable not assigned yet, such as an out of the procedure around, is taken as an out
+        infers(in env, List(for a in ins if unassigned_variable(env, assignable, a) == None yield a), out typed_ins, _, ref s)
+        out_variables(in env, assignable, outs ++ List(for a in ins for x in unassigned_variable(env, assignable, a) yield x), out typed_outs, ref s)
         variables(in env, assignable, refs, out typed_refs, ref s)
-        unifies(in List(for x in typed_outs ++ typed_refs yield x.typ), replicate(size(outs) + size(refs), TError), ref s)
+        unifies(in List(for x in typed_outs ++ typed_refs yield x.typ), replicate(size(typed_outs) + size(typed_refs), TError), ref s)
       end
       stmt := SCall(q, typed_ins, typed_outs, typed_refs)
 
     // a call that does nothing, of an unknown procedure
     case None =>
-      report(in UnknownProcedure(p), ref s)
+      report_unknown(in UnknownProcedure(p), p, s.hidden, ref s)
       stmt := SSkip
   end
 
@@ -5074,12 +5165,12 @@ procedure proof_step(
           var m: List[(Type, Type)]
           instance(in lemma_sig.params, out m, ref s)
           if size(ins) != size(lemma_sig.formals) then
-            report(in CountMismatch("lemma " ++ name.base, "arguments", size(lemma_sig.formals), size(ins)), ref s)
+            report(in CountMismatch("lemma " ++ name.base, "argument", size(lemma_sig.formals), size(ins)), ref s)
           else
             checks(in env, "lemma " ++ name.base, ins, List(for t in lemma_sig.formals yield subst(t, m)), out typed_ins, ref s)
           end
           if size(outs) != size(lemma_sig.outs) then
-            report(in CountMismatch("lemma " ++ name.base, "outs", size(lemma_sig.outs), size(outs)), ref s)
+            report(in CountMismatch("lemma " ++ name.base, "out", size(lemma_sig.outs), size(outs)), ref s)
           else
             variables(in env, unbound(env), outs, out typed_outs, ref s)
             unifies(in List(for y in typed_outs yield y.typ), List(for t in lemma_sig.outs yield subst(t, m)), ref s)
@@ -5393,7 +5484,7 @@ procedure claim_proof(
     report(in ClaimStep(name), ref s)
   end
   if size(written) != size(scopes) then
-    report(in CountMismatch("the proof of " ++ name.base, "invariants", size(scopes), size(written)), ref s)
+    report(in CountMismatch("the proof of " ++ name.base, "invariant", size(scopes), size(written)), ref s)
   end
   for (step, env) in zip(written, scopes) do
     match step.that
@@ -6154,7 +6245,7 @@ function unparsed_use(unparsed: Set[Id], e: TypeError): TypeError :=
     case Located(m, pos, error) =>
       Located(m, pos, unparsed_use(unparsed, error))
 
-    case Hinted(UnknownVariable(name), _) if contains(name.base, unparsed) =>
+    case Hinted(UnknownVariable(name) | UnknownSort(name) | UnknownConstructor(name) | UnknownProcedure(name), _) if contains(name.base, unparsed) =>
       UnparsedDeclaration(name)
 
     case UnknownVariable(name) if contains(name.base, unparsed) =>
