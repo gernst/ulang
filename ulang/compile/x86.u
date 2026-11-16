@@ -1692,7 +1692,7 @@ procedure data_decls(in defs: Defs, cmds: List[Cmd], ref e: Emit) :=
               symbol_of_show(t, defs))))), ref e)
         end
         for (k, i) in numbered(parts(constrs)) do
-          if not contains(k.name, runtime_constructors()) then
+          if not contains(k.name, runtime_types()) then
             constr_decls(in k, i, t, global, ref e)
           end
         end

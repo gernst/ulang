@@ -23,10 +23,8 @@ function proc_name(n: Name): Str
 // sections of the prelude, str.u, and array.u by their qualified names
 function builtin_functions(): Map[Name, (Str, Int)]
 
-// the datatypes and constructors whose descriptors the runtime defines, of OsError, which its builtins create also in
-// programs that do not import os, while each program defines those of the prelude and its modules, which it always has
-function runtime_constructors(): Set[Name]
-
+// the datatypes whose descriptors and constructors the runtime defines itself, of OsError, which its builtins create also
+// in programs that do not import os, while each program defines those of the prelude and its modules, which it always has
 function runtime_types(): Set[Name]
 
 // the datatypes whose descriptors, of themselves, their constructors, and their values without arguments,
@@ -251,9 +249,6 @@ function array_push_name(): Name :=
 
 function array_reversed_name(): Name :=
   library_name("array", "(reversed)")
-
-function runtime_constructors(): Set[Name] :=
-  Set(os_error_name())
 
 function runtime_types(): Set[Name] :=
   Set(os_error_name())

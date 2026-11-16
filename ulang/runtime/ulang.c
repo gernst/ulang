@@ -863,12 +863,6 @@ u_value u_array(u_value xs) {
   return a;
 }
 
-u_value u_array_list(u_value a) {
-  u_value xs = &o_list_46_Nil;
-  for (int i = a->size - 1; i >= 0; i--) xs = u_mk_con(&n_list_46_Cons, 2, a->items[i], xs);
-  return xs;
-}
-
 u_value u_array_size(u_value a) {
   return u_mk_int(a->size);
 }

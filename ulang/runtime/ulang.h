@@ -216,7 +216,6 @@ u_value u_array_done(u_value a, int n);
 // last element to the first, and u_array_reversed turns, where the size n is ignored
 u_value u_array_start(u_value n);
 u_value u_array_reversed(u_value a);
-u_value u_array_list(u_value a);
 u_value u_array_size(u_value a);
 u_value u_array_at(u_value i, u_value a);
 u_value u_array_put(u_value i, u_value x, u_value a);
@@ -231,7 +230,7 @@ u_value u_is_space(u_value c);
 // the text of a value as it is printed, by the descriptors of its objects, which use the shows that datatypes declare
 u_value u_show(u_value v);
 
-// the texts of the runtime errors, which every program defines from failure_formats of ulang/syntax/error.u, where %s stands for a
+// the texts of the runtime errors, which every program defines from runtime_formats of ulang/syntax/error.u, where %s stands for a
 // value as show gives it
 extern const char *const u_text_no_case, *const u_text_compare_functions, *const u_text_compare_procedures,
   *const u_text_assertion_failed, *const u_text_assertion_unequal, *const u_text_assertion_not_raised, *const u_text_uncaught;
