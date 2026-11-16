@@ -65,16 +65,20 @@ procedure overlaid_text(
 ) raises OsError
 
 // the packages that the files of a run before have loaded without their tests, of the project at root with the overlays,
-// by their absolute and normal paths, in load order
+// by their absolute and normal paths, in load order, where declared tells whether they are loaded only as far as their
+// importers see them
 data Loaded :=
-  case Loaded(root: Str, overlays: Map[Str, Str], source: Source)
+  case Loaded(root: Str, overlays: Map[Str, Str], declared: Bool, source: Source)
 
 // parse_file_overlaid with the packages of loaded instead of their files, but for the package of the file and those that
 // import it, so that a run over many files reads and parses each package that they import once, which loaded then holds
-// too, unless loaded is of another root or of other overlays
+// too, unless loaded is of another root, of other overlays, or of another declared, which tells whether the packages
+// other than that of the file, the library included, are loaded only as far as their importers see them, without their
+// definitions (declared_tokens), for the checks that only report the errors of the package of the file
 procedure parse_file_loaded(
   in  path: Str,
       overlays: Map[Str, Str],
+      declared: Bool,
   out source: Source,
   ref loaded: Loaded
 ) raises ParseError, OsError
@@ -98,7 +102,7 @@ procedure parse_text_recovering(
   out source: Source
 ) raises ParseError, OsError
 
-// the source of texts instead of files, for the tests: the members of the package of the directory dir from the root,
+// the source of texts instead of files, for the tests, loaded as parse_file_loaded loads them by declared: the members of the package of the directory dir from the root,
 // each its module and text, and main, the module and text of the main file, which is one of them or a program in dir,
 // where the packages of imported, each its directory and the modules and texts of its members, are loaded first, without
 // their tests, and imports take them instead of files, and the library and the other imported packages are read from
@@ -109,6 +113,7 @@ procedure parse_texts(
       imported: List[(Str, List[(Path, Str)])],
       members: List[(Path, Str)],
       main: (Path, Str),
+      declared: Bool,
   out source: Source
 ) raises ParseError, OsError
 
@@ -3283,15 +3288,16 @@ procedure parse_texts(
       imported: List[(Str, List[(Path, Str)])],
       members: List[(Path, Str)],
       main: (Path, Str),
+      declared: Bool,
   out source: Source
 ) raises ParseError, OsError :=
   match main
     case (id, _) =>
       source := Source(List(), List(), id)
       for (d, files) in imported do
-        load_members(in Root(root, Map()), Some(d), files, None, List(), ref source)
+        load_members(in Root(root, Map(), declared), Some(d), files, None, List(), ref source)
       end
-      load_members(in Root(root, Map()), Some(dir), List(for (m, t) in members if m != id yield (m, t)) ++ List(main), Some(main), List(), ref source)
+      load_members(in Root(root, Map(), declared), Some(dir), List(for (m, t) in members if m != id yield (m, t)) ++ List(main), Some(main), List(), ref source)
   end
 
 procedure load_after_library(
@@ -3300,7 +3306,7 @@ procedure load_after_library(
   ref source: Source
 ) raises ParseError, OsError :=
   let before := source.mods
-  load_members(in Root("", Map()), Some(dir), members, None, List(), ref source)
+  load_members(in Root("", Map(), false), Some(dir), members, None, List(), ref source)
   source := source with mods := List(for d in source.mods if is_library_module(d.name)) ++ List(for d in drop(size(before), source.mods) if not is_library_module(d.name)) ++ List(for d in before if not is_library_module(d.name))
 
 function is_main(id: Path, main: Option[(Path, Str)]): Bool :=
@@ -3393,7 +3399,7 @@ procedure parse_member(
   out own: Mod,
   ref source: Source
 ) :=
-  var rest := toks
+  var rest := if root.declared and not tested then declared_tokens(toks) else toks
   try
     if not is_library_module(id) then
       load_package(in root, None, None, loading, ref source)
@@ -3407,6 +3413,55 @@ procedure parse_member(
   end
   if not tested then
     own := without_tests_of(own)
+  end
+
+// the tokens of a member of a package that another one imports as far as its importers see it: its imports and its
+// export and builtin sections, and of its implementation section the data and type commands, whose fields give the
+// variances of its abstract types (with_variances of ulang/check/check.u), where a member without sections, which
+// exports nothing, has no tokens but the end
+function declared_tokens(toks: Tokens): Tokens :=
+  if exists(toks, lambda (_, tok, _) => is_section(tok)) then
+    before_implementation(toks)
+  else
+    List(for (pos, tok, stop) in toks if tok == TEnd yield (pos, tok, stop))
+
+function is_section(tok: Token): Bool :=
+  match tok
+    case TKw(kw) =>
+      contains(kw, List("export", "builtin", "implementation"))
+    case _ =>
+      false
+  end
+
+function before_implementation(toks: Tokens): Tokens :=
+  match toks
+    case List((pos, TKw("implementation"), stop); rest) =>
+      List((pos, TKw("implementation"), stop); sorts_of(rest, false))
+
+    case List(t; rest) =>
+      List(t; before_implementation(rest))
+
+    case List() =>
+      List()
+  end
+
+// the data and type commands of toks, a section, and its end, where kept tells whether the command of the next token is one
+function sorts_of(toks: Tokens, kept: Bool): Tokens :=
+  match toks
+    case List((pos, TKw(kw), stop); rest) if is_command_kw(kw) =>
+      if kw == "data" or kw == "type" then
+        List((pos, TKw(kw), stop); sorts_of(rest, true))
+      else
+        sorts_of(rest, false)
+
+    case List((pos, TEnd, stop); _) =>
+      List((pos, TEnd, stop))
+
+    case List(t; rest) =>
+      if kept then List(t; sorts_of(rest, true)) else sorts_of(rest, false)
+
+    case List() =>
+      List()
   end
 
 procedure import_all(
@@ -3690,7 +3745,7 @@ procedure parse_file_text(
   var place: Place
   place_of(in path, out place)
   source := Source(List(), List(), place.id)
-  load_package(in Root(place.root, Map()), place.dir, Some((place.id, text)), List(), ref source)
+  load_package(in Root(place.root, Map(), false), place.dir, Some((place.id, text)), List(), ref source)
 
 procedure parse_file(
   in  path: Str,
@@ -3710,11 +3765,12 @@ procedure parse_file_overlaid(
   overlaid_text(in path, overlays, out text)
   place_of(in path, out place)
   source := Source(List(), List(), place.id)
-  load_package(in Root(place.root, absolute), place.dir, Some((place.id, text)), List(), ref source)
+  load_package(in Root(place.root, absolute, false), place.dir, Some((place.id, text)), List(), ref source)
 
 procedure parse_file_loaded(
   in  path: Str,
       overlays: Map[Str, Str],
+      declared: Bool,
   out source: Source,
   ref loaded: Loaded
 ) raises ParseError, OsError :=
@@ -3723,19 +3779,20 @@ procedure parse_file_loaded(
   overlaid_text(in path, overlays, out text)
   place_of(in path, out place)
   let own := package_id(place.dir)
-  let before := if loaded.root == place.root and loaded.overlays == absolute then
+  let before := if loaded.root == place.root and loaded.overlays == absolute and loaded.declared == declared then
     without_dependents(loaded.source, own)
   else
     Source(List(), List(), List())
   source := before with main := place.id
-  load_package(in Root(place.root, absolute), place.dir, Some((place.id, text)), List(), ref source)
+  load_package(in Root(place.root, absolute, declared), place.dir, Some((place.id, text)), List(), ref source)
   source := reached(source, own)
-  loaded := Loaded(place.root, absolute, with_loaded(before, source, own))
+  loaded := Loaded(place.root, absolute, declared, with_loaded(before, source, own))
 
-// the root of a project, the directory path, and the overlays, the texts that loading takes instead of the files of their
-// paths, absolute and normal
+// the root of a project, the directory path, the overlays, the texts that loading takes instead of the files of their
+// paths, absolute and normal, and whether the packages other than that of the main file are loaded as far as their
+// importers see them (declared_tokens)
 data Root :=
-  case Root(path: Str, overlays: Map[Str, Str])
+  case Root(path: Str, overlays: Map[Str, Str], declared: Bool)
 
 // overlays with their paths absolute and normal, from the working directory
 procedure absolute_overlays(
@@ -3856,7 +3913,7 @@ procedure parse_text_recovering(
 ) raises ParseError, OsError :=
   var toks: Tokens, comments: List[Comment], own: Mod, loaded := Source(List(), List(), List("main"))
   lex_text(in text, out toks, comments)
-  parse_mod(in List("main"), comments, List(), builtin_notation(), Root("", Map()), None, List(), out own, ref loaded, toks)
+  parse_mod(in List("main"), comments, List(), builtin_notation(), Root("", Map(), false), None, List(), out own, ref loaded, toks)
   source := Source(List(own), List(), List("main"))
 
 // the file of a module: its id, the root of its project, and its directory from the root, None for the library

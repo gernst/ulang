@@ -660,7 +660,7 @@ procedure visit_units(
   units_of(in found, overlays, out units)
   status := 0
   for unit in units do
-    load_file(in first_path(unit), overlays, true, tested, out source, q, errors, ref cache)
+    load_file(in first_path(unit), overlays, true, tested, false, out source, q, errors, ref cache)
     if errors != List() then
       report(in first_path(unit), errors, size(files_of(found)) > 1)
       failed := failed ++ files_of(unit), status := max(status, load_status(q, errors))
@@ -687,7 +687,7 @@ procedure print_hints(in file: Str, overlays: List[(Str, Str)], out status: Int)
   overlay_texts(in overlays, out texts, status)
   if status == 0 then
     var q: Prog, errors: List[Diagnostic], cache := no_cache()
-    load_file(in file, texts, false, false, out _, q, errors, ref cache)
+    load_file(in file, texts, false, false, false, out _, q, errors, ref cache)
     report(in file, errors, false)
     status := load_status(q, errors)
     if q.main != List() then
@@ -731,7 +731,7 @@ function replacement_text(source: Source, m: Path, w: Warning): Str :=
 // it reports as warnings
 procedure compile_target(in target: Target, output: Str, out status: Int) :=
   var source: Source, q: Prog, errors: List[Diagnostic], cache := no_cache()
-  load_file(in target.path, Map(), false, false, out source, q, errors, ref cache)
+  load_file(in target.path, Map(), false, false, false, out source, q, errors, ref cache)
   let harmless := code_free_diagnostics(q) ++ List(for e in code_free_parse_errors(source) yield parse_diagnostic(e)), blocking := List(for d in errors if blocks_run(d) and not contains(d, harmless))
   report(in target.path, blocking, false)
   warn(in target.path, List(for d in errors if not contains(d, blocking)))
@@ -765,7 +765,7 @@ procedure compile_tests(in dir: Option[Str], output: Str, out status: Int) :=
   targets_of(in List(for d in dir yield Target(d, None)), false, out found)
   units_of(in found, Map(), out units)
   for unit in units do
-    load_file(in first_path(unit), Map(), true, true, out _, q, errors, ref cache)
+    load_file(in first_path(unit), Map(), true, true, false, out _, q, errors, ref cache)
     if errors != List() then
       report(in first_path(unit), errors, true)
       status := max(status, load_status(q, errors))
@@ -871,7 +871,7 @@ procedure checked_diagnostics(
   out found: List[(Str, Diagnostic)]
 ) :=
   var source: Source, errors: List[Diagnostic], path: Str, cache := no_cache()
-  load_file(in file, overlays, false, false, out source, _, errors, ref cache)
+  load_file(in file, overlays, false, false, false, out source, _, errors, ref cache)
   if source.main != List() and not has_errors(source) then
     var unformatted: List[Diagnostic]
     try
@@ -917,7 +917,7 @@ procedure refactor_tests(
       units := List(), lines := lines ++ List("no test ran: " ++ m)
   end
   for unit in units do
-    load_file(in first_path(unit), Map(), false, true, out source, q, errors, ref cache)
+    load_file(in first_path(unit), Map(), false, true, false, out source, q, errors, ref cache)
     for file in files_of(unit) do
       let m := sibling(source.main, file)
       let declared := List(for d in find(source.mods, lambda d => d.name == m) for name in declared_tests(d) yield name), examples := sum(List(for d in find(source.mods, lambda d => d.name == m) yield example_count(d)))
@@ -1156,21 +1156,25 @@ procedure check_file(
       errors: List[Diagnostic]
 ) :=
   var cache := no_cache()
-  load_file(in file, Map(), formatted, tested, out _, q, errors, ref cache)
+  load_file(in file, Map(), formatted, tested, false, out _, q, errors, ref cache)
 
 // what the files of a run before have parsed and checked of the packages that they import, which load_file reuses
 data Cache :=
   case Cache(loaded: Loaded, checks: Checks)
 
 function no_cache(): Cache :=
-  Cache(Loaded("", Map(), Source(List(), List(), List())), no_checks())
+  Cache(Loaded("", Map(), false, Source(List(), List(), List())), no_checks())
 
-// check_file with the parsed source, which has no modules if file does not parse
+// check_file with the parsed source, which has no modules if file does not parse, where declared tells whether the
+// packages other than that of file, the library included, are loaded and checked only as far as their importers see
+// them, without their definitions (parse_file_loaded of ulang/parse/parse.u), for a check that reports only the errors of
+// the package of file
 procedure load_file(
   in  file: Str,
       overlays: Map[Str, Str],
       formatted: Bool,
       tested: Bool,
+      declared: Bool,
   out source: Source,
       q: Prog,
       errors: List[Diagnostic],
@@ -1179,7 +1183,7 @@ procedure load_file(
   source := Source(List(), List(), List()), q := Prog(List(), List(), List(), List()), errors := List()
   try
     var loaded := cache.loaded, checks := cache.checks
-    parse_file_loaded(in file, overlays, out source, ref loaded)
+    parse_file_loaded(in file, overlays, declared, out source, ref loaded)
     if loaded.root != cache.loaded.root then
       checks := no_checks()
     end
@@ -1187,10 +1191,10 @@ procedure load_file(
       load_tester(ref source)
     end
     if has_errors(source) then
-      check_cached(in without_unparsed(source), unparsed_names(source), true, if tested then enumerated_tests else no_tests, out q, _, ref checks)
+      check_cached(in without_unparsed(source), unparsed_names(source), true, declared, if tested then enumerated_tests else no_tests, out q, _, _, ref checks)
       errors := take(20, List(for e in parse_errors(source) yield parse_diagnostic(e)) ++ diagnostics(q))
     else
-      check_cached(in source, empty(), false, if tested then enumerated_tests else no_tests, out q, _, ref checks)
+      check_cached(in source, empty(), false, declared, if tested then enumerated_tests else no_tests, out q, _, _, ref checks)
       errors := take(20, diagnostics(q))
     end
     cache := Cache(loaded, checks)
