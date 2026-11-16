@@ -124,7 +124,7 @@ test refuses_breaking_fixes() :=
   assert status == 0
   assert text == "function is_pos(n: Int): Bool :=\n  n > 0\n\nfunction first(o: Option[Int]): Int :=\n  match o\n    case Some(x) =>\n      x\n    case None =>\n      0\n  end\n\nprocedure main() :=\n  os_println(in show(is_pos(first(None))))\n"
   assert contains(path ++ ": fixed BoolIte at 2.3", reply)
-  assert contains(path ++ ": refused Folded at 5.3, which would cause " ++ path ++ ":5.3: Mismatch: expected Int but found Bool", reply)
+  assert contains(path ++ ": refused OptionMatch at 5.3, which would cause " ++ path ++ ":5.3: Mismatch: expected Int but found Bool", reply)
 
 // @patch of a declaration patches its signature and its definition together, so that an example on the signature and
 // the body change in one script, an if without else gets no handle on its end, and @fix of nothing says so

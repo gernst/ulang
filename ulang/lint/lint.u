@@ -10,10 +10,12 @@ export
 
 // the rules, whose names are the codes of their warnings
 data Lint :=
-  // an if of true and false, or of false and true, which is its condition or not of it
+  // an if of true and false, or of false and true, which is its condition or not of it, a comparison of a condition
+  // with true or false, which is the condition or not of it, or an if of equal branches, which is that branch
   case BoolIte
-  // a match that spells out value_or
-  case Folded
+  // a match on an option that spells out value_or, map_option, exists, or forall, unless its case of Some calls the
+  // function that it defines, whose recursion would move into a lambda
+  case OptionMatch
   // a list that a generator only iterates, of the elements of a container, which is that container
   case CopiedContainer
   // a for whose body only appends one element to a list that starts empty, which is a form List(for …)
@@ -39,6 +41,9 @@ data Lint :=
   // a function or procedure whose definition repeats an earlier one of its module, modulo positions and the names of its
   // formals, type parameters, and the variables bound inside
   case DuplicateDefinition
+  // an if or a guard whose condition is one that the ifs and guards around it tested, or not of it, written alike,
+  // which is the branch that it takes
+  case DecidedCondition
 
 // a warning of lint at pos of a module, with the expression to write instead if there is one, and the edit that removes
 // it if there is one, which needs no choice
@@ -52,7 +57,7 @@ function lints(d: Mod): List[Warning]
 implementation
 
 function lints(d: Mod): List[Warning] :=
-  List(for cmd in d.exported ++ d.builtins ++ d.implemented for w in cmd_lints(cmd) yield w) ++ unused_privates(d) ++ List(for cmd in d.implemented for w in repeated_exprs(cmd) yield w) ++ duplicate_definitions(d)
+  List(for cmd in d.exported ++ d.builtins ++ d.implemented for w in cmd_lints(cmd) ++ decided_cmd(cmd) yield w) ++ unused_privates(d) ++ List(for cmd in d.implemented for w in repeated_exprs(cmd) yield w) ++ duplicate_definitions(d)
 
 function cmd_lints(cmd: At[Cmd]): List[Warning] :=
   match cmd
@@ -80,7 +85,7 @@ function placed_cmd_lints(pos: Pos, cmd: Cmd): List[Warning] :=
       stmt_lints("", stmt)
 
     case CLemma(_, _, ins, outs, claim, _) =>
-      vars_lints(pos, ins ++ outs) ++ exprs_lints("", claim_exprs(claim))
+      vars_lints(pos, ins ++ outs) ++ without_bool_ites(exprs_lints("", claim_exprs(claim)))
 
     case CPatAlias(name, _, formals, _, _) =>
       decl_name_lints(pos, name.base, List()) ++ vars_lints(pos, formals)
@@ -246,7 +251,7 @@ function part_stmt_lints(fun: Id, pos: Pos, stmt: Stmt): List[Warning] :=
       expr_lints(fun, arg) ++ List(for br in parts(cases) for w in stmt_branch_lints(fun, br) yield w)
 
     case SAssert(cond) =>
-      expr_lints(fun, cond)
+      without_bool_ites(expr_lints(fun, cond))
 
     case SAssertRaises(_, pat, guard, body) =>
       binder_lints(List(pat), option_names(guard)) ++ option_lints(fun, guard) ++ stmt_lints(fun, body)
@@ -282,27 +287,131 @@ function placed_lints(fun: Id, pos: Pos, span: Span, expr: Expr): List[Warning] 
           List(
             rewritten(BoolIte, pos, span, "an if of false and true is not of its condition", expr_app("not", List(cond))))
 
+        // which drops the condition, and with it a builtin exception that the condition may raise, the only way that a
+        // function fails
+        case _ if strip_expr(then_expr) == strip_expr(else_expr) =>
+          List(
+            rewritten(BoolIte, pos, span, "an if of equal branches is that branch", then_expr))
+
         case _ =>
           List()
       end
 
-    case EMatch(arg, cases) if fun != "value_or" =>
-      match option_default(parts(cases))
-        case Some(d) =>
-          List(
-            rewritten(Folded, pos, span, "a match that gives the value of an option, or else a default, is value_or", expr_app("value_or", List(arg, d))))
+    case ECall(_, _, Name(List(), "=="), _, List(left, right)) =>
+      compared_bool(pos, span, left, right)
 
-        case None =>
-          List()
-      end
+    case EMatch(arg, cases) =>
+      option_match(fun, pos, span, arg, parts(cases))
 
     case _ =>
       List()
   end
 
+// a comparison of a condition with true or false, in either order, which is the condition or not of it
+function compared_bool(pos: Pos, span: Span, left: At[Expr], right: At[Expr]): List[Warning] :=
+  match (literal_bool(left), literal_bool(right))
+    case (_, Some(value)) =>
+      List(bool_comparison(pos, span, left, value))
+
+    case (Some(value), None) =>
+      List(bool_comparison(pos, span, right, value))
+
+    case (None, None) =>
+      List()
+  end
+
+function bool_comparison(pos: Pos, span: Span, cond: At[Expr], value: Bool): Warning :=
+  if value then
+    rewritten(BoolIte, pos, span, "a comparison with true is the condition", cond)
+  else
+    rewritten(BoolIte, pos, span, "a comparison with false is not of the condition", expr_app("not", List(cond)))
+
+// a match that spells out an option function of the library, but in the definition of that function, fun, and where its
+// case of Some calls fun, whose recursion would move into a lambda, while a call of fun in the argument stays where it is
+function option_match(fun: Id, pos: Pos, span: Span, arg: At[Expr], cases: List[Branch[At[Expr]]]): List[Warning] :=
+  match (option_default(cases), option_fold(cases))
+    case (Some(d), _) if fun != "value_or" =>
+      List(
+        rewritten(OptionMatch, pos, span, "a match on an option that is value_or", expr_app("value_or", List(arg, d))))
+
+    case (_, Some((f, x, body))) if fun != f and not contains(fun, expr_names(body)) =>
+      List(
+        rewritten(OptionMatch, pos, span, "a match on an option that is " ++ f, expr_app(f, List(arg, nowhere(ELam(List(x), body))))))
+
+    case _ =>
+      List()
+  end
+
+// the function of the library that cases spell out over an option, with the variable of Some and the body of its lambda:
+// Some(x) => Some(e) and None => None of map_option, Some(x) => p and None => false of exists, and Some(x) => p and None
+// => true of forall, in either order and without guards, where e and p go under a lambda, which evaluates them where the
+// match does
+function option_fold(cases: List[Branch[At[Expr]]]): Option[(Id, At[Pat], At[Expr])] :=
+  match cases
+    case List(Branch(some, None, body), Branch(none, None, default)) if is_none(none) =>
+      some_fold(some, body, default)
+
+    case List(Branch(none, None, default), Branch(some, None, body)) if is_none(none) =>
+      some_fold(some, body, default)
+
+    case _ =>
+      None
+  end
+
+function some_fold(some: At[Pat], body: At[Expr], default: At[Expr]): Option[(Id, At[Pat], At[Expr])] :=
+  match (some_var(some), some_value(body), literal_bool(default))
+    case (Some(x), Some(value), _) if is_none_expr(default) =>
+      Some(("map_option", x, value))
+
+    case (Some(x), _, Some(false)) =>
+      Some(("exists", x, body))
+
+    case (Some(x), _, Some(true)) =>
+      Some(("forall", x, body))
+
+    case _ =>
+      None
+  end
+
+// the variable x of a pattern Some(x), also with a type
+function some_var(pat: At[Pat]): Option[At[Pat]] :=
+  match strip_pat(pat)
+    case AOk(_, _, PApp(Name(List(), "Some"), List(x))) if is_variable(x) and pat_vars(x) != List() =>
+      Some(x)
+    case _ =>
+      None
+  end
+
+// the value e of an expression Some(e)
+function some_value(expr: At[Expr]): Option[At[Expr]] :=
+  match strip_expr(expr)
+    case AOk(_, _, ECall(_, _, Name(List(), "Some"), _, List(value))) =>
+      Some(value)
+    case _ =>
+      None
+  end
+
+// whether expr is None, bare or with ()
+function is_none_expr(expr: At[Expr]): Bool :=
+  match strip_expr(expr)
+    case AOk(_, _, EVar(v)) =>
+      v.name == Name(List(), "None")
+
+    case AOk(_, _, ECall(_, _, Name(List(), "None"), _, List())) =>
+      true
+
+    case _ =>
+      false
+  end
+
 // a warning whose edit writes expr instead of the part at span
 function rewritten(lint: Lint, pos: Pos, span: Span, message: Str, expr: At[Expr]): Warning :=
   Warning(lint, pos, message, Some(expr), Some(EditExpr(span, expr)))
+
+// the warnings of ws but those of BoolIte, which the claims of lemmas, whose equations are their statements, and the
+// conditions of assert, which print both sides of a failed ==, do not take
+function without_bool_ites(ws: List[Warning]): List[Warning] :=
+  List(for w in ws if w.lint != BoolIte)
 
 function literal_bool(expr: At[Expr]): Option[Bool] :=
   match strip_expr(expr)
@@ -636,6 +745,225 @@ function unused_privates(d: Mod): List[Warning] :=
   let exported := exported_names(d), cmds := commands_of(d.implemented) in
   let reached := reach(uses_graph(cmds), List(for x in exported ++ conventional(d.name) ++ root_names(cmds)), Set()) in
   List(for c in d.implemented for (kind, name) in private_decl(c) if not contains(name, exported ++ reached) yield unused(c.pos, kind, name))
+
+// the warnings of DecidedCondition in cmd, the ifs and guards whose conditions the ifs and guards around them decide
+function decided_cmd(cmd: At[Cmd]): List[Warning] :=
+  match cmd
+    case AOk(_, _, that) =>
+      decided_of(that)
+
+    case AErr(_, _, that, _) =>
+      decided_of(that)
+
+    case AUnparsed(_, _, _, _) =>
+      List()
+  end
+
+function decided_of(cmd: Cmd): List[Warning] :=
+  match cmd
+    case CFun(_, _, _, _, _, body) =>
+      decided_expr(List(), body)
+
+    case CProc(_, _, _, _, _, _, _, stmt) =>
+      decided_stmt(List(), stmt)
+
+    case CTest(_, _, stmt) =>
+      decided_stmt(List(), stmt)
+
+    case CLemma(_, _, _, _, _, _)
+       | CPatAlias(_, _, _, _, _)
+       | CSort(_, _, _)
+       | CData(_, _, _)
+       | CAbstract(_, _)
+       | CNotation(_, _, _)
+       | CFunSig(_, _, _, _, _)
+       | CProcSig(_, _, _, _, _, _, _) =>
+      List()
+  end
+
+// the fact that cond has value on a path, as the condition stripped of positions and its value, where not c is c with the
+// other value
+function fact(cond: At[Expr], value: Bool): (At[Expr], Bool) :=
+  match strip_expr(cond)
+    case AOk(_, _, ECall(_, _, Name(List(), "not"), _, List(inner))) =>
+      fact(inner, not value)
+    case stripped =>
+      (stripped, value)
+  end
+
+// the value of cond where the facts of known hold, if one of them is cond or not of it, written alike
+function decided(known: List[(At[Expr], Bool)], cond: At[Expr]): Option[Bool] :=
+  let (stripped, value) := fact(cond, true) in
+  map_option(find(known, lambda (k, _) => k == stripped), lambda (_, v) => v == value)
+
+// the facts of known that hold in body, a branch of a statement, those of which body changes no variable by an
+// assignment, an out, or a ref; a fact is dropped from the whole branch, also before the change, which is conservative,
+// and suffices for every statement inside, since a path from the test of a condition to a use stays in its branch
+function kept(known: List[(At[Expr], Bool)], body: At[Stmt]): List[(At[Expr], Bool)] :=
+  let changed := assigned(body) ++ call_outs(body) in
+  List(for (cond, value) in known if forall(expr_names(cond), lambda x => not contains(x, changed)) yield (cond, value))
+
+// the warnings of DecidedCondition in expr, where known holds the facts of the ifs and guards around it; no local hides
+// another, so a fact holds in every scope inside, also in lambdas, which see the values of the variables around them
+function decided_expr(known: List[(At[Expr], Bool)], expr: At[Expr]): List[Warning] :=
+  match expr
+    case AOk(pos, span, that) =>
+      decided_part(known, pos, span, that)
+
+    case AErr(pos, span, that, _) =>
+      decided_part(known, pos, span, that)
+
+    case AUnparsed(_, _, _, _) =>
+      List()
+  end
+
+function decided_exprs(known: List[(At[Expr], Bool)], exprs: List[At[Expr]]): List[Warning] :=
+  List(for e in exprs for w in decided_expr(known, e) yield w)
+
+function decided_part(known: List[(At[Expr], Bool)], pos: Pos, span: Span, expr: Expr): List[Warning] :=
+  match expr
+    case ELit(_) | EVar(_) =>
+      List()
+
+    case EApp(f, args) =>
+      decided_exprs(known, List(f; args))
+
+    case EField(base, _) =>
+      decided_expr(known, base)
+
+    case EUpdate(base, _, value) =>
+      decided_exprs(known, List(base, value))
+
+    case ELam(_, body) =>
+      decided_expr(known, body)
+
+    case EProc(_, _, _, _, stmt) =>
+      decided_stmt(known, stmt)
+
+    case ELet(bindings, body) =>
+      decided_exprs(known, List(for (_, e) in bindings yield e) ++ List(body))
+
+    case EIte(cond, then_expr, else_expr) =>
+      let taken := List(for value in decided(known, cond) yield rewritten(DecidedCondition, pos, span, "an if whose condition the conditions around it decide is the branch that it takes", if value then then_expr else else_expr)) in
+      taken ++ decided_expr(known, cond) ++ decided_expr(List(fact(cond, true); known), then_expr) ++ decided_expr(List(fact(cond, false); known), else_expr)
+
+    case EMatch(arg, cases) =>
+      decided_expr(known, arg) ++ List(for br in parts(cases) for w in decided_guard(known, br.guard) ++ decided_expr(guarded(known, br.guard), br.body) yield w)
+
+    case ETuple(args) =>
+      decided_exprs(known, args)
+
+    case EAnnotated(inner, _) =>
+      decided_expr(known, inner)
+
+    case EForm(_, elems, rest) =>
+      decided_exprs(known, List(for y in elems for e in yield_exprs(y) yield e) ++ List(for e in rest))
+
+    case EFor(_, gens, elem, rest) =>
+      decided_exprs(known, List(for g in gens for e in gen_exprs(g) yield e) ++ yield_exprs(elem) ++ List(for e in rest))
+  end
+
+// the facts of known and of guard, which holds in the body of its case
+function guarded(known: List[(At[Expr], Bool)], guard: Option[At[Expr]]): List[(At[Expr], Bool)] :=
+  List(for g in guard yield fact(g, true)) ++ known
+
+// the warnings of a guard that the facts of known decide, and of the parts of the guard
+function decided_guard(known: List[(At[Expr], Bool)], guard: Option[At[Expr]]): List[Warning] :=
+  List(for g in guard for w in guard_warnings(known, g) ++ decided_expr(known, g) yield w)
+
+function guard_warnings(known: List[(At[Expr], Bool)], guard: At[Expr]): List[Warning] :=
+  match decided(known, guard)
+    case Some(true) =>
+      List(
+        Warning(DecidedCondition, guard.pos, "a guard that the conditions around it decide always holds, so its case needs none", None, None))
+
+    case Some(false) =>
+      List(
+        Warning(DecidedCondition, guard.pos, "a guard that the conditions around it decide always fails, so its case never applies", None, None))
+
+    case None =>
+      List()
+  end
+
+function yield_exprs(elem: Yield): List[At[Expr]] :=
+  match elem
+    case YVal(value) =>
+      List(value)
+    case YPair(key, value) =>
+      List(key, value)
+  end
+
+function gen_exprs(g: Gen): List[At[Expr]] :=
+  match g
+    case GVal(_, over, _) =>
+      List(over)
+
+    case GPair(_, _, over, _) =>
+      List(over)
+
+    case GIf(cond) =>
+      List(cond)
+  end
+
+// the warnings of DecidedCondition in stmt, where known holds the facts of the ifs and guards around it that hold in stmt,
+// each kept in a branch only while the branch changes none of its variables (kept); a decided if of statements has no
+// edit, since no Edit replaces a statement by a branch
+function decided_stmt(known: List[(At[Expr], Bool)], stmt: At[Stmt]): List[Warning] :=
+  match stmt
+    case AOk(pos, _, that) =>
+      decided_stmt_part(known, pos, that)
+
+    case AErr(pos, _, that, _) =>
+      decided_stmt_part(known, pos, that)
+
+    case AUnparsed(_, _, _, _) =>
+      List()
+  end
+
+function decided_stmt_part(known: List[(At[Expr], Bool)], pos: Pos, stmt: Stmt): List[Warning] :=
+  match stmt
+    case SSkip =>
+      List()
+
+    case SAssign(upd) =>
+      decided_exprs(known, List(for (_, e) in upd yield e))
+
+    case SBlock(_, stmts) =>
+      List(for s in stmts for w in decided_stmt(known, s) yield w)
+
+    case SLocal(_, decls) =>
+      decided_exprs(known, List(for (_, init) in decls for e in init yield e))
+
+    case SIf(cond, left, right) =>
+      let taken := List(for value in decided(known, cond) yield Warning(DecidedCondition, pos, "an if whose condition the conditions around it decide runs only its " ++ (if value then "then" else "else") ++ " branch", None, None)) in
+      let then_known := List(fact(cond, true); known), else_known := List(fact(cond, false); known) in
+      taken ++ decided_expr(known, cond) ++ decided_stmt(kept(then_known, left), left) ++ decided_stmt(kept(else_known, right), right)
+
+    case SWhile(cond, body) =>
+      decided_expr(known, cond) ++ decided_stmt(known, body)
+
+    case SCall(_, ins, _, _) =>
+      decided_exprs(known, ins)
+
+    case SMatch(arg, cases) =>
+      decided_expr(known, arg) ++ List(for br in parts(cases) for w in decided_guard(known, br.guard) ++ decided_stmt(kept(guarded(known, br.guard), br.body), br.body) yield w)
+
+    case SAssert(cond) =>
+      decided_expr(known, cond)
+
+    // the guard reads only the variables of the pattern, of which no fact is known
+    case SAssertRaises(_, _, _, body) =>
+      decided_stmt(known, body)
+
+    case SRaise(value, _) =>
+      decided_expr(known, value)
+
+    case STry(body, catches) =>
+      decided_stmt(known, body) ++ List(for c in parts(catches) for w in decided_guard(known, c.guard) ++ decided_stmt(kept(guarded(known, c.guard), c.body), c.body) yield w)
+
+    case SFor(gens, body) =>
+      decided_exprs(known, List(for g in gens for e in gen_exprs(g) yield e)) ++ decided_stmt(known, body)
+  end
 
 function unused(pos: Pos, kind: Str, name: Id): Warning :=
   Warning(UnusedPrivate, pos, "nothing reaches the private " ++ kind ++ " " ++ name, None, Some(EditDrop(pos)))
