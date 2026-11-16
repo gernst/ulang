@@ -2612,14 +2612,9 @@ procedure run_actions(
       end
     end
     let changed := List(for c in changes yield c.path)
-    // the importers of a changed package that name a changed declaration of its exports, whose checks it may change
-    var importers: List[Str] := List()
-    for c in changes if not contains(c.path, created) do
-      var found: List[Str]
-      importer_files(in c.path, changed_exports(c.before, c.after), edits.files, out found)
-      importers := distinct(importers ++ List(for f in found if not contains(f, changed ++ edits.checked)))
-    end
-    let paths := distinct(changed ++ edits.checked) ++ importers
+    // the files whose exports the script changed, whose importers it does not check, which may now have errors
+    let interfaces := List(for c in changes if not contains(c.path, created) for names in List(changed_exports(c.before, c.after)) if names != List() yield c.path ++ ": the exports " ++ join(", ", names) ++ " changed, whose importers are not checked")
+    let paths := distinct(changed ++ edits.checked)
     var before: List[(Str, Diagnostic)] := List(), after: List[(Str, Diagnostic)] := List(), found: List[(Str, Diagnostic)]
     var journaled: List[Str] := List()
     for path => kept in written do
@@ -2665,7 +2660,7 @@ procedure run_actions(
       List("checked " ++ counted(size(paths), "file") ++ ", unchanged")
     else
       List(
-        "checked " ++ counted(size(paths), "file") ++ importers_text(importers) ++ ": " ++ show(size(added)) ++ " new, " ++ show(size(gone)) ++ " gone")
+        "checked " ++ counted(size(paths), "file") ++ ": " ++ show(size(added)) ++ " new, " ++ show(size(gone)) ++ " gone")
     let marker := if changes == List() then "  " else "  + "
     var labels := edits.handles, lines: List[Str] := List()
     for (file, d) in listed do
@@ -2681,11 +2676,8 @@ procedure run_actions(
       save_handles(in dir, here, root, labels.entries)
     end
     var tests := Tests(List(), 0, 0, 0, Map())
-    // the tests run on the files, which a dry run does not write, but not on the importers
-    tested := if edits.tests and not dry then
-      distinct(changed ++ edits.checked)
-    else
-      List()
+    // the tests run on the files, which a dry run does not write
+    tested := if edits.tests and not dry then paths else List()
     if tested != List() then
       tester(in tested, listed, out tests)
       var unrun: Map[Str, Str]
@@ -2703,7 +2695,7 @@ procedure run_actions(
     else
       Some((size(List(for (_, d) in added if not is_warning(d) yield d)), size(List(for (_, d) in added if is_warning(d) yield d))))
     reply := List(
-      verdict(dry, paths != List(), errors, size(after) - errors, fresh, refused, tests, if importers == List() then 0 else size(paths))) ++ List(for n in edits.notes) ++ journaled ++ counts ++ lines ++ tests.lines
+      verdict(dry, paths != List(), errors, size(after) - errors, fresh, refused, tests)) ++ List(for n in edits.notes) ++ journaled ++ counts ++ interfaces ++ lines ++ tests.lines
     status := if tests.failed > 0 then 3 else if errors > 0 or refused > 0 then 1 else 0
   catch
     case Refused(message) =>
@@ -3578,17 +3570,14 @@ function without_overlaps(splices: List[(Int, Int, Str, List[Str])], last: Int):
       List()
   end
 
-// the first line of the reply, where files, if it is not 0, is the number of files checked, which importers made more
-// than the script changed
-function verdict(dry: Bool, checked: Bool, errors: Int, warnings: Int, fresh: Option[(Int, Int)], refused: Int, tests: Tests, files: Int): Str :=
-  example verdict(false, true, 3, 1, None, 0, Tests(List(), 0, 0, 0, Map()), 0) == "applied, 3 errors, 1 warning"
-  example verdict(false, true, 3, 1, Some((1, 0)), 0, Tests(List(), 0, 0, 0, Map()), 0) == "applied, 3 errors (1 new), 1 warning (0 new)"
-  example verdict(false, true, 0, 0, Some((0, 0)), 0, Tests(List(), 2, 1, 4, Map()), 0) == "applied, clean, 2 tests passed, 1 failed, 4 not run"
-  example verdict(false, false, 0, 0, None, 0, Tests(List(), 0, 0, 0, Map()), 0) == "applied"
-  example verdict(false, false, 0, 0, None, 2, Tests(List(), 0, 0, 0, Map()), 0) == "applied, 2 queries refused"
-  example verdict(true, true, 1, 0, Some((1, 0)), 0, Tests(List(), 0, 0, 0, Map()), 0) == "dry, 1 error (1 new)"
-  example verdict(true, true, 0, 0, Some((0, 0)), 0, Tests(List(), 0, 0, 0, Map()), 2) == "dry, clean in 2 files"
-  example verdict(true, true, 1, 0, Some((1, 0)), 0, Tests(List(), 0, 0, 0, Map()), 3) == "dry, 1 error (1 new) in 3 files"
+// the first line of the reply
+function verdict(dry: Bool, checked: Bool, errors: Int, warnings: Int, fresh: Option[(Int, Int)], refused: Int, tests: Tests): Str :=
+  example verdict(false, true, 3, 1, None, 0, Tests(List(), 0, 0, 0, Map())) == "applied, 3 errors, 1 warning"
+  example verdict(false, true, 3, 1, Some((1, 0)), 0, Tests(List(), 0, 0, 0, Map())) == "applied, 3 errors (1 new), 1 warning (0 new)"
+  example verdict(false, true, 0, 0, Some((0, 0)), 0, Tests(List(), 2, 1, 4, Map())) == "applied, clean, 2 tests passed, 1 failed, 4 not run"
+  example verdict(false, false, 0, 0, None, 0, Tests(List(), 0, 0, 0, Map())) == "applied"
+  example verdict(false, false, 0, 0, None, 2, Tests(List(), 0, 0, 0, Map())) == "applied, 2 queries refused"
+  example verdict(true, true, 1, 0, Some((1, 0)), 0, Tests(List(), 0, 0, 0, Map())) == "dry, 1 error (1 new)"
   let state := if not checked then
     List()
   else if errors == 0 and warnings == 0 then
@@ -3597,10 +3586,6 @@ function verdict(dry: Bool, checked: Bool, errors: Int, warnings: Int, fresh: Op
     List(for (n, noun, added) in List(
       (errors, "error", map_option(fresh, first)),
       (warnings, "warning", map_option(fresh, second))) if n > 0 yield counted(n, noun) ++ value_or(map_option(added, lambda k => " (" ++ show(k) ++ " new)"), "")) in
-  let placed := if files == 0 or state == List() then
-    state
-  else
-    take(size(state) - 1, state) ++ List(value_or(last(state), "") ++ " in " ++ counted(files, "file")) in
   let ran := if tests.passed + tests.failed + tests.skipped == 0 then
     List()
   else
@@ -3611,52 +3596,7 @@ function verdict(dry: Bool, checked: Bool, errors: Int, warnings: Int, fresh: Op
     List("1 query refused")
   else
     List(show(refused) ++ " queries refused") in
-  join(", ", List(if dry then "dry" else "applied") ++ placed ++ queries ++ ran)
-
-// the importers checked besides the files of a script, for the line that counts the files checked
-function importers_text(importers: List[Str]): Str :=
-  example importers_text(List()) == ""
-  example importers_text(List("a/a.u", "b/b.u")) == ", with the importers a/a.u, b/b.u"
-  if importers == List() then
-    ""
-  else
-    ", with the importer" ++ (if size(importers) == 1 then " " else "s ") ++ join(", ", importers)
-
-// the files of the project outside the package of the file at path that import its package and name one of words as a
-// whole word, by their normal paths, with the texts of files, those that the script has edited, and for a package that
-// the walk of the project skips, such as one below out/, the files around it
-procedure importer_files(
-  in  path: Str,
-      words: List[Str],
-      files: Map[Str, Str],
-  out found: List[Str]
-) raises OsError :=
-  found := List()
-  if words != List() then
-    var here: Str, root: Str, walked: List[Str]
-    os_cwd(out here)
-    project_root(in here, out root)
-    source_files(in root, out walked)
-    let project := List(for f in walked yield normal_file(here, here, f))
-    // a package that the walk of the project skips, such as one below out/, has its importers around it
-    var around: List[Str] := List()
-    if not contains(path, project) then
-      source_files(in os_dirname(os_dirname(path)), out around)
-    end
-    let import_line := "import " ++ path_text(dir_path(os_dirname(normal_file(here, root, path))))
-    for file in distinct(project ++ List(for f in around yield normal_file(here, here, f))) if os_dirname(file) != os_dirname(path) do
-      var text: Str
-      current_text(in file, files, out text)
-      if has_line(text, import_line) and exists(words, lambda word => has_word(text, word)) then
-        found := found ++ List(file)
-      end
-    end
-  end
-
-function has_line(text: Str, line: Str): Bool :=
-  example has_line("import a.b\nimport a.bc\n", "import a.bc")
-  example not has_line("import a.bc\n", "import a.b")
-  exists(occurrences(text, line), lambda i => (i == 0 or at(i - 1, text) == '\n') and (i + size(line) == size(text) or at(i + size(line), text) == '\n'))
+  join(", ", List(if dry then "dry" else "applied") ++ state ++ queries ++ ran)
 
 // the names that the export and builtin sections of the formatted texts before and after declare differently: those of
 // the declarations whose lines differ, with the constructors and fields of a datatype, which importers name
