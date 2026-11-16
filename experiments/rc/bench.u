@@ -1,0 +1,24 @@
+data Point :=
+  case Point(x: Int, y: Int)
+
+function bumped(ps: List[Point]): List[Point] :=
+  match ps
+    case List() =>
+      List()
+    case List(p; rest) =>
+      List(p with x := p.x + 1; bumped(rest))
+  end
+
+procedure main() :=
+  var m: Map[Int, Int] := Map(), i := 0
+  while i < 300000 do
+    m := put(i * 7919 % 300000, i, m)
+    i := i + 1
+  end
+  var ps := List(for j in List(for k in chars("abcdefghij")) yield Point(1, 2)), round := 0
+  var big := List(for c in chars("abcdefghijklmnopqrstuvwxyz") for d in chars("abcdefghijklmnopqrstuvwxyz") for e in chars("abcdefghij") yield Point(1, 2))
+  while round < 100 do
+    big := bumped(big)
+    round := round + 1
+  end
+  os_println(in show(size(m)) ++ " " ++ show(size(big)))

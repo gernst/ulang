@@ -1,0 +1,10 @@
+import ulang.syntax
+import ulang.parse
+
+procedure main() raises OsError, LexError :=
+  var toks: Tokens, comments: List[Comment], args: List[Str]
+  os_args(out args)
+  for text in args do
+    lex_all(in text, out toks, comments)
+  end
+  os_println(in "done")

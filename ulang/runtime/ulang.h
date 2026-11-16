@@ -184,7 +184,7 @@ extern struct u_object u_true, u_false;
 
 // the shared value of a constructor without arguments, with descriptor n of datatype t, where C needs t, since a static
 // initializer cannot read it from n
-#define U_UNIT(n, t) {.type = &t, .name = &n, .size = 0, .items = NULL}
+#define U_UNIT(n, t) {.type = &t, .name = &n, .size = 0, .rc = U_IMMORTAL, .items = NULL}
 
 // the values of the constructors without arguments that the builtins create
 extern struct u_object o_list_46_Nil, o_option_46_None, o_prelude_46_DivisionByZero;
@@ -378,14 +378,16 @@ void u_reraise(struct u_handler *h);
 // Reference counts, an experiment, kept by the C that ulang/compile/rc.u rewrites, whose main sets u_rc, so that the runtime
 // gives its own copies of references their counts too. The collector still frees every object, so a count may be too
 // high, which only loses a reuse, but never too low: an object of count 0, rc == 0, has exactly one reference, whose holder
-// may reuse its cell. Counted are the compound objects with fields, constructors, tuples, closures, procedures, and arrays,
-// not the static ones without fields, nor those of the plain types, whose descriptors the section u_plain holds.
+// may reuse its cell. Counted are the compound objects, constructors, tuples, closures, procedures, and arrays, but not
+// the static ones, of U_IMMORTAL, nor those of the plain types, whose descriptors the section u_plain holds.
 extern int u_rc;
+// the count of a static object, which no count changes
+#define U_IMMORTAL 0x40000000
 extern const struct u_type __start_u_plain[], __stop_u_plain[];
 #define U_PLAIN __attribute__((section("u_plain")))
 
 static inline int u_counted(u_value v) {
-  return v && !U_IS_TAGGED(v) && !(v->type >= __start_u_plain && v->type < __stop_u_plain) && v->size > 0;
+  return v && !U_IS_TAGGED(v) && !(v->type >= __start_u_plain && v->type < __stop_u_plain) && v->rc != U_IMMORTAL;
 }
 
 #ifdef ULANG_RC_STATS
@@ -437,13 +439,15 @@ static inline u_value u_replace(u_value old, u_value v) {
 // the cell of v for a construction if v is its only reference, which gives the fields of v to the variables bound to them,
 // else NULL, after giving each field of the mask a reference of its own and dropping v
 u_value u_claim(u_value v, unsigned long long mask);
-u_value u_reuse_con_1(u_value cell, const struct u_name *name, u_value a);
-u_value u_reuse_con_2(u_value cell, const struct u_name *name, u_value a, u_value b);
-u_value u_reuse_con_3(u_value cell, const struct u_name *name, u_value a, u_value b, u_value c);
-u_value u_reuse_con(u_value cell, const struct u_name *name, int size, ...);
-u_value u_reuse_tuple(u_value cell, int size, ...);
-u_value u_reuse_tuple_2(u_value cell, u_value a, u_value b);
-u_value u_reuse_tuple_3(u_value cell, u_value a, u_value b, u_value c);
+u_value u_reuse_con_1(u_value *cell, const struct u_name *name, u_value a);
+u_value u_reuse_con_2(u_value *cell, const struct u_name *name, u_value a, u_value b);
+u_value u_reuse_con_3(u_value *cell, const struct u_name *name, u_value a, u_value b, u_value c);
+u_value u_reuse_con(u_value *cell, const struct u_name *name, int size, ...);
+u_value u_reuse_tuple(u_value *cell, int size, ...);
+u_value u_reuse_tuple_2(u_value *cell, u_value a, u_value b);
+u_value u_reuse_tuple_3(u_value *cell, u_value a, u_value b, u_value c);
+// a claimed cell that no construction took, of which the claim gave the fields away
+void u_free_cell(u_value cell);
 // u_update of a v that the caller gives up, which changes v itself if it is its only reference, and of one it keeps
 u_value u_update_own(u_value v, const int *ix, u_value field, u_value y);
 u_value u_update_rc(u_value v, const int *ix, u_value field, u_value y);

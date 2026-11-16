@@ -1,0 +1,24 @@
+data Tok :=
+  case TKw(text: Str)
+  case TName(text: Str)
+  case TDot
+
+function after_dot(prev: Tok, tok: Tok): Tok :=
+  match (prev, tok)
+    case (TDot, TKw(text)) =>
+      TName(text)
+    case _ =>
+      tok
+  end
+
+procedure next_tok(in i: Int, out tok: Tok) :=
+  tok := if i % 3 == 0 then TDot else TKw("k" ++ show(i))
+
+procedure main() :=
+  var i := 0, tok: Tok, prev := TDot, n := 0
+  while i < 1000 do
+    next_tok(in i, out tok)
+    tok := after_dot(prev, tok), prev := tok
+    n := n + 1, i := i + 1
+  end
+  os_println(in show(n))

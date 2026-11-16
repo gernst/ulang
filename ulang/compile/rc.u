@@ -16,11 +16,11 @@ implementation
 // variables bound to a field of an owned one, by its index; keeps the variables that a borrowed one keeps alive;
 // pointers the names of pointers; and modes whether each formal of each compiled function and procedure is taken over
 data Info :=
-  case Info(values: Set[Str], owned: Set[Str], pinned: Set[Str], children: Map[Str, List[(Str, Int)]], keeps: Map[Str, Set[Str]], pointers: Set[Str], modes: Map[Str, List[Bool]])
+  case Info(values: Set[Str], owned: Set[Str], pinned: Set[Str], children: Map[Str, List[(Str, Int)]], keeps: Map[Str, Set[Str]], pointers: Set[Str], modes: Map[Str, List[Bool]], aliases: Map[Str, Str])
 
 // the owned variables that hold a reference, the cells claimed for a construction, and the count of fresh names
 data St :=
-  case St(owns: Set[Str], tokens: List[Str], count: Int)
+  case St(owns: Set[Str], tokens: List[Str], count: Int, scope: List[Str], nulls: Set[Str])
 
 procedure count_refs(in file: CFile, out counted: CFile) :=
   let hooks := hook_funs(file.decls)
@@ -124,7 +124,7 @@ procedure count_decl(
   match d
     case CdFunction(linkage, typ, fun, formals, body) =>
       let info := classified(fun, formals, body, modes)
-      var st := St(Set(for (t, x) in formals if t == value_type() and contains(x, info.owned) yield x), List(), 0), ss: List[CStmt]
+      var st := St(Set(for (t, x) in formals if t == value_type() and contains(x, info.owned) yield x), List(), 0, List(), Set()), ss: List[CStmt]
       count_stmts(in info, body, Set(), out ss, ref st)
       if fun == "main" then
         ss := List(CsAssign(CeVar("u_rc"), CeNum(1))) ++ ss
@@ -451,11 +451,52 @@ function sets_flag(t: Str, stmts: List[CStmt]): Bool :=
 
 function classified(fun: Str, formals: List[(CType, Str)], body: List[CStmt], modes: Map[Str, List[Bool]]): Info :=
   let values := value_names(formals, body), decls := List(for (t, x, init) in decls_of(body) if t == value_type() yield (x, init)), assigned := assigned_names(body), (procs, pins) := addresses(body), owned_formals := Set(for ((t, x), i) in indexed(formals, 0) if t == value_type() and arg_owned(modes, fun, i) yield x) in
-  let owned := owned_formals ++ Set(for (x, init) in decls if contains(x, assigned) or contains(x, procs) or contains(x, pins) or is_owning_init(init) yield x) in
+  // the variables of a case with alternatives, which its test assigns the fields of the value it matches, borrow them
+  let tested := List(for s in body for e in stmt_exprs(s) for a in expr_assignments(e) yield a) in
+  let owned := owned_formals ++ Set(for (x, init) in decls if contains(x, assigned) or contains(x, procs) or contains(x, pins) or is_owning_init(init) yield x) -- Set(for (x, _) in tested yield x) in
   let children := children_of(values, owned, decls) in
   let child_names := Set(for _ => cs in children for (c, _) in cs yield c) in
   let pointers := Set(for (t, x) in formals if is_pointer_type(t) yield x) ++ Set(for (t, x, _) in decls_of(body) if is_pointer_type(t) yield x) in
-  Info(values, owned, pins, children, keeps_of(values, owned, child_names, decls), pointers, modes)
+  // a pointer to a variable, as the end of a list that a comprehension builds, uses the variable, which is no pinned one
+  let aliases := Map(for (t, p, init) in decls_of(body) for x in address_of(init) if is_pointer_type(t) yield p => x) in
+  let keeps := foldl(tested, keeps_of(values, owned, child_names, decls), lambda m, a => put(first(a), value_or(get(first(a), m), Set()) ++ Set(for y in occurrences(values, second(a)) if y != first(a) yield y), m)) in
+  Info(values, owned, pins -- Set(for _ => x in aliases yield x), children, keeps, pointers, modes, aliases)
+
+function address_of(init: Option[CExpr]): List[Str] :=
+  match init
+    case Some(CeUnary("&", CeVar(x))) =>
+      List(x)
+    case _ =>
+      List()
+  end
+
+// the assignments in e, x = v, of the tests of cases with alternatives
+function expr_assignments(e: CExpr): List[(Str, CExpr)] :=
+  match e
+    case CeBinary("=", CeVar(x), v) =>
+      List((x, v); expr_assignments(v))
+
+    case CeVar(_) | CeNum(_) | CeStr(_) =>
+      List()
+
+    case CeCall(fun, args) =>
+      expr_assignments(fun) ++ List(for a in args for x in expr_assignments(a) yield x)
+
+    case CeUnary(_, operand) =>
+      expr_assignments(operand)
+
+    case CeBinary(_, left, right) =>
+      expr_assignments(left) ++ expr_assignments(right)
+
+    case CeIndex(base, i) =>
+      expr_assignments(base) ++ expr_assignments(i)
+
+    case CeArrow(base, _) =>
+      expr_assignments(base)
+
+    case CeInit(items) =>
+      List(for a in items for x in expr_assignments(a) yield x)
+  end
 
 function is_pointer_type(t: CType): Bool :=
   match t
@@ -668,7 +709,11 @@ function is_owned_producer(e: CExpr): Bool :=
         "u_split",
         "u_number",
         "u_decode_utf8",
-        "u_encode_utf8")) or is_plain_result(f)
+        "u_encode_utf8",
+        "u_array_foldr",
+        "u_array_foldl",
+        "u_str_foldr",
+        "u_str_foldl")) or is_plain_result(f)
 
     case _ =>
       false
@@ -747,8 +792,17 @@ function runtime_owned(f: Str, i: Int): Bool :=
     case "u_reuse_tuple" =>
       i >= 2
 
-    case "u_array_done" =>
-      i == 0
+    case "u_array_done" | "u_update_own" =>
+      i == 0 or i == 3
+
+    case "u_update_rc" =>
+      i == 3
+
+    case "u_replace" =>
+      i == 1
+
+    case "u_dup" =>
+      true
 
     case _ =>
       false
@@ -758,16 +812,16 @@ function runtime_owned(f: Str, i: Int): Bool :=
 function reuse_of(f: Str, args: List[CExpr], tok: Str): Option[CExpr] :=
   match (f, args)
     case ("u_mk_con_1" | "u_mk_con_2" | "u_mk_con_3", _) =>
-      Some(c_call("u_reuse_con_" ++ slice(f, 9, 10), List(CeVar(tok)) ++ args))
+      Some(c_call("u_reuse_con_" ++ slice(f, 9, 10), List(CeUnary("&", CeVar(tok))) ++ args))
 
     case ("u_mk_con", List(name, CeNum(k); items)) if k >= 1 =>
-      Some(c_call("u_reuse_con", List(CeVar(tok), name, CeNum(k)) ++ items))
+      Some(c_call("u_reuse_con", List(CeUnary("&", CeVar(tok)), name, CeNum(k)) ++ items))
 
     case ("u_mk_tuple_2" | "u_mk_tuple_3", _) =>
-      Some(c_call("u_reuse_tuple_" ++ slice(f, 11, 12), List(CeVar(tok)) ++ args))
+      Some(c_call("u_reuse_tuple_" ++ slice(f, 11, 12), List(CeUnary("&", CeVar(tok))) ++ args))
 
     case ("u_mk_tuple", List(CeNum(k); items)) if k >= 2 =>
-      Some(c_call("u_reuse_tuple", List(CeVar(tok), CeNum(k)) ++ items))
+      Some(c_call("u_reuse_tuple", List(CeUnary("&", CeVar(tok)), CeNum(k)) ++ items))
 
     case _ =>
       None
@@ -867,7 +921,7 @@ function handler_of(stmt: CStmt): Option[(List[CStmt], List[CStmt])] :=
 // Liveness, where a borrowed variable keeps alive the variables its value is read from
 
 function uses(info: Info, e: CExpr): Set[Str] :=
-  let xs := Set(for x in occurrences(info.values, e)) in
+  let xs := Set(for x in occurrences(info.values, e)) ++ Set(for p in occurrences(info.pointers, e) for x in get(p, info.aliases) yield x) in
   xs ++ Set(for x in xs for y in value_or(get(x, info.keeps), Set()) yield y)
 
 function live_list(info: Info, stmts: List[CStmt], after: Set[Str]): Set[Str] :=
@@ -940,7 +994,7 @@ procedure count_stmts(
   out ss: List[CStmt],
   ref st: St
 ) :=
-  let lives := suffix_lives(info, stmts, after)
+  let lives := suffix_lives(info, stmts, after), outer := st.scope
   var found: Buffer[CStmt] := empty(), rest := stmts, ls := lives
   while rest != List() do
     match (rest, ls)
@@ -948,7 +1002,13 @@ procedure count_stmts(
         var released: List[CStmt], counted: List[CStmt]
         release(in info, before, constructs(rest), out released, ref st)
         count_stmt(in info, stmt, next, out counted, ref st)
-        found := found ++ released ++ counted
+        for s in counted do
+          let (with_temps, n) := hoisted_stmt(info, s, st.count)
+          found := found ++ released ++ with_temps
+          st := st with count := n
+          released := List()
+        end
+        found := found ++ released
         rest := more, ls := List(next; more_lives)
 
       case _ =>
@@ -958,8 +1018,10 @@ procedure count_stmts(
   if not exits(stmts) then
     var at_end: List[CStmt]
     release(in info, after, false, out at_end, ref st)
-    found := found ++ at_end
+    // the cells claimed in the statements that no construction reused
+    found := found ++ at_end ++ freed_cells(List(for t in st.scope if not contains(t, outer)))
   end
+  st := st with scope := outer, tokens := List(for t in st.tokens if contains(t, outer))
   ss := List(for s in found)
 
 // the drops of the owned variables that are not live, where one whose children live, or a construction follows,
@@ -972,19 +1034,137 @@ procedure release(
   ref st: St
 ) :=
   ss := List()
-  for x in st.owns if not contains(x, live) do
+  // a variable that still holds NULL stays owned, so that the paths that assign it and those that do not join
+  for x in st.owns if not contains(x, live) and not contains(x, st.nulls) do
     st := st with owns := remove(x, st.owns)
     if not contains(x, info.pinned) then
       let kids := List(for (c, i) in value_or(get(x, info.children), List()) if contains(c, live) yield (c, i))
       if kids != List() or allocs then
         let tok := "ru" ++ show(st.count)
-        st := st with count := st.count + 1, tokens := List(tok; st.tokens), owns := st.owns ++ Set(for (c, _) in kids yield c)
+        st := st with count := st.count + 1, tokens := List(tok; st.tokens), owns := st.owns ++ Set(for (c, _) in kids yield c), scope := List(tok; st.scope)
         ss := ss ++ List(
           CsDecl(value_type(), tok, Some(c_call("u_claim", List(CeVar(x), CeNum(mask(kids)))))))
       else
         ss := ss ++ List(CsExpr(c_call("u_drop", List(CeVar(x)))))
       end
     end
+  end
+
+// the claimed cells that no construction took, which a construction that takes one sets to NULL
+function freed_cells(tokens: List[Str]): List[CStmt] :=
+  List(for t in tokens yield CsExpr(c_call("u_free_cell", List(CeVar(t)))))
+
+// Temporaries: a call whose result is a reference of its own, in a place that does not take it over, is a temporary
+// that the statement declares before it and drops after it, but not in a condition of a loop, which runs again, after
+// && or ||, which may not run it, or in the value of a borrowed variable, which borrows from it: the statement with its
+// temporaries, named from n, and the next n
+function hoisted_stmt(info: Info, stmt: CStmt, n: Int): (List[CStmt], Int) :=
+  match stmt
+    case CsDecl(typ, name, Some(e)) if typ != value_type() or contains(name, info.owned) or not contains(name, info.values) =>
+      let (e_, temps) := hoisted(info.modes, e, typ == value_type(), n, List()) in
+      (declared_temps(temps) ++ List(CsDecl(typ, name, Some(e_))) ++ dropped_temps(temps), n + size(temps))
+
+    case CsAssign(target, e) =>
+      let (e_, temps) := hoisted(info.modes, e, is_value_target(info, target) or is_value_var(info, target), n, List()) in
+      (declared_temps(temps) ++ List(CsAssign(target, e_)) ++ dropped_temps(temps), n + size(temps))
+
+    case CsExpr(e) =>
+      let (e_, temps) := hoisted(info.modes, e, false, n, List()) in
+      (declared_temps(temps) ++ List(CsExpr(e_)) ++ dropped_temps(temps), n + size(temps))
+
+    case CsIf(cond, a, b) if handler_of(stmt) == None =>
+      let (c_, temps) := hoisted(info.modes, cond, false, n, List()) in
+      (declared_temps(temps) ++ List(CsIf(c_, dropped_temps(temps) ++ a, dropped_temps(temps) ++ b)), n + size(temps))
+
+    case CsReturn(Some(e)) =>
+      let (e_, temps) := hoisted(info.modes, e, true, n, List()) in
+      if temps == List() then
+        (List(stmt), n)
+      else
+        let result := "hr" ++ show(n + size(temps)) in
+        (declared_temps(temps) ++ List(CsDecl(value_type(), result, Some(e_))) ++ dropped_temps(temps) ++ List(CsReturn(Some(CeVar(result)))), n + size(temps) + 1)
+
+    case _ =>
+      (List(stmt), n)
+  end
+
+function is_value_var(info: Info, target: CExpr): Bool :=
+  match target
+    case CeVar(name) =>
+      contains(name, info.values)
+    case _ =>
+      false
+  end
+
+function declared_temps(temps: List[(Str, CExpr)]): List[CStmt] :=
+  List(for (t, e) in temps yield CsDecl(value_type(), t, Some(e)))
+
+function dropped_temps(temps: List[(Str, CExpr)]): List[CStmt] :=
+  List(for (t, _) in temps yield CsExpr(c_call("u_drop", List(CeVar(t)))))
+
+// e with the calls in its borrowed places whose results are references of their own as temporaries after those of acc,
+// named from n, where e is in an owned place if owned
+function hoisted(modes: Map[Str, List[Bool]], e: CExpr, owned: Bool, n: Int, acc: List[(Str, CExpr)]): (CExpr, List[(Str, CExpr)]) :=
+  match e
+    case CeCall(CeVar(f), args) =>
+      let (args_, temps) := hoisted_args(modes, f, args, 0, n, acc) in
+      let call := CeCall(CeVar(f), args_) in
+      if not owned and is_counted_producer(call) then
+        let t := "ht" ++ show(n + size(temps)) in
+        (CeVar(t), temps ++ List((t, call)))
+      else
+        (call, temps)
+
+    case CeBinary("&&", _, _) | CeBinary("||", _, _) =>
+      (e, acc)
+
+    case CeBinary(op, left, right) =>
+      let (l_, temps) := hoisted(modes, left, false, n, acc) in
+      let (r_, temps_) := hoisted(modes, right, false, n, temps) in
+      (CeBinary(op, l_, r_), temps_)
+
+    case CeUnary(op, operand) =>
+      let (o_, temps) := hoisted(modes, operand, false, n, acc) in
+      (CeUnary(op, o_), temps)
+
+    case CeIndex(base, i) =>
+      let (b_, temps) := hoisted(modes, base, false, n, acc) in
+      (CeIndex(b_, i), temps)
+
+    case CeArrow(base, field) =>
+      let (b_, temps) := hoisted(modes, base, false, n, acc) in
+      (CeArrow(b_, field), temps)
+
+    case CeVar(_) | CeNum(_) | CeStr(_) | CeCall(_, _) | CeInit(_) =>
+      (e, acc)
+  end
+
+function hoisted_args(modes: Map[Str, List[Bool]], f: Str, args: List[CExpr], i: Int, n: Int, acc: List[(Str, CExpr)]): (List[CExpr], List[(Str, CExpr)]) :=
+  match args
+    case List(a; rest) =>
+      let (a_, temps) := hoisted(modes, a, arg_owned(modes, f, i), n, acc) in
+      let (rest_, temps_) := hoisted_args(modes, f, rest, i + 1, n, temps) in
+      (List(a_; rest_), temps_)
+
+    case List() =>
+      (List(), acc)
+  end
+
+// a call whose result is a reference of its own that may be counted
+function is_counted_producer(e: CExpr): Bool :=
+  match e
+    case CeCall(CeVar(f), _) =>
+      is_owned_producer(e) and not is_plain_result(f) and not contains(f, List(
+        "u_mk_int",
+        "u_mk_int_str",
+        "u_mk_bool",
+        "u_mk_char",
+        "u_mk_str",
+        "u_mk_units",
+        "u_mk_lit"))
+
+    case _ =>
+      false
   end
 
 function mask(kids: List[(Str, Int)]): Int :=
@@ -1052,13 +1232,21 @@ procedure count_stmt(
       let occ := occurrences(info.values, e)
       let owning := contains(name, info.values) and contains(name, info.owned)
       count_expr(in info, e, owning, after, occ, occ, out e_, ref st)
-      if owning and not is_unset(e) then
-        st := st with owns := insert(name, st.owns)
+      // a variable of NULL owns no reference, which it drops and moves as harmlessly as one it owns
+      if owning then
+        st := st with owns := insert(name, st.owns), nulls := (if is_unset(e) then insert(name, st.nulls) else remove(name, st.nulls))
       end
       ss := List(CsDecl(typ, name, Some(e_)))
 
     case CsDecl(_, _, None) =>
       ss := List(stmt)
+
+    // a borrowed variable that is assigned, one of a case with alternatives, borrows what it is assigned
+    case CsAssign(CeVar(name), e) if contains(name, info.values) and not contains(name, info.owned) =>
+      var e_: CExpr
+      let occ := occurrences(info.values, e)
+      count_expr(in info, e, false, remove(name, after), occ, occ, out e_, ref st)
+      ss := List(CsAssign(CeVar(name), e_))
 
     case CsAssign(CeVar(name), e) if contains(name, info.values) =>
       var e_: CExpr
@@ -1073,6 +1261,7 @@ procedure count_stmt(
       if not is_unset(e) and e != CeVar("U_COMPUTING") then
         st := st with owns := insert(name, st.owns)
       end
+      st := st with nulls := remove(name, st.nulls)
 
     case CsAssign(target, e) =>
       var t_: CExpr, e_: CExpr
@@ -1102,7 +1291,8 @@ procedure count_stmt(
           let guarded := st with owns := intersect(st.owns, h), tokens := List()
           var sh := guarded
           if body == a then
-            sa := st
+            // a raise in the body leaves a cell that it reused undefined, so the body reuses none from outside it
+            sa := st with tokens := List()
             count_stmts(in info, a, after ++ h, out a_, ref sa)
             // the body ran to its end, so nothing restores the variables that the slots of the handler saved
             if not exits(a_) then
@@ -1131,7 +1321,7 @@ procedure count_stmt(
         sa.owns
       else
         intersect(sa.owns, sb.owns)
-      st := St(owns, List(for t in tokens if contains(t, sa.tokens) and contains(t, sb.tokens)), sb.count)
+      st := St(owns, List(for t in tokens if contains(t, sa.tokens) and contains(t, sb.tokens)), sb.count, st.scope, intersect(sa.nulls, sb.nulls))
       ss := List(CsIf(c_, a_, b_))
 
     case CsWhile(cond, body) =>
@@ -1139,7 +1329,7 @@ procedure count_stmt(
       let occ := occurrences(info.values, cond)
       var o := st.owns, done := false, c_: CExpr := cond, body_: List[CStmt] := body, count := st.count
       while not done do
-        var sl := St(o, List(), count)
+        var sl := St(o, List(), count, st.scope, st.nulls -- assigned_names(body))
         count_expr(in info, cond, false, live, occ, occ, out c_, ref sl)
         count_stmts(in info, body, live, out body_, ref sl)
         count := sl.count
@@ -1150,17 +1340,27 @@ procedure count_stmt(
           o := o_
         end
       end
-      st := st with owns := o, count := count
+      st := st with owns := o, count := count, nulls := st.nulls -- assigned_names(body)
       ss := List(CsWhile(c_, body_))
 
     case CsReturn(Some(e)) =>
       var e_: CExpr
       let occ := occurrences(info.values, e)
       count_expr(in info, e, true, Set(), occ, occ, out e_, ref st)
-      ss := List(CsReturn(Some(e_)))
+      // the variables that the result only read die after it
+      let read := List(for x in st.owns if not contains(x, info.pinned) yield CsExpr(c_call("u_drop", List(CeVar(x)))))
+      if st.scope == List() and read == List() then
+        ss := List(CsReturn(Some(e_)))
+      else
+        let result := "rv" ++ show(st.count)
+        st := st with count := st.count + 1
+        ss := List(CsDecl(value_type(), result, Some(e_))) ++ read ++ freed_cells(st.scope) ++ List(CsReturn(Some(CeVar(result))))
+      end
+      st := st with owns := Set()
 
     case CsReturn(None) =>
-      ss := List(stmt)
+      ss := List(for x in st.owns if not contains(x, info.pinned) yield CsExpr(c_call("u_drop", List(CeVar(x))))) ++ freed_cells(st.scope) ++ List(stmt)
+      st := st with owns := Set()
 
     case CsBlock(body) =>
       var b_: List[CStmt]
@@ -1251,7 +1451,7 @@ procedure count_expr(
         if is_proc_call(fun) then
           match a
             case CeUnary("&", CeVar(x)) if contains(x, info.values) =>
-              st := st with owns := insert(x, st.owns)
+              st := st with owns := insert(x, st.owns), nulls := remove(x, st.nulls)
             case _ =>
               skip
           end

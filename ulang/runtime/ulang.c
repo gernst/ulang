@@ -433,13 +433,17 @@ void u_dead_use(u_value v, const char *what) {
 // build keeps it dead, so that a use of it fails
 static void recycle(u_value v) {
 #ifndef ULANG_RC_CHECK
-  size_t k = GC_size(v) >> 4;
+  // the list that compound takes a cell of its size from, whose block may be larger, as one of an array with room
+  size_t k = (sizeof(struct u_object) + (size_t)v->size * sizeof(u_value) + 15) >> 4;
   if (k >= FREE_LISTS) return;
   U_RC_STAT(8);
   memset(v, 0, k << 4);
   *(void **)v = free_lists[k];
   free_lists[k] = v;
 #else
+  // the items of the dead cell are dead too, so that a read of one fails at its first use
+  static struct u_object poison = {.type = &u_tuple_type, .size = 0, .rc = U_DEAD};
+  for (int i = 0; i < v->size; i++) v->items[i] = &poison;
 #endif
 }
 
@@ -448,6 +452,10 @@ void u_drop_dead(u_value v) {
   for (;;) {
     int n = v->size;
     v->rc = U_DEAD;
+    if (n == 0) {
+      recycle(v);
+      return;
+    }
     for (int i = 0; i < n - 1; i++) u_drop(v->items[i]);
     u_value last = v->items[n - 1];
     recycle(v);
@@ -479,8 +487,18 @@ u_value u_claim(u_value v, unsigned long long mask) {
   return NULL;
 }
 
-static u_value reused(u_value cell, const struct u_type *type, int size) {
-  if (!cell || cell->size != size) return compound(type, size);
+void u_free_cell(u_value cell) {
+  if (cell) recycle(cell);
+}
+
+// the claimed cell for a construction of size items, which it takes, so that no other construction takes it
+static u_value reused(u_value *taken, const struct u_type *type, int size) {
+  u_value cell = *taken;
+  *taken = NULL;
+  if (!cell || cell->size != size) {
+    u_free_cell(cell);
+    return compound(type, size);
+  }
   U_RC_STAT(6);
   cell->type = type;
   cell->rc = 0;
@@ -488,7 +506,7 @@ static u_value reused(u_value cell, const struct u_type *type, int size) {
   return cell;
 }
 
-u_value u_reuse_con(u_value cell, const struct u_name *name, int size, ...) {
+u_value u_reuse_con(u_value *cell, const struct u_name *name, int size, ...) {
   va_list args;
   va_start(args, size);
   u_value v = fill(reused(cell, name->type, size), args);
@@ -497,7 +515,7 @@ u_value u_reuse_con(u_value cell, const struct u_name *name, int size, ...) {
   return v;
 }
 
-u_value u_reuse_tuple(u_value cell, int size, ...) {
+u_value u_reuse_tuple(u_value *cell, int size, ...) {
   va_list args;
   va_start(args, size);
   u_value v = fill(reused(cell, &u_tuple_type, size), args);
@@ -506,14 +524,14 @@ u_value u_reuse_tuple(u_value cell, int size, ...) {
   return v;
 }
 
-u_value u_reuse_con_1(u_value cell, const struct u_name *name, u_value a) {
+u_value u_reuse_con_1(u_value *cell, const struct u_name *name, u_value a) {
   u_value v = reused(cell, name->type, 1);
   v->name = name;
   v->items[0] = a;
   return v;
 }
 
-u_value u_reuse_con_2(u_value cell, const struct u_name *name, u_value a, u_value b) {
+u_value u_reuse_con_2(u_value *cell, const struct u_name *name, u_value a, u_value b) {
   u_value v = reused(cell, name->type, 2);
   v->name = name;
   v->items[0] = a;
@@ -521,7 +539,7 @@ u_value u_reuse_con_2(u_value cell, const struct u_name *name, u_value a, u_valu
   return v;
 }
 
-u_value u_reuse_con_3(u_value cell, const struct u_name *name, u_value a, u_value b, u_value c) {
+u_value u_reuse_con_3(u_value *cell, const struct u_name *name, u_value a, u_value b, u_value c) {
   u_value v = reused(cell, name->type, 3);
   v->name = name;
   v->items[0] = a;
@@ -530,7 +548,7 @@ u_value u_reuse_con_3(u_value cell, const struct u_name *name, u_value a, u_valu
   return v;
 }
 
-u_value u_reuse_tuple_2(u_value cell, u_value a, u_value b) {
+u_value u_reuse_tuple_2(u_value *cell, u_value a, u_value b) {
   u_value v = reused(cell, &u_tuple_type, 2);
   v->name = NULL;
   v->items[0] = a;
@@ -538,7 +556,7 @@ u_value u_reuse_tuple_2(u_value cell, u_value a, u_value b) {
   return v;
 }
 
-u_value u_reuse_tuple_3(u_value cell, u_value a, u_value b, u_value c) {
+u_value u_reuse_tuple_3(u_value *cell, u_value a, u_value b, u_value c) {
   u_value v = reused(cell, &u_tuple_type, 3);
   v->name = NULL;
   v->items[0] = a;
@@ -1153,25 +1171,36 @@ u_value u_array_slice(u_value a, u_value i, u_value j) {
   return b;
 }
 
+// the folds of the runtime give the function each accumulator, which it borrows, and drop each but the first, which is
+// the caller's, as compiled folds do where reference counts are kept, whose result is a reference of its own
+static u_value next_acc(u_value acc, u_value next, int first) {
+  if (u_rc && !first) u_drop(acc);
+  return next;
+}
+
+static u_value folded(u_value acc, int empty) {
+  return u_rc && empty ? u_dup(acc) : acc;
+}
+
 u_value u_array_foldr(u_value a, u_value acc, u_value f) {
-  for (int i = a->size - 1; i >= 0; i--) acc = u_apply(f, 2, a->items[i], acc);
-  return acc;
+  for (int i = a->size - 1; i >= 0; i--) acc = next_acc(acc, u_apply(f, 2, a->items[i], acc), i == a->size - 1);
+  return folded(acc, a->size == 0);
 }
 
 u_value u_array_foldl(u_value a, u_value acc, u_value f) {
-  for (int i = 0; i < a->size; i++) acc = u_apply(f, 2, acc, a->items[i]);
-  return acc;
+  for (int i = 0; i < a->size; i++) acc = next_acc(acc, u_apply(f, 2, acc, a->items[i]), i == 0);
+  return folded(acc, a->size == 0);
 }
 
 // the characters of s folded from the last to the first, f(c1, f(c2, ... f(cn, acc))), and from the first to the last
 u_value u_str_foldr(u_value s, u_value acc, u_value f) {
-  for (long long i = s->length - 1; i >= 0; i--) acc = u_apply(f, 2, u_mk_char(u_str_at(s, i)), acc);
-  return acc;
+  for (long long i = s->length - 1; i >= 0; i--) acc = next_acc(acc, u_apply(f, 2, u_mk_char(u_str_at(s, i)), acc), i == s->length - 1);
+  return folded(acc, s->length == 0);
 }
 
 u_value u_str_foldl(u_value s, u_value acc, u_value f) {
-  for (long long i = 0; i < s->length; i++) acc = u_apply(f, 2, acc, u_mk_char(u_str_at(s, i)));
-  return acc;
+  for (long long i = 0; i < s->length; i++) acc = next_acc(acc, u_apply(f, 2, acc, u_mk_char(u_str_at(s, i))), i == 0);
+  return folded(acc, s->length == 0);
 }
 
 // the character at index i of s, from 0, which the loops of comprehensions and for statements over strings take in order

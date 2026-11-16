@@ -1,0 +1,82 @@
+data Point :=
+  case Point(x: Int, y: Int)
+
+procedure folds(ref n: Int) :=
+  var i := 0
+  while i < 2000 do
+    let small := Set(i, i + 1, i + 2)
+    let xs := List(for x in small)
+    n := n + size(xs)
+    i := i + 1
+  end
+
+procedure maps(ref n: Int) :=
+  var i := 0
+  while i < 2000 do
+    let m := Map(i => 1, i + 1 => 2) ++ Map(i + 2 => 3)
+    n := n + size(m)
+    i := i + 1
+  end
+
+procedure gets(ref n: Int) :=
+  var i := 0
+  let ps := List((1, Point(1, 2)), (2, Point(3, 4)))
+  while i < 2000 do
+    match get(2, ps)
+      case Some(p) =>
+        n := n + p.x
+      case None =>
+        skip
+    end
+    i := i + 1
+  end
+
+procedure buffers(ref n: Int) :=
+  var i := 0
+  while i < 200 do
+    var b: Buffer[Point] := empty(), j := 0
+    while j < 10 do
+      b := b ++ List(Point(j, j)), j := j + 1
+    end
+    n := n + size(List(for p in b))
+    i := i + 1
+  end
+
+procedure tries(ref n: Int) :=
+  var i := 0
+  while i < 2000 do
+    var ps := List(Point(i, i))
+    try
+      ps := List(Point(1, 1); ps)
+      if i % 2 == 0 then
+        raise "odd"
+      end
+    catch
+      case _ =>
+        skip
+    end
+    n := n + size(ps)
+    i := i + 1
+  end
+
+procedure main() raises OsError :=
+  var n := 0, args: List[Str]
+  os_args(out args)
+  for p in args do
+    if p == "folds" then
+      folds(ref n)
+    end
+    if p == "maps" then
+      maps(ref n)
+    end
+    if p == "gets" then
+      gets(ref n)
+    end
+    if p == "buffers" then
+      buffers(ref n)
+    end
+    if p == "tries" then
+      tries(ref n)
+    end
+  end
+  os_println(in show(n))
