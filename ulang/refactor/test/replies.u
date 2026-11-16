@@ -47,7 +47,11 @@ test new_counts() :=
   let state := "out/test/refactor/replies/state", path := "out/test/refactor/replies/new.u"
   os_write_utf8(in path, "function f(x: Int): Int :=\n  x\n")
   run_script(in "@put " ++ path ++ "\nfunction f(x: Int): Int := x + 1\n", false, state, lambda in file, overlays, out found =>
-    found := List((file, type_error(5)), (file, lint_warning(7))) ++ (if overlays == Map() then List() else List((file, type_error(2))))
+    found := List((file, type_error(5)), (file, lint_warning(7))) ++ (if overlays == Map() then
+      List()
+    else
+      List(
+        (file, Diagnostic(TypeKind, "UnknownVariable", None, Pos(2, 3), "unknown variable y", List()))))
   end, out reply, status, _)
   assert status == 1 and take(1, reply) == List("applied, 2 errors (1 new), 1 warning (0 new)")
 
