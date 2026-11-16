@@ -105,7 +105,7 @@ make test                                 # runs all tests
 
 ## Refactoring
 
-`out/ulang.sh refactor` edits sources by their meaning, as `format` edits their layout. It runs a script, from a file, from stdin, or as one action on the command line, `out/ulang.sh refactor @show shapes.u:area`. Each action is a line that starts with `@`, which ulang never uses. Its fragment is the lines up to the next action, taken verbatim. A script writes all its files or, if one action is refused, none.
+`out/ulang.sh refactor` edits sources by their meaning, as `format` edits their layout. It runs a script, from a file, from stdin, or as actions on the command line, a line of the script from each word that starts with `@`, `out/ulang.sh refactor @show shapes.u:area @refs shapes.u:area`, where the last one, if it is a `@put` or `@patch`, takes its fragment from stdin. Each action is a line that starts with `@`, which ulang never uses. Its fragment is the lines up to the next action, taken verbatim. A script writes all its files or, if one action is refused, none.
 
 `@show` prints code with handles, `#n` in a margin beside each line that starts a node: a statement, a case, a constructor, or an expression that starts its line, the body of a function, the body of a `let` after `in`, a branch of an `if` spread over lines, or an element or argument of a form or call spread one per line. A node is the lines from its first to its last, with what follows it on its last line, such as the comma after an element or the `)` after the last one; `@show` of a node and the echo of an edit also print the comments that `format` places above it, which an edit of the node keeps.
 
@@ -137,7 +137,7 @@ case Rect(width, height) => width * height
 @check test
 ```
 
-Fragments need no layout, since every edited file is printed by `format`. The first line of the reply is the state after the script, `applied, clean`, or its errors and warnings, `applied, 2 errors, 1 warning`, and its tests; then what each action did, with the nodes that an edit by handle placed, and the diagnostics and lints that are new (`+`) or gone (`-`) in the files that it checked, each new one with the handle of its node:
+Fragments need no layout, since every edited file is printed by `format`. The first line of the reply is the state after the script, `applied, clean`, or its errors and warnings, each with how many of them the script made new if it changed a file, `applied, 2 errors (1 new), 1 warning (0 new)`, and its tests; then what each action did, with the nodes that an edit by handle placed, and the diagnostics and lints that are new (`+`) or gone (`-`) in the files that it checked, each new one with the handle of its node:
 
 ```
 applied, clean, 1 test passed
@@ -152,7 +152,7 @@ checked 1 file: 0 new, 1 gone
 tested shapes.u: 1 passed, 0 failed
 ```
 
-Without the `@put into #1`, the reply would have listed the match that the new constructor leaves open as a new diagnostic, so the follow-ups of a change are a list of work, not a search. The status is 0 if the files are clean or have warnings only, 1 if errors remain or the script is refused (`rejected`, with the message of the refusal, and for an error of the system, such as a file that cannot be read, the line and the action of the script), and 3 if a test failed. A test that fails by reaching an error of the reply says so instead of repeating it, and the tests and examples that errors keep out of the program are counted as not run, while the lemmas whose tests they keep out are named.
+Without the `@put into #1`, the reply would have listed the match that the new constructor leaves open as a new diagnostic, so the follow-ups of a change are a list of work, not a search. The status is 0 if the files are clean or have warnings only, 1 if errors remain or the script is refused (`rejected`, with the message of the refusal, and for an error of the system, such as a file that cannot be read, the line and the action of the script), and 3 if a test failed. A test that fails by reaching an error of the reply says so instead of repeating it, and the tests and examples that errors keep out of the program are counted as not run, as are the examples on a definition that belong to its signature, while the lemmas whose tests they keep out are named.
 
 Four queries tell what a module offers, what a name is, and who uses it, before an edit:
 
@@ -202,14 +202,14 @@ A node N is a handle `#n`, a handle scoped by its declaration `F:name #n`, which
 | `@export T`, `@unexport T` | moves a definition's doc, contract, and examples to a new signature in `export`, with the raises that a procedure infers, or back, refused while another module uses it; a datatype or an alias moves whole |
 | `@fix T [Rule …]` | applies the edits of the lints of a file or a declaration, all or of the rules named |
 | `@undo [n]` | restores the files of a script of the journal, by default the last one |
-| `@check [test] [F]` | checks `F` too, and with `test` runs the tests of the files, whose results the reply lists |
+| `@check [test] [F]` | checks `F` too, and with `test` runs the tests of the files, whose results the reply lists, but not those of a directory that `project.u` runs only compiled, whose files it names |
 
 - A handle stays valid across edits of other declarations, and across the edits of the same script, also of `@patch`: an edit keeps the handles of the nodes before and after it at their places, also among identical statements. It becomes stale when its node is changed by something else, and `@show` gives a new one.
 - `@rename` finds the uses by the names that the checker resolved, not by their text, so it never renames another overload or a local. After its writes, it checks every file of the package and every importer that contains the name, and undoes the script if any use resolves differently, e.g. to a local of the new name. It lists the mentions in `CLAUDE.md`, `README.md`, and `ideas/` that it leaves to you.
 - `@fix` rewrites expressions, drops an unused private declaration, writes `_` for an unused pattern variable and at the outs that only feed an unused local, removes an unused local, makes a `var` that nothing assigns a `let`, and moves a local that is declared too high into the branches that use it. A fix that enables another takes a second `@fix`. An edit after which the unit of the file has an error that it did not have before is refused and listed in the reply with that error, `f.u: refused Folded at 5.3, which would cause f.u:5.3: …`, while the others apply: the edits are checked together, and if that adds an error, each in turn on top of those taken.
 - An error in a fragment names its line in the fragment and in the script, `fragment 2.6, script 3.6`.
 - Paths in actions are normal, `./a.u` is `a.u`, and the handles are kept by their paths from the root, so that they hold from any directory.
-- `--dry` writes nothing, but checks the texts that it would write, so its reply, `dry, 2 errors`, lists the diagnostics that the script would leave, without handles, since their nodes are in no file, and without tests; the journal and the handles are kept in `out/refactor/` of the root, and the queries write nothing but the handles they show.
+- `--dry` writes nothing, but checks the texts that it would write, so its reply, `dry, 2 errors (2 new)`, lists the diagnostics that the script would leave, without handles, since their nodes are in no file, and without tests; the journal and the handles are kept in `out/refactor/` of the root, and the queries write nothing but the handles they show.
 - The actions and the checks of a script see the files that it has written so far, also a module of a new package, which another file of the same script may import.
 - `--overlay F=<path>`, repeated for several files, takes the text of the file at path as that of `F`, as an editor passes its unsaved buffers; the script writes `F` only if it changes it.
 - A query that is refused, `@show`, `@outline`, `@refs`, `@sig`, or `@resolve`, takes no other action down with it, since it writes nothing: the reply says `@show T: refused, …` in its place, its first line counts it, `applied, clean, 1 query refused`, and the status is 1, while any other action that is refused refuses the script.

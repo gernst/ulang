@@ -45,7 +45,7 @@ test dry_drop() :=
   assert text == original
   assert status == 1
   assert reply == List(
-    "dry, 1 error",
+    "dry, 1 error (1 new)",
     path ++ ": dropped f/1",
     "would write " ++ path,
     "checked 1 file: 1 new, 0 gone",
@@ -80,7 +80,7 @@ test overlaid_files() :=
   run_tested_script(in "@put " ++ path ++ "\nfunction g(): Int := f(1)\n@check " ++ other, false, overlays, state, checked, lambda in _, _, out tests =>
     tests := Tests(List(), 0, 0, 0)
   end, out reply, status)
-  assert status == 1 and take(1, reply) == List("applied, 1 error")
+  assert status == 1 and take(1, reply) == List("applied, 1 error (0 new)")
   os_read_utf8(in path, out text)
   assert text == "function f(x: Int): Int :=\n  x + 2\n\nfunction g(): Int :=\n  f(1)\n"
   os_read_utf8(in other, out text)

@@ -2001,7 +2001,7 @@ procedure run_actions(
     end
     for path in paths if not contains(path, created) do
       check(in path, base, out found)
-      before := distinct(before ++ found)
+      before := deduplicated(before ++ found)
     end
     if dry then
       journaled := List(for path in changed yield "would write " ++ path)
@@ -2027,7 +2027,7 @@ procedure run_actions(
     let finals := base ++ Map(for c in changes yield c.path => c.after)
     for path in paths do
       check(in path, finals, out found)
-      after := distinct(after ++ found)
+      after := deduplicated(after ++ found)
     end
     let added := List(for (file, d) in after if not exists(before, lambda (other, e) => is_same(file, d, other, e)))
     let gone := List(for (file, d) in before if not exists(after, lambda (other, e) => is_same(file, d, other, e)))
@@ -2061,8 +2061,13 @@ procedure run_actions(
       tester(in tested, listed, out tests)
     end
     let errors := size(List(for (_, d) in after if not is_warning(d) yield d))
+    // a script that changes a file says how many of each are new, so that the first line tells whether they are its own
+    let fresh := if changes == List() then
+      None
+    else
+      Some((size(List(for (_, d) in added if not is_warning(d) yield d)), size(List(for (_, d) in added if is_warning(d) yield d))))
     reply := List(
-      verdict(dry, paths != List(), errors, size(after) - errors, refused, tests)) ++ List(for n in edits.notes) ++ journaled ++ counts ++ lines ++ tests.lines
+      verdict(dry, paths != List(), errors, size(after) - errors, fresh, refused, tests)) ++ List(for n in edits.notes) ++ journaled ++ counts ++ lines ++ tests.lines
     status := if tests.failed > 0 then 3 else if errors > 0 or refused > 0 then 1 else 0
   catch
     case Refused(message) =>
@@ -2917,20 +2922,23 @@ function without_overlaps(splices: List[(Int, Int, Str, List[Str])], last: Int):
       List()
   end
 
-// the first line of a reply, applied or dry, which counts the errors and warnings after it, if it checked files, the
-// queries refused, and the tests
-function verdict(dry: Bool, checked: Bool, errors: Int, warnings: Int, refused: Int, tests: Tests): Str :=
-  example verdict(false, true, 3, 1, 0, Tests(List(), 0, 0, 0)) == "applied, 3 errors, 1 warning"
-  example verdict(false, true, 0, 0, 0, Tests(List(), 2, 1, 4)) == "applied, clean, 2 tests passed, 1 failed, 4 not run"
-  example verdict(false, false, 0, 0, 0, Tests(List(), 0, 0, 0)) == "applied"
-  example verdict(false, false, 0, 0, 2, Tests(List(), 0, 0, 0)) == "applied, 2 queries refused"
-  example verdict(true, true, 1, 0, 0, Tests(List(), 0, 0, 0)) == "dry, 1 error"
+// the first line of a reply, applied or dry, which counts the errors and warnings after it, if it checked files, each with
+// how many are new if fresh has the new ones, the queries refused, and the tests
+function verdict(dry: Bool, checked: Bool, errors: Int, warnings: Int, fresh: Option[(Int, Int)], refused: Int, tests: Tests): Str :=
+  example verdict(false, true, 3, 1, None, 0, Tests(List(), 0, 0, 0)) == "applied, 3 errors, 1 warning"
+  example verdict(false, true, 3, 1, Some((1, 0)), 0, Tests(List(), 0, 0, 0)) == "applied, 3 errors (1 new), 1 warning (0 new)"
+  example verdict(false, true, 0, 0, Some((0, 0)), 0, Tests(List(), 2, 1, 4)) == "applied, clean, 2 tests passed, 1 failed, 4 not run"
+  example verdict(false, false, 0, 0, None, 0, Tests(List(), 0, 0, 0)) == "applied"
+  example verdict(false, false, 0, 0, None, 2, Tests(List(), 0, 0, 0)) == "applied, 2 queries refused"
+  example verdict(true, true, 1, 0, Some((1, 0)), 0, Tests(List(), 0, 0, 0)) == "dry, 1 error (1 new)"
   let state := if not checked then
     List()
   else if errors == 0 and warnings == 0 then
     List("clean")
   else
-    List(for (n, noun) in List((errors, "error"), (warnings, "warning")) if n > 0 yield counted(n, noun)) in
+    List(for (n, noun, added) in List(
+      (errors, "error", map_option(fresh, first)),
+      (warnings, "warning", map_option(fresh, second))) if n > 0 yield counted(n, noun) ++ value_or(map_option(added, lambda k => " (" ++ show(k) ++ " new)"), "")) in
   let ran := if tests.passed + tests.failed + tests.skipped == 0 then
     List()
   else
@@ -2942,6 +2950,17 @@ function verdict(dry: Bool, checked: Bool, errors: Int, warnings: Int, refused: 
   else
     List(show(refused) ++ " queries refused") in
   join(", ", List(if dry then "dry" else "applied") ++ state ++ queries ++ ran)
+
+// the diagnostics of found without those after the first of the same file, position, and code, as the checks of two
+// members of one package both report an error of one of them, the other with its module
+function deduplicated(found: List[(Str, Diagnostic)]): List[(Str, Diagnostic)] :=
+  example deduplicated(List(
+      ("a.u", Diagnostic(TypeKind, "E", None, Pos(1, 1), "m", List())),
+      ("a.u", Diagnostic(TypeKind, "E", Some(List("a")), Pos(1, 1), "m", List())))) == List(("a.u", Diagnostic(TypeKind, "E", None, Pos(1, 1), "m", List())))
+  foldl(found, List(), lambda kept: List[(Str, Diagnostic)], (file, d) => if exists(kept, lambda (other, e) => other == file and e.pos == d.pos and e.code == d.code) then
+    kept
+  else
+    kept ++ List((file, d)))
 
 // whether d is a warning of a lint, which does not fail a check, as checked_diagnostics of ulang/ulang.u writes them
 function is_warning(d: Diagnostic): Bool :=

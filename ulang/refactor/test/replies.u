@@ -31,15 +31,42 @@ test first_lines() :=
     found := List((file, type_error(2)), (file, type_error(5)), (file, lint_warning(7)))
   end, out reply, status, _)
   assert status == 1
-  assert take(1, reply) == List("applied, 2 errors, 1 warning")
+  assert take(1, reply) == List("applied, 2 errors (0 new), 1 warning (0 new)")
   run_script(in "@put " ++ path ++ "\nfunction f(x: Int): Int := x + 2\n", false, state, lambda in file, _, out found =>
     found := List((file, lint_warning(7)))
   end, out reply, status, _)
-  assert status == 0 and take(1, reply) == List("applied, 1 warning")
+  assert status == 0 and take(1, reply) == List("applied, 1 warning (0 new)")
   run_script(in "@put " ++ path ++ "\nfunction f(x: Int): Int := x + 3\n", false, state, no_diagnostics, out reply, status, _)
   assert status == 0 and take(1, reply) == List("applied, clean")
   run_script(in "@put " ++ path ++ "\nfunction f(x: Int): Int := x +\n", false, state, no_diagnostics, out reply, status, _)
   assert status == 1 and take(1, reply) == List("rejected")
+
+// the first line counts the errors and warnings that the script made new, apart, if it changed a file
+test new_counts() :=
+  var reply: List[Str], status: Int
+  let state := "out/test/refactor/replies/state", path := "out/test/refactor/replies/new.u"
+  os_write_utf8(in path, "function f(x: Int): Int :=\n  x\n")
+  run_script(in "@put " ++ path ++ "\nfunction f(x: Int): Int := x + 1\n", false, state, lambda in file, overlays, out found =>
+    found := List((file, type_error(5)), (file, lint_warning(7))) ++ (if overlays == Map() then List() else List((file, type_error(2))))
+  end, out reply, status, _)
+  assert status == 1 and take(1, reply) == List("applied, 2 errors (1 new), 1 warning (0 new)")
+
+// a diagnostic that the checks report twice, as those of two members of a package report the errors of one with its
+// module, is counted and listed once
+test duplicates() :=
+  var reply: List[Str], status: Int
+  let state := "out/test/refactor/replies/state", path := "out/test/refactor/replies/duplicates.u"
+  os_write_utf8(in path, "function f(x: Int): Int :=\n  x\n")
+  os_write_utf8(in os_join(state, "handles.txt"), "")
+  run_script(in "@check " ++ path, false, state, lambda in file, _, out found =>
+    found := List(
+      (file, type_error(2)),
+      (file, type_error(2) with module := Some(List("replies"))))
+  end, out reply, status, _)
+  assert status == 1 and reply == List(
+    "applied, 1 error",
+    "checked 1 file, unchanged",
+    "  #1 " ++ path ++ ":2.3: Mismatch: expected Int but found Bool")
 
 // a script that changes no file lists the diagnostics of the state, unmarked but for their handles, since it has no change
 // to compare, while one that changes a file lists those that are new or gone

@@ -139,7 +139,7 @@ test positions() :=
   run_script(in "@put " ++ path ++ ":5.7\ny := 7\n", false, dir, flagged, out reply, status, _)
   assert status == 1
   assert take(3, reply) == List(
-    "applied, 1 error",
+    "applied, 1 error (1 new)",
     "replaced " ++ path ++ ":p/2 at 5.7",
     "#4          y := 7")
   assert drop(4, reply) == List(
