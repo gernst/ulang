@@ -605,7 +605,7 @@ procedure compile_named(
     case _ =>
       var rs: List[CExpr]
       compile_exprs(in defs, env, args, out ss, rs, ref g)
-      if is_global_fun(defs, n, size(args)) and arity(ty) == size(args) then
+      if is_global_fun(defs, n, size(args)) and arity(ty) == size(args) and not is_runtime_call(n, size(args)) then
         r := c_call(fun_name(n, size(args)), rs)
       else
         if contains((n, size(args)), defs.fields) then
