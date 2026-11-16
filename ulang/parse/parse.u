@@ -449,15 +449,23 @@ function format_token(tok: Token): Str :=
     case TChar(char) =>
       "'" ++ escape(char, '\'') ++ "'"
 
+    case TBad(text, _, _) =>
+      text
+
     case TEnd =>
       "end of input"
   end
 
-// the error that what is expected but the next token is found, where a keyword is not a name
+// the error that what is expected but the next token is found, where a keyword is not a name, and a token that does not
+// lex is its own error
 function expected(what: Str, toks: Tokens): ParseError :=
   match head_token(toks)
+    case TBad(_, message, pos) =>
+      ParseError(message, pos)
+
     case TKw(kw) if is_keyword(kw) and (what == "name" or what == "pattern") =>
       ParseError("keyword " ++ kw ++ " is not a name" ++ value_or(map_option(name_for(kw), lambda n => "; write a name such as " ++ n), ""), head_pos(toks))
+
     case tok =>
       ParseError(what ++ " expected but " ++ format_token(tok) ++ " found" ++ hint_at(what, toks), head_pos(toks))
   end
@@ -545,6 +553,9 @@ function hint_at(what: Str, toks: Tokens): Str :=
     case (TKw("|"), _) if what != "pattern" =>
       "; | separates the alternatives of a pattern, and the operators of Bool are and, or, and not"
 
+    case (TKw("example"), _) if what == "declaration" =>
+      "; the examples of a signature follow the := after its head"
+
     case (TKw("["), _) =>
       "; containers are forms, List(1, 2), Set(…), Map(k => v), and Array(…), and [ ] holds only type arguments"
 
@@ -558,6 +569,22 @@ function hint_at(what: Str, toks: Tokens): Str :=
 // the hint at a : or , in parentheses where an ascription cannot stand
 function ascription_hint(): Str :=
   "; an ascription (e: T) stands alone in its parentheses, so a component of a tuple or an argument is written ((e: T), b)"
+
+// the hint at the [ after expr, which indexes it in other languages, with the index and the name of the indexed value
+// where they are one token each
+function index_hint(expr: At[Expr], toks: Tokens): Str :=
+  let index := match toks
+    case List(_, (_, i, _), (_, TKw("]"), _); _) =>
+      format_token(i)
+    case _ =>
+      "i"
+  end, base := match expr
+    case AOk(_, _, EName(Name(List(), x), _)) =>
+      x
+    case _ =>
+      "xs"
+  end in
+  "; the element at an index is at(" ++ index ++ ", " ++ base ++ "), and [ ] holds only type arguments"
 
 // the form to write for an undeclared operator of another language, after "; ", or ""
 function operator_hint(op: Str): Str :=
@@ -594,7 +621,7 @@ function literal_at(toks: Tokens): Option[Lit] :=
     case TChar(char) =>
       Some(LChar(char))
 
-    case TName(_) | TOp(_) | TKw(_) | TEnd =>
+    case TName(_) | TOp(_) | TKw(_) | TBad(_, _, _) | TEnd =>
       None
   end
 
@@ -625,6 +652,10 @@ procedure expect_end(in opener: Str, pos: Pos, ref toks: Tokens) :=
   match head_token(toks)
     case TKw("end") =>
       advance(ref toks)
+
+    case TBad(_, _, _) =>
+      raise expected("end", toks)
+
     case tok =>
       raise ParseError("the " ++ opener ++ ", or a construct inside it, has no end: end expected but " ++ format_token(tok) ++ " found", pos)
   end
@@ -635,6 +666,10 @@ procedure expect_else(in pos: Pos, ref toks: Tokens) :=
   match head_token(toks)
     case TKw("else") =>
       advance(ref toks)
+
+    case TBad(_, _, _) =>
+      raise expected("else", toks)
+
     case tok =>
       raise ParseError("the if, or an if inside it, has no else: else expected but " ++ format_token(tok) ++ " found; an if expression always has its else", pos)
   end
@@ -803,23 +838,19 @@ procedure parse_arg(
     parse_expr(in notation, params, out expr, ref toks)
   catch
     case ParseError(message, at) =>
-      var ends: Bool, text: Str
-      skip_arg(in notation, out text, ends, ref toks)
+      let start := toks
+      var ends: Bool
+      skip_arg(in notation, out ends, ref toks)
       if not ends then
         raise ParseError(message, at)
       end
-      expr := AUnparsed(pos, span_from(pos, toks), text, parse_diagnostic(ParseError(message, at)))
+      expr := AUnparsed(pos, span_from(pos, toks), source_text(start, toks), parse_diagnostic(ParseError(message, at)))
   end
 
-// the tokens of an argument up to the next , ) ; out or ref outside its brackets and blocks, joined by spaces, and whether
-// it ends there, not at a statement, what ends a body, a command, or the end of the input
-procedure skip_arg(
-  in  notation: Notation,
-  out text: Str,
-      ends: Bool,
-  ref toks: Tokens
-) :=
-  var skipped: Buffer[Str] := empty(), prev := TKw("("), blocks := 0, brackets := 0, ites := 0, done := false
+// the tokens of an argument up to the next , ) ; out or ref outside its brackets and blocks, and whether it ends there,
+// not at a statement, what ends a body, a command, or the end of the input
+procedure skip_arg(in notation: Notation, out ends: Bool, ref toks: Tokens) :=
+  var prev := TKw("("), blocks := 0, brackets := 0, ites := 0, done := false
   ends := false
   while not done do
     if blocks == 0 and brackets == 0 and contains(head_token(toks), List(TKw(","), TKw(")"), TKw(";"), TKw("out"), TKw("ref"))) then
@@ -829,12 +860,41 @@ procedure skip_arg(
         done := true
       else
         nest(in prev, toks, ref blocks, brackets, ites)
-        skipped := skipped ++ List(format_token(head_token(toks))), prev := head_token(toks)
+        prev := head_token(toks)
         advance(ref toks)
       end
     end
   end
-  text := joined(List(for t in skipped))
+
+// the text of the tokens of start before rest, the tokens of a part that does not parse, each as format_token writes
+// it, at the line and column of the source, without the comments, whose lines stay blank lines
+function source_text(start: Tokens, rest: Tokens): Str :=
+  let n := size(start) - size(rest), toks := Array(for t in take(n + 1, start)) in
+  join("", List(for i in range(0, n) yield format_token(token_of(at(i, toks))) ++ (if i + 1 < n then
+    gap(stop_of(at(i + 1, toks)), pos_of(at(i + 1, toks)))
+  else
+    "")))
+
+function token_of(t: (Pos, Token, Pos)): Token :=
+  let (_, tok, _) := t in
+  tok
+
+function pos_of(t: (Pos, Token, Pos)): Pos :=
+  let (pos, _, _) := t in
+  pos
+
+function stop_of(t: (Pos, Token, Pos)): Pos :=
+  let (_, _, stop) := t in
+  stop
+
+// the spaces and newlines from stop, the end of a token, to pos, the start of the next one
+function gap(stop: Pos, pos: Pos): Str :=
+  example gap(Pos(1, 4), Pos(1, 6)) == "  "
+  example gap(Pos(1, 4), Pos(2, 3)) == "\n  "
+  if pos.line == stop.line then
+    repeat(pos.col - stop.col, " ")
+  else
+    repeat(pos.line - stop.line, "\n") ++ repeat(pos.col - 1, " ")
 
 // items separated by commas until close, which may be empty
 procedure parse_enclosed[A](
@@ -1183,7 +1243,7 @@ function starts_expr(notation: Notation, tok: Token): Bool :=
     case TChar(_) =>
       true
 
-    case TOp(_) | TEnd =>
+    case TOp(_) | TBad(_, _, _) | TEnd =>
       false
   end
 
@@ -1245,6 +1305,9 @@ procedure parse_app(
       parse_path_name(out f, ref toks)
       expr := AOk(pos, span_from(expr.span.start, toks), EField(expr, f))
     end
+  end
+  if at_kw(toks, "[") then
+    raise ParseError("[ after an expression" ++ index_hint(expr, toks), head_pos(toks))
   end
 
 procedure parse_expr_atom(
@@ -1321,6 +1384,9 @@ procedure parse_expr_atom(
 
     case (_, TName(name)) if form_of(name) != None =>
       raise no_value(name, pos)
+
+    case (_, TName("return")) if starts_expr(notation, second_token(toks)) =>
+      raise ParseError("return before an expression" ++ hint_at("expression", toks), pos)
 
     case (_, TName(name)) if not is_operator(notation, name) =>
       advance(ref toks)
@@ -1616,7 +1682,7 @@ function starts_pattern(notation: Notation, tok: Token): Bool :=
     case TChar(_) =>
       true
 
-    case TOp(_) | TEnd =>
+    case TOp(_) | TBad(_, _, _) | TEnd =>
       false
   end
 
@@ -1770,18 +1836,18 @@ procedure parse_stmt_recovering(
     parse_stmt(in notation, params, out stmt, ref toks)
   catch
     case ParseError(message, at) =>
-      var text: Str
-      skip_stmt(in notation, out text, ref toks)
-      stmt := AUnparsed(pos, span_from(pos, toks), text, parse_diagnostic(ParseError(message, at)))
+      let start := toks
+      skip_stmt(in notation, ref toks)
+      stmt := AUnparsed(pos, span_from(pos, toks), source_text(start, toks), parse_diagnostic(ParseError(message, at)))
   end
 
 // the tokens of a statement, at least its first, up to the next statement, what ends the body, or a command, outside
-// the brackets and blocks of the statement, joined by spaces, where a statement that opens a block takes its end, and one
-// of two names, as return x, takes both
-procedure skip_stmt(in notation: Notation, out text: Str, ref toks: Tokens) :=
-  var skipped: Buffer[Str] := empty(), prev := TKw("skip"), blocks := 0, brackets := 0, ites := 0, done := false, first := true
+// the brackets and blocks of the statement, where a statement that opens a block takes its end, and one of two names,
+// as return x, takes both
+procedure skip_stmt(in notation: Notation, ref toks: Tokens) :=
+  var prev := TKw("skip"), blocks := 0, brackets := 0, ites := 0, done := false, first := true
   if is_name_token(head_token(toks)) and is_name_token(second_token(toks)) then
-    skipped := skipped ++ List(format_token(head_token(toks)), format_token(second_token(toks))), prev := second_token(toks), first := false
+    prev := second_token(toks), first := false
     advance(ref toks)
     advance(ref toks)
   end
@@ -1790,11 +1856,10 @@ procedure skip_stmt(in notation: Notation, out text: Str, ref toks: Tokens) :=
       done := true
     else
       nest(in prev, toks, ref blocks, brackets, ites)
-      skipped := skipped ++ List(format_token(head_token(toks))), prev := head_token(toks), first := false
+      prev := head_token(toks), first := false
       advance(ref toks)
     end
   end
-  text := joined(List(for t in skipped))
 
 function is_name_token(tok: Token): Bool :=
   match tok
@@ -1862,6 +1927,10 @@ function ends_expr(tok: Token): Bool :=
 
     case TKw(kw) =>
       contains(kw, List(")", "]", "end", "skip", "true", "false"))
+
+    // a literal that does not lex
+    case TBad(text, _, _) =>
+      text != "" and (is_digit(at(0, text)) or contains(at(0, text), "\"'"))
 
     case TOp(_) | TEnd =>
       false
@@ -2522,16 +2591,15 @@ procedure parse_expr_recovering(
   ref toks: Tokens
 ) :=
   let pos := head_pos(toks)
-  var skipped: Buffer[Str] := empty()
   try
     parse_expr(in notation, params, out expr, ref toks)
   catch
     case ParseError(message, at) =>
+      let start := toks
       while not starts_command(toks) do
-        skipped := skipped ++ List(format_token(head_token(toks)))
         advance(ref toks)
       end
-      expr := AUnparsed(pos, span_from(pos, toks), joined(List(for t in skipped)), parse_diagnostic(ParseError(message, at)))
+      expr := AUnparsed(pos, span_from(pos, toks), source_text(start, toks), parse_diagnostic(ParseError(message, at)))
   end
 
 procedure parse_pat_alias(in notation: Notation, out cmd: Cmd, ref toks: Tokens) :=
@@ -2664,16 +2732,15 @@ procedure parse_contract_expr(
   ref toks: Tokens
 ) :=
   let pos := head_pos(toks), next := has_next_spec_part(toks)
-  var skipped: Buffer[Str] := empty()
   try
     parse_expr(in notation, params, out expr, ref toks)
   catch
     case ParseError(message, at) =>
+      let start := toks
       while not (at_kw(toks, "ensures") or at_kw(toks, "example") or starts_command(toks) or not next and not head_pos(toks) < at) do
-        skipped := skipped ++ List(format_token(head_token(toks)))
         advance(ref toks)
       end
-      expr := AUnparsed(pos, span_from(pos, toks), joined(List(for t in skipped)), parse_diagnostic(ParseError(message, at)))
+      expr := AUnparsed(pos, span_from(pos, toks), source_text(start, toks), parse_diagnostic(ParseError(message, at)))
   end
 
 // whether an ensures or an example follows before the next command
@@ -2703,7 +2770,6 @@ procedure parse_example(
   out x: At[Example],
   ref toks: Tokens
 ) :=
-  var skipped: Buffer[Str] := empty()
   let next := has_next_example(toks), start := toks
   var invalid: Option[ParseError] := None
   try
@@ -2715,17 +2781,16 @@ procedure parse_example(
     end
     match invalid
       case Some(e) =>
-        x := AUnparsed(pos, span_from(pos, toks), joined(List(for (_, tok, _) in take(size(start) - size(toks), start) yield format_token(tok))), parse_diagnostic(e))
+        x := AUnparsed(pos, span_from(pos, toks), source_text(start, toks), parse_diagnostic(e))
       case None =>
         x := AOk(pos, span_from(pos, toks), claim)
     end
   catch
     case ParseError(message, at) =>
       while not (at_kw(toks, "example") or starts_command(toks) or not next and not head_pos(toks) < at) do
-        skipped := skipped ++ List(format_token(head_token(toks)))
         advance(ref toks)
       end
-      x := AUnparsed(pos, span_from(pos, toks), joined(List(for t in skipped)), parse_diagnostic(ParseError(message, at)))
+      x := AUnparsed(pos, span_from(pos, toks), source_text(start, toks), parse_diagnostic(ParseError(message, at)))
   end
 
 // whether another example follows before the next command
@@ -2740,26 +2805,6 @@ function has_next_example(toks: Tokens): Bool :=
     case _ =>
       false
   end
-
-// the texts of tokens as the source usually spaces them, the text of a part that does not parse: without spaces inside
-// brackets, before , and ., after ., and between a name and the ( of its arguments
-function joined(parts: List[Str]): Str :=
-  match parts
-    case List(a, b; more) =>
-      a ++ (if is_tight(a, b) then "" else " ") ++ joined(List(b; more))
-
-    case List(a) =>
-      a
-
-    case List() =>
-      ""
-  end
-
-function is_tight(a: Str, b: Str): Bool :=
-  contains(b, List(")", "]", ",", ".")) or contains(a, List("(", "[", ".")) or b == "(" and is_name_text(a)
-
-function is_name_text(a: Str): Bool :=
-  a != "" and is_letter(at(0, a)) and not is_keyword(a)
 
 // e or e raises p, after example
 procedure parse_fun_example(
@@ -3302,7 +3347,7 @@ procedure load_members(
 ) :=
   let id := package_id(dir)
   var lexed: List[(Path, Tokens, List[Comment])], notations: List[(Path, Notation)], own: Mod, mods: Buffer[Mod] := empty()
-  lex_members(in files, main, out lexed, notations)
+  lex_members(in files, out lexed, notations)
   for (m, toks, comments) in lexed do
     parse_member(in m, toks, comments, others_notation(m, notations), root, dir, is_main(m, main), main != None, List(id; loading), out own, ref source)
     mods := mods ++ List(own)
@@ -3351,33 +3396,15 @@ function others_notation(m: Path, notations: List[(Path, Notation)]): Notation :
 // the tokens of the members files, with the notations of their export sections
 procedure lex_members(
   in  files: List[(Path, Str)],
-      main: Option[(Path, Str)],
   out lexed: List[(Path, Tokens, List[Comment])],
       notations: List[(Path, Notation)]
 ) :=
   var toks: Tokens, comments: List[Comment], ops: Notation
   lexed := List(), notations := List()
   for (m, text) in files do
-    lex_member(in m, text, is_main(m, main), out toks, comments)
+    lex_all(in text, out toks, comments)
     exported_ops(in toks, out ops)
     lexed := lexed ++ List((m, toks, comments)), notations := notations ++ List((m, ops))
-  end
-
-// the tokens and comments of module id of text, where an error of a module other than the main one is located in it
-procedure lex_member(
-  in  id: Path,
-      text: Str,
-      main: Bool,
-  out toks: Tokens,
-      comments: List[Comment]
-) :=
-  try
-    lex_all(in text, out toks, comments)
-  catch
-    case LexError(message, pos) if main =>
-      raise ParseError(message, pos)
-    case LexError(message, pos) =>
-      raise ImportError(id, message, pos)
   end
 
 // the notation of the commands of the export section of the tokens of a module, read before the module is parsed, of the
@@ -3532,36 +3559,12 @@ procedure parse_mod(
   ref source: Source,
       toks: Tokens
 ) :=
-  var imports: List[At[Path]] := List(), notation := empty_notation(), plain: List[At[Cmd]] := List(), exported: List[At[Cmd]] := List(), builtins: List[At[Cmd]] := List(), implemented: List[At[Cmd]] := List(), more: List[Cmd], section := Opening, pos: Pos, placed: List[At[Cmd]], text: Str, names: List[Id] := List(), started: Option[Str] := None
+  var imports: List[At[Path]] := List(), notation := empty_notation(), plain: List[At[Cmd]] := List(), exported: List[At[Cmd]] := List(), builtins: List[At[Cmd]] := List(), implemented: List[At[Cmd]] := List(), section := Opening, placed: List[At[Cmd]]
   import_all(in implicit, root, loading, ref source)
   import_notations(in implicit, source.mods, ref notation)
   notation := notation ++ package
   while head_token(toks) != TEnd do
-    pos := head_pos(toks), more := List(), placed := List()
-    try
-      parse_section_or_command(in root, dir, loading, pos, out more, ref notation, section, imports, source, toks)
-    catch
-      case ParseError(message, at) =>
-        match head_token(toks)
-          case TKw(kw) if section_named(kw) != None =>
-            advance(ref toks)
-            section := value_or(section_named(kw), section), text := kw, names := List(), started := None
-
-          case _ =>
-            names := declared_names(toks), started := command_keyword(toks)
-            skip_command(out text, ref toks)
-        end
-        placed := List(
-          AUnparsed(pos, span_from(pos, toks), text, started_by(declaring(parse_diagnostic(ParseError(message, at)), names), started)))
-    end
-    match more
-      case List(c; rest) =>
-        placed := List(
-          AOk(pos, span_from(pos, toks), c); List(for d in rest yield AOk(pos, span_from(pos, toks), d)))
-
-      case _ =>
-        skip
-    end
+    parse_named(in root, dir, loading, out placed, ref notation, section, imports, source, toks)
     match section
       case InExport =>
         exported := reverse_onto(placed, exported)
@@ -3578,6 +3581,159 @@ procedure parse_mod(
   end
   implemented := reverse(implemented) ++ reverse(plain)
   own := Mod(name, imports, reverse(exported), reverse(builtins), implemented, comments)
+
+// a section keyword, an import, or the commands of a declaration at the start of toks, each placed, or as a part that
+// does not parse, from the start of the command to the next one, as the handler sees the tokens, with the errors of the
+// spec and body of a function, procedure, or test whose head does not parse (skip_unparsed)
+procedure parse_placed(
+  in  root: Root,
+      dir: Option[Str],
+      loading: List[Path],
+  out placed: List[At[Cmd]],
+  ref notation: Notation,
+      section: Section,
+      imports: List[At[Path]],
+      source: Source,
+      toks: Tokens
+) :=
+  let pos := head_pos(toks)
+  var more: List[Cmd] := List()
+  placed := List()
+  try
+    parse_section_or_command(in root, dir, loading, pos, out more, ref notation, section, imports, source, toks)
+  catch
+    case ParseError(message, at) =>
+      match head_token(toks)
+        case TKw(kw) if section_named(kw) != None =>
+          advance(ref toks)
+          section := value_or(section_named(kw), section)
+          placed := List(
+            AUnparsed(pos, span_from(pos, toks), kw, parse_diagnostic(ParseError(message, at))))
+
+        case _ =>
+          let names := declared_names(toks), started := command_keyword(toks), start := toks
+          var inner: List[Diagnostic]
+          skip_unparsed(in notation, at, out inner, ref toks)
+          placed := List(
+            AUnparsed(pos, span_from(pos, toks), source_text(start, toks), started_by(declaring(parse_diagnostic(ParseError(message, at)), names), started)); List(for d in inner yield AUnparsed(d.pos, span_at(d.pos), "", started_by(d, started))))
+      end
+  end
+  match more
+    case List(c; rest) =>
+      placed := List(
+        AOk(pos, span_from(pos, toks), c); List(for d in rest yield AOk(pos, span_from(pos, toks), d)))
+
+    case _ =>
+      skip
+  end
+
+// the tokens of a command that does not parse, by its error at at, up to the next command, and the errors of the spec
+// and the body of a function, procedure, or test whose head has the error, which the parser reads after the := of the
+// head, so that they are reported with the error of the head
+procedure skip_unparsed(
+  in  notation: Notation,
+      at: Pos,
+  out errors: List[Diagnostic],
+  ref toks: Tokens
+) :=
+  let kw := command_keyword(toks)
+  errors := List()
+  advance(ref toks)
+  while not (starts_command(toks) or at_kw(toks, ":=") or starts_stmt(head_token(toks))) do
+    advance(ref toks)
+  end
+  if at_kw(toks, ":=") and at <= head_pos(toks) and contains(kw, List(Some("function"), Some("procedure"), Some("test"))) then
+    advance(ref toks)
+    try
+      var spec: Spec
+      parse_spec(in notation, List(), kw == Some("procedure"), out spec, ref toks)
+      if kw == Some("function") then
+        var body: At[Expr]
+        parse_expr_recovering(in notation, List(), out body, ref toks)
+        errors := part_errors(CFun(unqualified("_"), List(), List(), THole, spec, body))
+      else
+        var body: At[Stmt]
+        parse_body(in notation, List(), out body, ref toks)
+        errors := part_errors(CProc(unqualified("_"), List(), List(), List(), List(), List(), spec, body))
+      end
+    catch
+      case ParseError(message, pos) =>
+        errors := List(parse_diagnostic(ParseError(message, pos)))
+    end
+  end
+  while not starts_command(toks) do
+    advance(ref toks)
+  end
+
+// the commands of a declaration at the start of toks as parse_placed parses them, where a keyword written as a name, as
+// in let test := 1, is read as that name and reported once, at its first place, with the number of places, so that
+// the parse makes no follow-ups of a keyword taken as the start of a construct: each round parses the command again with
+// the keywords of the errors of the round before as names, those whose errors say that they are no names and the others
+// of the same keywords, as long as that adds no other errors
+procedure parse_named(
+  in  root: Root,
+      dir: Option[Str],
+      loading: List[Path],
+  out placed: List[At[Cmd]],
+  ref notation: Notation,
+      section: Section,
+      imports: List[At[Path]],
+      source: Source,
+      toks: Tokens
+) :=
+  let start := toks, notation_ := notation, section_ := section, imports_ := imports, source_ := source
+  var named: List[(Pos, Str)] := List(), found: List[(Pos, Str)], rounds := 0
+  parse_placed(in root, dir, loading, out placed, ref notation, section, imports, source, toks)
+  found := keyword_errors(start, placed, Set())
+  while found != List() and rounds < 20 do
+    let kws := Set(for (_, kw) in named ++ found yield kw)
+    var tried: List[At[Cmd]], tried_toks := as_names(start, Set(for (p, _) in named ++ found yield p)), tried_notation := notation_, tried_section := section_, tried_imports := imports_, tried_source := source_
+    parse_placed(in root, dir, loading, out tried, ref tried_notation, tried_section, tried_imports, tried_source, tried_toks)
+    if other_errors(start, tried, kws) <= other_errors(start, placed, kws) then
+      placed := tried, toks := tried_toks, notation := tried_notation, section := tried_section, imports := tried_imports, source := tried_source
+      named := named ++ found
+      found := keyword_errors(start, placed, kws)
+    else
+      found := List()
+    end
+    rounds := rounds + 1
+  end
+  placed := List(for (kw, pos, count) in keyword_places(named) yield keyword_error(kw, pos, count)) ++ placed
+
+// the errors of placed at a keyword of start that say that it is no name, or at one of kws
+function keyword_errors(start: Tokens, placed: List[At[Cmd]], kws: Set[Str]): List[(Pos, Str)] :=
+  List(for c in placed for d in cmd_errors(c) for kw in keyword_at(start, d.pos) if contains(kw, kws) or starts_with(d.message, "keyword " ++ kw ++ " is not a name") yield (d.pos, kw))
+
+// the number of errors of placed but those at a keyword of kws
+function other_errors(start: Tokens, placed: List[At[Cmd]], kws: Set[Str]): Int :=
+  size(List(for c in placed for d in cmd_errors(c) if not exists(keyword_at(start, d.pos), lambda kw => contains(kw, kws)) yield d))
+
+// the keyword of toks at pos, if any
+function keyword_at(toks: Tokens, pos: Pos): Option[Str] :=
+  match toks
+    case List((p, TKw(kw), _); _) if p == pos and is_keyword(kw) =>
+      Some(kw)
+
+    case List((p, _, _); more) if p < pos =>
+      keyword_at(more, pos)
+
+    case _ =>
+      None
+  end
+
+// toks with the keywords at the positions as names
+function as_names(toks: Tokens, positions: Set[Pos]): Tokens :=
+  List(for (p, tok, stop) in toks yield (p, if contains(p, positions) then TName(format_token(tok)) else tok, stop))
+
+// each keyword of named with its first place and the number of its places, in the order of their first places
+function keyword_places(named: List[(Pos, Str)]): List[(Str, Pos, Int)] :=
+  let sorted := sort(named) in
+  List(for kw in distinct(List(for (_, k) in sorted yield k)) for (pos, _) in find(sorted, lambda (_, k) => k == kw) yield (kw, pos, size(List(for (_, k) in sorted if k == kw yield k))))
+
+// the error of the keyword kw written as a name at count places, the first at pos
+function keyword_error(kw: Str, pos: Pos, count: Int): At[Cmd] :=
+  let places := if count > 1 then ", at " ++ show(count) ++ " places" else "" in
+  AUnparsed(pos, op_span(kw, pos), "", parse_diagnostic(ParseError("keyword " ++ kw ++ " is not a name" ++ places ++ value_or(map_option(name_for(kw), lambda n => "; write a name such as " ++ n), ""), pos)))
 
 // a section keyword, an import, or the commands of a declaration at pos, which more gives
 procedure parse_section_or_command(
@@ -3657,18 +3813,6 @@ function section_named(kw: Str): Option[Section] :=
     Some(InImplementation)
   else
     None
-
-// the tokens from the next keyword that starts a command after the first token, and those before, joined by
-// spaces
-procedure skip_command(out text: Str, ref toks: Tokens) :=
-  var skipped: Buffer[Str] := empty()
-  skipped := skipped ++ List(format_token(head_token(toks)))
-  advance(ref toks)
-  while not starts_command(toks) do
-    skipped := skipped ++ List(format_token(head_token(toks)))
-    advance(ref toks)
-  end
-  text := joined(List(for t in skipped))
 
 function starts_command(toks: Tokens): Bool :=
   head_token(toks) == TEnd or at_command(toks)
@@ -3754,14 +3898,6 @@ procedure library_text(in id: Path, pos: Pos, out text: Str) :=
   catch
     case OsError(_) =>
       raise ParseError("unknown module " ++ path_text(id), pos)
-  end
-
-procedure lex_text(in text: Str, out toks: Tokens, comments: List[Comment]) :=
-  try
-    lex_all(in text, out toks, comments)
-  catch
-    case LexError(message, pos) =>
-      raise ParseError(message, pos)
   end
 
 procedure parse_file_text(
@@ -3940,7 +4076,7 @@ procedure parse_text_recovering(
   out source: Source
 ) raises ParseError, OsError :=
   var toks: Tokens, comments: List[Comment], own: Mod, loaded := Source(List(), List(), List("main"))
-  lex_text(in text, out toks, comments)
+  lex_all(in text, out toks, comments)
   parse_mod(in List("main"), comments, List(), builtin_notation(), Root("", Map(), false), None, List(), out own, ref loaded, toks)
   source := Source(List(own), List(), List("main"))
 
