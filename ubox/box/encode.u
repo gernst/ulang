@@ -1,0 +1,156 @@
+export
+
+// first, first + step, ... up to last
+function sequence(first: Int, step: Int, last: Int): List[Int] :=
+  example sequence(1, 2, 7) == List(1, 3, 5, 7)
+  example sequence(3, -1, 1) == List(3, 2, 1)
+  example sequence(1, 0, 3) == List()
+
+// the prime factors, ascending
+function factors(n: Int): List[Int] :=
+  example factors(360) == List(2, 2, 2, 3, 3, 5)
+  example factors(2000000014) == List(2, 1000000007)
+  example factors(1) == List()
+
+// base64 of bytes, as numbers from 0 to 255, in one line
+function encode64(bytes: List[Int]): Str :=
+  example encode64(List(77, 97, 110)) == "TWFu"
+  example encode64(List(77, 97)) == "TWE="
+  example encode64(List(77)) == "TQ=="
+
+// the bytes of base64, whatever its lines and padding, None for other characters and a group of one
+function decode64(text: Str): Option[List[Int]] :=
+  example decode64("TWFu\nTWE=\n") == Some(List(77, 97, 110, 77, 97))
+  example decode64("T") == None
+  example decode64("T!Fu") == None
+
+// the date in UTC of the seconds since the epoch, as date -u prints it
+function utc_date(seconds: Int): Str :=
+  example utc_date(0) == "Thu Jan  1 00:00:00 UTC 1970"
+  example utc_date(1794813660) == "Mon Nov 16 07:21:00 UTC 2026"
+
+// the pieces of s of that many characters, the last one shorter, and s whole for a width of 0
+function wrapped(s: Str, width: Int): List[Str] :=
+  example wrapped("abcde", 2) == List("ab", "cd", "e")
+  example wrapped("abcd", 2) == List("ab", "cd")
+  example wrapped("abc", 0) == List("abc")
+  example wrapped("", 4) == List()
+
+implementation
+
+function sequence(first: Int, step: Int, last: Int): List[Int] :=
+  if step == 0 or step > 0 and first > last or step < 0 and first < last then
+    List()
+  else
+    List(first; sequence(first + step, step, last))
+
+function divided(n: Int, d: Int): List[Int] :=
+  if n < 2 then
+    List()
+  else if d * d > n then
+    List(n)
+  else if n % d == 0 then
+    List(d; divided(n / d, d))
+  else
+    divided(n, if d == 2 then 3 else d + 2)
+
+function factors(n: Int): List[Int] :=
+  divided(n, 2)
+
+function alphabet(): Str :=
+  "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
+
+function sextets(n: Int, k: Int): Str :=
+  str(List(for p in take(k, List(262144, 4096, 64, 1)) yield at(n / p % 64, alphabet())))
+
+function encode64(bytes: List[Int]): Str :=
+  join("", groups(bytes))
+
+function bytes_of(ds: List[Int]): Option[List[Int]] :=
+  match ds
+    case List() =>
+      Some(List())
+
+    case List(_) =>
+      None
+
+    case List(a, b) =>
+      Some(List(a * 4 + b / 16))
+
+    case List(a, b, c) =>
+      Some(List(a * 4 + b / 16, b % 16 * 16 + c / 4))
+
+    case List(a, b, c, d; rest) =>
+      map_option(bytes_of(rest), lambda more => List(a * 4 + b / 16, b % 16 * 16 + c / 4, c % 4 * 64 + d; more))
+  end
+
+function decode64(text: Str): Option[List[Int]] :=
+  let digits := List(for c in chars(text) if not is_space(c) and c != '=' yield digit(c)) in
+  if contains(None, digits) then
+    None
+  else
+    bytes_of(List(for d in digits for n in d yield n))
+
+function two(n: Int, fill: Str): Str :=
+  if n < 10 then fill ++ show(n) else show(n)
+
+function utc_date(seconds: Int): Str :=
+  let days := seconds / 86400, rest := seconds % 86400, z := days + 719468, era := z / 146097, doe := z - era * 146097, yoe := (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365, doy := doe - (365 * yoe + yoe / 4 - yoe / 100), mp := (5 * doy + 2) / 153, d := doy - (153 * mp + 2) / 5 + 1, m := (if mp < 10 then mp + 3 else mp - 9), y := yoe + era * 400 + (if m <= 2 then 1 else 0), day := at((days + 4) % 7, split("Sun Mon Tue Wed Thu Fri Sat", ' ')), month := at(m - 1, split("Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec", ' ')) in
+  day ++ " " ++ month ++ " " ++ two(d, " ") ++ " " ++ two(rest / 3600, "0") ++ ":" ++ two(rest % 3600 / 60, "0") ++ ":" ++ two(rest % 60, "0") ++ " UTC " ++ show(y)
+
+test base64_roundtrip(ns: List[Int]) :=
+  let bytes := List(for n in ns yield abs(n) % 256)
+  assert decode64(encode64(bytes)) == Some(bytes)
+
+function wrapped(s: Str, width: Int): List[Str] :=
+  if s == "" then
+    List()
+  else if width <= 0 then
+    List(s)
+  else
+    List(for cs in chunks(chars(s), width) yield str(cs))
+
+// the groups of four characters of the bytes, joined once, since a ++ per group copies the text so far
+function groups(bytes: List[Int]): List[Str] :=
+  match bytes
+    case List() =>
+      List()
+
+    case List(a) =>
+      List(sextets(a * 65536, 2) ++ "==")
+
+    case List(a, b) =>
+      List(sextets(a * 65536 + b * 256, 3) ++ "=")
+
+    case List(a, b, c; rest) =>
+      List(sextets(a * 65536 + b * 256 + c, 4); groups(rest))
+  end
+
+function chunks[A](xs: List[A], n: Int): List[List[A]] :=
+  example chunks(List(1, 2, 3), 2) == List(List(1, 2), List(3))
+  if xs == List() then
+    List()
+  else
+    let (now, later) := split_at(n, xs) in
+    List(now; chunks(later, n))
+
+// the value of a digit of base64
+function digit(c: Char): Option[Int] :=
+  example digit('A') == Some(0)
+  example digit('z') == Some(51)
+  example digit('9') == Some(61)
+  example digit('/') == Some(63)
+  example digit('-') == None
+  let n := int(c) in
+  if 65 <= n and n <= 90 then
+    Some(n - 65)
+  else if 97 <= n and n <= 122 then
+    Some(n - 71)
+  else if 48 <= n and n <= 57 then
+    Some(n + 4)
+  else if c == '+' then
+    Some(62)
+  else if c == '/' then
+    Some(63)
+  else
+    None

@@ -1,0 +1,108 @@
+export
+
+// what a command refuses, with the message for the user
+data Failure :=
+  case Failure(message: Str)
+
+// the options of a command line, each letter with its value, which is empty for a flag, and the other arguments
+data Options :=
+  case Options(found: Map[Char, Str], rest: List[Str])
+
+// reads the options before and between the arguments, up to --, where the letters of flags stand alone or together,
+// -rn, and those of valued take the rest of the argument or the next one, -n5 or -n 5
+procedure parse_options(
+  in  args: List[Str],
+      flags: Str,
+      valued: Str,
+  out o: Options
+) raises Failure
+
+function flag(c: Char, o: Options): Bool
+
+function value(c: Char, o: Options): Option[Str]
+
+procedure to_number(in what: Str, text: Str, out n: Int) raises Failure
+
+implementation
+
+procedure parse_options(
+  in  args: List[Str],
+      flags: Str,
+      valued: Str,
+  out o: Options
+) raises Failure :=
+  var todo := args, found := Map(), rest := List()
+  while todo != List() do
+    match todo
+      case List() =>
+        skip
+
+      case List("--"; others) =>
+        rest := rest ++ others, todo := List()
+
+      case List(arg; others) =>
+        todo := others
+        if size(arg) > 1 and starts_with(arg, "-") then
+          var cs := drop(1, chars(arg))
+          while cs != List() do
+            match cs
+              case List() =>
+                skip
+
+              case List(c; more) =>
+                if contains(c, valued) then
+                  cs := List()
+                  if more != List() then
+                    found := put(c, str(more), found)
+                  else
+                    match todo
+                      case List() =>
+                        raise Failure("option -" ++ str(List(c)) ++ " needs a value")
+                      case List(v; after) =>
+                        found := put(c, v, found), todo := after
+                    end
+                  end
+                else
+                  if contains(c, flags) then
+                    found := put(c, "", found), cs := more
+                  else
+                    raise Failure("unknown option -" ++ str(List(c)))
+                  end
+                end
+            end
+          end
+        else
+          rest := rest ++ List(arg)
+        end
+    end
+  end
+  o := Options(found, rest)
+
+function flag(c: Char, o: Options): Bool :=
+  get(c, o.found) != None
+
+function value(c: Char, o: Options): Option[Str] :=
+  get(c, o.found)
+
+procedure to_number(in what: Str, text: Str, out n: Int) raises Failure :=
+  match number(text)
+    case None =>
+      raise Failure(what ++ " is no number: " ++ text)
+    case Some(k) =>
+      n := k
+  end
+
+test options() :=
+  var o
+  parse_options(in List("-rn", "a", "-k", "2", "-w3", "--", "-x"), "rn", "kw", out o)
+  assert flag('r', o) and flag('n', o) and not flag('u', o)
+  assert value('k', o) == Some("2") and value('w', o) == Some("3")
+  assert o.rest == List("a", "-x")
+  assert raises Failure("unknown option -z") do
+    parse_options(in List("-z"), "rn", "", out o)
+  end
+  assert raises Failure(_) do
+    parse_options(in List("-k"), "", "k", out o)
+  end
+  parse_options(in List("-"), "", "", out o)
+  assert o.rest == List("-")
