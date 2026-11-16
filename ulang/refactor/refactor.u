@@ -2938,6 +2938,8 @@ procedure run_actions(
     let changed := List(for c in changes yield c.path)
     // the files whose exports the script changed, whose importers it does not check, which may now have errors
     let interfaces := List(for c in changes if not contains(c.path, created) for names in List(changed_exports(c.before, c.after)) if names != List() yield c.path ++ ": the exports " ++ join(", ", names) ++ " changed, whose importers are not checked")
+    // the comment lines longer than 120 columns that the script wrote, which format does not wrap
+    let long := List(for c in changes for line in long_comments(c.path, c.before, c.after) yield line)
     let paths := distinct(changed ++ edits.checked)
     var before: List[(Str, Diagnostic)] := List(), after: List[(Str, Diagnostic)] := List(), found: List[(Str, Diagnostic)]
     var journaled: List[Str] := List()
@@ -3019,7 +3021,7 @@ procedure run_actions(
     else
       Some((size(List(for (_, d) in added if not is_warning(d) yield d)), size(List(for (_, d) in added if is_warning(d) yield d))))
     reply := List(
-      verdict(dry, paths != List(), errors, size(after) - errors, fresh, refused, tests)) ++ List(for n in edits.notes) ++ journaled ++ counts ++ interfaces ++ lines ++ tests.lines
+      verdict(dry, paths != List(), errors, size(after) - errors, fresh, refused, tests)) ++ List(for n in edits.notes) ++ journaled ++ counts ++ interfaces ++ long ++ lines ++ tests.lines
     status := if tests.failed > 0 then 3 else if errors > 0 or refused > 0 then 1 else 0
   catch
     case Refused(message) =>
@@ -3935,6 +3937,15 @@ function changed_exports(before: Str, after: Str): List[Str] :=
   let old := exported_blocks(before), new := exported_blocks(after) in
   distinct(List(for k in distinct(List(for k => _ in old yield k) ++ List(for k => _ in new yield k)) if get(k, old) != get(k, new) for word in List(
     k; changed_parts(value_or(get(k, old), List()), value_or(get(k, new), List()))) yield word))
+
+// the comment lines of after that before does not have, which are longer than the 120 columns to which the comments of
+// the project are filled, since format keeps comments as written, each as F:L with its length
+function long_comments(path: Str, before: Str, after: Str): List[Str] :=
+  example long_comments("a.u", "x\n", "x\n  // " ++ join("", List(for _ in range(0, 120) yield "a")) ++ "\n") == List(
+      "a.u:2: a comment line of 125 characters, longer than 120, which format does not wrap")
+  example long_comments("a.u", "// " ++ join("", List(for _ in range(0, 120) yield "a")), "// " ++ join("", List(for _ in range(0, 120) yield "a"))) == List()
+  let old := Set(for line in split(before, '\n')), new := split(after, '\n') in
+  List(for (i, line) in zip(range(1, size(new) + 1), new) if is_comment_line(line) and size(line) > 120 and not contains(line, old) yield path ++ ":" ++ show(i) ++ ": a comment line of " ++ show(size(line)) ++ " characters, longer than 120, which format does not wrap")
 
 // the constructors of the lines of a datatype before and after whose lines differ, and the fields whose constructors,
 // positions, or types differ
