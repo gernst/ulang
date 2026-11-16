@@ -32,7 +32,7 @@ data LexError :=
 
 function is_keyword(w: Str): Bool
 
-// the words that are no names, which CLAUDE.md lists, as checks/docs.u checks
+// the words that are no names, which doc/language.md lists, as checks/docs.u checks
 function keywords(): Set[Str]
 
 // the tokens of text, which raise the error of the first token that does not lex

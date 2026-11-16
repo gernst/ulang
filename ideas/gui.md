@@ -1,6 +1,6 @@
 # GUI
 
-A plan for graphical interfaces, tried out in `gui/` over the builtin `Window` of the library (Library of `CLAUDE.md`). The ulang side is functional, in the architecture of Elm: a program is a model, a pure `update` of the model by an event, and a pure `view` of the model as a tree of widgets, which a loop in ulang compares with the tree before and turns into patches of the widgets on screen. Decisions that new work keeps: no callback of GTK runs ulang, its signals only queue events, which `window_next` gives, so no exception of ulang crosses a frame of GTK; `update` and `view` stay functions, and effects are data that `update` returns (item 4); the diff, its patches, and the skeletons are values of enumerable types, which lemmas and their tests reach (item 3), while the handlers are looked up in the current tree by the id of the widget that the event names.
+A plan for graphical interfaces, tried out in `gui/` over the builtin `Window` of the library (The library of `doc/implementation-notes.md`). The ulang side is functional, in the architecture of Elm: a program is a model, a pure `update` of the model by an event, and a pure `view` of the model as a tree of widgets, which a loop in ulang compares with the tree before and turns into patches of the widgets on screen. Decisions that new work keeps: no callback of GTK runs ulang, its signals only queue events, which `window_next` gives, so no exception of ulang crosses a frame of GTK; `update` and `view` stay functions, and effects are data that `update` returns (item 4); the diff, its patches, and the skeletons are values of enumerable types, which lemmas and their tests reach (item 3), while the handlers are looked up in the current tree by the id of the widget that the event names.
 
 ## Try-out
 
@@ -26,7 +26,7 @@ A plan for graphical interfaces, tried out in `gui/` over the builtin `Window` o
 1. Item 1, where the package lives.
 2. Item 3, keys, `realize`, and the lemmas, all pure, before any C.
 3. Item 4, effects and timers, then item 2 for the widgets and events they need, in both backends and the interpreter, then `make testc` and `make testelf` after asking; then item 5 and the examples of item 6.
-4. `LANGUAGE.md` a section of programs with windows; this file deleted when the examples run.
+4. `doc/language.md` a section of programs with windows; this file deleted when the examples run.
 
 ## Open
 

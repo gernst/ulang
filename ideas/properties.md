@@ -12,7 +12,7 @@ Each property has a definition, a formal handle, and what is open.
 
 ### 2.1 Locality
 
-**Definition.** A unit is understood and verified from a small, explicitly identified set of facts: its text, the contracts of what it calls, and its declared inputs and effects (principle 1 of `DESIGN.md`).
+**Definition.** A unit is understood and verified from a small, explicitly identified set of facts: its text, the contracts of what it calls, and its declared inputs and effects (principle 1 of `doc/language.md`).
 
 **Formal handle.** The verification context of a unit, the smallest set of definitions, contracts, and invariants that a modular verifier needs for its obligations, is small and declared, as frame conditions are in separation logic and dynamic frames. A proxy is the number of non-local symbols whose meaning, not only their type, a proof depends on, which `L1 ulang.bin deps` of `ideas/lint.md` would list.
 
@@ -44,7 +44,7 @@ Each property has a definition, a formal handle, and what is open.
 
 ### 2.5 Failing loudly
 
-**Definition.** A violated precondition, invariant, or expectation surfaces instead of being absorbed. Models prefer fallbacks, catch-all handlers, and defaults that hide bugs, e.g. a lookup whose missing key gives `0` (principle 8 of `DESIGN.md`).
+**Definition.** A violated precondition, invariant, or expectation surfaces instead of being absorbed. Models prefer fallbacks, catch-all handlers, and defaults that hide bugs, e.g. a lookup whose missing key gives `0` (principle 8 of `doc/language.md`).
 
 **Formal handle.** On every path where a callee's precondition or an invariant is violated, the code ends in an observable failure, never a normal-looking result. As refinement: the implementation may not be more defined than the specification where the specification is undefined, the reverse of the usual rule. This property is underexplored and specific to generated code.
 
@@ -68,7 +68,7 @@ Each property has a definition, a formal handle, and what is open.
 
 ### 2.8 Uniformity
 
-**Definition.** Each recurring concern, errors, retries, logging, configuration, is handled by one idiom in a code base. Models draw idioms from their whole training data, and each variant must be checked again (principle 3 of `DESIGN.md`).
+**Definition.** Each recurring concern, errors, retries, logging, configuration, is handled by one idiom in a code base. Models draw idioms from their whole training data, and each variant must be checked again (principle 3 of `doc/language.md`).
 
 **Formal handle.** The number of distinct semantic patterns per concern, or, building on 2.3, similar but not identical solutions to one concern as divergent redundancy at the level of idioms. Probably a metric more than a semantic property.
 
