@@ -684,16 +684,17 @@ procedure print_hints(in file: Str, overlays: List[(Str, Str)], out status: Int)
   var texts: Map[Str, Str]
   overlay_texts(in overlays, out texts, status)
   if status == 0 then
-    var q: Prog, errors: List[Diagnostic], cache := no_cache()
-    load_file(in file, texts, false, false, true, out _, q, errors, ref cache)
+    var source: Source, q: Prog, errors: List[Diagnostic], cache := no_cache()
+    load_file(in file, texts, false, false, true, out source, q, errors, ref cache)
     report(in file, errors, false)
     status := load_status(q, errors)
     if q.main != List() then
       try
         var text: Str
         overlaid_text(in file, texts, out text)
+        let examples := value_or(map_option(find(source.mods, lambda d => d.name == q.main), lambda d => examples_of(text, d)), empty())
         for h in hints(text, q) do
-          for line in format_hint(h) do
+          for line in format_hint_with(examples, h) do
             os_println(in line)
           end
         end
@@ -930,7 +931,7 @@ procedure refactor_tests(
           "no test of " ++ file ++ " ran, since its unit does not load far enough to run")
       else
         test_outcomes(in q, run, m, List(), out outcomes, ref constants)
-        let misplaced := List(for o in outcomes if o.message != "" and exists(diagnostics(q), lambda d => d.code == "ExampleOnDefinition" and reaches(o.reached, file, d)) yield o.name)
+        let misplaced := misplaced_tests(outcomes, diagnostics(q), file)
         let names := List(for o in outcomes yield o.name), failures := List(for o in outcomes if o.message != "" and not contains(o.name, misplaced) yield failure_text(o, listed))
         let missing := List(for name in declared if not contains(name, names)), absent := examples - size(List(for name in names if index_of(".example.", name) != None yield name))
         let members := value_or(map_option(find(source.packages, lambda p => contains(m, p.members)), lambda p => p.members), List(m))
@@ -968,6 +969,11 @@ procedure refactor_tests(
   end
   tests := Tests(List(for line in lines), passed, failed, skipped, unrun)
 
+// the names of the tests of outcomes that failed by reaching an example on a definition of file, which ds report as
+// ExampleOnDefinition, and which refactor_tests counts as not run
+function misplaced_tests(outcomes: List[Outcome], ds: List[Diagnostic], file: Str): List[Str] :=
+  List(for o in outcomes if o.message != "" and exists(ds, lambda d => d.code == "ExampleOnDefinition" and reaches(o.reached, file, d)) yield o.name)
+
 // the paths of paths below the directories that their projects run only compiled (compiled_only_of), whose tests a
 // refactor script does not run, since the interpreter takes far too long for them, as check --test does not when it walks
 procedure compiled_only_files(in paths: List[Str], out compiled: List[Str]) :=
@@ -979,6 +985,21 @@ procedure compiled_only_files(in paths: List[Str], out compiled: List[Str]) :=
     dirs := distinct(dirs ++ skipped)
   end
   compiled := List(for path in paths if exists(dirs, lambda d => starts_with(absolute_path(here, path), d ++ "/")) yield path)
+
+test compiled_only_paths() :=
+  var compiled: List[Str]
+  compiled_only_files(in List("ulang/ulang.u", "ulang/test/errors/types.u"), out compiled)
+  assert compiled == List("ulang/test/errors/types.u")
+
+// the tests of examples on a definition, which belong to its signature, are not run, but counted as not run, where a
+// test that loads a file takes far longer in the interpreter than a test may
+test misplaced_examples() :=
+  let d := Diagnostic(TypeKind, "ExampleOnDefinition", None, Pos(8, 3), "examples belong to the signature", List())
+  let reached := Some(deferred_text(List(d)))
+  assert misplaced_tests(List(
+    Outcome("f.example.1", "deferred", reached),
+    Outcome("g.example.1", "", reached),
+    Outcome("t", "failed", None)), List(d), "m.u") == List("f.example.1")
 
 // whether the checker generated the tests of the package of members in q, the tests of examples and of lemmas, which it
 // generates only for a package whose check finds no errors but those of raises and unused imports (check_package of
@@ -1473,36 +1494,86 @@ procedure compiled_only_of(in path: Str, out skipped: List[Str]) :=
   os_is_dir(in path, out dir)
   project_root(in absolute_path(here, if dir then path else os_dirname(path)), out root)
   os_list(in root, out entries)
+  var literal: Option[List[Str]] := None
   if contains(("project.u", false), entries) then
-    var errors: List[Diagnostic], q: Prog
-    check_file(in os_join(root, "project.u"), false, false, out q, errors)
-    if errors != List() then
-      report(in os_join(root, "project.u"), errors, false)
-    else
-      var v: Option[Val]
-      try
-        constant_of(in load(q), Name(q.main, "project"), out v)
-      catch
-        case Thrown(value, _) =>
-          report(in os_join(root, "project.u"), List(
-            diagnostic(RuntimeKind, runtime_message(Uncaught(format_value(value))))), false)
-          v := None
+    literal_project(in os_join(root, "project.u"), out literal)
+  end
+  if literal != None then
+    skipped := List(for dirs in literal for d in dirs yield normal_path(os_join(root, d)))
+  else
+    if contains(("project.u", false), entries) then
+      var errors: List[Diagnostic], q: Prog, cache := no_cache()
+      // the library only declared, since project builds its value by constructors alone
+      load_file(in os_join(root, "project.u"), Map(), false, false, true, out _, q, errors, ref cache)
+      if errors != List() then
+        report(in os_join(root, "project.u"), errors, false)
+      else
+        var v: Option[Val]
+        try
+          constant_of(in load(q), Name(q.main, "project"), out v)
+        catch
+          case Thrown(value, _) =>
+            report(in os_join(root, "project.u"), List(
+              diagnostic(RuntimeKind, runtime_message(Uncaught(format_value(value))))), false)
+            v := None
 
-        case e =>
-          report(in os_join(root, "project.u"), List(diagnostic(RuntimeKind, runtime_message(e))), false)
-          v := None
+          case e =>
+            report(in os_join(root, "project.u"), List(diagnostic(RuntimeKind, runtime_message(e))), false)
+            v := None
 
-        case e =>
-          report(in os_join(root, "project.u"), List(diagnostic(InternalKind, internal_message(e))), false)
-          v := None
-      end
-      match v
-        case Some(VObj(_, List(dirs))) =>
-          skipped := List(for d in strings_of(dirs) yield normal_path(os_join(root, d)))
-        case _ =>
-          skip
+          case e =>
+            report(in os_join(root, "project.u"), List(diagnostic(InternalKind, internal_message(e))), false)
+            v := None
+        end
+        match v
+          case Some(VObj(_, List(dirs))) =>
+            skipped := List(for d in strings_of(dirs) yield normal_path(os_join(root, d)))
+          case _ =>
+            skip
+        end
       end
     end
+  end
+
+// the directories of the file project.u at path, if its function project is the constructor Project of a list of string
+// literals, read from its text alone, so that no library is loaded, else None
+procedure literal_project(in path: Str, out literal: Option[List[Str]]) :=
+  try
+    var text: Str, source: Source
+    os_read_utf8(in path, out text)
+    parse_text_recovering(in text, out source)
+    literal := None
+    for own in source.mods do
+      literal := literal_dirs(own.implemented)
+    end
+  catch
+    case _ =>
+      literal := None
+  end
+
+function literal_dirs(cmds: List[At[Cmd]]): Option[List[Str]] :=
+  match cmds
+    case List() =>
+      None
+
+    case List(
+      AOk(_, _, CFun(Name(_, "project"), _, List(), _, _, AOk(_, _, EApp(AOk(_, _, EVar(Var(Name(_, "Project"), _))), List(AOk(_, _, EForm(FList, elems, None))))))); _) =>
+      literal_strings(elems)
+
+    case List(_; rest) =>
+      literal_dirs(rest)
+  end
+
+function literal_strings(elems: List[Yield]): Option[List[Str]] :=
+  match elems
+    case List() =>
+      Some(List())
+
+    case List(YVal(AOk(_, _, ELit(LStr(text)))); rest) =>
+      map_option(literal_strings(rest), lambda texts => List(text; texts))
+
+    case _ =>
+      None
   end
 
 // the strings of a list value

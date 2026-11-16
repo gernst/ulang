@@ -137,6 +137,7 @@ procedure check_tested(
   var errors: List[TypeError]
   check_all(in source, enumerated_tests, out q, errors)
   for e in take(1, errors) do
+    require_kept(in q, e)
     raise e
   end
 
@@ -279,3 +280,14 @@ procedure run_texts(
   var q: Prog
   load_texts(in dir, members, main, out q)
   run_program(in q)
+
+// fails unless the first of the diagnostics of q, which check prints, is e by its position and code, so that a case
+// catches an error that the tree of the checked program loses
+procedure require_kept(in q: Prog, e: TypeError) raises InternalError :=
+  let d := type_diagnostic(e)
+  match take(1, diagnostics(q))
+    case List(first) if first.pos == d.pos and first.code == d.code =>
+      skip
+    case _ =>
+      raise Unexpected("the first error " ++ located_message(e) ++ " of the checker, which does not start the diagnostics of the checked program")
+  end

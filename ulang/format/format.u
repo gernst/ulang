@@ -26,6 +26,9 @@ procedure require_formatted(
 // expr as format writes it in the module name of source, with the notation of all its sections, at the start of a line
 function format_module_expr(source: Source, name: Path, expr: At[Expr]): Str
 
+// expressions, at the indentation of the line they start on
+function format_expr(notation: Notation, notes: List[Comment], indent: Str, expr: At[Expr]): Str
+
 function format_lit(lit: Lit): Str
 
 function format_type(t: Type): Str
@@ -436,7 +439,6 @@ function atom_text(d: Out): Str :=
 function closed_text(d: Out): Str :=
   parenthesized(d, d.shape == Open)
 
-// expressions, at the indentation of the line they start on
 function format_expr(notation: Notation, notes: List[Comment], indent: Str, expr: At[Expr]): Str :=
   expr_out(notation, notes, indent, expr).text
 

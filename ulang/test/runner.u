@@ -3,6 +3,8 @@
 // load_tester loads into the program under test
 
 import ulang.syntax
+import ulang.check
+import ulang.format
 import ulang.parse
 import ulang.run
 import ulang.prove
@@ -107,7 +109,7 @@ procedure test_module(
   for c in tests do
     var now: Int
     os_clock(out now)
-    test_message(in run with deadline := map_option(timeout, lambda s => Deadline(now + s * 1000000000, s)), c, out message, refuted, reached, ref cache)
+    test_message(in run with deadline := map_option(timeout, lambda s => Deadline(now + s * 1000000000, s)), q, c, out message, refuted, reached, ref cache)
     falsified := if refuted then Set(lemma_of_test(cmd_name(c)); falsified) else falsified
     if message == "" then
       os_println(in label ++ "test " ++ cmd_name(c) ++ " passed")
@@ -145,7 +147,7 @@ procedure test_outcomes(
 ) :=
   var message: Str, reached: Option[Str], found: Buffer[Outcome] := empty()
   for c in definitions(q) if is_selected_test(c, m, names) do
-    test_message(in run with diverted := true, c, out message, _, reached, ref cache)
+    test_message(in run with diverted := true, q, c, out message, _, reached, ref cache)
     found := found ++ List(Outcome(cmd_name(c), message, reached))
   end
   outcomes := List(for o in found)
@@ -155,6 +157,7 @@ procedure test_outcomes(
 // where cache keeps the values of the functions without parameters that the test computed only if it passed
 procedure test_message(
   in  run: Run,
+      q: Prog,
       cmd: Cmd,
   out message: Str,
       falsified: Bool,
@@ -172,10 +175,57 @@ procedure test_message(
       message := error_text(RuntimeKind, runtime_message(Deferred(text))), reached := Some(text)
 
     case e =>
-      message := error_text(RuntimeKind, runtime_message(e))
+      message := value_or(example_failure(q, cmd, e), error_text(RuntimeKind, runtime_message(e)))
 
     case e =>
       message := error_text(InternalKind, internal_message(e))
+  end
+
+// the failure of the test of an example whose call gave another value than the example expects, by the call and both
+// values, in the notation of the checked program q, as gcd(12, 18) gave 3, expected 6, and None of other failures
+function example_failure(q: Prog, cmd: Cmd, e: RuntimeError): Option[Str] :=
+  match (cmd, e)
+    case (CTest(Owned(_, List(_, "example"), _), _, stmt), AssertionUnequal(left, right)) =>
+      map_option(example_call(with_notation(builtin_notation(), commands_of(q.cmds ++ q.builtins)), stmt.that), lambda call => call ++ " gave " ++ left ++ ", expected " ++ right)
+    case _ =>
+      None
+  end
+
+// the call of the test of an example, the side of its equation that applies the function, or the call of the procedure
+// with its ins and the refs before it, as example_stmt of ulang/check/check.u makes them
+function example_call(notation: Notation, stmt: Stmt): Option[Str] :=
+  match stmt
+    case SAssert(AOk(_, _, ECall(_, _, Name(List(), "=="), _, List(lhs, _)))) =>
+      Some(format_expr(notation, List(), "", lhs))
+
+    case SBlock(_, stmts) =>
+      let befores := List(for s in stmts for (_, before) in assigned(s.that) yield before) in
+      let calls := List(for s in stmts for (proc, ins) in called(s.that) yield (proc, ins)) in
+      match calls
+        case List((proc, ins)) =>
+          Some(proc.base ++ "(" ++ join(", ", List(for (mode, exprs) in List(("in ", ins), ("ref ", befores)) if exprs != List() yield mode ++ join(", ", List(for expr in exprs yield format_expr(notation, List(), "", expr))))) ++ ")")
+        case _ =>
+          None
+      end
+
+    case _ =>
+      None
+  end
+
+function assigned(stmt: Stmt): List[(Var, At[Expr])] :=
+  match stmt
+    case SAssign(upd) =>
+      upd
+    case _ =>
+      List()
+  end
+
+function called(stmt: Stmt): Option[(Name, List[At[Expr]])] :=
+  match stmt
+    case SCall(proc, ins, _, _) =>
+      Some((proc, ins))
+    case _ =>
+      None
   end
 
 function prover_of(q: Prog): Prover :=
@@ -253,3 +303,14 @@ function cmd_name(cmd: Cmd): Str :=
     case _ =>
       ""
   end
+
+// the failure of an example names its call with the value that it gave and the value that the example expects
+test example_failures() :=
+  var own: Mod, q: Prog, outcomes: List[Outcome], cache: Map[Name, Val] := empty()
+  let text := "data D :=\n  case A\n  case B\n\nfunction f(d: D): D :=\n  example f(A) == B\n  d\n\nprocedure p(in d: D, out e: D, ref r: D) :=\n  example p(in A, out B, ref A => B)\n  e := d\n"
+  parse_text(in text, out own)
+  check_program(in Source(List(own), List(), List("main")), out q)
+  test_outcomes(in q, load(q), List("main"), List(), out outcomes, ref cache)
+  assert outcomes == List(
+    Outcome("f.example.1", "f(A) gave A, expected B", None),
+    Outcome("p.example.1", "p(in A, ref A) gave (A, A), expected (B, B)", None))
