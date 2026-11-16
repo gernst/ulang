@@ -1,5 +1,5 @@
 // the equations of a definition, one per case of its outer matches and conditionals, as Isabelle's function package
-// makes them, so that a recursive function rewrites where the class of its argument has a constructor, see ideas/prove.md,
+// makes them, so that a recursive function rewrites where the class of its argument has a constructor, see ideas/verification.md,
 // section 6
 //
 // The walk keeps the variables of the equation as levels, the formals first, so that the value of a leaf replaces the

@@ -1,6 +1,10 @@
 # Verification
 
-1. **Contracts of functions** are not implemented, only those of procedures with their claims `correct p(…)`, see `ideas/prove.md`, where functions have only `requires`, which states their domain, also that of the builtins, e.g. `requires d != 0` of `/`, so that the exceptions of builtins, which no `raises` counts, are ruled out. Solution: `parse_spec` of `ulang/parse/parse.u` accepts `requires` on functions, which it already gives to `Spec.pre` for procedures, where `requires` and `ensures` join the examples in `Spec` of `ulang/syntax/syntax.u`, lines after `:=` that end as an example does (`parse_example` of `ulang/parse/parse.u`); examples of functions are then obligations that the prover checks against the contracts by evaluation, a cheap check that a contract is not false, and an example outside the `requires` of its function is an error.
+Lemmas about functions with proofs, the prover in `ulang/prove/`, contracts of procedures, and claims `correct p` that a procedure meets its contract, proven by invariants, are implemented; contracts of functions are a design, and so is the verification of ulang in itself, section 12. This file has the open items, Verification N for item N of the list below, and then the design in numbered sections, each marked as implemented or as the plan, which the items and the sources cite by their numbers, `section 4`.
+
+## Items
+
+1. **Contracts of functions** are not implemented, only those of procedures with their claims `correct p(…)`, see section 2, where functions have only `requires`, which states their domain, also that of the builtins, e.g. `requires d != 0` of `/`, so that the exceptions of builtins, which no `raises` counts, are ruled out. Solution: `parse_spec` of `ulang/parse/parse.u` accepts `requires` on functions, which it already gives to `Spec.pre` for procedures, where `requires` and `ensures` join the examples in `Spec` of `ulang/syntax/syntax.u`, lines after `:=` that end as an example does (`parse_example` of `ulang/parse/parse.u`); examples of functions are then obligations that the prover checks against the contracts by evaluation, a cheap check that a contract is not false, and an example outside the `requires` of its function is an error.
 2. **How strongly an obligation is established is not recorded.** Ideas, which need a design of their own: a status per obligation, proven, tested (by `l.lemma`, and Testing 1), or open; trusted facts by `assume … why "…"`; a command `ulang.bin audit <file>` that lists the assumptions and the obligations that depend on them; and runtime checks of the obligations that are not proven.
 3. **Proofs of claims `correct p(…)` give only invariants**, so a loop whose step needs a lemma at the values of its body stays open, e.g. reversing a list by a loop with the invariant `reverse(rest) ++ ys == reverse(xs)`, whose step needs a lemma about `reverse_onto`. Solution: steps of proofs at the points of the code, `call` of lemmas and `assert` inside loops and after calls, which the translation places into the run of the body (`run` of `ulang/prove/translate.u`).
 4. **Claims cover only part of the statements**: `for`, `try`, and `assert raises` in the bodies of procedures are gaps of their proofs (`unsupported` of `ulang/prove/translate.u`), and procedures with refs cannot be claimed, since an `ensures` cannot name the value of a ref before the call. Solution: `for` as a loop over the list of its items with an invariant of its own, `try` as a split by the handlers, and `old(x)` in `ensures`.
@@ -8,6 +12,296 @@
 6. **Lemmas about functions that are not recursive are never used as facts**, since `unfold` of `ulang/prove/simp.u` unfolds every call of such a function, so the term that a lemma rewrites never occurs: splitting a large match into helpers with a lemma each does not help the proof that uses them, and only a `call` of the lemma at its instance does. Solution: a function that a proven lemma rewrites stays folded where the lemma applies, or a function is declared opaque to the default proof.
 7. **The default proof gives up silently**: it splits a few times only, bounded by `Limits` of `ulang/prove/simp.u`, and a lemma that needs more stays open without saying that a limit ended the search; and products of unknowns stay uninterpreted by the arithmetic, so a goal such as `0 < y ==> 0 < y + x * x * y` stays open. Solution: the gap names the limit that ended the search; products with a constant factor normalized wherever the factor is known, and lemmas of `*` used as rewrites.
 8. **A goal closed by its own assumption stays open**: `lemma via_direct(in n: Int, k: Int, out t: Int) := requires 2 * k == n * (n - 1) ensures 2 * t == n * (n - 1)` with the proof `var s: Int`, `half(in n, k, out s)`, `t := s`, where `half` gives `2 * s == n * (n - 1)`, stays open at `… and (2 * t) == (2 * k) ==> (2 * t) == (2 * k)`, while `n * n` in place of `n * (n - 1)` proves. Solution: find why the simplifier does not close an implication whose conclusion is one of its assumptions after the products are normalized, in `ulang/prove/simp.u`.
-9. **Congruence over abstract types is unsound**: the e-graph takes the builtin `==` of values of an abstract type, which the declared `==` or `compare` of the type decides, as identity (`merge` of `ulang/prove/simp.u`), so that observers, matches on the representation, and `Size` follow by congruence. Reproduced (2026-11-15): with `data Frac := case Frac(n: Int, d: Int)` abstract, `num(f) := f.n`, and `==` by `a.n * b.d == b.n * a.d`, the test `frac(1, 2) == frac(2, 4)` passes, but `lemma (in a: Frac, b: Frac) := requires a == b ensures num(a) == num(b)` is proven, also `ensures a.n == b.n`, and also in another module that imports the type, since the prover unfolds `num` there too, so merging only outside the module of the type is not sound either; the lemmas get no test `l.lemma`, since the type is abstract. Solution: abstract types as quotients, by the visibility of importers, exported lemmas, representation invariants, and generated obligations of congruence, section 11 of `ideas/prove.md`.
+9. **Congruence over abstract types is unsound**: the e-graph takes the builtin `==` of values of an abstract type, which the declared `==` or `compare` of the type decides, as identity (`merge` of `ulang/prove/simp.u`), so that observers, matches on the representation, and `Size` follow by congruence. Reproduced (2026-11-15): with `data Frac := case Frac(n: Int, d: Int)` abstract, `num(f) := f.n`, and `==` by `a.n * b.d == b.n * a.d`, the test `frac(1, 2) == frac(2, 4)` passes, but `lemma (in a: Frac, b: Frac) := requires a == b ensures num(a) == num(b)` is proven, also `ensures a.n == b.n`, and also in another module that imports the type, since the prover unfolds `num` there too, so merging only outside the module of the type is not sound either; the lemmas get no test `l.lemma`, since the type is abstract. Solution: abstract types as quotients, by the visibility of importers, exported lemmas, representation invariants, and generated obligations of congruence, section 11.
 10. **A lemma about a function without formals stays open**: `lemma pos(in n: Int) := ensures one() == 1` over `function one(): Int := 1` is open with the goal `forall n => 1() == 1`, so the call of `one` is replaced by its body applied to no arguments, and the application of a literal is no term that simplifies. Found on 6ef17c3. Also met as `Box(h)()` for `top(): Box := Box(h)`, where the field of the constructor then does not simplify. Solution: unfold a call of a function without formals to its body itself, with a case in `ulang/prove/test/`.
 11. **A proof that cites a lemma with errors**: `check --prove` leaves the lemmas with errors of their own out of the program that it proves (`without_rejected_lemmas` of `ulang/ulang.u`), but a lemma without errors whose proof calls one of them stays, so its proof cites a lemma that the prover does not know, which may stay open with a misleading gap or fail inside the prover, untested. Solution: a case first, then leave out also every lemma whose proof cites a lemma left out, transitively, reported as not proven since it cites that lemma, never proven as if the cited one held.
+12. **No facts about the library, and none across packages**: the library has no lemmas, and imports drop the lemmas of the modules they load (`without_tests_of` of `ulang/parse/parse.u`), so a lemma about code over `Map`, `Set`, or `Buffer` unfolds their trees and lists, or knows nothing of them once item 9 keeps their representations from importers; and a fact proven in `ulang/syntax` is no fact of `ulang/check`, so the layers of the packages, which the imports check, work against the proofs. Solution: exported lemmas, steps 2 and 6 of section 11, first the laws of the containers of the library, `contains`, `size`, `insert`, `remove`, `get`, `put`, `++`, `--`, and the folds, then the exported lemmas of the packages of `ulang/` in the order of their layers.
+13. **Strings and characters are atoms** of the prover (D1 of section 7), so nothing is known of `++` of strings, `size`, `at`, `slice`, `chars`, or `str`, and the lexer, the printer, the escapes, and every lemma about names as texts are out of reach. Solution: a `Str` is the list of its characters to the prover, so that `++`, `size`, and `at` of strings are those of lists, a literal is the list of its characters, and `chars` and `str` are inverse; or exported lemmas of `str` over the builtins, as in item 12, which only tests can check; with a case first, `size(a ++ b) == size(a) + size(b)` of strings.
+14. **No semantics of ulang that a lemma can state**: the interpreter `ulang/run/run.u` is written as procedures, since the programs it runs may not terminate, so no lemma calls it, and no statement such as "the expansion keeps the meaning" or "a checked program does not go wrong" can be written. Solution: a reference semantics as functions, an evaluator of checked programs with fuel, which gives a value, an exception, or that the fuel ran out, over an environment of values, in a package of its own below `ulang/` (section 12), tested against the interpreter on the programs of `ulang/test/`, which both run to the same outcome where the fuel suffices; later relations defined by rules, if the prover gets inductive predicates.
+15. **Statements have no quantifiers** (sections 2 and 4, version 2), and the facts of a proof are ground, while a lemma over a semantics needs "for all environments", facts about the values of function types, and extensionality (open point 18 of section 10). Solution: version 2 of the proof language, quantified statements with named facts instantiated by `h(a)`, first in assumptions and in the hypotheses of inductions.
+16. **Claims say nothing of exceptions**: `raise` is the call of a contract `ensures false` (section 1), so a claim covers only the runs that end normally, while the parser and the checker raise `ParseError` and `TypeError` by design, and no contract says which exception a procedure raises under which condition. Solution: a contract per exception after `ensures`, over the fields of the exception and the formals, which every run that raises it satisfies, where a handler of a `try` in the body takes it as its assumption, with item 4 for `try` and open point 13 of section 10; the syntax is open.
+17. **Every run proves every lemma again**: `check --prove` and `make test` prove all lemmas of a file on each run, which takes seconds for the lemmas of `ulang/prove/test/` and would not for the thousands that `ulang/` needs. Solution: a store of proven lemmas below `out/prove/`, keyed by a hash of the lemma, its proof, the definitions it reaches (`definition_of` of `ulang/prove/translate.u`), the lemmas before it that are its facts, and the sources of the prover, so that a lemma whose key is stored is reported as proven without running, and any change of what it reaches proves it again; the store is also the record of the status of item 2.
+
+## Contents
+
+1. Status
+2. Specifications (design)
+3. Meaning, obligations, loops, and points of the code (design)
+4. The proof language (implemented, version 1)
+5. Simplification (implemented)
+6. Definitions, rewriting, and termination (implemented)
+7. Decision procedures
+8. Next steps
+9. Proposals
+10. Open points
+11. Abstract types as quotients (design)
+12. Verifying ulang in itself (design)
+
+## 1. Status
+
+Implemented, on `main`:
+
+- **Lemmas** `lemma l[A](in x: A, …, out y: B, …) := requires a, … ensures b` with the modes of a procedure in the head, where ins are universal and outs existential, `ref` is rejected, and a proof follows the contract directly (section 4); a lemma without a proof has the default proof. `CLemma` of `ulang/syntax/syntax.u`, `parse_lemma` and `parse_proof` of `ulang/parse/parse.u`, `check_proof` of `ulang/check/check.u`.
+- **The prover** (`ulang/prove/`): an e-graph with congruence closure (`egraph.u`), contextual simplification of nested sequents with theories, rules, and internal splits (`simp.u`), the equations of definitions (`equations.u`), termination proofs (`termination.u`), the checking of proofs (`proof.u`), the translation of checked programs (`translate.u`), and the default proof and the driver of lemmas (`lemma.u`).
+- **Commands**: `ulang.sh check --prove [<path>[:<lemma>] …]` prints `lemma l proved` or `lemma l open`, with an error of the kind `proof` per gap, a JSON line at the step with the goal as a detail (`gap_diagnostic`), and one per function whose termination is not proven (`termination_diagnostic`); a named lemma is proven after those before it, which are its facts, and those after it are skipped. `ulang.sh check --test` tests each lemma on enumerated values (`l.lemma`, which claims do not get), and `check --prove` runs these tests and then proves it. `make termination` reports the recursive functions of `ulang/` whose termination is not proven. The VS Code extension shows `▶ Prove` above lemmas and the errors of proofs as warnings at their steps; after a change of `vscode/`, `make install` again.
+- **Tests**: the lemmas that prove are in `ulang/prove/test/` (`arithmetic.u`, `lists.u`, `logic.u`, `naturals.u`, `trees.u`, `proofs.u`, `procedures.u`, and `contracts/`), those that stay open, by intent or as a guard of soundness, are cases of `ulang/test/errors/lemmas.u`, also the claims `claim_*` that stay open, and the errors of proofs and claims are cases of `ulang/test/errors/parse.u` and `types.u`.
+- **Contracts of procedures** `requires a, …` and `ensures b` after `:=`, on the signature in `export` of an exported procedure, and **claims** `lemma l(in x: A, …, out y: B, …) := correct p(in a, …, out y, …)`, whose proof is an `invariant e` per `while` of the body in the order of the source, each over the variables at its loop; none is the invariant `true`. The claim does not restate the contract, and invariants are not in the code (section 2). The translation runs the body symbolically into the proof terms of section 4 (`claim_of`, `run`, `run_loop` of `ulang/prove/translate.u`): assignments are definitions, `if` and `match` splits that carry the rest of the body, calls the calls of the contracts, which proofs of claims may call at any time, also recursively (section 3, point 3), `raise` the call of a contract `ensures false`, and loops the split `InvariantTerm`, checked by `invariant_gaps` of `ulang/prove/proof.u` (section 3, loops, point 1). Claims are no facts and no lemmas to call, since they hold only for runs that end. The simplifier is unchanged.
+
+Not implemented:
+
+- **Of claims**: `old(x)` of refs and claims of procedures with refs (open point 10); `for`, `try`, and `assert raises` in bodies, which are gaps `Unsupported`; loop contracts (section 3, loops, point 2); other steps than invariants in proofs of claims, and the points `at …` of the code (open point 1); definedness (section 3, point 6); claims of procedures of other packages; tests of claims by running the procedure, which may raise or not end; the gaps that the prover leaves in claims, `via_direct` and the printing of goals, are Verification 5 and 8.
+- **Otherwise**: contracts of functions, quantifiers in statements, exported lemmas, and the proof forms of version 2.
+
+## 2. Specifications (implemented for procedures, a design for the rest)
+
+- **Contracts follow `:=`**, before the body. Functions have only `requires`, which states their domain, and facts about their results are lemmas. Procedures have `requires` and `ensures`, one contract each for now, where `ensures` sees the outs and refs, and `old(x)` is the initial value of a ref (ins cannot be assigned):
+
+  ```
+  function div(m: Int, n: Int): Int :=
+    requires n != 0
+    ...
+
+  procedure sum(in n: Int, out s: Int) :=
+    requires n >= 0
+    ensures  2 * s == n * (n - 1)
+    var i := 0
+    s := 0
+    while i < n do
+      s := s + i, i := i + 1
+    end
+  ```
+
+- **Quantifiers** are written like lambdas, `forall x: T => e` and `exists x, y => e`, where the types may be omitted and are inferred, and only occur in specifications and lemmas; the functions `exists` and `forall` of the containers share the names (open point 15).
+- **Lemmas** are implemented (section 4) with ins and outs as modes. The claim `correct p(in a, out b)` with the arguments of a call is implemented for procedures: a lemma whose statement is that the call meets the contract of `p`.
+- **Outs of lemmas** are implemented: a lemma with outs states that for all ins that satisfy the `requires` there are outs that satisfy the `ensures`; its proof gives them by assignments, `q := e`, and a proof that uses it binds them to witnesses by the outs of a call. In a claim `correct p(…)` the outs of the lemma are those of the call, which the run determines, not the proof: under partial correctness the claim holds for the outs of every run that ends normally, and under total correctness this is exactly the existential, since a run exists and gives them.
+- **Scopes are explicit.** A proof sees only names that it or its lemma binds: the formals of the lemma, which name every argument of the call in the claim, and at a point `at …` of the body its locals in scope there, which the quoted code names. The names of the lemma may differ from the formals of the procedure, whose contract is renamed to them.
+- **No invariants in the code.** Loops are specified in the proofs of the procedures, see below.
+
+## 3. Meaning, obligations, loops, and points of the code (in part implemented)
+
+**Meaning.**
+
+1. **`correct p`** states for all ins and initial refs: if the `requires` hold, every run of the body that ends normally satisfies the `ensures`. The claim does not restate the contract.
+2. **Calls use contracts**: at a call `q(...)`, the `requires` of `q` are proven, the outs and refs havocked, and the `ensures` assumed. Callers depend only on the contract, not on whether or how it is proven. The call of a lemma in a proof is the same rule over values, which is why proofs write it as a call.
+3. **Recursion.** Each body is proven assuming all contracts, including its own and those of procedures that call it back, which is sound for partial correctness for all of them at once by induction on the depth of calls (Hoare's recursion rule, generalized to mutual recursion). Proofs have no order and no cycles. Lemmas, unlike this, are proven in their order, and a lemma calls only those before it and itself as an induction hypothesis.
+4. **Unproven contracts** make this conditional: if the contract of `q` is not proven, the proofs that use it hold only under it, which `check --prove` is to report, e.g. `sum proved, assuming q`.
+5. **Every contract is an obligation.** Without a `correct` lemma, the verifier tries a default proof and reports the remaining goals, including those at loops.
+6. **Definedness**: calls of functions with `requires`, `/`, `%`, and `raise` give obligations wherever they occur, taking guards into account, as in `n != 0 ==> m / n > 0`.
+7. **Functions terminate**, which the prover proves for the recursive functions that the lemmas of a module reach, and only those unfold (section 6); `decreases e` after `:=` is planned as the fallback measure (Checker 2 of `ideas/checker.md`).
+
+**Obligations.** The verifier splits `correct p` into labeled obligations with positions, which errors show and proofs refer to: the `requires` of calls and the definedness conditions, every `assert` of the code, which then also holds as a fact, for every loop those of its invariant or contract (entry, preservation or step, and use), and the `ensures` at the end of every path through the body, where a `raise` ends a path that `ensures` does not cover, unless a handler of a `try` catches it.
+
+**Loops.** The proof of a procedure gives each loop an invariant or a loop contract.
+
+1. **Invariant `I`**: it holds on entry, `I` and the test lead through the body to `I`, and `I` and the negated test hold after the loop, where only the variables the loop assigns are havocked.
+2. **Loop contract `requires P ensures Q`**: a loop is the recursive procedure `if b then body; loop(ref vs) end` over the variables it assigns, and the contract is its contract, proven by assuming it for the remaining iterations. `P` holds at every test of the loop, and `Q` relates that state, as `old(v)`, to the state at the exit: exit, `P` and not `b` imply `Q` with `old(v)` as `v`; step, from `P` and `b` the body leads to a state where `P` holds and `Q` up to the exit implies `Q` from before the body; use, `P` holds on entry, then the assigned variables are havocked and `Q` assumed with `old(v)` as the values on entry.
+3. **Invariants are a special case**, `requires I ensures I and not b`. An invariant relates the start of the loop to the current state, which may need ghost variables, while `Q` relates the current state to the end, for which `old` suffices: reversing a list into `ys` has the invariant `rev(xs) ++ ys == rev(xs0)` with the initial `xs0`, but the contract `ensures ys == rev(old(xs)) ++ old(ys)`.
+
+**Points of the code in proofs.** A proof of `correct p` refers to the loops, branches, and calls of the body: by the order of goals (KIV, KeY), by matching the code, quoted modulo positions, `at while i < n invariant …`, by labels in the code, or by proof outlines. Matching the code, with the order as the fallback, is the candidate. The steps of section 4 are what such a point holds.
+
+References: G. Ernst, Loop Verification with Invariants and Contracts, VMCAI 2022; T. Tuerk, Local Reasoning about While-Loops, VSTTE 2010; E. Hehner, Specified Blocks, VSTTE 2005; A. Charguéraud, Characteristic Formulae for the Verification of Imperative Programs, ICFP 2011; C. A. R. Hoare, Procedures and Parameters: An Axiomatic Approach, 1971; T. Nipkow, Hoare Logics for Recursive Procedures and Unbounded Nondeterminism, CSL 2002.
+
+## 4. The proof language (implemented, version 1)
+
+**Principles.**
+
+- **Simplification does the routine work.** The goal is simplified after every step and at the end of every block, with every fact in scope and the lemmas proven before, so a proof only says what the simplifier does not find: which split, which lemma at which arguments, which intermediate fact, which witness. A written case that simplification would close is allowed, so that proofs survive a stronger simplifier.
+- **A tree of blocks, not a tactic script.** A block has one goal; its steps add facts and witnesses, and at most one split, its last step, replaces the goal by its cases, each a block of its own. No goal stack, no focusing, no step that leaves goals for later, so an open goal is reported at the block where it stays open.
+- **Steps are statements.** `let`, `var`, calls, `assert`, assignments, `match`, and `if` mean in a proof what they mean in a procedure, over values: a lemma is used as a procedure with a contract is called, a cut is an assertion, and the outs of a lemma are assigned. The keywords of proofs are `induction` and `invariant`, besides `correct` of claims.
+- **No nesting of declarations.** No lemmas inside proofs and no proofs inside cuts; what needs a proof of its own is a lemma at the top level, called where it is used.
+- **Facts are not named**: simplification uses every fact in scope, and the facts of a proof are ground, so a name would only cite what is used anyway. Names come back with quantifiers (version 2).
+
+**Syntax.** The proof follows the contract, as a body follows the contract of a procedure:
+
+```
+lemma take_drop[A](in n: Int, xs: List[A]) :=
+  ensures take(n, xs) ++ drop(n, xs) == xs
+  induction xs
+    case List(x; rest) =>
+      take_drop(in n - 1, rest)
+  end
+
+lemma halves(in m: Int, out q: Int, r: Int) :=
+  requires m >= 0
+  ensures  m == 2 * q + r and 0 <= r and r < 2
+  q := m / 2, r := m % 2
+
+lemma remainder_of_halves(in m: Int) :=
+  requires m >= 0
+  ensures  m % 2 < 2
+  var q: Int
+  var r: Int
+  halves(in m, out q, r)
+  assert r < 2
+```
+
+`Proof(steps: List[At[Step]], split: Option[At[Split]])` of `ulang/syntax/syntax.u`, a datatype of its own, so that a split is last by its type; `parse_proof` takes the `let` and `var` lines first, one variable per step, and ends a proof at a token that starts no step, and `format` prints the steps as the statements of a body (`proof_text` of `ulang/format/format.u`).
+
+| Step | Meaning |
+|---|---|
+| `let x := e` | a definition: a fixed variable `x` with the fact `x == e`, which an open goal names where it has `e` |
+| `var q: T` | a witness, bound by an out of a call |
+| `l(in a, …, out q, …)` | the instance of the lemma `l`: its `requires` must simplify to true, else each is a gap, and its `ensures` is then a fact, at the witnesses for its outs; `l` is a lemma proven before, or the lemma itself as an induction hypothesis |
+| `assert e` | a cut: `e` must follow by simplification, and is a fact afterwards |
+| `q := e, …` | the witnesses of the outs of the lemma, each once, on every path, also in the cases of a split |
+
+| Split | Cases |
+|---|---|
+| `induction x case p => … end` | on a formal of a datatype: a case per constructor, with the fields as variables and the hypothesis for each recursive field; on a formal of type `Int`: the case `n < 0`, which must close, `case 0`, and a catch-all for `n > 0` with the hypothesis for `n - 1`; the hypotheses decrease in the lexicographic order of the formals by their first induction in the proof, so a hypothesis keeps the formals before its own at their values and is generalized over those after it, which rules out cycles of inductions on different formals, nested or in different cases (`inductions`, `fixed`, and `hypothesis` of `ulang/prove/proof.u`); the hypothesis of each induction around a step is called at any argument that the facts make the field or `n - 1`, with the formals before its own unchanged |
+| `match e case p => … end` | a case per constructor of the type of `e` with the fact `e == p`, or per literal with the negations of those before |
+| `if c then … else … end` | `c` and `not c`; the `else` may be left out if that case closes |
+
+Cases that are not written must close by simplification. Patterns of cases may be nested and have guards: a split has a case per leaf of its patterns (section 9), in which each case that matches the leaf is checked, under its guard, and the cases after a guarded one under its negation; induction on an integer takes only `case 0` and a catch-all.
+
+**Checking** (`check_proof`, `proof_step`, `proof_split`, `proof_cases` of `ulang/check/check.u`): the steps as statements over the formals and the locals before, a call against `Sig.lemmas` with the type parameters instantiated, the witnesses unassigned until a call binds them, the outs of the lemma assignable once and assigned on every path, joined over the cases of splits, where constructors that the cases do not cover count as paths that do not; the errors `UnknownLemma` and `NotInducible`, and those of statements.
+
+**Proving** (`check_proof` of `ulang/prove/proof.u`): the translation gives the proof as a `ProofTerm` over the variables in scope as indices (`proof_term` of `ulang/prove/translate.u`); the walk keeps the fixed variables as levels, the levels of the variables of the terms, the facts, the goal, and the outs not yet assigned, which are existential in the goal, and gives the gaps, each an `OpenGoal` with the goal printed by `printable`, an `UnprovenCall`, or `Unsupported`, at its position.
+
+**Version 2, deferred**: quantifiers in statements with named facts and their instantiation `h(a)`; `obtain` of existential facts other than lemma outs; facts used only when cited (open point 8); `calc` chains (open point 5); proofs of procedures, where the same steps occur at the points of the code (open point 1).
+
+## 5. Simplification (implemented)
+
+No external provers: simplification is one procedure in ulang, in `ulang/prove/simp.u`, which turns a goal into a single goal equivalent to it, given the facts, or closes it. Every step preserves equivalence, so simplifying never turns a provable goal into an unprovable one; case splits are made internally, kept only if all branches close; results are deterministic, and failures show the simplified goal. This is weaker than SMT, which is why proofs make the structure explicit.
+
+**Sequents.** Goals, facts, lemmas, and induction hypotheses are nested sequents
+
+```
+forall xs. A1 and … and Ak ==> (exists ys1. C11 and … and C1m) or … or (exists ysj. Cj1 and …)
+```
+
+`Seq(fixed, assms, concls)` and `Concl(vars, body)` of `ulang/prove/simp.u`, where `false` is a sequent without conclusions and `not A` is `A ==> false`. Normalization moves the connectives, quantifiers, and `if` on `Bool` into this structure, again after unfolding, splices conjunctions and existentials of assumptions into the binders, and eliminates variables by the one-point rule. A conclusion that is a negation `not A`, as `a != b` is, is the assumption `A`, also in a disjunction, since `not A or R` is `A ==> R`, and the sequent is simplified once more with them, so that the equations of disequalities are facts for all other parts (`negated_conclusions`); comparisons stay in conclusions, which the arithmetic refutes anyway. Comparisons are never negated: `<=`, `>`, and `>=` of the prelude are builtins of the prover (`LessEq`, `Greater`, and `GreaterEq` of `ulang/prove/syntax.u`), `>` and `>=` are `<` and `<=` with their sides swapped, and a negation moves into the comparison, `not a < b` to `b <= a`, which holds for any total order; only `!=` stays a negated `==`.
+
+**Terms.** The prover works on its own terms, `Term` of `ulang/prove/syntax.u`, translated from checked `Expr`s: indices for binders and levels for the variables of the context (Kovács' elaboration-zoo), names as the checker resolved them, described by `Decls` (definitions with their equations and the definitions they reach, constructors, datatypes, ranks, abstract types, ordered types, and the terminating functions), builtins as the names of checked programs (the aliases `Eq`, `Less`, `And`, `Or`, `Not`, `Plus`, `Minus`, `Times`, `Div`, `Mod`, `Compare`, `Size`), and canonical linear sums `ESum`.
+
+**Contextual simplification.** Each part of a sequent is replaced by one equivalent to it in its context: the assumptions before it, the conjuncts before it in a conclusion, and the negated conclusions before it. Siblings see only those before them.
+
+**The context** (`Ctx`) holds the variables, the e-graph of the ground equations, the inequalities `t >= 0`, the rules, and what is left of the limits (`Limits`: merges per fact, probe merges and probes, splits, unfoldings and rewrites nested, eliminations and constraints of Fourier–Motzkin, and the rounds and nodes of saturation, as one record).
+
+- **The e-graph** (`ulang/prove/egraph.u`): nodes interned over the classes of their arguments, a union-find whose larger class stays the representative, use lists, and congruence by rehashing the parents of a merged class, as persistent maps, so that a nested sequent extends the e-graph of its parent and splits need no undo. It knows no theory: `unite` reports the classes that congruence makes equal, which the simplifier merges by the theories (`join`, `merge_classes`), and the parents of a merged class, which it simplifies again (`resimplify`), so that `size(xs)` reaches `1 + size(ys)` after `xs == List(y; ys)`. A term is rewritten to the best term of its class (`extract`: a literal, else a value, else a sum, the solved form of an atom, else the least in the term order), which is how facts reach their uses.
+- **Theories**: constructors are injective, distinct, and acyclic, except those of abstract types, whose representation `==` need not respect (`free_head`); linear integer arithmetic solves an equation for its greatest atom with a unit coefficient, else keeps it divided by the gcd, and decides inequalities by Fourier–Motzkin with tightening, giving entailed equalities back.
+- **Rules**: assumptions with variables, among them the lemmas proven before, applied first syntactically and then modulo the e-graph (`instance`, by `ematch`), with their conditions proven; equations that orient by the term order rewrite, others take part in a saturation that decides equations (`is_equal_by_rules`: a copy of the e-graph saturated with the unconditional equations in both directions for a few rounds, so that commutativity is usable).
+- **Internal splits**, kept only if all cases close, within the split limit: on the conditions and matches of the sequent, then on the first disjunct of a disjunctive assumption, then on the variables of type `Bool` that the sequent mentions, then on the variable on which the unfolding of a recursive function is stuck (at cost 2).
+- **Default proof** (`ulang/prove/lemma.u`): simplification, else induction on one of the formals of a datatype, with the lemmas proven before as facts, added after induction.
+- **Printing**: an open goal is simplified once more, where a call of a function that is not recursive keeps its name if the match or if at the top of its body stays undecided (`for_printing`), so that it shows `maximum(a, b)` instead of its body, while proofs unfold every such call (`lazy_goal` of `ulang/test/errors/lemmas.u`); then it is folded back into the functions that are not recursive whose bodies it has, where that is smaller (`printable`: a short saturation of an e-graph of each term with the bodies as patterns, and the smallest term of its class), so that it reads as written, `reverse(xs)` for `reverse_onto(xs, [])` and `27 <= x` for `not x < 27`. Only the texts of open goals depend on it.
+
+References: G. Nelson, D. Oppen, Simplification by Cooperating Decision Procedures, TOPLAS 1979; R. Shostak, Deciding Combinations of Theories, JACM 1984; S. Conchon, E. Contejean, J. Kanig, S. Lescuyer, CC(X), ENTCS 2008; M. Willsey et al., egg: Fast and Extensible Equality Saturation, POPL 2021; W. Pugh, The Omega Test, 1991; D. Miller, Higher-order patterns, 1991.
+
+## 6. Definitions, rewriting, and termination (implemented)
+
+**Equations of definitions** (`def_equations` of `ulang/prove/equations.u`): one per leaf of the patterns of a match on a variable or on a tuple of distinct variables (section 9) and per case that matches the leaf, under its guard and the negated guards of the cases before, and per branch of an if; the rest is a leaf, decided where it is still a match or if.
+
+**Unfolding** (`unfold` of `ulang/prove/simp.u`): a function that is not recursive unfolds always; a recursive one only if its termination is proven, by the first of its equations that matches modulo the e-graph and whose conditions hold, else where the match or if of its body is decided, which leaves the conditions for splits; a recursive function whose termination is not proven stays uninterpreted, since unfolding `f(x) = f(x) + 1` would prove false. Nested unfoldings are limited to 256.
+
+**Termination** (`terminations` of `ulang/prove/termination.u`), proven by the prover, not the checker: a function is recursive if it reaches itself by the names in the bodies, or, where a datatype is reflexive, a function type in its fields leading back to it, as `Box(f: (Box, Int) -> Int)`, through a function value: an application of a value of a type that names such a datatype or a parameter calls every function that such values may hold, those passed whose signatures name it and those that the lambdas of such formals call (`reflexive_sorts` of `ulang/prove/translate.u`), a call that the termination does not analyse, so `h(b: Box, n: Int) := b.f(b, n) + 1` does not unfold, whose equation would give `h(Box(h), n) == h(Box(h), n) + 1`; for the components of the recursive functions that the lemmas of a module reach, the recursive calls with the conditions around them, also in the cases of matches, by the leaves of their patterns, and under the lambdas of the folds, `exists`, and `forall` of the containers of the library, where the element is smaller than the container; measures are the builtin `size` of the formals of datatypes (0 for a constructor without fields, else 1 and the sizes of all fields, 0 for literals, with `size(xs ++ ys)` and `size(T.f(x)) < size(x)` for accessors), the Int formals, their negations, absolute values, and differences, so that `gcd` terminates by its divisor, the differences of the comparisons in the conditions of a body, and for mutual recursion the sums of sizes and slots of positions; a lexicographic order is searched greedily, as Isabelle's `lexicographic_order`, each decrease proven by the simplifier. A component that does not terminate is an error of the kind `proof` at the call that no measure decreases, and its functions stay uninterpreted. Of the library, `distinct`, `separated`, `sort` (which need lemmas of sizes), and `list_count` and `list_values` of `ulang/test/enumerate/enumerate.u`, which the cases load with the library (which count down to `n == 0` and do not terminate for a negative `n`) are open (`library_terminates` of `ulang/test/errors/lemmas.u`); `make termination` lists 82 open functions of `ulang/`.
+
+## 7. Decision procedures
+
+| | Procedure | Status |
+|---|---|---|
+| D1 | `compare` and `<` on values: integers, booleans, tuples, constructor terms of datatypes ordered by structure | done; strings and characters stay atoms |
+| D2 | `compare` by the context, constructors of abstract types not free | done |
+| D3 | ground clauses: splits on disjunctive assumptions | done, by splitting, without unit propagation |
+| D4 | `Bool` as a finite type: splits on its variables | done; other finite datatypes not yet |
+| D5 | constructor exhaustiveness: `xs != List()` gives the other constructor | partly, by stuck splits |
+| D6 | `/` and `%`: the equation, bounds, and sign | done, by literals, and by a variable divisor where the facts give that it is not 0, with the bounds where they give its sign |
+| D7 | integer completeness: the Omega test, or branch and bound | open; `integer_infeasible` |
+| D8 | commutative rings: products as monomials, squares at least 0 | done |
+| D9 | induction on integers | done, in proofs |
+
+## 8. Next steps
+
+In the order I would take them, each with the problem, the solution, and where.
+
+1. **Unfoldings as unions**, the rest of a step of an earlier plan, *not needed now* (2026-11-12): no goal was found that it would close, since facts enter the e-graph and their parents are simplified again after merges, and conclusions are simplified after all facts; the lazy unfolding that it was to serve only prints (section 5), so it needs none. Take it up with a goal that fails for the order of unfolding. *Problem*: unfolding happens in `simp_term`, which rebuilds terms bottom-up and returns them, so the unfoldings of the goal's terms never enter the e-graph, whose parents are simplified again after a merge only for the terms of facts: results depend on the order of unfolding, and printing needs an e-graph of its own. *Solution*: thread the context through `simp_term`, so that each unfolding and rewrite `t → u` is a union by `join`, with the theories and the parents simplified again, where the threading stops wherever the facts change, in the branches of an if, trial merges, and nested sequents; extraction ranks an unfolded application after its unfolding, else a class would give back the call (as for the definitions of proofs, `term_rank`); then the unconditional equations of definitions as rules matched against the classes of the e-graph of the context within the node budget, then the conditional ones with their conditions proven by the simplifier; `printable` extracts from the e-graph of the context. No memo: *measured* (2026-11-12), `simp_term` threading the context and keeping the normal forms of the terms simplified since the facts or the budget of merges last changed proves the same lemmas, and over five runs of `ulang/prove/test/` takes `arithmetic.u` from 366 to 503 ms and `lists.u` from 447 to 386 ms, the memo of applications only 463 and 376 ms, of defined functions only 453 and 451 ms, and the threading alone 406 and 457 ms, since the memo lives only between two facts; reverted. *Considered and rejected*: sequents whose terms are classes of a shared e-graph, since e-graphs over binders are known to be tricky, and the indices and levels of the sequents and the binders of lambdas, matches, and conditionals would have to enter the classes. *Limit*: unions reach only what the equations of definitions cover (`def_equations` of `ulang/prove/equations.u`); a body that is still a match or if after them, a decided leaf, a match on a computed value, or a call under the lambda of a fold, is unfolded by the walk of the simplifier (`decided_body`, `select`), which stays, so the order of unfolding stays for those, and the coverage of definitions by equations is what makes unfolding complete. *Risk*: the goal's terms become parents that every merge simplifies again, which may cost more than the threading; the budget of merges then has to cover them. *Where*: `ulang/prove/simp.u`, `egraph.u`. To be measured.
+2. **Termination of the rest of `ulang/`.** *Problem*: 82 functions are open in `make termination`, mostly passed as values or called under lambdas of other functions, recursion on filtered lists, and recursion on results of functions. *Solution*: calls through functions passed as values, by their uses; lemmas of sizes (`size` of a filter, of `take`) as facts of the obligations; case splits in obligations on results such as `shape(t)`; and `decreases` for the rest (Checker 2 of `ideas/checker.md`), until `make termination` can become a check of `make test`.
+3. **The Omega test** (D7). *Problem*: Fourier–Motzkin misses `27 <= 11x + 13y <= 45, -10 <= 7x - 9y <= 4`. *Solution*: the dark and grey shadows of Pugh, or branch and bound on the rational solution. *Where*: `is_unsat` of `ulang/prove/simp.u`.
+4. **Arithmetic over classes**. *Problem*: the inequalities are terms, simplified again after each union. *Solution*: sums and inequalities over class ids, entailed equalities fed back to the e-graph. *Where*: `simp.u`, `egraph.u`.
+5. **Exhausted limits in reports**: Verification 7.
+6. **Version 2 of the proof language**, deferred (section 4).
+7. **Contracts of functions and exported lemmas** (section 2; Verification 1): with abstract types uninterpreted for lemmas of other modules.
+8. **Abstract types as quotients** (section 11; Verification 9), which needs the exported lemmas of step 7 and fixes the soundness of `==` on abstract types.
+
+## 9. Proposals
+
+**Definitions kept as names** (implemented). A variable of `let x := e` is marked as defined (`defined_var` of `ulang/prove/syntax.u`, a module that no program has, so that the mark survives rebinding), and the simplifier keeps it: `one_point` does not eliminate it, the arithmetic solves an equation for it before any other atom (`is_solved_before`), so that it stays equal to its value, and extraction takes it last (`term_rank`), so that no term is rewritten to it and the rules still see its value; reasoning sees `e` wherever `x` was, as after the elimination. Printing (`named_definitions` of `ulang/prove/simp.u`) folds the value of each defined variable, as its equation in the simplified sequent has it, into its name, the last definition first, so that a value inside another one folds after it, and leaves out the equation and the variable where it no longer occurs (`proof_definitions_named` of `ulang/test/errors/lemmas.u`). *Open*: a value that the simplifier combines with other terms, as `x + 1` in a sum, is printed expanded, since folding is syntactic.
+
+**Nested patterns and guards in splits** (implemented). A case may cover only part of a constructor: after `case List(x, y; rest)`, a case `List(x; rest)` means `Cons(x, Nil)`. `leaves` of `ulang/prove/patterns.u` compiles the patterns of a match into a decision tree (Wadler 1987, Maranget 2008), as the exhaustiveness check of the checker, `missing` and `is_useful` of `ulang/check/check.u`, specializes the rows: the first column is split on the constructors of its datatype where a row has a constructor, a row with a variable or wildcard going to every branch, on a literal into the literal and the rest with its negation, and else dropped, where a first row of variables without a guard ends the split. A leaf is a value over new variables, named as the first row that binds them or else as their fields, with the conditions of the literals and the rows that match it, up to the first one without a guard, each with the values of its variables. Proofs check each case once per leaf that it matches (`leaves_gaps` of `ulang/prove/proof.u`), with the equation of the leaf as a fact, the guard as a fact of its case and negated for the cases after it, and a leaf without a case must close; induction splits the formal on all its constructors, also where only catch-alls are written, and has the hypotheses for the recursive fields of the constructor of the leaf. The equations of definitions are one per leaf and case (`leaf_equations` of `ulang/prove/equations.u`), also of a match on a tuple of formals, and the termination analysis takes the leaves for the matches in bodies (`leaf_calls` of `ulang/prove/termination.u`), with the negated guards of the cases before. *Open*: a case checked at several leaves is reported at each one that it leaves open, without the leaf in the message; `expand` and `hole_term` of `ulang/prove/patterns.u`, `hits_equations`, and `hits_gaps` are not proven to terminate.
+
+## 10. Open points
+
+1. **Proofs of programs**: proofs of claims are invariants by the order of the source; open are the steps inside the points `at …` of loops and calls (Verification 3), and which of the ways to refer to points of the code.
+2. **Arithmetic**: settled for now, Fourier–Motzkin with tightening, with the Omega test as a next step (section 8, step 3).
+3. **Orientation**: rewrite rules only from left to right, or also `using <- l`; settled for equations that do not orient, which saturation uses in both directions.
+4. **More induction**: settled for integers; computation induction `induction f(xs, ys)`, whose cases follow the `match` of `f`, is open.
+5. **`calc` chains** for equational proofs, which cuts cover for now.
+6. **Names**: settled, the keywords `induction`, `correct`, and `invariant`, and the statements as steps.
+7. **Partial instantiation** `h(a, _)`, with version 2.
+8. **Facts kept from simplification**, used only when cited.
+9. **Unfolding functions that are not recursive** always may break abstractions, e.g. `max`; open goals keep their calls where the body stays undecided (section 5), and printing folds the rest back.
+10. **Refs in claims**: a ref of the procedure as an in for its initial value and an out for its final value.
+11. **Contracts without a `correct` lemma**: tried by a default proof, or reported as unproven.
+12. **Several contracts per procedure**, e.g. as claims `correct p ensures …`.
+13. **Total correctness**, by `decreases` on loops and procedures, and claims about exceptions.
+14. **Runtime checks** of contracts in the interpreter.
+15. **Quantifiers and the functions `exists` and `forall`** of the containers share their names, which do not clash, since the parser tells the unbounded `forall x: T => e`, which occurs only in specifications, from the call `forall(c, p)` by the `(`; deferred: bounded quantifiers would replace the functions (Syntax 1 of `ideas/syntax.md`, not convinced yet).
+16. **Splitting on ground clauses**: settled by internal splits on disjunctive assumptions.
+17. **Theories as values or tags**: a tag dispatched by `match`, as now.
+18. **Equations between functions** among the assumptions, which need extensionality.
+19. **Speed**: the e-graph is persistent maps with interned nodes; a memo of the simplified terms, threaded through simplification, did not pay (section 8, step 1).
+
+## 11. Abstract types as quotients (design)
+
+*Problem* (Verification 9): the e-graph takes `a == b` as the identity of its terms (`merge` of `ulang/prove/simp.u`), also for values of an abstract type, whose `==` is the declared `==` or `compare` of its module, which may identify different representations. With `data Frac := case Frac(n: Int, d: Int)` abstract, `num(f) := f.n`, and `==` by `a.n * b.d == b.n * a.d`, `frac(1, 2) == frac(2, 4)` holds while their `num`s differ, and still `requires a == b ensures num(a) == num(b)` is proven, inside the module and in one that imports it, since the prover unfolds `num` everywhere, as it unfolds every definition of the program (`translate` of `ulang/prove/translate.u`).
+
+*Idea*: an abstract type is a quotient. A value of it is, for its importers, its class under the declared `==`, so outside its module the e-graph identifies `a` and `b` by `a == b`, and congruence is sound, as long as nothing outside sees the representation: an importer reasons about the type only by its exported functions and the exported lemmas about them, e.g. sets and maps by `contains(x, insert(y, s)) == (x == y or contains(x, s))`, not by AVL trees. The implementation earns this by obligations that the prover generates for it: the declared `==` is an equivalence, and every exported function respects it, both on the representations that satisfy the invariant of the type, which every exported function establishes and preserves. A function that observes the representation, as `num` of `Frac`, is then a congruence obligation of its module that fails, an error there, while the lemma `num(a) == num(b)` of an importer is rightly proven from the facts of the interface.
+
+**Visibility of the prover.** Importing a module makes only its public part available, to the prover as to the checker:
+
+- A lemma of a module `m` sees the declarations that `m` sees, its own, the exports of the members of its package and of the packages it imports, and the library, as the checker resolves names, and the exported lemmas of those modules, as facts proven where they are declared.
+- A definition of another module unfolds only where its unfolding gives a term of public names only, names that `m` sees: an exported function whose body is a term over exported functions, constructors of datatypes that are not abstract, and builtins unfolds as now, while one whose body names a private function, a constructor or field of an abstract type, or a declaration of a package that `m` does not import, stays uninterpreted, known only by the exported lemmas about it. The check is per equation of the definition (`def_equations` of `ulang/prove/equations.u`), so an equation whose right side is public unfolds where another of the same function does not.
+- Within a package the same holds between its members, whose private declarations and representations of abstract types are private to their file.
+- A function that does not unfold needs no proof of termination from the importer; its own module proves it, as its lemmas.
+
+**The implementation half.** Inside the module of an abstract type `T`, the representation is visible, and a lemma there reasons about it, where `==` at `T` is the declared one, not the identity of representations:
+
+- The builtin `==` (and `compare`, `<`) at `T` is translated to a call of the declared function, or to `compare(a, b) == 0`, which unfolds, where the checked program gives the type of the operands. Where generic code reaches `==`, as `contains` over a `List[T]`, the simplifier decides by the type of the operands that the terms tell, the datatype of a constructor, the type of a variable, or the result type of a function, which `Def` would then carry, and an `==` whose operands have no known type stays an atom, no union.
+- Representation invariants: the module defines the hook `valid` of the prover, a private function `valid(t: T[A, …]): Bool` of its abstract type, as `show`, `compare`, and `==` are hooks, e.g. that a `Set` is a balanced search tree or that the denominator of a `Frac` is positive, `true` where none is defined. It is the same for every instance, depending on no type parameter but as the abstraction allows, so that a value that contains `T`, as a `List[T]` or an `Option[T]`, is valid where each `T` in it is.
+- Generated obligations, lemmas of the module named after what they state, proven by the default proof unless the module writes a proof, reported as open lemmas, and tested as `l.lemma` on the enumerated representations that satisfy the invariant:
+  - for the declared `==`: reflexivity, symmetry, and transitivity, over values that satisfy the invariant; for a declared `compare`, the laws of a total order, with `==` as `compare(a, b) == 0`;
+  - for each exported function whose result is of type `T`: the invariant of the result, where the formals of type `T` satisfy it, which for a function without such formals, as `empty()` or `frac(a, b)`, is the establishment;
+  - for each exported function and each formal of type `T`: congruence, `requires valid(a), valid(a_), a == a_ ensures f(…, a, …) == f(…, a_, …)`, where `==` at the result type is that of the result, the declared one at `T` and the structural one with it inside `List[T]` and the like.
+- Exported lemmas (step 7 of section 8): `lemma` in `export`, stated over the interface only and checked as an importer sees the module, as the examples of exports are, proven in the module with the representation, where formals of type `T` satisfy the invariant; imports keep them (unlike `without_tests_of` of `ulang/parse/parse.u`, which drops the lemmas now), with their names, so that importers cite them and the default proof takes them as facts. Whether a proof may follow the statement in `export` or only a repetition in `implementation`, as definitions repeat signatures, is open.
+
+*Steps*, each with its cases in `ulang/test/errors/lemmas.u` and `ulang/prove/test/`:
+
+1. Visibility: the prover sees what the module of the lemma sees, and definitions of other modules unfold only to public terms. First count the lemmas of the project that this leaves open, since the library is then opaque to its importers until it has exported lemmas.
+2. Exported lemmas, parsed, checked, kept by imports, proven in their modules, and facts of the importers.
+3. `==` at abstract types inside their modules as the declared function, and the types of terms where generic code reaches it.
+4. The hook `valid` of abstract types, its form and its check, as `MisshapenHook` checks the others.
+5. The generated obligations of equivalence, invariants, and congruence.
+6. The library: exported lemmas of `set`, `map`, and `buffer`, their invariants, and their obligations proven, the bulk of the work.
+
+*Decided* (2026-11-15):
+
+- An abstract type that declares neither `==` nor `compare` obeys the lemmas written about it, and its `==` in lemmas is identity, which no definition contradicts.
+- An open obligation of a module does not block the lemmas of its importers, which count as proven, since lemmas are developed incrementally; the module reports its open obligations as errors, as open terminations are.
+
+*Open*:
+
+- Generic lemmas at `T` inside its module: outside, `==` at `T` is the identity of classes, but inside it is the declared equivalence of representations, so a generic lemma proven with `==` as identity may be false at `A := T`, e.g. `lemma cong[A](in a: A, b: A, f: A -> Int) := requires a == b ensures f(a) == f(b)` at `A := Frac` and `f := lambda x => x.n`, which gives `frac(1, 2) == frac(2, 4) ==> 1 == 2`; this also affects lemmas of the library, such as those of `contains` at `List[T]`, and not only citations, since the default proof takes the lemmas proven before as rules that instantiate themselves. Options: inside the module of `T`, the instances of generic lemmas at `T` or at types that contain it are no facts and cannot be cited, so the module proves what it needs of `T` itself (proposed: simple and sound, and weaker only where the obligations of `T` are proven anyway); or a generic lemma counts at `T` only if neither its statement nor its proof uses `==` at its parameter, which the prover would have to track.
+- Where the proof of an exported lemma goes: after its statement in `export`, or only in a repetition of the lemma in `implementation`, as definitions repeat the signatures of `export`.
+
+## 12. Verifying ulang in itself (design)
+
+*Goal*: the compiler of `ulang/` proven by lemmas in its own packages. *Where it stands* (e255393): about 2700 functions and 600 procedures, and no lemma outside the tests of the prover, also none in the library. The layers `ulang/syntax`, `ulang/expand`, `ulang/lint`, and `ulang/prove` are functions almost only, which the prover reaches now; `ulang/parse`, `ulang/check`, `ulang/run`, and `ulang/compile` are procedures with refs, `try`, and exceptions raised by design, which claims cover only in part (items 4 and 16).
+
+*Targets*, in the order that lets each use the infrastructure of the one before, each with the items it needs:
+
+1. **The soundness of the prover**, items 9, 10, 8, and 11, since a proof of the compiler by an unsound prover shows nothing.
+2. **The simplifier of the prover**: an interpretation of the terms of `ulang/prove/syntax.u` under an environment of values, as a function, and lemmas that each step of `ulang/prove/simp.u` keeps it, first the linear sums and the normalization of sequents, then the e-graph; needs item 12 for the maps that the e-graph is built of, item 15 for the environments, and the termination of the walks of the prover (section 8, step 2). It needs no semantics of ulang, no strings, and no claims, and makes the prover a base that its own lemmas check.
+3. **`ulang/expand`**, functions only: each expansion keeps the meaning, by the semantics of item 14, with items 12 and 15.
+4. **The edits of the lints** of `ulang/lint`: each replacement keeps the meaning, by the same semantics.
+5. **The round trip of `format` and the parser**, which `check` tests on every file: needs item 13, and claims of procedures with refs and exceptions, items 4 and 16, since the parser consumes its tokens by refs.
+6. **The checker and the interpreter**: a checked program does not go wrong in the semantics of item 14, last.
+
+*Throughout*: statements hold modulo positions, by the functions that set them to `Pos(0, 0)`, with lemmas of their own; the tests `l.lemma` over datatypes as large as `Expr` reach shallow values only (Testing 2 of `ideas/testing.md`); the status of each obligation, item 2; and the time of proving, item 17.
