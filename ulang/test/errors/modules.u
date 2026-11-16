@@ -678,7 +678,7 @@ test cycle() :=
 
 // the parse error of a member is reported in it, for the other members of its package
 test broken_sibling() :=
-  assert raises ImportError(List("ulang", "test", "errors", "broken-sibling", "broken"), "keyword then is not a name", Pos(8, 7)) do
+  assert raises ImportError(List("ulang", "test", "errors", "broken-sibling", "broken"), "keyword then is not a name, at 2 places", Pos(8, 7)) do
     check_texts(in "ulang/test/errors/broken-sibling", List(
       ("broken.u", List(
         "export",

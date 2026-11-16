@@ -17,6 +17,9 @@ data Token :=
   case THex(num: Int)
   case TStr(text: Str)
   case TChar(char: Char)
+  // a character or token that does not lex, its text and the error at pos, which the parser reports where it meets it,
+  // so that the lexer goes on after it
+  case TBad(text: Str, message: Str, pos: Pos)
   case TEnd
 
 // tokens with their positions, each with the stop of the token of code before it, which is where a part ends that ends
@@ -32,14 +35,11 @@ function is_keyword(w: Str): Bool
 // the words that are no names, which CLAUDE.md lists, as checks/docs.u checks
 function keywords(): Set[Str]
 
+// the tokens of text, which raise the error of the first token that does not lex
 procedure lex(in text: Str, out toks: Tokens) raises LexError
 
 // the tokens of text and its comments, which the tokens do not hold, in the order of the text
-procedure lex_all(
-  in  text: Str,
-  out toks: Tokens,
-      comments: List[Comment]
-) raises LexError
+procedure lex_all(in text: Str, out toks: Tokens, comments: List[Comment])
 
 implementation
 
@@ -147,31 +147,6 @@ function position_of(text: Str, offset: Int): Pos :=
       Pos(1, 1)
   end
 
-// the contents of the literal delimited by q at offset, with its escapes resolved, where offset ends after the closing quote
-procedure lex_literal(in text: Str, q: Char, out contents: Str, ref offset: Int) :=
-  let start := offset
-  var from := offset + 1, parts: List[Str] := List(), c: Char
-  offset := offset + 1
-  while peek(text, offset) != q do
-    c := peek(text, offset)
-    if c == '\n' or offset >= size(text) then
-      raise LexError("unterminated literal", position_of(text, start))
-    end
-    if c == '\\' then
-      match unescape(peek(text, offset + 1))
-        case Some(d) =>
-          parts := List(str(List(d)), slice(text, from, offset); parts), offset := offset + 2
-          from := offset
-
-        case None =>
-          raise LexError("invalid escape", position_of(text, offset))
-      end
-    else
-      offset := offset + 1
-    end
-  end
-  contents := join("", reverse(List(slice(text, from, offset); parts))), offset := offset + 1
-
 procedure lex_name(in text: Str, out tok: Token, ref offset: Int) :=
   var from: Int
   scan(in text, is_name_char, out from, ref offset)
@@ -186,15 +161,16 @@ procedure lex_number(in text: Str, out tok: Token, ref offset: Int) :=
     offset := offset + 1
     scan(in text, lambda c => hex_digit(c) != None, out digits, ref offset)
     if digits == offset then
-      raise LexError("invalid number; a hexadecimal number has digits after 0x, as in 0xFF", position_of(text, from))
+      tok := TBad(slice(text, from, offset), "invalid number; a hexadecimal number has digits after 0x, as in 0xFF", position_of(text, from))
+    else
+      tok := THex(hex_value(slice(text, digits, offset)))
     end
-    tok := THex(hex_value(slice(text, digits, offset)))
   else
     match number(slice(text, from, offset))
       case Some(n) =>
         tok := TNum(n)
       case None =>
-        raise LexError("invalid number", position_of(text, from))
+        tok := TBad(slice(text, from, offset), "invalid number", position_of(text, from))
     end
   end
 
@@ -229,18 +205,30 @@ procedure lex_symbol(in text: Str, out tok: Token, ref offset: Int) :=
   if contains(s, fixed_symbols()) then TKw(s) else TOp(s)
 
 procedure lex_string(in text: Str, out tok: Token, ref offset: Int) :=
-  var contents: Str
-  lex_literal(in text, '"', out contents, ref offset)
-  tok := TStr(contents)
+  let start := offset
+  var contents: Str, problem: Option[(Str, Pos)]
+  lex_literal(in text, '"', out contents, problem, ref offset)
+  match problem
+    case Some((message, pos)) =>
+      tok := TBad(slice(text, start, offset), message, pos)
+    case None =>
+      tok := TStr(contents)
+  end
 
 procedure lex_char(in text: Str, out tok: Token, ref offset: Int) :=
   let start := offset
-  var contents: Str
-  lex_literal(in text, '\'', out contents, ref offset)
-  if size(contents) != 1 then
-    raise LexError("invalid character", position_of(text, start))
+  var contents: Str, problem: Option[(Str, Pos)]
+  lex_literal(in text, '\'', out contents, problem, ref offset)
+  match problem
+    case Some((message, pos)) =>
+      tok := TBad(slice(text, start, offset), message, pos)
+
+    case None if size(contents) != 1 =>
+      tok := TBad(slice(text, start, offset), "invalid character", position_of(text, start))
+
+    case None =>
+      tok := TChar(at(0, contents))
   end
-  tok := TChar(at(0, contents))
 
 function margin_before(text: Str, offset: Int): Int :=
   next_margin(line_margin(text, offset - 1))
@@ -338,26 +326,32 @@ procedure lex_token(in text: Str, out tok: Token, ref offset: Int) :=
       lex_char(in text, out tok, ref offset)
 
     case '|' if is_glued_bar(text, offset) =>
-      raise LexError("unexpected character" ++ character_hint(c, peek(text, offset + 1)), position_of(text, offset))
+      var from: Int
+      scan(in text, lambda d => d == '|', out from, ref offset)
+      tok := TBad(slice(text, from, offset), "unexpected character" ++ character_hint(c, peek(text, from + 1)), position_of(text, from))
 
     case _ if is_punct(c) =>
       tok := TKw(str(List(c))), offset := offset + 1
 
     case _ =>
-      raise LexError("unexpected character" ++ character_hint(c, peek(text, offset + 1)), position_of(text, offset))
+      tok := TBad(str(List(c)), "unexpected character", position_of(text, offset)), offset := offset + 1
   end
 
 procedure lex(in text: Str, out toks: Tokens) raises LexError :=
   lex_all(in text, out toks, _)
+  for (_, tok, _) in toks do
+    match tok
+      case TBad(_, message, pos) =>
+        raise LexError(message, pos)
+      case _ =>
+        skip
+    end
+  end
 
 // the tokens of text with their positions, which end with TEnd at the end of text, where line and column are those of
 // offset last, and stop is the end of the last token of code, which has no newline, and the comments wait in pending for
 // the next token
-procedure lex_all(
-  in  text: Str,
-  out toks: Tokens,
-      comments: List[Comment]
-) raises LexError :=
+procedure lex_all(in text: Str, out toks: Tokens, comments: List[Comment]) :=
   var offset := 0, found: Buffer[(Pos, Token, Pos)] := empty(), noted: Buffer[Comment] := empty(), pending: List[(Pos, Str, Bool, Bool)] := List(), start: Int, tok: Token, last := 0, line := 1, column := 1, comment: Str, stop := Pos(1, 1), prev := TEnd
   while offset < size(text) do
     start := offset
@@ -443,12 +437,7 @@ procedure lexed_comments(
   out toks: Tokens,
       comments: List[Comment]
 ) :=
-  try
-    lex_all(in text, out toks, comments)
-  catch
-    case LexError(_, _) =>
-      toks := List(), comments := List()
-  end
+  lex_all(in text, out toks, comments)
 
 // comments are no tokens, each line one comment, which notes the next token, after code or above a blank line too
 test lex_comments() :=
@@ -524,3 +513,60 @@ test lex_position() :=
   assert position_of("ab\ncd", 4) == Pos(2, 2)
   assert position_of("ab\n", 3) == Pos(2, 1)
   assert position_of("", 0) == Pos(1, 1)
+
+// the contents of the literal delimited by q at offset, with its escapes resolved, where offset ends after the closing
+// quote, and the first problem of the literal, if any, where an unterminated literal ends at the end of its line
+procedure lex_literal(
+  in  text: Str,
+      q: Char,
+  out contents: Str,
+      problem: Option[(Str, Pos)],
+  ref offset: Int
+) :=
+  let start := offset
+  var from := offset + 1, parts: List[Str] := List(), c: Char, done := false, closed := false
+  offset := offset + 1, problem := None
+  while not done do
+    c := peek(text, offset)
+    if c == '\n' or offset >= size(text) then
+      problem := or_else(problem, Some(("unterminated literal", position_of(text, start)))), done := true
+    else
+      if c == q then
+        done := true, closed := true
+      else
+        if c == '\\' then
+          match unescape(peek(text, offset + 1))
+            case Some(d) =>
+              parts := List(str(List(d)), slice(text, from, offset); parts), offset := offset + 2
+              from := offset
+
+            case None =>
+              problem := or_else(problem, Some(("invalid escape", position_of(text, offset)))), offset := offset + 2
+          end
+        else
+          offset := offset + 1
+        end
+      end
+    end
+  end
+  contents := join("", reverse(List(slice(text, from, min(offset, size(text))); parts)))
+  if closed then
+    offset := offset + 1
+  end
+
+// the lexer goes on after a token that does not lex, which it gives as a token of its error
+test lex_bad_tokens() :=
+  var toks: Tokens
+  lex_all(in "a || b \"c\\q\" 'de' 0x\n\"f\ng ¬ h", out toks, _)
+  assert tokens(toks) == List(
+    TName("a"),
+    TBad("||", "unexpected character; the operators of Bool are and, or, and not", Pos(1, 3)),
+    TName("b"),
+    TBad("\"c\\q\"", "invalid escape", Pos(1, 10)),
+    TBad("'de'", "invalid character", Pos(1, 14)),
+    TBad("0x", "invalid number; a hexadecimal number has digits after 0x, as in 0xFF", Pos(1, 19)),
+    TBad("\"f", "unterminated literal", Pos(2, 1)),
+    TName("g"),
+    TBad("¬", "unexpected character", Pos(3, 3)),
+    TName("h"),
+    TEnd)

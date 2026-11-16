@@ -92,7 +92,7 @@ test import_parent() :=
   end
 
 test keyword_name() :=
-  assert raises ParseError("keyword in is not a name", Pos(2, 7)) do
+  assert raises ParseError("keyword in is not a name, at 2 places", Pos(2, 7)) do
     check_text(in "ulang/test/errors/keyword-name.u", List("function f(): Int :=", "  let in := 1 in in"))
   end
 
@@ -159,6 +159,39 @@ test operator_bar() :=
 test operator_or() :=
   assert raises ParseError("unexpected character; the operators of Bool are and, or, and not", Pos(2, 5)) do
     check_text(in "ulang/test/errors/operator-or.u", List("function f(b: Bool): Bool :=", "  b || b"))
+  end
+
+// the lexer goes on after a character or a token that does not lex, so that the parser reports the errors after it
+test lexer_resumes() :=
+  assert raises ParseErrors(List(
+    ParseError("unexpected character; the operators of Bool are and, or, and not", Pos(2, 5)),
+    ParseError("invalid escape", Pos(5, 5)),
+    ParseError("expression expected but end of input found", Pos(9, 1)))) do
+    check_text(in "ulang/test/errors/lexer-resumes.u", List(
+      "function f(b: Bool): Bool :=",
+      "  b || b",
+      "",
+      "function g(s: Str): Str :=",
+      "  \"a\\q\" ++ s",
+      "",
+      "function h(x: Int): Int :=",
+      "  x +"))
+  end
+
+// the parser goes on in the body of a head that does not parse, so that the errors of both are reported
+test head_and_body() :=
+  assert raises ParseErrors(List(
+    ParseError(") expected but out found", Pos(1, 23)),
+    ParseError("expression expected but skip found", Pos(3, 3)),
+    ParseError("name expected but ) found", Pos(5, 20)),
+    ParseError("expression expected but ) found", Pos(6, 7)))) do
+    check_text(in "ulang/test/errors/head-and-body.u", List(
+      "procedure p(in x: Int out y: Int) :=",
+      "  y := x +",
+      "  skip",
+      "",
+      "function f(x: Int, ): Int :=",
+      "  x * )"))
   end
 
 test operator_before_declaration() :=
@@ -321,20 +354,44 @@ test habits() :=
       "  swap(ref a, ref b)"))
   end
 
-// a keyword that is a common word gets a name to write instead, where test also starts a command, at which the parse
-// resumes
+// the hints of habits of other languages in functions and signatures
+test function_habits() :=
+  assert raises ParseErrors(List(
+    ParseError("declaration expected but example found; the examples of a signature follow the := after its head", Pos(4, 3)),
+    ParseError("[ after an expression; the element at an index is at(0, xs), and [ ] holds only type arguments", Pos(12, 5)),
+    ParseError("return before an expression; a function is the value of its body, and a procedure gives its results by assigning its outs", Pos(15, 3)))) do
+    check_text(in "ulang/test/errors/function-habits.u", List(
+      "export",
+      "",
+      "function e(x: Int): Int",
+      "  example e(1) == 1",
+      "",
+      "implementation",
+      "",
+      "function e(x: Int): Int :=",
+      "  x",
+      "",
+      "function first(xs: List[Int]): Int :=",
+      "  xs[0]",
+      "",
+      "function next(x: Int): Int :=",
+      "  return x + 1"))
+  end
+
+// a keyword that is a common word gets a name to write instead, and is read as that name after the error, so that the
+// uses of a keyword written as a name make one error, with the number of places, and test, which also starts a command,
+// starts none there
 test keyword_names() :=
   assert raises ParseErrors(List(
     ParseError("keyword raises is not a name; write a name such as raised", Pos(2, 10)),
-    ParseError("keyword test is not a name; write a name such as check", Pos(5, 7)),
-    ParseError("name expected but := found", Pos(5, 12)))) do
+    ParseError("keyword test is not a name, at 2 places; write a name such as check", Pos(5, 7)))) do
     check_text(in "ulang/test/errors/keyword-names.u", List(
       "data R :=",
       "  case R(raises: Int)",
       "",
       "procedure main() :=",
       "  let test := 1",
-      "  skip"))
+      "  os_println(in show(test + 1))"))
   end
 
 // a missing end is reported at the construct that is still open where the parse ends, which the indentation does not

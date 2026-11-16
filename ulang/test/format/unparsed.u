@@ -1,0 +1,15 @@
+// the texts of the parts that do not parse, as the source lays out their tokens, which format prints as written
+import ulang.syntax
+import ulang.parse
+import ulang.format
+
+// an example that does not parse fails its test, not its declaration, and keeps its layout, as a statement does
+test unparsed_layout() :=
+  var p: Source
+  let sample := "function f(x: Int): Int :=\n  example f( 1 )  == )\n  example f(2) == 2\n  x\n"
+  let stmt := "infix left 6 +\n\nprocedure p() :=\n  x := f( 1,  2 ) +\n  skip\n"
+  parse_text_recovering(in sample, out p)
+  assert parse_errors(p) == List()
+  assert format_program(p) == sample
+  parse_text_recovering(in stmt, out p)
+  assert format_program(p) == stmt
