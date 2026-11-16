@@ -77,4 +77,4 @@ test refuses_keyword_as_name() :=
   run_script(in "@put " ++ path ++ ":Parts\ndata Parts :=\n  case Parts(xs: List[Int], builtin: List[Int])\n", false, state, unseen, out reply, status, _)
   assert status == 1 and reply == List(
     "rejected",
-    "fragment 2.29, script 3.29: keyword builtin is not a name; write a name such as builtins")
+    "fragment 2.29, script 3.29: keyword builtin is not a name; write a name such as builtins\ncorrected by the hints, which @retry applies:\n  fragment 2, script 3:   case Parts(xs: List[Int], builtins: List[Int])")

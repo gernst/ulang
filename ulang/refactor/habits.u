@@ -110,7 +110,7 @@ function corrected(lines: Array[Str], line: Int, col: Int, message: Str): List[(
     case Some(text) =>
       let fixed := if starts_with(message, "keyword ") then
         keyword_corrected(text, col, message)
-      else if starts_with(message, "declaration expected") then
+      else if starts_with(message, "return before an expression") then
         return_corrected(lines, line, text)
       else
         inline_corrected(text, message) in

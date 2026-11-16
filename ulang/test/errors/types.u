@@ -1106,7 +1106,7 @@ test field_hints() :=
     "  xs.map(lambda x => 2 * x)",
     "",
     "function next(n: Int): Int :=",
-    "  return(n + 1)"), out _, errors)
+    "  return"), out _, errors)
   assert List(for e in errors yield located_message(e)) == List(
     "the type (Int, Str) of the value of .first has no fields; write first(…) of the pair, or take it apart by a pattern, let (a, b) := … at 2.10",
     "the type (Int, Int, Int) of the value of .third has no fields; take the tuple apart by a pattern, let (a, b, c) := … at 5.4",

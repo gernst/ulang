@@ -102,7 +102,7 @@ test contract_on_definition() :=
   end
 
 test example_private() :=
-  assert raises Located(None, Pos(4, 13), UnknownVariable(Name(List(), "g"))) do
+  assert raises Located(None, Pos(4, 13), Hinted(UnknownVariable(Name(List(), "g")), "g is private to ulang.test.errors.example-private, whose export section does not declare it")) do
     check_text(in "ulang/test/errors/example-private.u", List(
       "export",
       "",
@@ -224,7 +224,7 @@ test import_used_unparsed() :=
 // a module whose commands all fail to parse gets its parse errors, not an error outside its commands
 test import_all_unparsed() :=
   var parsing: List[ParseError], errors: List[TypeError]
-  check_text_partial(in "ulang/test/errors/import-all-unparsed.u", List("import ulang.test.modules.left", "", "function f( :="), out parsing, errors)
+  check_text_partial(in "ulang/test/errors/import-all-unparsed.u", List("import ulang.test.modules.left", "", "function f( :=", "  1"), out parsing, errors)
   assert size(parsing) == 1
   assert errors == List()
 

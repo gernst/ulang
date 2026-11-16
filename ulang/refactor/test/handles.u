@@ -346,7 +346,7 @@ test spec_lines() :=
   os_read_utf8(in path, out text)
   assert status == 0
   assert text == "export\n\nfunction f(x: Int): Int\n\nfunction g(x: Int): Int :=\n  example g(2) == 2\n\nimplementation\n\nfunction f(x: Int): Int :=\n  x + 1\n\nfunction g(x: Int): Int :=\n  x\n\nprocedure p(in x: Int, out y: Int) :=\n  requires x > 1\n  ensures  y > x\n  example p(in 1, out 2)\n  example p(in 3, out 4)\n  example p(in 2, out 3)\n  y := x + 1\n"
-  assert take(11, reply) == List(
+  assert take(12, reply) == List(
     "applied, clean",
     path ++ ":g/1: added 1 example to its signature",
     "#13     example g(2) == 2",
@@ -355,6 +355,7 @@ test spec_lines() :=
     "put after " ++ path ++ ":p/2 #11",
     "#15     example p(in 3, out 4)",
     "dropped " ++ path ++ ":f/1 #2",
+    "gone #2",
     "replaced " ++ path ++ ":p/2 #9",
     "#9      requires x > 1",
     "@show " ++ path ++ ":p\n#8    procedure p(in x: Int, out y: Int) :=\n#9      requires x > 1\n#10     ensures  y > x\n#11     example p(in 1, out 2)\n#15     example p(in 3, out 4)\n#14     example p(in 2, out 3)\n#12     y := x + 1")

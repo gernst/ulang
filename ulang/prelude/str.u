@@ -160,16 +160,7 @@ function index_of(part: Str, s: Str): Option[Int] :=
   index_from(part, s, 0)
 
 function replace(s: Str, old: Str, new: Str): Str :=
-  if old == "" then s else join(new, parts_between(s, old, 0))
-
-// the parts of s from i on between the occurrences of the nonempty old
-function parts_between(s: Str, old: Str, i: Int): List[Str] :=
-  match index_from(old, s, i)
-    case Some(j) =>
-      List(slice(s, i, j); parts_between(s, old, j + size(old)))
-    case None =>
-      List(slice(s, i, size(s)))
-  end
+  if old == "" then s else join(new, parts_between(s, old))
 
 // the first index from i on at which part stands in s
 function index_from(part: Str, s: Str, i: Int): Option[Int] :=
@@ -179,3 +170,13 @@ function index_from(part: Str, s: Str, i: Int): Option[Int] :=
     Some(i)
   else
     index_from(part, s, i + 1)
+
+// the parts of s between the occurrences of the nonempty old, each found after the one before it, by folds over the
+// indices, so that no recursion of its own needs a measure that the prover finds
+function parts_between(s: Str, old: Str): List[Str] :=
+  let (starts, _) := foldl(range(0, size(s) - size(old) + 1), (List(), 0), lambda (found, next), i => if i >= next and stands_at(old, s, i, 0) then
+    (List(i; found), i + size(old))
+  else
+    (found, next)) in
+  let (parts, stop) := foldl(starts, (List(), size(s)), lambda (done, stop), i => (List(slice(s, i + size(old), stop); done), i)) in
+  List(slice(s, 0, stop); parts)

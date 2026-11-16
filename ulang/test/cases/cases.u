@@ -136,8 +136,8 @@ procedure check_tested(
 ) raises TypeError, InternalError :=
   var errors: List[TypeError]
   check_all(in source, enumerated_tests, out q, errors)
+  require_kept(in q, errors)
   for e in take(1, errors) do
-    require_kept(in q, e)
     raise e
   end
 
@@ -281,13 +281,15 @@ procedure run_texts(
   load_texts(in dir, members, main, out q)
   run_program(in q)
 
-// fails unless the first of the diagnostics of q, which check prints, is e by its position and code, so that a case
-// catches an error that the tree of the checked program loses
-procedure require_kept(in q: Prog, e: TypeError) raises InternalError :=
-  let d := type_diagnostic(e)
-  match take(1, diagnostics(q))
-    case List(first) if first.pos == d.pos and first.code == d.code =>
-      skip
-    case _ =>
-      raise Unexpected("the first error " ++ located_message(e) ++ " of the checker, which does not start the diagnostics of the checked program")
+// fails unless each error of the checker is a diagnostic of q, which check prints, by its position and code, so that a
+// case catches an error that the tree of the checked program loses; the diagnostics come in the order of the tree,
+// where a part that finds an error after checking its parts, a call, a match, or a command, stands before them, while
+// the checker lists its errors in the order that it finds them, so the first of each may differ
+procedure require_kept(in q: Prog, errors: List[TypeError]) raises InternalError :=
+  let ds := diagnostics(q)
+  for e in errors do
+    let d := type_diagnostic(e)
+    if not exists(ds, lambda k => k.pos == d.pos and k.code == d.code) then
+      raise Unexpected("the error " ++ located_message(e) ++ " of the checker, which no diagnostic of the checked program has")
+    end
   end
