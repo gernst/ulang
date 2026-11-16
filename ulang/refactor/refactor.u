@@ -368,7 +368,8 @@ procedure parsed(
 ) raises Refused, OsError :=
   try
     parse_file_overlaid(in path, Map(path => text; files), out source)
-    require_parsed(in source)
+    // an import that fails is no failure of the parse here, so that a script can fix it
+    require_parsed(in source with mods := List(for m in source.mods yield m with imports := List(for i in m.imports if import_failures(i) == List())))
   catch
     case ParseErrors(errors) =>
       raise Refused(join("\n", List(for e in errors yield parse_message(path, fragment, parse_diagnostic(e)))))
@@ -1196,8 +1197,40 @@ procedure put(
     edits := edits with files := Map(path => result; edits.files)
     note(in path ++ ": written from the fragment", ref edits)
   else
-    put_anchored(in path, text, code, anchor, ref edits)
+    var fixed := text
+    if exists(code, lambda line => starts_with(line, "import ")) then
+      with_fixed_imports(in path, text, code, out fixed, ref edits)
+    end
+    put_anchored(in path, fixed, code, anchor, ref edits)
   end
+
+// text with each import that fails replaced by the import of the fragment code of the same last name, as the import of a
+// package that moved is fixed
+procedure with_fixed_imports(
+  in  path: Str,
+      text: Str,
+      code: List[Str],
+  out fixed: Str,
+  ref edits: Edits
+) raises Refused, OsError :=
+  var source: Source, lines := split(text, '\n')
+  parsed(in path, text, edits.files, no_fragment(), out source)
+  for i in main_mod(source).imports if import_failures(i) != List() do
+    match find(code, lambda line => starts_with(line, "import ") and Some(imported_base(line)) == last(i.that))
+      case Some(line) =>
+        lines := take(i.pos.line - 1, lines) ++ List(trim(line)) ++ drop(i.pos.line, lines)
+        note(in path ++ ": replaced import " ++ path_text(i.that) ++ " by " ++ trim(line), ref edits)
+
+      case None =>
+        skip
+    end
+  end
+  fixed := join("\n", lines)
+
+// the last name of the path of an import line
+function imported_base(line: Str): Str :=
+  example imported_base("import ubox.box") == "box"
+  value_or(last(split(trim(slice(line, size("import "), size(line))), '.')), "")
 
 // the parts of the lines of a fragment, each line with its number in the fragment
 data Parts :=
@@ -1395,7 +1428,9 @@ procedure put_anchored(
   with_signatures(in path, replaced_keys, edits.files, ref result, done)
   with_exported_raises(in path, text, exported_keys, edits.files, ref result, done)
   edits := edits with files := Map(path => result; edits.files)
-  note(in path ++ ": " ++ join(", ", done), ref edits)
+  if done != List() then
+    note(in path ++ ": " ++ join(", ", done), ref edits)
+  end
 
 function is_signature_at(cmd: At[Cmd]): Bool :=
   exists(cmd_of(cmd), is_signature)
