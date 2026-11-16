@@ -69,7 +69,7 @@ function number_lines(ls: List[Str]): List[Str] :=
   List(for (i, l) in zip(range(1, size(ls) + 1), ls) yield right(i, 6) ++ "\t" ++ l)
 
 function matching(needle: Str, ignore_case: Bool, invert: Bool, ls: List[Str]): List[(Int, Str)] :=
-  let fold := (lambda s => if ignore_case then lower(s) else s), hit := lambda l => index_of(fold(needle), fold(l)) != None in
+  let fold := (lambda s => if ignore_case then lower(s) else s), hit := lambda l => contains(fold(needle), fold(l)) in
   List(for (i, l) in zip(range(1, size(ls) + 1), ls) if hit(l) != invert yield (i, l))
 
 function leading_number(l: Str): Int :=

@@ -46,6 +46,13 @@ function index_of(part: Str, s: Str): Option[Int] :=
   example index_of("hello!", "hello") == None
   example index_of("ab", "aab") == Some(1)
 
+// s with new in place of every occurrence of old, from the left and without overlaps, where an empty old occurs nowhere
+function replace(s: Str, old: Str, new: Str): Str :=
+  example replace("a-b-c", "-", ", ") == "a, b, c"
+  example replace("aaa", "aa", "b") == "ba"
+  example replace("abc", "x", "y") == "abc"
+  example replace("abc", "", "y") == "abc"
+
 builtin
 
 // the characters of a string, and the string of characters
@@ -151,6 +158,18 @@ function upper(s: Str): Str :=
 
 function index_of(part: Str, s: Str): Option[Int] :=
   index_from(part, s, 0)
+
+function replace(s: Str, old: Str, new: Str): Str :=
+  if old == "" then s else join(new, parts_between(s, old, 0))
+
+// the parts of s from i on between the occurrences of the nonempty old
+function parts_between(s: Str, old: Str, i: Int): List[Str] :=
+  match index_from(old, s, i)
+    case Some(j) =>
+      List(slice(s, i, j); parts_between(s, old, j + size(old)))
+    case None =>
+      List(slice(s, i, size(s)))
+  end
 
 // the first index from i on at which part stands in s
 function index_from(part: Str, s: Str, i: Int): Option[Int] :=

@@ -450,7 +450,7 @@ function shown_errors(fragment: List[(Range, Int)], ds: List[Diagnostic]): List[
 // whether d is the error of a keyword where a name is expected
 function is_keyword_error(d: Diagnostic): Bool :=
   example is_keyword_error(Diagnostic(ParseKind, "", None, Pos(1, 1), "keyword builtin is not a name", List()))
-  starts_with(d.message, "keyword ") and index_of(" is not a name", d.message) != None
+  starts_with(d.message, "keyword ") and contains(" is not a name", d.message)
 
 // the message of d at its line in the fragment if it is in one of the blocks of the text that the fragment wrote, each its
 // lines and the line of the fragment of its first, else at its line in the file
@@ -2466,7 +2466,7 @@ procedure absent_context(
 ) raises Refused, OsError :=
   let one := size(drop_blank(wanted)) == 1, text := join("", drop_blank(wanted))
   let occurs := lambda ls: List[Str] => if one then
-    exists(ls, lambda l => index_of(text, l) != None)
+    exists(ls, lambda l => contains(text, l))
   else
     block_starts(ls, wanted) != List()
   context := ""
@@ -2484,7 +2484,7 @@ procedure absent_context(
         current_text(in path, edits.files, out now)
         parsed(in path, now, edits.files, no_fragment(), out current)
         let d := main_mod(current)
-        let holders := distinct(List(for (key, cmd, _) in keyed(placed_of(d)) if index_of(text, join("\n", lines_in(lines, cmd_range(lines, cmd, 0, true)))) != None yield path ++ ":" ++ key_text(key)))
+        let holders := distinct(List(for (key, cmd, _) in keyed(placed_of(d)) if contains(text, join("\n", lines_in(lines, cmd_range(lines, cmd, 0, true)))) yield path ++ ":" ++ key_text(key)))
         context := ", but in " ++ (if holders == List() then
           "the lines of no declaration of " ++ path
         else

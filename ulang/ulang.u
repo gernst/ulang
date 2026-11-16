@@ -932,7 +932,7 @@ procedure refactor_tests(
         test_outcomes(in q, run, m, List(), out outcomes, ref constants)
         let misplaced := List(for o in outcomes if o.message != "" and exists(diagnostics(q), lambda d => d.code == "ExampleOnDefinition" and reaches(o.reached, file, d)) yield o.name)
         let names := List(for o in outcomes yield o.name), failures := List(for o in outcomes if o.message != "" and not contains(o.name, misplaced) yield failure_text(o, listed))
-        let missing := List(for name in declared if not contains(name, names)), absent := examples - size(List(for name in names if index_of(".example.", name) != None yield name))
+        let missing := List(for name in declared if not contains(name, names)), absent := examples - size(List(for name in names if contains(".example.", name) yield name))
         let members := value_or(map_option(find(source.packages, lambda p => contains(m, p.members)), lambda p => p.members), List(m))
         let lemmas := if is_generating(q, members) then
           List()
