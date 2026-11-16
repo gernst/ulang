@@ -14,6 +14,8 @@
 #include <time.h>
 #include <unistd.h>
 
+// the runtime calls u_mk_int, which programs inline for small integers
+#define U_RUNTIME
 #include "ulang.h"
 
 // the layout of the structures that the assembly of ulang/compile/x86.u reads and writes, which it repeats
@@ -574,7 +576,12 @@ static u_value compare_callables(u_value a, u_value b) {
   return NULL;
 }
 
+// small integers directly, and other values by the order of their type
 u_value u_compare(u_value a, u_value b) {
+  if (u_type_of(a) == &u_int_type && u_type_of(b) == &u_int_type) {
+    long long x = u_num_of(a), y = u_num_of(b);
+    return ordering((x > y) - (x < y));
+  }
   return ordering(compare(a, b));
 }
 
@@ -640,6 +647,22 @@ u_value u_mod(u_value a, u_value b) {
 u_value u_lt(u_value a, u_value b) {
   if (u_type_of(a) == &u_int_type && u_type_of(b) == &u_int_type) return u_mk_bool(u_num_of(a) < u_num_of(b));
   return u_mk_bool(compare(a, b) < 0);
+}
+
+// <=, >, and >= as the prelude defines them by <, with the operands of compare in the same order
+u_value u_le(u_value a, u_value b) {
+  if (u_type_of(a) == &u_int_type && u_type_of(b) == &u_int_type) return u_mk_bool(u_num_of(a) <= u_num_of(b));
+  return u_mk_bool(compare(b, a) >= 0);
+}
+
+u_value u_gt(u_value a, u_value b) {
+  if (u_type_of(a) == &u_int_type && u_type_of(b) == &u_int_type) return u_mk_bool(u_num_of(a) > u_num_of(b));
+  return u_mk_bool(compare(b, a) < 0);
+}
+
+u_value u_ge(u_value a, u_value b) {
+  if (u_type_of(a) == &u_int_type && u_type_of(b) == &u_int_type) return u_mk_bool(u_num_of(a) >= u_num_of(b));
+  return u_mk_bool(compare(a, b) >= 0);
 }
 
 // small integers and characters directly, and other values by the equality of their type

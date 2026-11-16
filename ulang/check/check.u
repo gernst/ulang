@@ -465,11 +465,7 @@ function builtin_schemes(n: Name): List[Scheme] :=
   end
 
 function builtin_scheme(b: Id): List[Scheme] :=
-  let a := TParam("A") in
   match b
-    case "<" =>
-      List(Scheme(List(a), TFun(List(a, a), TBool())))
-
     case "and" =>
       List(logic())
 
@@ -6363,7 +6359,7 @@ function let_id(arg: At[Expr]): At[Expr] :=
 
 test inference() :=
   var t: Type
-  type_of(in expr_app("<", List(expr_int(1), expr_int(2))), out t)
+  type_of(in expr_app("==", List(expr_int(1), expr_int(2))), out t)
   assert t == TBool()
   type_of(in let_id(expr_int(2)), out t)
   assert t == TTuple(List(TInt(), TInt()))
@@ -6374,7 +6370,7 @@ test inference() :=
     type_of(in lambda_at(List(Var(unqualified("f"), THole)), expr_app("f", List(expr_var("f")))), out t)
   end
   assert raises Mismatch(_, _, _) do
-    type_of(in expr_app("<", List(expr_int(1), nowhere(ELit(LBool(true))))), out t)
+    type_of(in expr_app("==", List(expr_int(1), nowhere(ELit(LBool(true))))), out t)
   end
   assert raises UnknownVariable(Name(List(), "x")) do
     type_of(in expr_app("x", List()), out t)

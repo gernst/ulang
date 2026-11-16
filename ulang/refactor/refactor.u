@@ -2835,7 +2835,7 @@ function first_difference(found: List[(Pos, Str, Name)], expected: List[Name]): 
 function resolved_text(name: Name): Str :=
   example resolved_text(Name(List(), "x")) == "the local x"
   example resolved_text(Name(List(), "show")) == "show"
-  if name.path == List() and not contains(name.base, List("<", "==", "compare", "show", "and", "or")) then
+  if name.path == List() and not contains(name.base, List("==", "compare", "show", "and", "or")) then
     "the local " ++ name.base
   else
     format_name(name)

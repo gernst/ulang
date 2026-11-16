@@ -55,7 +55,9 @@ function ==>(a: Bool, b: Bool): Bool
 
 function !=[A](x: A, y: A): Bool
 
-// the comparisons by one < each, which follows compare, a total order
+// the order of compare, a total order, and the comparisons by one < each
+function <[A](x: A, y: A): Bool
+
 function <=[A](x: A, y: A): Bool
 
 function >[A](x: A, y: A): Bool
@@ -134,6 +136,9 @@ function ==>(a: Bool, b: Bool): Bool :=
 
 function !=[A](x: A, y: A): Bool :=
   not x == y
+
+function <[A](x: A, y: A): Bool :=
+  compare(x, y) == -1
 
 function <=[A](x: A, y: A): Bool :=
   not y < x
