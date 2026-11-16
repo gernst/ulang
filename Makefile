@@ -1,4 +1,6 @@
 # out/ulang.bin, the self-hosted driver of ulang, compiled from the sources by the seed in bootstrap/
+# only out/ulang.bin and the seed of selfcompile and bootstrap are built from C; every other binary is an object of
+# ulang/compile/elf.u linked with the runtime $(ASM)/ulang.o, as testelf is, but testc, which tests the C backend
 
 all: out/ulang.bin out/ulang.sh ulang.bin ulang.sh
 
@@ -174,16 +176,17 @@ selfcompileelf: out/ulang.bin out/ulang.sh $(ASM)/ulang.o
 	rm -r -- "$${stage:?}"
 
 # the checks of the repository in checks/, programs that run compiled at the root, since they parse the sources of the
-# compiler, which the interpreter does too slowly: checks/docs.u, that the references of the documentation name
+# compiler, which the interpreter does too slowly, each an object of ulang/compile/elf.u linked with the runtime of
+# $(ASM)/ulang.o, as testelf is, without compiling C: checks/docs.u, that the references of the documentation name
 # declarations of their files
 CHECKS = out/checks
 
-$(CHECKS)/docs.c: out/ulang.bin out/ulang.sh checks/docs.u $(SOURCES)
+$(CHECKS)/docs.o: out/ulang.bin out/ulang.sh checks/docs.u $(SOURCES)
 	mkdir -p $(CHECKS)
 	out/ulang.sh compile checks/docs.u -o $@
 
-$(CHECKS)/docs.bin: $(CHECKS)/docs.c $(RUNTIME) Makefile
-	$(CC) $(CFLAGS) $(CHECKS)/docs.c ulang/runtime/ulang.c $(LIBS) -o $@
+$(CHECKS)/docs.bin: $(CHECKS)/docs.o $(ASM)/ulang.o
+	$(CC) $< $(ASM)/ulang.o $(LIBS) -o $@
 
 $(CHECKS)/docs.sh: $(SCRIPT)
 	mkdir -p $(CHECKS)
@@ -195,12 +198,12 @@ testdocs: $(CHECKS)/docs.bin $(CHECKS)/docs.sh
 
 # checks/declared.u, that loading a file with its imports only as far as it sees them shows it the signatures, the
 # diagnostics, and the hints of loading them whole, for a file of each directory of the project
-$(CHECKS)/declared.c: out/ulang.bin out/ulang.sh checks/declared.u $(SOURCES)
+$(CHECKS)/declared.o: out/ulang.bin out/ulang.sh checks/declared.u $(SOURCES)
 	mkdir -p $(CHECKS)
 	out/ulang.sh compile checks/declared.u -o $@
 
-$(CHECKS)/declared.bin: $(CHECKS)/declared.c $(RUNTIME) Makefile
-	$(CC) $(CFLAGS) $(CHECKS)/declared.c ulang/runtime/ulang.c $(LIBS) -o $@
+$(CHECKS)/declared.bin: $(CHECKS)/declared.o $(ASM)/ulang.o
+	$(CC) $< $(ASM)/ulang.o $(LIBS) -o $@
 
 $(CHECKS)/declared.sh: $(SCRIPT)
 	mkdir -p $(CHECKS)
@@ -212,12 +215,12 @@ testdeclared: $(CHECKS)/declared.bin $(CHECKS)/declared.sh
 
 # checks/termination.u, a report of the recursive functions of ulang/ and the library whose termination the prover does
 # not prove, not a test, since most of them recurse through comprehensions, which its measures do not reach yet
-$(CHECKS)/termination.c: out/ulang.bin out/ulang.sh checks/termination.u $(SOURCES)
+$(CHECKS)/termination.o: out/ulang.bin out/ulang.sh checks/termination.u $(SOURCES)
 	mkdir -p $(CHECKS)
 	out/ulang.sh compile checks/termination.u -o $@
 
-$(CHECKS)/termination.bin: $(CHECKS)/termination.c $(RUNTIME) Makefile
-	$(CC) $(CFLAGS) $(CHECKS)/termination.c ulang/runtime/ulang.c $(LIBS) -o $@
+$(CHECKS)/termination.bin: $(CHECKS)/termination.o $(ASM)/ulang.o
+	$(CC) $< $(ASM)/ulang.o $(LIBS) -o $@
 
 $(CHECKS)/termination.sh: $(SCRIPT)
 	mkdir -p $(CHECKS)
