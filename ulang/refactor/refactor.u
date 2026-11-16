@@ -4016,7 +4016,7 @@ function edit_splices(source: Source, d: Mod, text: Str, lines: Array[Str], star
   let simple := List(for (label, edit) in edits for sp in simple_splice(source, d, text, lines, starts, edit) yield sp with fixed := List(label)) in
   let calls := distinct(List(for (_, edit) in edits for (spans, _) in drop_outs_of(edit) for c in spans yield c)) in
   let outs := List(for call in calls yield out_splice(text, starts, call, names_at(call, edits)) with fixed := labels_at(call, edits)) in
-  let local_edits := List(for local in locals for sp in local_splices(text, lines, starts, local, List(for (l, decl, bodies, _) in moves if l == local yield (decl, bodies))) yield sp with fixed := List(for (l, _, _, label) in moves if l == local yield label)) in
+  let local_edits := List(for local in locals for sp in local_splices(text, lines, starts, local, List(for (l, decl, targets, _) in moves if l == local yield (decl, targets))) yield sp with fixed := List(for (l, _, _, label) in moves if l == local yield label)) in
   simple ++ outs ++ local_edits
 
 // the names that the edits drop at the outs of the call at call, and the labels of their warnings
@@ -4026,13 +4026,18 @@ function names_at(call: Span, edits: List[(Str, Edit)]): List[Id] :=
 function labels_at(call: Span, edits: List[(Str, Edit)]): List[Str] :=
   List(for (label, edit) in edits for (spans, _) in drop_outs_of(edit) if contains(call, spans) yield label)
 
-function move_of(edit: Edit): Option[(Span, Span, List[Span])] :=
+// the statement and the declaration that an edit moves, the bodies that it moves into, and the keyword of the statement
+// that declares it there, where a let before the statement is one into the statement's own span
+function move_of(edit: Edit): Option[(Span, Span, List[(Span, Str)])] :=
   match edit
     case EditMove(local, decl, bodies) =>
-      Some((local, decl, bodies))
+      Some((local, decl, List(for body in bodies yield (body, "var"))))
 
     case EditDropOuts(local, decl, _, _) =>
       Some((local, decl, List()))
+
+    case EditLetBefore(local, decl) =>
+      Some((local, decl, List((local, "let"))))
 
     case _ =>
       None
@@ -4062,6 +4067,9 @@ function simple_splice(source: Source, d: Mod, text: Str, lines: Array[Str], sta
 
     case EditDropOuts(_, _, _, _) =>
       None
+
+    case EditLetBefore(_, _) =>
+      None
   end
 
 function drop_outs_of(edit: Edit): Option[(List[Span], Id)] :=
@@ -4083,9 +4091,10 @@ function out_splice(text: Str, starts: Array[Int], span: Span, names: List[Id]):
   let outs := foldl(names, slice(call, outs_at, refs_at), lambda acc, name => with_word(acc, name, "_")) in
   Splice(first, last, slice(call, 0, outs_at) ++ outs ++ slice(call, refs_at, size(call)), List())
 
-// the splices that remove the declarations of moves from the statement over local, and the statement if none is left, and
-// declare each by var at the start of the bodies that it moves into, those of one body in one var
-function local_splices(text: Str, lines: Array[Str], starts: Array[Int], local: Span, moves: List[(Span, List[Span])]): List[Splice] :=
+// the splices that remove the declarations of moves from the statement over local, and the statement if none is left,
+// and declare each at the start of the bodies that it moves into, by the keyword of each, those of one body in one
+// statement
+function local_splices(text: Str, lines: Array[Str], starts: Array[Int], local: Span, moves: List[(Span, List[(Span, Str)])]): List[Splice] :=
   let first := offset_of(starts, local.start), last := offset_of(starts, local.stop) in
   let stmt := slice(text, first, last) in
   let decl_texts := List(for (decl, _) in moves yield slice(text, offset_of(starts, decl.start), offset_of(starts, decl.stop))) in
@@ -4094,13 +4103,13 @@ function local_splices(text: Str, lines: Array[Str], starts: Array[Int], local: 
     Splice(line_offset(starts, local.start.line), line_offset(starts, local.stop.line + 1), "", List())
   else
     Splice(first, last, kept, List()) in
-  let bodies := distinct(List(for (_, spans) in moves for body in spans yield body)) in
+  let bodies := distinct(List(for (_, targets) in moves for target in targets yield target)) in
   List(
-    removal; List(for body in bodies yield Splice(line_offset(starts, body.start.line), line_offset(starts, body.start.line), repeat(body.start.col - 1, " ") ++ "var " ++ join(", ", declared_in(body, moves, decl_texts)) ++ "\n", List())))
+    removal; List(for (body, keyword) in bodies yield Splice(line_offset(starts, body.start.line), line_offset(starts, body.start.line), repeat(body.start.col - 1, " ") ++ keyword ++ " " ++ join(", ", declared_in(body, moves, decl_texts)) ++ "\n", List())))
 
 // the texts of the declarations of moves that move into body
-function declared_in(body: Span, moves: List[(Span, List[Span])], decl_texts: List[Str]): List[Str] :=
-  List(for ((_, spans), t) in zip(moves, decl_texts) if contains(body, spans) yield t)
+function declared_in(body: Span, moves: List[(Span, List[(Span, Str)])], decl_texts: List[Str]): List[Str] :=
+  List(for ((_, targets), t) in zip(moves, decl_texts) if exists(targets, lambda (b, _) => b == body) yield t)
 
 // stmt without the declaration from start to stop, and the comma after it, else the one before it
 function without_decl(stmt: Str, range: (Int, Int)): Str :=

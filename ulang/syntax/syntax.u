@@ -339,6 +339,9 @@ data Edit :=
   // the declaration over decl of the statement over local removed, as by EditMove without bodies, and name written _ at
   // the outs of the calls at calls, the only statements that name it
   case EditDropOuts(local: Span, decl: Span, calls: List[Span], name: Id)
+  // the declaration over decl of the var over local removed from it, as by EditMove, and declared by let on a line of
+  // its own before it
+  case EditLetBefore(local: Span, decl: Span)
 
 // a line of a comment, from // to the end of the line, which the tree does not hold, since format places it back by the
 // spans of the parts: its text without // and the space after it, whether only spaces come before it on its line, whether

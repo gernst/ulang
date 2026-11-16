@@ -563,26 +563,22 @@ function declared_lints(stmts: List[At[Stmt]]): List[Warning] :=
   end
 
 // the declarations with values of a var over local whose variables no statement in rest assigns, which are a let, an edit
-// of the keyword if they are all its declarations
+// of the keyword if they are all its declarations, else each moved into a let before the var where its value reads no
+// variable of a declaration before it that stays (let_befores)
 function unassigned_vars(local: Span, decls: List[(At[Pat], Option[At[Expr]])], rest: List[At[Stmt]]): List[Warning] :=
   let changed := Set(for s in rest for x in assigned(s) ++ call_outs(s) yield x) in
   let unassigned := List(for (pat, init) in decls if init != None and forall(pat_vars(pat), lambda (_, x) => not contains(x, changed)) yield pat) in
-  let edit := if size(unassigned) == size(decls) then Some(EditLet(local)) else None in
-  List(for pat in unassigned yield Warning(UnassignedVar, pat.pos, "the var " ++ join(", ", List(for (_, x) in pat_vars(pat) yield x)) ++ " is never assigned after its value, declare it by let", None, edit))
+  if size(unassigned) == size(decls) then
+    List(for pat in unassigned yield unassigned_warning(pat, Some(EditLet(local))))
+  else
+    let_befores(local, decls, unassigned, Set())
 
 function decls_lints(local: Span, decls: List[(At[Pat], Option[At[Expr]])], rest: List[At[Stmt]]): List[Warning] :=
   match decls
     case List() =>
       List()
-
     case List((pat, init); more) =>
-      let decl := Span(pat.span.start, match init
-        case Some(value) =>
-          value.span.stop
-        case None =>
-          pat.span.stop
-      end) in
-      decl_lints(pat, init != None, exprs_names(List(for (_, i) in more for e in i yield e)), (local, decl), rest) ++ decls_lints(local, more, rest)
+      decl_lints(pat, init != None, exprs_names(List(for (_, i) in more for e in i yield e)), (local, decl_span(pat, init)), rest) ++ decls_lints(local, more, rest)
   end
 
 // a local that is a variable, also with an annotation, as a local of a block, and the variables of a pattern as those of
@@ -2185,4 +2181,36 @@ function applied_fun(x: At[Pat], expr: At[Expr]): Option[At[Expr]] :=
       Some(nowhere(EName(name, THole)))
     case _ =>
       None
+  end
+
+// the warnings of the unassigned declarations among decls, of the var over local, where kept are the variables of the
+// declarations before them that stay in the var
+function let_befores(local: Span, decls: List[(At[Pat], Option[At[Expr]])], unassigned: List[At[Pat]], kept: Set[Id]): List[Warning] :=
+  match decls
+    case List() =>
+      List()
+
+    case List((pat, init); more) =>
+      if contains(pat, unassigned) then
+        let reads := exprs_names(List(for e in init yield e)) in
+        let edit := if exists(reads, lambda x => contains(x, kept)) then
+          None
+        else
+          Some(EditLetBefore(local, decl_span(pat, init))) in
+        List(
+          unassigned_warning(pat, edit); let_befores(local, more, unassigned, kept))
+      else
+        let_befores(local, more, unassigned, kept ++ Set(for (_, x) in pat_vars(pat) yield x))
+  end
+
+function unassigned_warning(pat: At[Pat], edit: Option[Edit]): Warning :=
+  Warning(UnassignedVar, pat.pos, "the var " ++ join(", ", List(for (_, x) in pat_vars(pat) yield x)) ++ " is never assigned after its value, declare it by let", None, edit)
+
+// the span of a declaration of a let or var, from its pattern to the end of its value, if it has one
+function decl_span(pat: At[Pat], init: Option[At[Expr]]): Span :=
+  match init
+    case Some(value) =>
+      Span(pat.span.start, value.span.stop)
+    case None =>
+      pat.span
   end
