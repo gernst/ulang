@@ -93,9 +93,31 @@ __attribute__((constructor)) static void init(void) {
   }
 }
 
+// objects of up to 96 bytes from lists of free ones, one list per size in units of 16 bytes, which GC_malloc_many fills
+// with cleared objects linked by their first word: an allocation takes the first of its list, without the call, the lock,
+// and the thread-local lookup of GC_malloc. The lists are static, so the collector sees them as roots.
+#define FREE_LISTS 7
+static void *free_lists[FREE_LISTS];
+
+static inline void *small(size_t bytes) {
+  size_t k = (bytes + 15) >> 4;
+  if (k >= FREE_LISTS) {
+    void *p = GC_MALLOC(bytes);
+    if (!p) u_fail("out of memory");
+    return p;
+  }
+  void *p = free_lists[k];
+  if (!p) {
+    p = GC_malloc_many(k << 4);
+    if (!p) u_fail("out of memory");
+  }
+  free_lists[k] = *(void **)p;
+  *(void **)p = NULL;
+  return p;
+}
+
 static u_value object(const struct u_type *type) {
-  u_value v = GC_MALLOC(sizeof(struct u_object));
-  if (!v) u_fail("out of memory");
+  u_value v = small(sizeof(struct u_object));
   v->type = type;
   return v;
 }
@@ -316,8 +338,7 @@ u_value u_from_utf8(const char *bytes, size_t n) {
 
 // an object with its items after it, in one allocation
 static u_value compound(const struct u_type *type, int size) {
-  u_value v = GC_MALLOC(sizeof(struct u_object) + size * sizeof(u_value));
-  if (!v) u_fail("out of memory");
+  u_value v = small(sizeof(struct u_object) + size * sizeof(u_value));
   v->type = type;
   v->size = size;
   v->items = (u_value *)(v + 1);
