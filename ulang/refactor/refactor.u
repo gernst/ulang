@@ -1145,7 +1145,8 @@ procedure put_at(
 
 // where @put places the declarations of a fragment that replace none of their key: side end, at the end of their
 // sections, before or after the declaration of name and arity in each section that has one, else at the end, or instead,
-// where the declaration of the fragment of that name and kind replaces it whatever its arity, and the others go after it
+// where the declaration of the fragment of that name and kind replaces it whatever its arity, and the others go after it,
+// or else the one declaration of the fragment, of another name
 data Anchor :=
   case Anchor(side: Str, name: Str, arity: Option[Int])
 
@@ -1168,11 +1169,12 @@ function is_inside(inner: Span, outer: Span): Bool :=
 
 // writes the declarations of the fragment into the file at path: a missing or empty file is the fragment, with its
 // header, imports, and sections; else the import lines of the fragment join those of the file, the declarations after
-// a line export go into the export section and the others into the implementation, each section made if the file has
-// none, where a file without sections gets both if the fragment exports, and each replaces the one of its key in its
-// section in place, keeping its doc if the fragment writes none, or is placed by anchor, while a definition gives its
-// head to its signature in export, and a comment of the fragment that is no doc of a declaration is refused, since only
-// a new file takes it
+// a line export or builtin go into that section and the others into the implementation, or into the builtin section if
+// they are anchored there, each section made if the file has none, where a file without sections gets an implementation
+// if the fragment exports, and each replaces the one of its key where the file has it, whatever section the fragment
+// names, keeping its doc if the fragment writes none, or is placed by anchor, while a definition gives its head, and its
+// doc if the fragment writes no signature, to its signature in export, and a comment of the fragment that is no doc of a
+// declaration is refused, since only a new file takes it
 procedure put(
   in  path: Str,
       fragment: Str,
@@ -1201,30 +1203,29 @@ procedure put(
 
 // the parts of the lines of a fragment, each line with its number in the fragment
 data Parts :=
-  case Parts(imports: List[Str], exported: List[(Str, Int)], implemented: List[(Str, Int)], strays: List[Int], has_builtin: Bool)
+  case Parts(imports: List[Str], exported: List[(Str, Int)], builtins: List[(Str, Int)], implemented: List[(Str, Int)], strays: List[Int])
 
-function parts_of(code: List[Str]): Parts :=
-  parts_from(List(for (line, i) in numbered(code) yield (line, i + 1)), false, Parts(List(), List(), List(), List(), false))
+// the parts of the lines of a fragment, where the lines under no line of a section go to the section unheaded
+function parts_of(code: List[Str], unheaded: Str): Parts :=
+  parts_from(List(for (line, i) in numbered(code) yield (line, i + 1)), unheaded, Parts(List(), List(), List(), List(), List()))
 
-// the parts of lines, where exporting tells whether a line export came last
-function parts_from(lines: List[(Str, Int)], exporting: Bool, parts: Parts): Parts :=
+// the parts of lines, where section is that of the line of a section that came last
+function parts_from(lines: List[(Str, Int)], section: Str, parts: Parts): Parts :=
   match lines
     case List((line, i); rest) =>
-      if line == "export" then
-        parts_from(rest, true, parts)
-      else if line == "implementation" then
-        parts_from(rest, false, parts)
-      else if line == "builtin" then
-        parts_from(rest, exporting, parts with has_builtin := true)
+      if contains(line, List("export", "builtin", "implementation")) then
+        parts_from(rest, line, parts)
       else if starts_with(line, "import ") then
-        parts_from(rest, exporting, parts with imports := parts.imports ++ List(line))
-      else if exporting then
-        parts_from(rest, exporting, parts with exported := parts.exported ++ List((line, i)))
+        parts_from(rest, section, parts with imports := parts.imports ++ List(line))
+      else if section == "export" then
+        parts_from(rest, section, parts with exported := parts.exported ++ List((line, i)))
+      else if section == "builtin" then
+        parts_from(rest, section, parts with builtins := parts.builtins ++ List((line, i)))
       else
-        parts_from(rest, exporting, parts with implemented := parts.implemented ++ List((line, i)))
+        parts_from(rest, section, parts with implemented := parts.implemented ++ List((line, i)))
 
     case List() =>
-      parts with strays := strays_of(parts.exported) ++ strays_of(parts.implemented)
+      parts with strays := strays_of(parts.exported) ++ strays_of(parts.builtins) ++ strays_of(parts.implemented)
   end
 
 // the lines of the comments at the first column that a blank line, or the end, follows before the next declaration,
@@ -1267,6 +1268,11 @@ procedure put_into(
 ) raises Refused, OsError :=
   put_anchored(in path, text, code, Anchor("end", "", None), ref edits)
 
+// the lines of the fragment under no line of a section go to the builtin section if they are anchored at a declaration
+// there that the implementation does not define, else to the implementation; a declaration of the fragment replaces the
+// one of its key that is a signature as it is, in its section, else where the file has it, so that no part of the file
+// gets a second copy, and a definition of an exported name that the fragment writes without its signature gives its
+// doc to the signature, where the docs of the module stand
 procedure put_anchored(
   in  path: Str,
       text: Str,
@@ -1289,47 +1295,82 @@ procedure put_anchored(
         raise Refused(path ++ " declares " ++ join(", ", List(for k in keys yield key_text(k))) ++ ", so name one by its arity")
     end
   end
-  let export_anchor := find(d.exported, lambda c => anchor_key != None and cmd_key(c) == anchor_key)
-  let impl_anchor := find(d.implemented, lambda c => anchor_key != None and cmd_key(c) == anchor_key and not is_signature_at(c))
-  let parts := parts_of(code)
-  if parts.has_builtin then
-    raise Refused("@put writes no builtin section")
-  end
+  let is_anchor := lambda c: At[Cmd] => anchor_key != None and cmd_key(c) == anchor_key
+  let export_anchor := find(d.exported, is_anchor), builtin_anchor := find(d.builtins, is_anchor)
+  let impl_anchor := find(d.implemented, lambda c => is_anchor(c) and not is_signature_at(c))
+  let parts := parts_of(code, if impl_anchor == None and builtin_anchor != None then
+    "builtin"
+  else
+    "implementation")
   if parts.strays != List() then
     raise Refused("fragment " ++ join(", ", List(for i in parts.strays yield show(i))) ++ ": a comment that is no doc of a declaration, which @put writes only into a new file")
   end
-  let exported_at := keyword_line(lines, "export"), implemented_at := keyword_line(lines, "implementation")
-  let has_sections := exported_at != None or implemented_at != None or keyword_line(lines, "builtin") != None
+  let exported_at := keyword_line(lines, "export"), builtin_at := keyword_line(lines, "builtin")
+  let implemented_at := keyword_line(lines, "implementation")
+  let has_sections := exported_at != None or implemented_at != None or builtin_at != None
   let imports := List(for line in parts.imports if not contains(line, List(for l in lines yield l)))
   let code_at := first_code_line(lines)
   let import_at := value_or(map_option(last(List(for i in range(1, size(lines) + 1) if starts_with(line_at(lines, i), "import ") yield i)), lambda i => i + 1), code_at)
   let export_lines := firsts(parts.exported), export_first := value_or(map_option(get_at(0, parts.exported), lambda (_, i) => i), 1)
+  let builtin_lines := firsts(parts.builtins), builtin_first := value_or(map_option(get_at(0, parts.builtins), lambda (_, i) => i), 1)
   let impl_lines := firsts(parts.implemented), impl_first := value_or(map_option(get_at(0, parts.implemented), lambda (_, i) => i), 1)
   let end_at := size(lines) + 1
-  let has_exports := not is_blank(join("", export_lines))
-  let inserts := List(Insert(import_at, imports, 0, "")) ++ (if not has_exports then
+  let has_exports := not is_blank(join("", export_lines)), has_builtins := not is_blank(join("", builtin_lines))
+  let export_inserts := if not has_exports then
     List()
   else
-    match (exported_at, implemented_at)
-      case (Some(e), _) =>
+    match (exported_at, builtin_at, implemented_at)
+      case (Some(e), _, _) =>
         List(
           anchored_insert(lines, export_anchor, anchor.side, section_end(lines, e, end_at), export_lines, export_first, "export"))
 
-      case (None, Some(i)) =>
+      case (None, Some(i), _) | (None, None, Some(i)) =>
         List(
           Insert(i, List("export", ""; export_lines) ++ List(""), export_first - 2, "export"))
 
-      case (None, None) =>
+      case (None, None, None) =>
         List(
-          Insert(code_at, List("export", ""; export_lines) ++ List("", "implementation", ""), export_first - 2, "export"))
-    end) ++ (if is_blank(join("", impl_lines)) then
+          Insert(import_at, List("export", ""; export_lines) ++ List(""), export_first - 2, "export"))
+    end
+  // a builtin section follows an export section, also an empty one
+  let builtin_head := if exported_at == None and not has_exports then
+    List("export", "", "builtin", "")
+  else
+    List("builtin", "")
+  let builtin_inserts := if not has_builtins then
+    List()
+  else
+    match (builtin_at, implemented_at)
+      case (Some(b), _) =>
+        List(
+          anchored_insert(lines, builtin_anchor, anchor.side, section_end(lines, b, end_at), builtin_lines, builtin_first, "builtin"))
+
+      case (None, Some(i)) =>
+        List(
+          Insert(i, builtin_head ++ builtin_lines ++ List(""), builtin_first - size(builtin_head), "builtin"))
+
+      case (None, None) =>
+        if has_sections then
+          List(
+            Insert(end_at, List("", "builtin", ""; builtin_lines), builtin_first - 3, "builtin"))
+        else
+          List(
+            Insert(import_at, builtin_head ++ builtin_lines ++ List(""), builtin_first - size(builtin_head), "builtin"))
+    end
+  // a file without sections that gets an export or builtin section has its declarations implemented
+  let header_inserts := if not has_sections and (has_exports or has_builtins) then
+    List(Insert(import_at, List("implementation", ""), 0, ""))
+  else
+    List()
+  let impl_inserts := if is_blank(join("", impl_lines)) then
     List()
   else if implemented_at == None and has_sections then
     List(
       Insert(end_at, List("", "implementation", ""; impl_lines), impl_first - 3, "implementation"))
   else
     List(
-      anchored_insert(lines, impl_anchor, anchor.side, end_at, impl_lines, impl_first, "implementation")))
+      anchored_insert(lines, impl_anchor, anchor.side, end_at, impl_lines, impl_first, "implementation"))
+  let inserts := List(Insert(import_at, imports, 0, "")) ++ export_inserts ++ builtin_inserts ++ header_inserts ++ impl_inserts
   let (all_lines_list, blocks) := inserted(List(for line in lines), inserts)
   let all_text := join("\n", all_lines_list)
   parsed(in path, all_text, edits.files, List(for (r, ins) in blocks if ins.role != "" yield (r, ins.first)), out combined)
@@ -1343,59 +1384,150 @@ procedure put_anchored(
   for key in repeated(List(for (cmd, _, role) in added for k in cmd_key(cmd) yield (role, k))) do
     raise Refused("the fragment declares " ++ key_text(second(key)) ++ " twice")
   end
-  // the declarations of the fragment that replace the anchor whatever their arity, by their roles
-  let instead := lambda cmd: At[Cmd] => anchor.side == "instead" and exists(cmd_key(cmd), lambda k => exists(anchor_key, lambda a => k.kind == a.kind and k.base == a.base))
+  // the declarations of the fragment that replace the anchor whatever their arity, by their roles, those of its name and
+  // kind, else those of the one declaration of the fragment if it has its kind and another name
+  let is_named := lambda cmd: At[Cmd] => exists(cmd_key(cmd), lambda k => exists(anchor_key, lambda a => k.kind == a.kind and k.base == a.base))
+  let fragment_keys := distinct(List(for (cmd, _, _) in added for k in cmd_key(cmd) yield k))
+  let renamed := if anchor.side != "instead" or exists(added, lambda (cmd, _, _) => is_named(cmd)) then
+    None
+  else
+    sole(List(for k in sole(fragment_keys) for a in anchor_key if k.kind == a.kind yield k))
+  let instead := lambda cmd: At[Cmd] => anchor.side == "instead" and (is_named(cmd) or renamed != None and cmd_key(cmd) == renamed)
   let replacing := List(for (cmd, _, role) in added if instead(cmd) yield role)
   for role in repeated(replacing) do
     raise Refused("the fragment declares several " ++ anchor.name ++ " in " ++ role ++ ", which @put " ++ path ++ ":" ++ anchor.name ++ " replaces by one")
   end
   if anchor.side == "instead" and replacing == List() then
-    raise Refused("the fragment declares no " ++ anchor.name ++ ", which @put " ++ path ++ ":" ++ anchor.name ++ " replaces")
+    raise Refused("the fragment declares no " ++ anchor.name ++ ", which @put " ++ path ++ ":" ++ anchor.name ++ " replaces" ++ (if fragment_keys == List() then
+      ""
+    else
+      ", but " ++ join(", ", List(for k in fragment_keys yield key_text(k))) ++ ", while a declaration of another name replaces it only as the one declaration of the fragment, of its kind"))
   end
-  var splices: List[(Range, List[Str])] := List(), done: List[Str] := List(), replaced_keys: List[(Key, Key)] := List()
+  var splices: List[(Range, List[Str])] := List(), entries: List[(Str, Str, Str, Str)] := List(), replaced_keys: List[(Key, Key)] := List()
   var exported_keys: List[Key] := List()
-  for line in imports do
-    done := done ++ List("imported " ++ slice(line, 7, size(line)))
-  end
+  let section_cmds := lambda role: Str => if role == "export" then
+    all.exported
+  else if role == "builtin" then
+    all.builtins
+  else
+    all.implemented
+  let section_of := lambda c: At[Cmd] => if contains(c, all.exported) then
+    "export"
+  else if contains(c, all.builtins) then
+    "builtin"
+  else
+    "implementation"
   for (cmd, r, role) in added do
     let range := cmd_range(all_lines, cmd, r.first - 1, true)
-    let new := lines_in(all_lines, range), has_doc := range.first < cmd.span.start.line, new_key := cmd_key(cmd)
-    let section := if role == "export" then all.exported else all.implemented
+    let has_doc := range.first < cmd.span.start.line, new_key := cmd_key(cmd)
     let wanted := if instead(cmd) then anchor_key else new_key
     if wanted != new_key and exists(olds, lambda c => cmd_key(c) == new_key) then
       raise Refused(path ++ " declares " ++ value_or(map_option(new_key, key_text), "") ++ " already, so the fragment cannot replace " ++ value_or(map_option(wanted, key_text), "") ++ " by it")
     end
-    let old := find(List(for c in section if contains(c, olds) yield c), lambda c => cmd_key(c) == wanted and (role == "export" or not is_signature_at(c)))
+    let is_old := lambda c: At[Cmd] => contains(c, olds) and cmd_key(c) == wanted and is_signature_at(c) == is_signature_at(cmd)
+    let old := or_else(find(section_cmds(role), is_old), find(olds, is_old))
+    // the signature in export that takes the doc of a definition that the fragment writes without the signature
+    let doc_signature := if has_doc and wanted != None and not is_signature_at(cmd) and not exists(added, lambda (c, _, other) => other == "export" and cmd_key(c) == new_key) then
+      find(all.exported, lambda c => contains(c, olds) and cmd_key(c) == wanted and is_signature_at(c))
+    else
+      None
+    let doc := lines_in(all_lines, Range(range.first, cmd.span.start.line - 1))
+    let new := if doc_signature == None then
+      lines_in(all_lines, range)
+    else
+      lines_in(all_lines, Range(cmd.span.start.line, range.last))
+    let moved := if doc_signature == None then "" else ", its doc on its signature"
+    for signature in doc_signature do
+      splices := splices ++ List(
+        (Range(cmd_range(all_lines, signature, 0, true).first, signature.span.start.line - 1), doc))
+    end
     match old
       case Some(o) =>
         let replaced := cmd_range(all_lines, o, 0, has_doc)
-        let old_key := cmd_key(o)
+        let old_key := cmd_key(o), section := section_of(o)
         splices := splices ++ List((replaced, new), (range, List()))
-        let what := if old_key != new_key then
-          "replaced " ++ value_or(map_option(old_key, key_text), "") ++ " by " ++ value_or(map_option(new_key, key_text), "")
-        else if new == lines_in(all_lines, replaced) then
-          "unchanged " ++ value_or(map_option(new_key, key_text), "a notation")
-        else if map_option(cmd_of(o), head_type) != map_option(cmd_of(cmd), head_type) then
-          "replaced " ++ value_or(map_option(new_key, key_text), "a notation") ++ ", of another type"
+        let kept := if exists(old_key, lambda k => exists(new_key, lambda n => n.base != k.base)) then
+          ", whose uses keep the name " ++ anchor.name ++ ", which @rename changes"
         else
-          "replaced " ++ value_or(map_option(new_key, key_text), "a notation")
-        done := done ++ List(what)
-        replaced_keys := replaced_keys ++ List(for k in new_key for o_k in old_key if role != "export" yield (o_k, k))
+          ""
+        let entry := if old_key != new_key then
+          ("replaced " ++ value_or(map_option(old_key, key_text), "") ++ " by " ++ value_or(map_option(new_key, key_text), ""), moved ++ kept)
+        else if new == lines_in(all_lines, replaced) and doc_signature == None then
+          ("unchanged " ++ value_or(map_option(new_key, key_text), "a notation"), "")
+        else if map_option(cmd_of(o), head_type) != map_option(cmd_of(cmd), head_type) then
+          ("replaced " ++ value_or(map_option(new_key, key_text), "a notation"), ", of another type" ++ moved)
+        else
+          ("replaced " ++ value_or(map_option(new_key, key_text), "a notation"), moved)
+        entries := entries ++ List((first(entry), second(entry), section, role))
+        replaced_keys := replaced_keys ++ List(for k in new_key for o_k in old_key if section == "implementation" yield (o_k, k))
 
       case None =>
+        if doc_signature != None then
+          splices := splices ++ List((range, new))
+        end
         exported_keys := exported_keys ++ List(for k in new_key if role == "export" yield k)
-        done := done ++ List(
-          (if role == "export" then "exported " else "added ") ++ value_or(map_option(new_key, key_text), "a notation") ++ (if role == "implementation" and (has_sections or has_exports) then
-            " to implementation"
-          else
-            ""))
+        entries := entries ++ List(
+          ("added " ++ value_or(map_option(new_key, key_text), "a notation"), moved, role, role))
     end
   end
+  let plain := not (has_sections or has_exports or has_builtins)
+  var done := List(for line in imports yield "imported " ++ slice(line, 7, size(line))) ++ List(for (what, suffix) in distinct(List(for (w, s, _, _) in entries yield (w, s))) for line in Some(done_text(what, suffix, entries, plain)) if line != "" yield line)
   formatted(in path, join("\n", spliced(all_lines_list, splices)), edits.files, no_fragment(), out result, source)
   with_signatures(in path, replaced_keys, edits.files, ref result, done)
   with_exported_raises(in path, text, exported_keys, edits.files, ref result, done)
   edits := edits with files := Map(path => result; edits.files)
   note(in path ++ ": " ++ join(", ", done), ref edits)
+
+// the one element of xs, if it has one
+function sole[A](xs: List[A]): Option[A] :=
+  example sole(List(1)) == Some(1)
+  example sole(List(1, 2)) == None
+  match xs
+    case List(x) =>
+      Some(x)
+    case _ =>
+      None
+  end
+
+// the text of the reply of what a fragment did, named once with the sections of its parts among entries, each what it
+// did, the rest of its text, the section of the part, and the section that the fragment named, where plain tells a file
+// without sections, whose additions name none, and a part that is unchanged beside one replaced is named by that one, so
+// that its text is empty
+function done_text(what: Str, suffix: Str, entries: List[(Str, Str, Str, Str)], plain: Bool): Str :=
+  let parts := List(for (w, s, section, role) in entries if w == what and s == suffix yield (section, role)) in
+  let sections := firsts(parts) in
+  let sections_of := lambda verb: Str, key: Str => List(for (w, _, section, _) in entries if w == verb ++ key yield section) in
+  if starts_with(what, "added ") then
+    match sections
+      case List("export") =>
+        "exported " ++ slice(what, 6, size(what)) ++ suffix
+
+      case List("implementation") =>
+        what ++ (if plain then "" else " to implementation") ++ suffix
+
+      case List(section) =>
+        what ++ " to " ++ section ++ suffix
+
+      case _ =>
+        what ++ sections_text(sections) ++ suffix
+    end
+  else if starts_with(what, "unchanged ") and sections_of("replaced ", slice(what, 10, size(what))) != List() then
+    ""
+  else
+    let unchanged := if starts_with(what, "replaced ") then
+      sections_of("unchanged ", slice(what, 9, size(what)))
+    else
+      List() in
+    let kept := if unchanged == List() then
+      ""
+    else
+      ", unchanged in " ++ join(" and ", unchanged) in
+    match parts
+      case List((section, role)) if section != role =>
+        what ++ " in " ++ section ++ suffix ++ kept
+      case _ =>
+        what ++ sections_text(sections) ++ suffix ++ kept
+    end
 
 function is_signature_at(cmd: At[Cmd]): Bool :=
   exists(cmd_of(cmd), is_signature)
@@ -2618,12 +2750,12 @@ procedure export_target(in word: Str, ref edits: Edits) raises Refused, OsError 
         let sig_head := if spec_lines == List() then strip_assign(def_head) else def_head
         let base := spliced(List(for line in lines), List((range, def_head ++ body)))
         formatted(in path, join("\n", base), edits.files, no_fragment(), out result, _)
-        put_into(in path, result, List("export"; doc ++ sig_head ++ spec_lines), ref edits)
+        put_anchored(in path, result, List("export"; doc ++ sig_head ++ spec_lines), export_neighbour(d, cmd), ref edits)
       else
         var result: Str
         let base := spliced(List(for line in lines), List((range, List())))
         formatted(in path, join("\n", base), edits.files, no_fragment(), out result, _)
-        put_into(in path, result, List("export"; lines_in(lines, range)), ref edits)
+        put_anchored(in path, result, List("export"; lines_in(lines, range)), export_neighbour(d, cmd), ref edits)
       end
 
     case List() =>
@@ -2631,6 +2763,24 @@ procedure export_target(in word: Str, ref edits: Edits) raises Refused, OsError 
 
     case _ =>
       raise Refused(path ++ " declares " ++ join(", ", List(for (key, _, _) in selected yield key_text(key))) ++ ", so name one by its arity")
+  end
+
+// where @export puts the new signature of the declaration cmd of the implementation of d: after that of the exported
+// declaration nearest before cmd there, else before that of the nearest after it, else at the end of export
+function export_neighbour(d: Mod, cmd: At[Cmd]): Anchor :=
+  let exported := List(for (k, _, _) in keyed(d.exported) yield k) in
+  let keys := List(for c in d.implemented for k in cmd_key(c) if contains(k, exported) yield (c.span.start.line, k)) in
+  match last(List(for (line, k) in keys if line < cmd.span.start.line yield k))
+    case Some(k) =>
+      Anchor("after", k.base, Some(k.arity))
+
+    case None =>
+      match find(keys, lambda (line, _) => line > cmd.span.start.line)
+        case Some((_, k)) =>
+          Anchor("before", k.base, Some(k.arity))
+        case None =>
+          Anchor("end", "", None)
+      end
   end
 
 function raises_of(h: Hint): Option[(Name, List[Type])] :=
