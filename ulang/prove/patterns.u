@@ -219,7 +219,7 @@ function wildcards(n: Int): List[Pat] :=
 // the branch of the literal, where the hole c is it, and the rest, where it is not, which goes on with the column
 function lit_branches(decls: Decls, c: Int, rest: List[Int], rows: List[Row], holes: Holes, excluded: List[(Int, Lit)], lit: Lit): List[Raw] :=
   let at_lit := List(for row in rows for r in at_literal(c, lit, row) yield r) in
-  let others := List(for row in rows if row.pats == List() or at(0, from_list(row.pats)) != PLit(lit) yield row) in
+  let others := List(for row in rows if row.pats == List() or at(0, row.pats) != PLit(lit) yield row) in
   expand(decls, rest, at_lit, holes with shapes := put(c, SLit(lit), holes.shapes), excluded, None) ++ expand(decls, List(c; rest), others, holes, excluded ++ List((c, lit)), None)
 
 function at_literal(c: Int, lit: Lit, row: Row): Option[Row] :=
@@ -243,7 +243,7 @@ function leaf_of(raw: Raw, names: List[List[Var]], value: Term, base: Int): Leaf
   let free := free_holes(raw.holes, 0) in
   let named := match raw.rows
     case List(row; _) =>
-      Map(for (h, x) in zip(row.bound, at(row.index, from_list(names))) yield h => x)
+      Map(for (h, x) in zip(row.bound, at(row.index, names)) yield h => x)
     case List() =>
       empty()
   end in

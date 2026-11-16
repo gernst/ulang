@@ -513,13 +513,14 @@ procedure check_targets(
   if status == 0 then
     var found: List[Target]
     targets_of(in targets, phases.tests, out found)
+    let several := size(files_of(found)) > 1
     visit_units(in found, texts, phases.tests, not phases.tests and not phases.proofs, lambda in source, q, unit, listed, out failed =>
       failed := List()
       if phases.lints and listed == List() then
         print_lints(in source, q, unit)
       end
       if phases.tests or phases.proofs then
-        check_unit(in q, unit, found, phases, args, listed, out failed)
+        check_unit(in q, unit, several, phases, args, listed, out failed)
       end
     end, out status)
   end
@@ -546,11 +547,11 @@ procedure overlay_texts(
 
 // runs the tests of the files of the unit, whose checked program is q, and proves their lemmas, but those whose tests
 // falsified them, where with both phases the names select the tests and the lemmas of their names, and failed are the
-// files that do not pass
+// files that do not pass, where several says whether the targets have several files, by which the lines are labeled
 procedure check_unit(
   in  q: Prog,
       unit: List[Target],
-      found: List[Target],
+      several: Bool,
       phases: Phases,
       args: List[Str],
       listed: List[(Str, Diagnostic)],
@@ -562,7 +563,7 @@ procedure check_unit(
   var constants: Map[Name, Val] := empty()
   failed := List()
   for file in files_of(unit) do
-    let m := sibling(q.main, file), names := names_of(file, unit), label := label_of(file, found), tests := test_names(q, m), lemmas := lemma_names(q, m), both := phases.tests and phases.proofs and names != List()
+    let m := sibling(q.main, file), names := names_of(file, unit), label := label_of(file, several), tests := test_names(q, m), lemmas := lemma_names(q, m), both := phases.tests and phases.proofs and names != List()
     var passed := true, ran: Bool, proven: Bool, falsified: Set[Str] := empty()
     for n in names if both and not contains(n, tests) and not contains(n, lemmas) do
       os_println(in label ++ error_text(RuntimeKind, "there is no test or lemma " ++ n))
@@ -587,7 +588,7 @@ procedure check_unit(
     end
     if not passed then
       failed := failed ++ List(file)
-      if size(files_of(found)) > 1 then
+      if several then
         os_println(in file ++ ": failed")
       end
     end
@@ -655,11 +656,12 @@ procedure visit_units(
 ) :=
   var units: List[List[Target]], source: Source, q: Prog, errors: List[Diagnostic], failed: Buffer[Str] := empty(), bad: List[Str], cache := no_cache()
   units_of(in found, overlays, out units)
+  let files := files_of(found), several := size(files) > 1
   status := 0
   for unit in units do
     load_file(in first_path(unit), overlays, true, tested, declared, out source, q, errors, ref cache)
     if errors != List() then
-      report(in first_path(unit), errors, size(files_of(found)) > 1)
+      report(in first_path(unit), errors, several)
       failed := failed ++ files_of(unit), status := max(status, load_status(q, errors))
       if is_runnable(q, errors) then
         var listed: Buffer[(Str, Diagnostic)] := empty(), path: Str
@@ -675,7 +677,7 @@ procedure visit_units(
       failed := failed ++ bad, status := if bad == List() then status else max(status, 3)
     end
   end
-  summarize(in files_of(found), List(for f in failed))
+  summarize(in files, List(for f in failed))
 
 // prints the errors of checking file, as check does, with the packages that it imports only as far as it sees them,
 // with the texts of the overlays instead of their files, and the
@@ -1385,8 +1387,8 @@ function names_of(file: Str, targets: List[Target]): List[Str] :=
     List(for n in mine for x in n yield x)
 
 // the label of the lines of file, the file if the targets have several files
-function label_of(file: Str, targets: List[Target]): Str :=
-  if size(files_of(targets)) > 1 then file ++ ": " else ""
+function label_of(file: Str, several: Bool): Str :=
+  if several then file ++ ": " else ""
 
 // the files of the paths, where directories are walked in the order of names, without the hidden ones, those named out,
 // and the skipped ones, which are absolute and normal

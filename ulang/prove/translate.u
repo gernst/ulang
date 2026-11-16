@@ -918,7 +918,7 @@ function let_term(env: List[Name], bindings: List[(At[Pat], At[Expr])], body: At
       beta(values, inner)
 
     case None =>
-      let_match(env, if size(pats) == 1 then at(0, from_list(pats)).that else PTuple(pats), if size(values) == 1 then at(0, from_list(values)) else tuple_term(values), body)
+      let_match(env, if size(pats) == 1 then at(0, pats).that else PTuple(pats), if size(values) == 1 then at(0, values) else tuple_term(values), body)
   end
 
 // the match of value against the irrefutable pat, which binds in body, a case for each of its alternatives

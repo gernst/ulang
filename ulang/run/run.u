@@ -748,7 +748,7 @@ procedure field_value(
 ) :=
   match vs
     case List(VObj(k, args); rest) =>
-      let p: Int := at(position_of(run, k), from_list(ps))
+      let p: Int := at(position_of(run, k), ps)
       if p < 0 then
         raise failure(missing_field_name(), List(VStr(field_of(name))))
       end
@@ -756,7 +756,7 @@ procedure field_value(
         case List(y) =>
           v := VObj(k, take(p, args) ++ List(y; drop(p + 1, args)))
         case _ =>
-          v := at(p, from_list(args))
+          v := at(p, args)
       end
 
     case _ =>

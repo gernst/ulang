@@ -296,8 +296,8 @@ function simp_sequent(ctx: Ctx, xs: List[Var], assms: List[Seq], concls: List[Co
     case Conj(after, seqs) =>
       match one_point(after.defined, d, seqs)
         case Some((l, t, rest)) =>
-          let levels := List(for m in range(d, depth(after)) if m != l) in
-          simp_seq(ctx, Seq(List(for m in levels yield at(m - d, from_list(vars_from(after, d)))), List(for b in rest yield rebind_seq(Close(levels), 0, replace_seq(ELevel(l), t, b))), List(for c in cs yield rebind_concl(Close(levels), 0, replace_concl(ELevel(l), t, c)))))
+          let levels := List(for m in range(d, depth(after)) if m != l), bound := from_list(vars_from(after, d)) in
+          simp_seq(ctx, Seq(List(for m in levels yield at(m - d, bound)), List(for b in rest yield rebind_seq(Close(levels), 0, replace_seq(ELevel(l), t, b))), List(for c in cs yield rebind_concl(Close(levels), 0, replace_concl(ELevel(l), t, c)))))
 
         case None =>
           match disjoin(after, cs)
@@ -475,8 +475,8 @@ function simp_concl(ctx: Ctx, c: Concl): Option[Concl] :=
         case Conj(after, seqs) =>
           match one_point(after.defined, d, seqs)
             case Some((l, t, rest)) =>
-              let levels := List(for m in range(d, depth(after)) if m != l) in
-              simp_concl(ctx, Concl(List(for m in levels yield at(m - d, from_list(vars_from(after, d)))), List(for s in rest yield rebind_seq(Close(levels), 0, replace_seq(ELevel(l), t, s)))))
+              let levels := List(for m in range(d, depth(after)) if m != l), bound := from_list(vars_from(after, d)) in
+              simp_concl(ctx, Concl(List(for m in levels yield at(m - d, bound)), List(for s in rest yield rebind_seq(Close(levels), 0, replace_seq(ELevel(l), t, s)))))
 
             case None =>
               let levels := range(d, depth(after)) in
@@ -907,7 +907,7 @@ function is_unsat(cs: List[Lin], fuel: Int): Bool :=
         if fuel <= 0 or size(more) > limits().constraints then
           false
         else
-          let rest := List(c; more), x := at(0, from_list(c.summands)).term in
+          let rest := List(c; more), x := at(0, c.summands).term in
           let pos := List(for t in rest if coefficient(x, t) > 0), neg := List(for t in rest if coefficient(x, t) < 0) in
           let none := List(for t in rest if coefficient(x, t) == 0) in
           is_unsat(none ++ List(for p in pos for n in neg yield combine(x, p, n)), fuel - 1)
@@ -2108,7 +2108,7 @@ function datatype_of(decls: Decls, bs: List[TermBranch]): Option[Name] :=
 function induct(decls: Decls, s: Seq, p: Int): Seq :=
   match normal(s)
     case Seq(fixed, assms, concls) if p < size(fixed) =>
-      match at(p, from_list(fixed)).typ
+      match at(p, fixed).typ
         case TSort(name, _) =>
           match get(name, decls.datatypes)
             case Some(cs) =>
@@ -2427,7 +2427,7 @@ function print_concl(names: List[Id], several: Bool, c: Concl): Str :=
       let text := if parts == List() then
         "true"
       else if size(parts) == 1 and vars == List() and not several then
-        print_open(inner, at(0, from_list(parts)))
+        print_open(inner, at(0, parts))
       else
         join(" and ", List(for t in parts yield print_part(inner, t))) in
       if vars == List() then
